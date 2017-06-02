@@ -19,6 +19,10 @@ type YouTubeTrack struct {
 
 func FetchAndDownload(title string, artist string, path string) string {
 	url := UrlFor(title, artist)
+	if url == "none" {
+		return "none"
+	}
+
 	id := IdFromUrl(url)
 	filename := artist + " - " + title
 	track := YouTubeTrack{
@@ -51,8 +55,7 @@ func UrlFor(title string, artist string) string {
 		}
 	}
 
-	fmt.Printf("Youtube video url (from href attr) not found. Exiting.")
-	os.Exit(1)
+	fmt.Printf("Youtube video url (from href attr) not found. Dropping song download.")
 	return "none"
 }
 

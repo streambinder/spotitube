@@ -94,6 +94,9 @@ func main() {
 		fmt.Println("Found " + strconv.Itoa(len(tracks_delta)) + " missing songs. Proceeding to download.")
 		for _, track := range tracks_delta {
 			track_file := youtube.FetchAndDownload(track.FullTrack.SimpleTrack.Name, (track.FullTrack.SimpleTrack.Artists[0]).Name, *arg_music_folder)
+			if track_file == "none" {
+				continue
+			}
 			wait_group.Add(1)
 			go MetadataAndMove(track_file, track, &wait_group)
 		}

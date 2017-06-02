@@ -1,4 +1,4 @@
 ./bin
 ./pkg
-./src/github.com
-./src/golang.org
+./src/github.com/*
+./src/golang.org/*

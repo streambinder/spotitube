@@ -1,0 +1,26 @@
+CUR_DIR = $(shell pwd)
+
+%.statbin:
+	GOPATH=$(CUR_DIR) go install -v $(subst .statbin,,$@)
+
+clean:
+	test ! -d $(CUR_DIR)/pkg || rm -rvf $(CUR_DIR)/pkg; \
+	test ! -d $(CUR_DIR)/bin || rm -rvf $(CUR_DIR)/bin
+
+%.dependency:
+	@ ( \
+		GOPATH=$(CUR_DIR)/ go get $(subst .dependency,,$@) || exit 1; \
+	);
+
+%.compliant:
+	@ ( \
+		cd "$(PROJECT_ROOT)/$(subst .compliant,,$@)" >/dev/null || exit 1; \
+		go fmt || exit 1; \
+		GOPATH=$(CUR_DIR)/ golint || exit 1; \
+		GOPATH=$(CUR_DIR)/ go vet || exit 1; \
+	);
+
+%.test:
+	GOPATH=$(CUR_DIR) go test $(subst .test,,$@)
+
+check: $(GO_TESTS)

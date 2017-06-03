@@ -31,10 +31,8 @@ func AuthAndTracks() []spotify.SavedTrack {
 	command_args := []string{url}
 	_, err := exec.Command(command_cmd, command_args...).Output()
 	if err != nil {
-		fmt.Println("Something went wrong while executing \""+command_cmd+strings.Join(command_args, " ")+"\":", err.Error())
-		os.Exit(1)
-	} else {
-		fmt.Println("Authorization request fired to your browser. If it didn't happen, please, go to:\n", url)
+		fmt.Println("Something went wrong while executing trying to make the default browser open the authorization URL.")
+		fmt.Println("Please, in order to authorize me to read your library, go to:\n" + url)
 	}
 
 	// wait for auth to complete

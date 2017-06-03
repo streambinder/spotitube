@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"os/exec"
-	"strings"
 
 	"github.com/zmb3/spotify"
 )
@@ -71,7 +69,7 @@ func HttpCompleteAuthHandler(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 	}
 	client := auth.NewClient(tok)
-	fmt.Fprintf(w, HttpMessage("Login completed!", "Come back to the shell and enjoy the magic!"))
+	fmt.Fprintf(w, HttpMessage("Login completed", "Come back to the shell and enjoy the magic!"))
 	ch <- &client
 }
 

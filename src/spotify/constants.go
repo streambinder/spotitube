@@ -1,10 +1,60 @@
 package spotify
 
 const (
-	SPOTIFY_CLIENT_ID              = "d84f9faa18a84162ad6c73697990386c"
-	SPOTIFY_CLIENT_SECRET          = "8f40647775b8401a866e69e3f0044bf7"
-	SPOTIFY_REDIRECT_URI           = "http://localhost:8080/callback"
-	SPOTIFY_FAVICON_URL            = "https://github.com/wedeploy/demo-spotify/raw/master/public/favicon.ico"
-	SPOTIFY_HTML_AUTOCLOSE_TIMEOUT = "3000" // ms
-	SPOTIFY_HTML_TEMPLATE          = "<!DOCTYPE html><html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=windows-1252\"><title>Spotify DL</title><link rel=\"icon\" href=\"" + SPOTIFY_FAVICON_URL + "\" type=\"image/x-icon\" /><style>body { text-align: center; padding: 150px; } h1 { font-size: 50px; } body { font: 20px Helvetica, sans-serif; color: #333; } article { display: block; text-align: left; width: 650px; margin: 0 auto; } a { color: #dc8100; text-decoration: none; } a:hover { color: #333; text-decoration: none; }</style><script>function setAutoClose(){ window.setTimeout(autoClose, " + SPOTIFY_HTML_AUTOCLOSE_TIMEOUT + "); } function autoClose(){ window.close(); }</script></head><body onLoad=\"setAutoClose()\"><article><h1>%s</h1><div><p>%s</p><br><br><p>The team.</p></div></article></body></html>"
+	SPOTIFY_CLIENT_ID     = "d84f9faa18a84162ad6c73697990386c"
+	SPOTIFY_CLIENT_SECRET = "8f40647775b8401a866e69e3f0044bf7"
+	SPOTIFY_REDIRECT_URI  = "http://localhost:8080/callback"
+	SPOTIFY_FAVICON_URL   = "https://github.com/wedeploy/demo-spotify/raw/master/public/favicon.ico"
+
+	SPOTIFY_HTML_AUTOCLOSE_TIMEOUT    = "10"                                   // s
+	SPOTIFY_HTML_AUTOCLOSE_TIMEOUT_MS = SPOTIFY_HTML_AUTOCLOSE_TIMEOUT + "000" // ms
+	SPOTIFY_HTML_SIG_AUTHOR           = "streambinder"
+	SPOTIFY_HTML_SIG_ICON             = "https://www.davidepucci.it/assets/img/profile.png"
+	SPOTIFY_HTML_TEMPLATE             = `<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">
+        <title>Spotify DL</title>
+        <link rel="icon" href="` + SPOTIFY_FAVICON_URL + `" type="image/x-icon" />
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" />
+        <style>
+            body               { font: 20px Helvetica, sans-serif; text-align: center; margin: 75px 0; padding: 50px; color: #333; border: solid 5px #1ED760; border-left: none; border-right: none; }
+            h1                 { font-size: 40px; text-transform: uppercase; }
+            h1>i.fa            { margin: auto 10px; }
+            article            { display: block; text-align: left; width: 650px; margin: 0 auto 50px; }
+            a                  { color: #dc8100; text-decoration: none; }
+            a:hover            { color: #333; text-decoration: none; }
+            p.timer            { font-size: 14px; color: #A0A0A0; text-align: center; text-transform: uppercase; }
+            div.signature      { border: 1px solid rgba(0, 0, 0, 0.05); border-radius: 5px; text-align: center; }
+            div.signature>img  { width: 35px; vertical-align: middle; }
+            div.signature>span { font-size: 15px; color: #505050; }
+        </style>
+        <script type="text/javascript">
+            var timeleft = ` + SPOTIFY_HTML_AUTOCLOSE_TIMEOUT + `;
+            var downloadTimer = setInterval(function() {
+                timeleft--;
+                document.getElementById("timer").textContent = timeleft;
+                if(timeleft <= 0)
+                    clearInterval(downloadTimer);
+            }, 1000);
+            function setAutoClose() { window.setTimeout(autoClose, ` + SPOTIFY_HTML_AUTOCLOSE_TIMEOUT_MS + `); }
+            function autoClose() { window.close(); }
+        </script>
+    </head>
+    <body onLoad="setAutoClose()">
+        <article>
+            <h1>%s <i class="fa fa-thumbs-up" aria-hidden="true"></i></h1>
+            <div>
+                <h3>%s</h3>
+                <br><br><br>
+                <p class="timer">Window will attempt to close in <span id="timer">` + SPOTIFY_HTML_AUTOCLOSE_TIMEOUT + `</span> seconds.</p>
+                <br>
+                <div class="signature">
+                    <img src="` + SPOTIFY_HTML_SIG_ICON + `"/>
+                    <span>` + SPOTIFY_HTML_SIG_AUTHOR + `</span>
+                </div>
+            </div>
+        </article>
+    </body>
+</html>`
 )

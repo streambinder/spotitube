@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/zmb3/spotify"
 )
@@ -24,7 +27,15 @@ func AuthAndTracks() []spotify.SavedTrack {
 
 	auth.SetAuthInfo(SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET)
 	url := auth.AuthURL(state)
-	fmt.Println("Auhtorize request to:", url)
+	command_cmd := "xdg-open"
+	command_args := []string{url}
+	_, err := exec.Command(command_cmd, command_args...).Output()
+	if err != nil {
+		fmt.Println("Something went wrong while executing \""+command_cmd+strings.Join(command_args, " ")+"\":", err.Error())
+		os.Exit(1)
+	} else {
+		fmt.Println("Authorization request fired to your browser. If it didn't happen, please, go to:\n", url)
+	}
 
 	// wait for auth to complete
 	client := <-ch

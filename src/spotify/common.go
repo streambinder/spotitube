@@ -22,6 +22,7 @@ func AuthAndTracks() []spotify.SavedTrack {
 	})
 	go http.ListenAndServe(":8080", nil)
 
+	auth.SetAuthInfo(SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET)
 	url := auth.AuthURL(state)
 	fmt.Println("Auhtorize request to:", url)
 

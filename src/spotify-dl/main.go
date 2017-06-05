@@ -10,74 +10,47 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"utils"
 	"youtube"
 
 	id3 "github.com/mikkyang/id3-go"
-	api "github.com/zmb3/spotify"
+	. "utils"
 )
-
-type Track struct {
-	Title  string
-	Artist string
-	Album  string
-}
-
-type Tracks []Track
 
 var (
 	tracks_offline   Tracks
-	tracks_online    []api.SavedTrack
-	tracks_delta     []api.SavedTrack
+	tracks_delta     Tracks
 	wait_group       sync.WaitGroup
 	arg_music_folder *string
 )
 
-func (tracks Tracks) Has(name string, artist string) bool {
-	name = strings.TrimSpace(strings.ToLower(name))
-	artist = strings.TrimSpace(strings.ToLower(artist))
-	for _, track := range tracks {
-		track_title := strings.TrimSpace(strings.ToLower(track.Title))
-		track_artist := strings.TrimSpace(strings.ToLower(track.Artist))
-		if track_title == name && track_artist == artist {
-			return true
-		}
-	}
-	return false
-}
-
-func Normalize(track api.SavedTrack) api.SavedTrack {
-	track.FullTrack.SimpleTrack.Name = strings.Split(track.FullTrack.SimpleTrack.Name, " - ")[0]
-	return track
-}
-
 func main() {
 	arg_music_folder = flag.String("music", "~/Music", "Folder to sync with music.")
 	flag.Parse()
-	if !(utils.IsDir(*arg_music_folder)) {
+	if !(IsDir(*arg_music_folder)) {
 		fmt.Println("Chosen music folder does not exist:", *arg_music_folder)
 		os.Exit(1)
 	}
 
 	wait_group.Add(1)
 	go LocalLibrary(&wait_group)
-	tracks_online = spotify.AuthAndTracks()
+	tracks_online := spotify.AuthAndTracks()
 	wait_group.Wait()
 
-	for _, track := range tracks_online {
-		// Title:  track.FullTrack.SimpleTrack.Name,
-		// Artist: (track.FullTrack.SimpleTrack.Artists[0]).Name,
-		// Album:  track.FullTrack.Album.Name,
-		if !tracks_offline.Has(track.FullTrack.SimpleTrack.Name, (track.FullTrack.SimpleTrack.Artists[0]).Name) {
-			track_delta := Normalize(track)
-			tracks_delta = append(tracks_delta, track_delta)
+	for _, track_online := range tracks_online {
+		track := Track{
+			Title:  track_online.FullTrack.SimpleTrack.Name,
+			Artist: (track_online.FullTrack.SimpleTrack.Artists[0]).Name,
+			Album:  track_online.FullTrack.Album.Name,
+		}.Normalize()
+		if !tracks_offline.Has(track) {
+			tracks_delta = append(tracks_delta, track)
 		}
 	}
 
 	if len(tracks_delta) > 0 {
 		fmt.Println("Found " + strconv.Itoa(len(tracks_delta)) + " missing songs. Proceeding to download.")
 		for _, track := range tracks_delta {
-			track_file := youtube.FetchAndDownload(track.FullTrack.SimpleTrack.Name, (track.FullTrack.SimpleTrack.Artists[0]).Name, *arg_music_folder)
+			track_file := youtube.FetchAndDownload(track, *arg_music_folder)
 			if track_file == "none" {
 				continue
 			}
@@ -123,16 +96,16 @@ func LocalLibrary(wg *sync.WaitGroup) {
 	wg.Done()
 }
 
-func MetadataAndMove(track_file string, track api.SavedTrack, wg *sync.WaitGroup) {
+func MetadataAndMove(track_file string, track Track, wg *sync.WaitGroup) {
 	track_mp3, err := id3.Open(track_file)
 	if err != nil {
 		fmt.Println("Something bad happened while opening " + track_file + ".")
 		os.Exit(1)
 	} else {
-		fmt.Println("Fixing metadata for:", track.FullTrack.SimpleTrack.Name+" - "+(track.FullTrack.SimpleTrack.Artists[0]).Name)
-		track_mp3.SetTitle(track.FullTrack.SimpleTrack.Name)
-		track_mp3.SetArtist((track.FullTrack.SimpleTrack.Artists[0]).Name)
-		track_mp3.SetAlbum(track.FullTrack.Album.Name)
+		fmt.Println("Fixing metadata for:", track.Artist+" - "+track.Title)
+		track_mp3.SetTitle(track.Title)
+		track_mp3.SetArtist(track.Artist)
+		track_mp3.SetAlbum(track.Album)
 		defer track_mp3.Close()
 	}
 

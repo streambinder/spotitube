@@ -77,7 +77,7 @@ func LocalLibrary(wg *sync.WaitGroup) {
 	for _, track_file_info := range tracks_files {
 		track_file := track_file_info.Name()
 		track_file_ext := filepath.Ext(track_file)
-		if track_file_ext != DEFAULT_EXTENSION {
+		if track_file_ext != DEFAULT_EXTENSION || !strings.Contains(track_file, " - ") {
 			continue
 		}
 		track_file_name := track_file[0 : len(track_file)-len(track_file_ext)]

@@ -1,6 +1,7 @@
 package youtube
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,56 +12,58 @@ import (
 )
 
 var (
-	logger = NewLogger()
+	download_path string
+	logger        = NewLogger()
 )
 
 type YouTubeTrack struct {
-	Title    string
-	Artist   string
-	ID       string
-	URL      string
-	Filename string
+	Track Track
+	ID    string
+	URL   string
 }
 
-func FetchAndDownload(track Track, path string) string {
-	logger.Log("Searching for youtube results related to " + track.Title + " by " + track.Artist + ".")
-	url := UrlFor(track.Title, track.Artist)
-	if url == "none" {
-		return "none"
+func FetchAndDownload(track Track, path string) error {
+	download_path = path
+	logger.Log("Searching for youtube results related to " + track.Filename + ".")
+	url, err := UrlFor(track.Title, track.Artist)
+	if err != nil {
+		return err
 	}
 	logger.Log("Parsing youtube result ID from URL.")
 	id := IdFromUrl(url)
-	filename := track.Artist + " - " + track.Title
 	youtube_track := YouTubeTrack{
-		Title:    track.Title,
-		Artist:   track.Artist,
-		ID:       id,
-		URL:      url,
-		Filename: filename,
+		Track: track,
+		ID:    id,
+		URL:   url,
 	}
-	logger.Log("Firing download procedure for " + track.Title + " by " + track.Artist + ".")
-	track_filename := youtube_track.Download(path)
-	return track_filename
+	logger.Log("Firing download procedure for " + track.Filename + ".")
+	err = youtube_track.Download()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func UrlFor(title string, artist string) string {
+func UrlFor(title string, artist string) (string, error) {
 	doc, err := goquery.NewDocument(fmt.Sprintf(YOUTUBE_QUERY_PATTERN, strings.Replace(artist, " ", "+", -1)+"+"+strings.Replace(title, " ", "+", -1)))
 	if err != nil {
 		logger.Fatal("Cannot retrieve doc from \"" + fmt.Sprintf(YOUTUBE_QUERY_PATTERN, artist+" "+title) + "\": " + err.Error())
+		return "", err
 	}
 	selection := doc.Find(YOUTUBE_VIDEO_SELECTOR)
 	for selection_item := range selection.Nodes {
 		item := selection.Eq(selection_item)
 		href, ok := item.Attr("href")
 		if ok {
-			return YOUTUBE_VIDEO_PREFIX + href
+			return YOUTUBE_VIDEO_PREFIX + href, nil
 			break
 		} else {
 			logger.Log("Youtube video url (from href attr) not found. Continuing scraping...")
 		}
 	}
+
 	logger.Log("Youtube video url (from href attr) not found. Dropping song download.")
-	return "none"
+	return "", errors.New("Youtube video url not found.")
 }
 
 func IdFromUrl(url string) string {
@@ -77,21 +80,25 @@ func IdFromUrl(url string) string {
 	}
 }
 
-func (track YouTubeTrack) Download(path string) string {
-	os.Chdir(path)
-	os.Remove("." + track.Filename)
-	os.Remove("." + track.Filename + ".mp3")
-	logger.Log("Proceeding to download from \"" + track.URL + "\" to \"" + track.Filename + "\".")
+func (track YouTubeTrack) Download() error {
+	os.Chdir(download_path)
+	for _, filename := range []string{track.Track.FilenameTemp, track.Track.FilenameTemp + track.Track.FilenameExt, track.Track.Filename, track.Track.Filename + track.Track.FilenameExt} {
+		os.Remove(filename)
+	}
+	logger.Log("Proceeding to download from \"" + track.URL + "\" to \"" + track.Track.FilenameTemp + track.Track.FilenameExt + "\".")
 	command_cmd := "youtube-dl"
-	command_args := []string{"-o", "." + track.Filename, "-f", "bestaudio", track.URL, "--exec", "ffmpeg -i {}  -codec:a libmp3lame -qscale:a 0 {}.mp3"}
+	command_args := []string{"-o", track.Track.FilenameTemp, "-f", "bestaudio", track.URL, "--exec", "ffmpeg -i {}  -codec:a libmp3lame -qscale:a 0 {}" + track.Track.FilenameExt}
 	_, err := exec.Command(command_cmd, command_args...).Output()
 	if err != nil {
-		logger.Fatal("Something went wrong while executing \"" + command_cmd + strings.Join(command_args, " ") + "\": " + err.Error())
+		logger.Fatal("Something went wrong while executing \"" + command_cmd + " " + strings.Join(command_args, " ") + "\": " + err.Error())
+		return err
 	}
-	logger.Log("Song downloaded to: \"." + track.Filename + ".mp3\"")
-	err = os.Remove("." + track.Filename)
+	logger.Log("Song downloaded to: \"" + download_path + "/" + track.Track.FilenameTemp + track.Track.FilenameExt + "\".")
+	err = os.Remove(download_path + "/" + track.Track.FilenameTemp)
 	if err != nil {
-		logger.Log("Something went wrong while trying to remove tmp ." + track.Filename + " .")
+		logger.Log("Something went wrong while trying to remove temporary file \"" + download_path + "/" + track.Track.FilenameTemp + track.Track.FilenameExt + "\".")
+		return err
 	}
-	return path + "/" + "." + track.Filename + ".mp3"
+
+	return nil
 }

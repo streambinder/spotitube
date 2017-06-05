@@ -40,9 +40,12 @@ func main() {
 	logger.Log("Checking which songs need to be downloaded.")
 	for _, track_online := range tracks_online {
 		track := Track{
-			Title:  track_online.FullTrack.SimpleTrack.Name,
-			Artist: (track_online.FullTrack.SimpleTrack.Artists[0]).Name,
-			Album:  track_online.FullTrack.Album.Name,
+			Title:        track_online.FullTrack.SimpleTrack.Name,
+			Artist:       (track_online.FullTrack.SimpleTrack.Artists[0]).Name,
+			Album:        track_online.FullTrack.Album.Name,
+			Filename:     (track_online.FullTrack.SimpleTrack.Artists[0]).Name + " - " + track_online.FullTrack.SimpleTrack.Name,
+			FilenameTemp: "." + (track_online.FullTrack.SimpleTrack.Artists[0]).Name + " - " + track_online.FullTrack.SimpleTrack.Name,
+			FilenameExt:  DEFAULT_EXTENSION,
 		}.Normalize()
 		if !tracks_offline.Has(track) {
 			tracks_delta = append(tracks_delta, track)
@@ -52,12 +55,13 @@ func main() {
 	if len(tracks_delta) > 0 {
 		logger.Log(strconv.Itoa(len(tracks_delta)) + " missing songs, " + strconv.Itoa(len(tracks_online)-len(tracks_delta)) + " ignored.")
 		for _, track := range tracks_delta {
-			track_file := youtube.FetchAndDownload(track, *arg_music_folder)
-			if track_file == "none" {
-				continue
+			err := youtube.FetchAndDownload(track, *arg_music_folder)
+			if err != nil {
+				logger.Log("Something went wrong with \"" + track.Filename + "\": " + err.Error() + ".")
+			} else {
+				wait_group.Add(1)
+				go MetadataAndMove(track, &wait_group)
 			}
-			wait_group.Add(1)
-			go MetadataAndMove(track_file, track, &wait_group)
 		}
 		wait_group.Wait()
 
@@ -73,26 +77,20 @@ func LocalLibrary(wg *sync.WaitGroup) {
 	for _, track_file_info := range tracks_files {
 		track_file := track_file_info.Name()
 		track_file_ext := filepath.Ext(track_file)
-		track_file_name := track_file[0 : len(track_file)-len(track_file_ext)]
-		track_mp3_file, err := id3.Open(*arg_music_folder + "/" + track_file)
-
-		var track_title string
-		var track_artist string
-		var track_album string
-		if err == nil {
-			track_title = strings.TrimSpace(track_mp3_file.Title())
-			track_artist = strings.TrimSpace(track_mp3_file.Artist())
-			track_album = strings.TrimSpace(track_mp3_file.Album())
-			defer track_mp3_file.Close()
-		} else {
-			track_title = strings.Split(track_file_name, " - ")[1]
-			track_artist = strings.Split(track_file_name, " - ")[0]
-			track_album = "none"
+		if track_file_ext != DEFAULT_EXTENSION {
+			continue
 		}
+		track_file_name := track_file[0 : len(track_file)-len(track_file_ext)]
+		track_title := strings.Split(track_file_name, " - ")[1]
+		track_artist := strings.Split(track_file_name, " - ")[0]
+		track_album := "none"
 		track := Track{
-			Title:  track_title,
-			Artist: track_artist,
-			Album:  track_album,
+			Title:        track_title,
+			Artist:       track_artist,
+			Album:        track_album,
+			Filename:     track_file_name,
+			FilenameTemp: "." + track_file_name,
+			FilenameExt:  track_file_ext,
 		}
 		tracks_offline = append(tracks_offline, track)
 	}
@@ -100,25 +98,26 @@ func LocalLibrary(wg *sync.WaitGroup) {
 	wg.Done()
 }
 
-func MetadataAndMove(track_file string, track Track, wg *sync.WaitGroup) {
-	track_mp3, err := id3.Open(track_file)
+func MetadataAndMove(track Track, wg *sync.WaitGroup) {
+	src_file := *arg_music_folder + "/" + track.FilenameTemp + track.FilenameExt
+	dst_file := *arg_music_folder + "/" + track.Filename + track.FilenameExt
+	track_mp3, err := id3.Open((*arg_music_folder) + "/" + track.FilenameTemp + track.FilenameExt)
 	if err != nil {
-		logger.Fatal("Something bad happened while opening " + track_file + ".")
+		logger.Fatal("Something bad happened while opening " + track.Filename + ": " + err.Error() + ".")
 	} else {
-		logger.Log("Fixing metadata for: " + track.Artist + " by " + track.Title)
+		logger.Log("Fixing metadata for: " + track.Filename + ".")
 		track_mp3.SetTitle(track.Title)
 		track_mp3.SetArtist(track.Artist)
 		track_mp3.SetAlbum(track.Album)
 		defer track_mp3.Close()
 	}
 
-	dest_file := *arg_music_folder + "/" + (strings.Split(track_file, "/")[len(strings.Split(track_file, "/"))-1])[1:]
-	os.Remove(dest_file)
-	err = os.Rename(track_file, dest_file)
+	os.Remove(dst_file)
+	err = os.Rename(src_file, dst_file)
 	if err != nil {
-		logger.Fatal("Something went wrong while moving song from \"" + track_file + "\" to \"" + dest_file + "\": " + err.Error())
+		logger.Fatal("Something went wrong while moving song from \"" + src_file + "\" to \"" + dst_file + "\": " + err.Error() + ".")
 	} else {
-		logger.Log("Fixed metadata and moved song to \"" + dest_file + "\"")
+		logger.Log("Fixed metadata and moved song to \"" + dst_file + "\".")
 	}
 
 	wg.Done()

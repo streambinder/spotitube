@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -21,14 +20,16 @@ var (
 	tracks_delta     Tracks
 	wait_group       sync.WaitGroup
 	arg_music_folder *string
+	logger           = NewLogger()
 )
 
 func main() {
 	arg_music_folder = flag.String("music", "~/Music", "Folder to sync with music.")
 	flag.Parse()
 	if !(IsDir(*arg_music_folder)) {
-		fmt.Println("Chosen music folder does not exist:", *arg_music_folder)
-		os.Exit(1)
+		logger.Fatal("Chosen music folder does not exist: " + *arg_music_folder)
+	} else {
+		logger.Log("Synchronization folder: " + *arg_music_folder)
 	}
 
 	wait_group.Add(1)
@@ -36,6 +37,7 @@ func main() {
 	tracks_online := spotify.AuthAndTracks()
 	wait_group.Wait()
 
+	logger.Log("Checking which songs need to be downloaded.")
 	for _, track_online := range tracks_online {
 		track := Track{
 			Title:  track_online.FullTrack.SimpleTrack.Name,
@@ -48,7 +50,7 @@ func main() {
 	}
 
 	if len(tracks_delta) > 0 {
-		fmt.Println("Found " + strconv.Itoa(len(tracks_delta)) + " missing songs. Proceeding to download.")
+		logger.Log(strconv.Itoa(len(tracks_delta)) + " missing songs, " + strconv.Itoa(len(tracks_online)-len(tracks_delta)) + " ignored.")
 		for _, track := range tracks_delta {
 			track_file := youtube.FetchAndDownload(track, *arg_music_folder)
 			if track_file == "none" {
@@ -59,19 +61,21 @@ func main() {
 		}
 		wait_group.Wait()
 
-		fmt.Println("Done")
+		logger.Log("Synchronization completed.")
 	} else {
-		fmt.Println("No song to download.")
+		logger.Log("No song to download.")
 	}
 }
 
 func LocalLibrary(wg *sync.WaitGroup) {
+	logger.Log("Reading files in local storage \"" + *arg_music_folder + "\".")
 	tracks_files, _ := ioutil.ReadDir(*arg_music_folder)
 	for _, track_file_info := range tracks_files {
-		var track_file = track_file_info.Name()
-		var track_file_ext = filepath.Ext(track_file)
-		var track_file_name = track_file[0 : len(track_file)-len(track_file_ext)]
+		track_file := track_file_info.Name()
+		track_file_ext := filepath.Ext(track_file)
+		track_file_name := track_file[0 : len(track_file)-len(track_file_ext)]
 		track_mp3_file, err := id3.Open(*arg_music_folder + "/" + track_file)
+
 		var track_title string
 		var track_artist string
 		var track_album string
@@ -99,10 +103,9 @@ func LocalLibrary(wg *sync.WaitGroup) {
 func MetadataAndMove(track_file string, track Track, wg *sync.WaitGroup) {
 	track_mp3, err := id3.Open(track_file)
 	if err != nil {
-		fmt.Println("Something bad happened while opening " + track_file + ".")
-		os.Exit(1)
+		logger.Fatal("Something bad happened while opening " + track_file + ".")
 	} else {
-		fmt.Println("Fixing metadata for:", track.Artist+" - "+track.Title)
+		logger.Log("Fixing metadata for: " + track.Artist + " by " + track.Title)
 		track_mp3.SetTitle(track.Title)
 		track_mp3.SetArtist(track.Artist)
 		track_mp3.SetAlbum(track.Album)
@@ -113,10 +116,9 @@ func MetadataAndMove(track_file string, track Track, wg *sync.WaitGroup) {
 	os.Remove(dest_file)
 	err = os.Rename(track_file, dest_file)
 	if err != nil {
-		fmt.Println("Something went wrong while moving song from \""+track_file+"\" to \""+dest_file+"\":", err.Error())
-		os.Exit(1)
+		logger.Fatal("Something went wrong while moving song from \"" + track_file + "\" to \"" + dest_file + "\": " + err.Error())
 	} else {
-		fmt.Println("Fixed metadata and moved song to \"" + dest_file + "\"")
+		logger.Log("Fixed metadata and moved song to \"" + dest_file + "\"")
 	}
 
 	wg.Done()

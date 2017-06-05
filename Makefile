@@ -17,7 +17,8 @@ _PKGS = \
 _DEPENDENCIES = \
 	github.com/zmb3/spotify \
 	github.com/mikkyang/id3-go \
-	github.com/PuerkitoBio/goquery
+	github.com/PuerkitoBio/goquery \
+	github.com/fatih/color
 
 _CHECK_DEPENDENCIES = $(addsuffix .dependency,$(_DEPENDENCIES))
 

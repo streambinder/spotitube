@@ -4,16 +4,18 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"os/exec"
+	"strconv"
 
 	"github.com/zmb3/spotify"
+	. "utils"
 )
 
 var (
-	auth  = spotify.NewAuthenticator(SPOTIFY_REDIRECT_URI, spotify.ScopeUserLibraryRead)
-	ch    = make(chan *spotify.Client)
-	state = "state"
+	auth   = spotify.NewAuthenticator(SPOTIFY_REDIRECT_URI, spotify.ScopeUserLibraryRead)
+	ch     = make(chan *spotify.Client)
+	state  = "state"
+	logger = NewLogger()
 )
 
 func AuthAndTracks() []spotify.SavedTrack {
@@ -30,13 +32,15 @@ func AuthAndTracks() []spotify.SavedTrack {
 	command_args := []string{url}
 	_, err := exec.Command(command_cmd, command_args...).Output()
 	if err != nil {
-		fmt.Println("Something went wrong while executing trying to make the default browser open the authorization URL.")
-		fmt.Println("Please, in order to authorize me to read your library, go to:\n" + url)
+		logger.Log("Something went wrong while executing trying to make the default browser open the authorization URL.")
+		logger.Log("Please, in order to authorize me to read your library, go to:\n" + url)
 	}
 
 	// wait for auth to complete
+	logger.Log("Waiting for authentication process to complete.")
 	client := <-ch
 
+	logger.Log("Pulling out user library.")
 	times := 0
 	opt_limit := 50
 	var tracks []spotify.SavedTrack
@@ -52,6 +56,7 @@ func AuthAndTracks() []spotify.SavedTrack {
 			break
 		}
 		times++
+		logger.Log(strconv.Itoa(times*opt_limit) + " songs taken.")
 	}
 
 	return tracks
@@ -65,16 +70,15 @@ func HttpCompleteAuthHandler(w http.ResponseWriter, r *http.Request) {
 	tok, err := auth.Token(state, r)
 	if err != nil {
 		http.Error(w, HttpMessage("Couldn't get token", "none"), http.StatusForbidden)
-		fmt.Println("Couldn't get token.")
-		os.Exit(1)
+		logger.Fatal("Couldn't get token.")
 	}
 	if st := r.FormValue("state"); st != state {
 		http.NotFound(w, r)
-		fmt.Println("State value not found.")
-		os.Exit(1)
+		logger.Fatal("\"state\" value not found.")
 	}
 	client := auth.NewClient(tok)
 	fmt.Fprintf(w, HttpMessage("Login completed", "Come back to the shell and enjoy the magic!"))
+	logger.Log("Login process completed.")
 	ch <- &client
 }
 

@@ -18,7 +18,8 @@ _DEPENDENCIES = \
 	github.com/zmb3/spotify \
 	github.com/mikkyang/id3-go \
 	github.com/PuerkitoBio/goquery \
-	github.com/fatih/color
+	github.com/fatih/color \
+	github.com/kennygrant/sanitize
 
 _CHECK_DEPENDENCIES = $(addsuffix .dependency,$(_DEPENDENCIES))
 

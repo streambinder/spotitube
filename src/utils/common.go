@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
+	"github.com/kennygrant/sanitize"
 )
 
 // system utils
@@ -72,9 +73,12 @@ func (logger Logger) Fatal(message string) {
 }
 
 type Track struct {
-	Title  string
-	Artist string
-	Album  string
+	Title        string
+	Artist       string
+	Album        string
+	Filename     string
+	FilenameTemp string
+	FilenameExt  string
 }
 
 type Tracks []Track
@@ -92,5 +96,14 @@ func (tracks Tracks) Has(track Track) bool {
 
 func (track Track) Normalize() Track {
 	track.Title = strings.Split(track.Title, " - ")[0]
+	if strings.Contains(track.Title, " live ") {
+		track.Title = strings.Split(track.Title, " live ")[0]
+	}
+	track.Title = strings.TrimSpace(track.Title)
+	track.Filename = track.Artist + " - " + track.Title
+	track.Filename = strings.Replace(track.Filename, "/", "", -1)
+	track.Filename = sanitize.Accents(track.Filename)
+	track.Filename = strings.TrimSpace(track.Filename)
+	track.FilenameTemp = sanitize.Name("." + track.Filename)
 	return track
 }

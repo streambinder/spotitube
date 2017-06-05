@@ -9,4 +9,6 @@ const (
 	SHELL_COLOR_MAIN    = color.FgBlue
 	SHELL_COLOR_YOUTUBE = color.FgRed
 	SHELL_COLOR_SPOTIFY = color.FgGreen
+
+	DEFAULT_EXTENSION = ".mp3"
 )

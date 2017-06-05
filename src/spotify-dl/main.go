@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"utils"
 	"youtube"
 
 	id3 "github.com/mikkyang/id3-go"
@@ -32,18 +33,6 @@ var (
 	arg_music_folder *string
 )
 
-func IsDir(path string) bool {
-	file, err := os.Open(path)
-	if err != nil {
-		return false
-	}
-	file_stat, err := file.Stat()
-	if err != nil {
-		return false
-	}
-	return file_stat.IsDir()
-}
-
 func (tracks Tracks) Has(name string, artist string) bool {
 	name = strings.TrimSpace(strings.ToLower(name))
 	artist = strings.TrimSpace(strings.ToLower(artist))
@@ -65,7 +54,7 @@ func Normalize(track api.SavedTrack) api.SavedTrack {
 func main() {
 	arg_music_folder = flag.String("music", "~/Music", "Folder to sync with music.")
 	flag.Parse()
-	if !(IsDir(*arg_music_folder)) {
+	if !(utils.IsDir(*arg_music_folder)) {
 		fmt.Println("Chosen music folder does not exist:", *arg_music_folder)
 		os.Exit(1)
 	}

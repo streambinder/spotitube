@@ -11,6 +11,7 @@ include Makefile.gobuild
 _PKGS = \
 	spotify-dl \
 	spotify \
+	utils \
 	youtube
 
 _DEPENDENCIES = \

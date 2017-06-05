@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	. "utils"
 )
 
 type YouTubeTrack struct {
@@ -17,22 +18,22 @@ type YouTubeTrack struct {
 	Filename string
 }
 
-func FetchAndDownload(title string, artist string, path string) string {
-	url := UrlFor(title, artist)
+func FetchAndDownload(track Track, path string) string {
+	url := UrlFor(track.Title, track.Artist)
 	if url == "none" {
 		return "none"
 	}
 
 	id := IdFromUrl(url)
-	filename := artist + " - " + title
-	track := YouTubeTrack{
-		Title:    title,
-		Artist:   artist,
+	filename := track.Artist + " - " + track.Title
+	youtube_track := YouTubeTrack{
+		Title:    track.Title,
+		Artist:   track.Artist,
 		ID:       id,
 		URL:      url,
 		Filename: filename,
 	}
-	track_filename := track.Download(path)
+	track_filename := youtube_track.Download(path)
 	return track_filename
 }
 

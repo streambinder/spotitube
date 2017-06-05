@@ -84,10 +84,8 @@ type Track struct {
 type Tracks []Track
 
 func (tracks Tracks) Has(track Track) bool {
-	track_title := strings.TrimSpace(strings.ToLower(track.Title))
-	track_artist := strings.TrimSpace(strings.ToLower(track.Artist))
-	for _, track := range tracks {
-		if track_title == strings.TrimSpace(strings.ToLower(track.Title)) && track_artist == strings.TrimSpace(strings.ToLower(track.Artist)) {
+	for _, having_track := range tracks {
+		if strings.ToLower(having_track.Filename) == strings.ToLower(track.Filename) {
 			return true
 		}
 	}

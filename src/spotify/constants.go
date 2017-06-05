@@ -17,8 +17,10 @@ const (
         <title>Spotify DL</title>
         <link rel="icon" href="` + SPOTIFY_FAVICON_URL + `" type="image/x-icon" />
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto+Condensed" />
         <style>
-            body               { font: 20px Helvetica, sans-serif; text-align: center; margin: 75px 0; padding: 50px; color: #333; border: solid 5px #1ED760; border-left: none; border-right: none; }
+            body               { font: 20px 'Roboto Condensed', sans-serif; text-align: center; margin: 75px 0; padding: 50px; color: #333; border: solid 5px #1ED760; border-left: none; border-right: none; }
+            body *             { text-align: center; }
             h1                 { font-size: 40px; text-transform: uppercase; }
             h1>i.fa            { margin: auto 10px; }
             article            { display: block; text-align: left; width: 650px; margin: 0 auto 50px; }
@@ -43,7 +45,7 @@ const (
     </head>
     <body onLoad="setAutoClose()">
         <article>
-            <h1>%s <i class="fa fa-thumbs-up" aria-hidden="true"></i></h1>
+            <h1><i class="fa fa-thumbs-up" aria-hidden="true"></i><br>%s</h1>
             <div>
                 <h3>%s</h3>
                 <br><br><br>

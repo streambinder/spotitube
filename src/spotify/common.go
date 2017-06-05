@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
 
 	"github.com/zmb3/spotify"
@@ -64,9 +65,13 @@ func HttpCompleteAuthHandler(w http.ResponseWriter, r *http.Request) {
 	tok, err := auth.Token(state, r)
 	if err != nil {
 		http.Error(w, HttpMessage("Couldn't get token", "none"), http.StatusForbidden)
+		fmt.Println("Couldn't get token.")
+		os.Exit(1)
 	}
 	if st := r.FormValue("state"); st != state {
 		http.NotFound(w, r)
+		fmt.Println("State value not found.")
+		os.Exit(1)
 	}
 	client := auth.NewClient(tok)
 	fmt.Fprintf(w, HttpMessage("Login completed", "Come back to the shell and enjoy the magic!"))

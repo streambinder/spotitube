@@ -32,7 +32,7 @@ var (
 	arg_music_folder *string
 )
 
-func Dir(path string) bool {
+func IsDir(path string) bool {
 	file, err := os.Open(path)
 	if err != nil {
 		return false
@@ -58,11 +58,6 @@ func (tracks Tracks) Has(name string, artist string) bool {
 }
 
 func Normalize(track api.SavedTrack) api.SavedTrack {
-	// title_parts := strings.Split(track.FullTrack.SimpleTrack.Name, " - ")
-	// if len(title_parts) > 1 && (strings.Contains(strings.ToLower(title_parts[len(title_parts)-1]), "live") || strings.Contains(strings.ToLower(title_parts[len(title_parts)-1]), "radio edit")) {
-	// 	track.FullTrack.SimpleTrack.Name = strings.Join(title_parts[:len(title_parts)-1], " - ")
-	// }
-	// return track
 	track.FullTrack.SimpleTrack.Name = strings.Split(track.FullTrack.SimpleTrack.Name, " - ")[0]
 	return track
 }
@@ -70,7 +65,7 @@ func Normalize(track api.SavedTrack) api.SavedTrack {
 func main() {
 	arg_music_folder = flag.String("music", "~/Music", "Folder to sync with music.")
 	flag.Parse()
-	if !(Dir(*arg_music_folder)) {
+	if !(IsDir(*arg_music_folder)) {
 		fmt.Println("Chosen music folder does not exist:", *arg_music_folder)
 		os.Exit(1)
 	}
@@ -143,6 +138,7 @@ func MetadataAndMove(track_file string, track api.SavedTrack, wg *sync.WaitGroup
 	track_mp3, err := id3.Open(track_file)
 	if err != nil {
 		fmt.Println("Something bad happened while opening " + track_file + ".")
+		os.Exit(1)
 	} else {
 		fmt.Println("Fixing metadata for:", track.FullTrack.SimpleTrack.Name+" - "+(track.FullTrack.SimpleTrack.Artists[0]).Name)
 		track_mp3.SetTitle(track.FullTrack.SimpleTrack.Name)

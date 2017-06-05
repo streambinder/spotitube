@@ -88,6 +88,9 @@ func (track YouTubeTrack) Download(path string) string {
 	// fmt.Print(string(command_out))
 
 	fmt.Println("Downloaded to:", "."+track.Filename+".mp3")
-	os.Remove("." + track.Filename)
+	err = os.Remove("." + track.Filename)
+	if err != nil {
+		fmt.Println("Something went wrong while trying to remove tmp ." + track.Filename + " .")
+	}
 	return path + "/" + "." + track.Filename + ".mp3"
 }

@@ -4,6 +4,7 @@ import (
 	"flag"
 	"io/ioutil"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"spotify"
 	"strconv"
@@ -51,6 +52,18 @@ func main() {
 			tracks_delta = append(tracks_delta, track)
 		}
 	}
+
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, os.Interrupt)
+	go func() {
+		<-ch
+		logger.Log("SIGINT captured: cleaning up temporary files.")
+		for _, track := range tracks_delta {
+			os.Remove(*arg_music_folder + "/" + track.FilenameTemp)
+			os.Remove(*arg_music_folder + "/" + track.FilenameTemp + track.FilenameExt)
+		}
+		logger.Fatal("Explicit closure request by the user. Exiting.")
+	}()
 
 	if len(tracks_delta) > 0 {
 		logger.Log(strconv.Itoa(len(tracks_delta)) + " missing songs, " + strconv.Itoa(len(tracks_online)-len(tracks_delta)) + " ignored.")

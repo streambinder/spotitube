@@ -33,14 +33,13 @@ type Logger struct {
 
 func NewLogger() Logger {
 	var shell_color func(a ...interface{}) string = color.New(SHELL_COLOR_DEFAULT).SprintFunc()
-	var caller_package string = "unknown"
+	var caller_package string = SHELL_NAME_DEFAULT
+
 	pc, _, _, ok := runtime.Caller(1)
 	details := runtime.FuncForPC(pc)
-	if ok && details != nil {
+	if ok && details != nil && details.Name()[:4] != "main" {
 		caller_package = strings.Split(details.Name(), ".")[0]
-		if caller_package == "main" {
-			shell_color = color.New(SHELL_COLOR_MAIN).SprintFunc()
-		} else if caller_package == "spotify" {
+		if caller_package == "spotify" {
 			shell_color = color.New(SHELL_COLOR_SPOTIFY).SprintFunc()
 		} else if caller_package == "youtube" {
 			shell_color = color.New(SHELL_COLOR_YOUTUBE).SprintFunc()
@@ -54,7 +53,12 @@ func NewLogger() Logger {
 }
 
 func (logger Logger) ColoredPrefix() string {
-	return logger.Color("[" + strings.ToUpper(logger.Prefix) + "]")
+	space_pre := strings.Repeat(" ", ((SHELL_NAME_MIN_LENGTH - len(logger.Prefix)) / 2))
+	space_post := space_pre
+	if len(logger.Prefix)%2 == 1 {
+		space_post = space_post + " "
+	}
+	return logger.Color("[" + space_pre + strings.ToUpper(logger.Prefix) + space_post + "]")
 }
 
 func (logger Logger) Log(message string, fatal ...bool) {

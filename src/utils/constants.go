@@ -5,10 +5,11 @@ import (
 )
 
 const (
-	SHELL_COLOR_DEFAULT = color.FgWhite
-	SHELL_COLOR_MAIN    = color.FgBlue
-	SHELL_COLOR_YOUTUBE = color.FgRed
-	SHELL_COLOR_SPOTIFY = color.FgGreen
+	SHELL_NAME_DEFAULT    = "spotify-dl"
+	SHELL_NAME_MIN_LENGTH = 12
+	SHELL_COLOR_DEFAULT   = color.FgBlue
+	SHELL_COLOR_YOUTUBE   = color.FgRed
+	SHELL_COLOR_SPOTIFY   = color.FgGreen
 
 	DEFAULT_EXTENSION = ".mp3"
 )

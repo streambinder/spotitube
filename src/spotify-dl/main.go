@@ -69,6 +69,9 @@ func main() {
 		for _, track := range tracks_delta {
 			os.Remove(*arg_folder + "/" + track.FilenameTemp)
 			os.Remove(*arg_folder + "/" + track.FilenameTemp + track.FilenameExt)
+			os.Remove(*arg_folder + "/" + track.FilenameTemp + ".part")
+			os.Remove(*arg_folder + "/" + track.FilenameTemp + ".part*")
+			os.Remove(*arg_folder + "/" + track.FilenameTemp + ".ytdl")
 		}
 		logger.Fatal("Explicit closure request by the user. Exiting.")
 	}()

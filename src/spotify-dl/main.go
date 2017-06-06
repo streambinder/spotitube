@@ -24,7 +24,7 @@ var (
 )
 
 func main() {
-	arg_music_folder = flag.String("music", "~/Music", "Folder to sync with music.")
+	arg_music_folder = flag.String("folder", "~/Music", "Folder to sync with music.")
 	flag.Parse()
 	if !(IsDir(*arg_music_folder)) {
 		logger.Fatal("Chosen music folder does not exist: " + *arg_music_folder)

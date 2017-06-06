@@ -29,7 +29,7 @@ func FetchAndDownload(track Track, path string) error {
 	if err != nil {
 		return err
 	}
-	logger.Log("Parsing youtube result ID from URL.")
+	logger.Log("Parsing youtube result ID from URL \"" + url + "\".")
 	id := IdFromUrl(url)
 	youtube_track := YouTubeTrack{
 		Track: track,
@@ -55,7 +55,7 @@ func UrlFor(title string, artist string) (string, error) {
 		item := selection.Eq(selection_item)
 		href, ok := item.Attr("href")
 		if ok {
-			if strings.Contains(href, "&list=") {
+			if strings.Contains(href, "&list=") || strings.Contains(href, "/user/") {
 				continue
 			} else {
 				return YOUTUBE_VIDEO_PREFIX + href, nil

@@ -13,39 +13,47 @@ import (
 	"youtube"
 
 	id3 "github.com/mikkyang/id3-go"
+	api "github.com/zmb3/spotify"
 	. "utils"
 )
 
 var (
-	tracks_offline   Tracks
-	tracks_delta     Tracks
-	wait_group       sync.WaitGroup
-	arg_music_folder *string
-	logger           = NewLogger()
+	tracks_offline Tracks
+	tracks_delta   Tracks
+	wait_group     sync.WaitGroup
+	arg_folder     *string
+	arg_playlist   *string
+	logger         = NewLogger()
 )
 
 func main() {
-	arg_music_folder = flag.String("folder", "~/Music", "Folder to sync with music.")
+	arg_folder = flag.String("folder", "~/Music", "Folder to sync with music.")
+	arg_playlist = flag.String("playlist", "none", "Playlist URI to synchronize.")
 	flag.Parse()
-	if !(IsDir(*arg_music_folder)) {
-		logger.Fatal("Chosen music folder does not exist: " + *arg_music_folder)
+	if !(IsDir(*arg_folder)) {
+		logger.Fatal("Chosen music folder does not exist: " + *arg_folder)
 	} else {
-		logger.Log("Synchronization folder: " + *arg_music_folder)
+		logger.Log("Synchronization folder: " + *arg_folder)
 	}
 
 	wait_group.Add(1)
 	go LocalLibrary(&wait_group)
-	tracks_online := spotify.AuthAndTracks()
+	var tracks_online []api.FullTrack
+	if *arg_playlist == "none" {
+		tracks_online = spotify.AuthAndTracks()
+	} else {
+		tracks_online = spotify.AuthAndTracks(*arg_playlist)
+	}
 	wait_group.Wait()
 
 	logger.Log("Checking which songs need to be downloaded.")
 	for _, track_online := range tracks_online {
 		track := Track{
-			Title:        track_online.FullTrack.SimpleTrack.Name,
-			Artist:       (track_online.FullTrack.SimpleTrack.Artists[0]).Name,
-			Album:        track_online.FullTrack.Album.Name,
-			Filename:     (track_online.FullTrack.SimpleTrack.Artists[0]).Name + " - " + track_online.FullTrack.SimpleTrack.Name,
-			FilenameTemp: "." + (track_online.FullTrack.SimpleTrack.Artists[0]).Name + " - " + track_online.FullTrack.SimpleTrack.Name,
+			Title:        track_online.SimpleTrack.Name,
+			Artist:       (track_online.SimpleTrack.Artists[0]).Name,
+			Album:        track_online.Album.Name,
+			Filename:     (track_online.SimpleTrack.Artists[0]).Name + " - " + track_online.SimpleTrack.Name,
+			FilenameTemp: "." + (track_online.SimpleTrack.Artists[0]).Name + " - " + track_online.SimpleTrack.Name,
 			FilenameExt:  DEFAULT_EXTENSION,
 		}.Normalize()
 		if !tracks_offline.Has(track) {
@@ -59,8 +67,8 @@ func main() {
 		<-ch
 		logger.Log("SIGINT captured: cleaning up temporary files.")
 		for _, track := range tracks_delta {
-			os.Remove(*arg_music_folder + "/" + track.FilenameTemp)
-			os.Remove(*arg_music_folder + "/" + track.FilenameTemp + track.FilenameExt)
+			os.Remove(*arg_folder + "/" + track.FilenameTemp)
+			os.Remove(*arg_folder + "/" + track.FilenameTemp + track.FilenameExt)
 		}
 		logger.Fatal("Explicit closure request by the user. Exiting.")
 	}()
@@ -68,7 +76,7 @@ func main() {
 	if len(tracks_delta) > 0 {
 		logger.Log(strconv.Itoa(len(tracks_delta)) + " missing songs, " + strconv.Itoa(len(tracks_online)-len(tracks_delta)) + " ignored.")
 		for _, track := range tracks_delta {
-			err := youtube.FetchAndDownload(track, *arg_music_folder)
+			err := youtube.FetchAndDownload(track, *arg_folder)
 			if err != nil {
 				logger.Log("Something went wrong with \"" + track.Filename + "\": " + err.Error() + ".")
 			} else {
@@ -85,8 +93,8 @@ func main() {
 }
 
 func LocalLibrary(wg *sync.WaitGroup) {
-	logger.Log("Reading files in local storage \"" + *arg_music_folder + "\".")
-	tracks_files, _ := ioutil.ReadDir(*arg_music_folder)
+	logger.Log("Reading files in local storage \"" + *arg_folder + "\".")
+	tracks_files, _ := ioutil.ReadDir(*arg_folder)
 	for _, track_file_info := range tracks_files {
 		track_file := track_file_info.Name()
 		track_file_ext := filepath.Ext(track_file)
@@ -112,9 +120,9 @@ func LocalLibrary(wg *sync.WaitGroup) {
 }
 
 func MetadataAndMove(track Track, wg *sync.WaitGroup) {
-	src_file := *arg_music_folder + "/" + track.FilenameTemp + track.FilenameExt
-	dst_file := *arg_music_folder + "/" + track.Filename + track.FilenameExt
-	track_mp3, err := id3.Open((*arg_music_folder) + "/" + track.FilenameTemp + track.FilenameExt)
+	src_file := *arg_folder + "/" + track.FilenameTemp + track.FilenameExt
+	dst_file := *arg_folder + "/" + track.Filename + track.FilenameExt
+	track_mp3, err := id3.Open((*arg_folder) + "/" + track.FilenameTemp + track.FilenameExt)
 	if err != nil {
 		logger.Fatal("Something bad happened while opening " + track.Filename + ": " + err.Error() + ".")
 	} else {

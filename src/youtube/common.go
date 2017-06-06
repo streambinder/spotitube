@@ -55,8 +55,12 @@ func UrlFor(title string, artist string) (string, error) {
 		item := selection.Eq(selection_item)
 		href, ok := item.Attr("href")
 		if ok {
-			return YOUTUBE_VIDEO_PREFIX + href, nil
-			break
+			if strings.Contains(href, "&list=") {
+				continue
+			} else {
+				return YOUTUBE_VIDEO_PREFIX + href, nil
+				break
+			}
 		} else {
 			logger.Log("Youtube video url (from href attr) not found. Continuing scraping...")
 		}

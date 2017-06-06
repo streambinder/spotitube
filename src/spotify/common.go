@@ -6,19 +6,27 @@ import (
 	"net/http"
 	"os/exec"
 	"strconv"
+	"strings"
 
 	"github.com/zmb3/spotify"
 	. "utils"
 )
 
 var (
-	auth   = spotify.NewAuthenticator(SPOTIFY_REDIRECT_URI, spotify.ScopeUserLibraryRead)
-	ch     = make(chan *spotify.Client)
-	state  = "state"
-	logger = NewLogger()
+	auth           = spotify.NewAuthenticator(SPOTIFY_REDIRECT_URI, spotify.ScopeUserLibraryRead, spotify.ScopePlaylistReadPrivate, spotify.ScopePlaylistReadCollaborative)
+	ch             = make(chan *spotify.Client)
+	state          = "state"
+	logger         = NewLogger()
+	playlist_id    = ""
+	playlist_owner = ""
 )
 
-func AuthAndTracks() []spotify.SavedTrack {
+func AuthAndTracks(parameters ...string) []spotify.FullTrack {
+	if len(parameters) > 0 {
+		playlist_owner = strings.Split(parameters[0], ":")[2]
+		playlist_id = strings.Split(parameters[0], ":")[4]
+	}
+
 	http.HandleFunc("/favicon.ico", HttpFaviconHandler)
 	http.HandleFunc("/callback", HttpCompleteAuthHandler)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -40,25 +48,46 @@ func AuthAndTracks() []spotify.SavedTrack {
 	logger.Log("Waiting for authentication process to complete.")
 	client := <-ch
 
-	logger.Log("Pulling out user library.")
+	var tracks []spotify.FullTrack
+	if playlist_id == "" {
+		logger.Log("Pulling out user library.")
+	} else {
+		logger.Log("Pulling out playlist \"" + playlist_id + "\".")
+	}
 	times := 0
 	opt_limit := 50
-	var tracks []spotify.SavedTrack
 	for true {
 		opt_offset := times * opt_limit
 		options := spotify.Options{
 			Limit:  &opt_limit,
 			Offset: &opt_offset,
 		}
-		chunk, _ := client.CurrentUsersTracksOpt(&options)
-		tracks = append(tracks, chunk.Tracks...)
-		if len(chunk.Tracks) < 20 {
-			break
+		if playlist_id == "" {
+			chunk, err := client.CurrentUsersTracksOpt(&options)
+			if err != nil {
+				logger.Fatal("Something gone wrong while getting user library: " + err.Error() + ".")
+			}
+			for _, track := range chunk.Tracks {
+				tracks = append(tracks, track.FullTrack)
+			}
+			if len(chunk.Tracks) < 50 {
+				break
+			}
+		} else {
+			chunk, err := client.GetPlaylistTracksOpt(playlist_owner, spotify.ID(playlist_id), &options, "")
+			if err != nil {
+				logger.Fatal("Something gone wrong while getting playlist \"" + playlist_id + "\" songs: " + err.Error() + ".")
+			}
+			for _, track := range chunk.Tracks {
+				tracks = append(tracks, track.Track)
+			}
+			if len(chunk.Tracks) < 50 {
+				break
+			}
 		}
 		times++
-		logger.Log(strconv.Itoa(times*opt_limit) + " songs taken.")
 	}
-
+	logger.Log(strconv.Itoa(len(tracks)) + " songs taken.")
 	return tracks
 }
 

@@ -114,8 +114,23 @@ func (track Track) Normalize() Track {
 
 func (track Track) Seems(sequence string) bool {
 	sequence_sanitized := sanitize.Name(strings.ToLower(sequence))
-	track_title := sanitize.Name(strings.ToLower(track.Title))
-	track_artist := sanitize.Name(strings.ToLower(track.Artist))
+	track_title := strings.ToLower(track.Title)
+	track_title = strings.Replace(track_title, "&", "and", -1)
+	for _, splitter := range []string{" and ", "feat. "} {
+		if strings.Contains(track_title, splitter) {
+			track_title = strings.Split(track_title, splitter)[0]
+		}
+	}
+	track_title = sanitize.Name(track_title)
+
+	track_artist := strings.ToLower(track.Artist)
+	track_artist = strings.Replace(track_artist, "&", "and", -1)
+	for _, splitter := range []string{" and "} {
+		if strings.Contains(track_artist, splitter) {
+			track_artist = strings.Split(track_artist, splitter)[0]
+		}
+	}
+	track_artist = sanitize.Name(track_artist)
 
 	b_live := strings.Contains(strings.ToLower(track.Title), " live at ")
 	b_cover := strings.Contains(strings.ToLower(track.Title), " cover")
@@ -123,7 +138,7 @@ func (track Track) Seems(sequence string) bool {
 	b_radioedit := strings.Contains(strings.ToLower(track.Title), " radio edit")
 
 	if strings.Contains(sequence_sanitized, track_title) && strings.Contains(sequence_sanitized, track_artist) {
-		if !b_live && (strings.Contains(strings.ToLower(sequence), " live at ") || strings.Contains(strings.ToLower(sequence), " @ ") || strings.Contains(strings.ToLower(sequence), "(live)")) {
+		if !b_live && (strings.Contains(strings.ToLower(sequence), " live at ") || strings.Contains(strings.ToLower(sequence), " @ ") || strings.Contains(strings.ToLower(sequence), "(live")) {
 			return false
 		} else if !b_cover && strings.Contains(strings.ToLower(sequence), " cover") {
 			return false

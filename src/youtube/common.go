@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/kennygrant/sanitize"
 	. "utils"
 )
 
@@ -45,7 +46,7 @@ func FetchAndDownload(track Track, path string) error {
 }
 
 func UrlFor(track Track) (string, error) {
-	doc, err := goquery.NewDocument(fmt.Sprintf(YOUTUBE_QUERY_PATTERN, strings.Replace(track.Artist, " ", "+", -1)+"+"+strings.Replace(track.Title, " ", "+", -1)))
+	doc, err := goquery.NewDocument(fmt.Sprintf(YOUTUBE_QUERY_PATTERN, sanitize.Path(strings.Replace(track.Artist, " ", "+", -1)+"+"+strings.Replace(track.Title, " ", "+", -1))))
 	if err != nil {
 		logger.Fatal("Cannot retrieve doc from \"" + fmt.Sprintf(YOUTUBE_QUERY_PATTERN, track.Artist+"+"+track.Title) + "\": " + err.Error())
 		return "", err

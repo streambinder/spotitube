@@ -20,6 +20,7 @@ import (
 var (
 	tracks_offline Tracks
 	tracks_delta   Tracks
+	tracks_failed  Tracks
 	wait_group     sync.WaitGroup
 	arg_folder     *string
 	arg_playlist   *string
@@ -82,6 +83,7 @@ func main() {
 			err := youtube.FetchAndDownload(track, *arg_folder)
 			if err != nil {
 				logger.Log("Something went wrong with \"" + track.Filename + "\": " + err.Error() + ".")
+				tracks_failed = append(tracks_failed, track)
 			} else {
 				wait_group.Add(1)
 				go MetadataAndMove(track, &wait_group)
@@ -89,7 +91,20 @@ func main() {
 		}
 		wait_group.Wait()
 
-		logger.Log("Synchronization completed.")
+		if len(tracks_failed) > 0 {
+			logger.Log("Synchronization partially completed, " + strconv.Itoa(len(tracks_failed)) + " tracks failed to synchronize:")
+			var tracks_failed_output string
+			for track_index, track := range tracks_failed {
+				if track_index == 0 {
+					tracks_failed_output = "\"" + track.Filename + "\""
+				} else {
+					tracks_failed_output = tracks_failed_output + ", \"" + track.Filename + "\""
+				}
+			}
+			logger.Log(tracks_failed_output + ".")
+		} else {
+			logger.Log("Synchronization completed.")
+		}
 	} else {
 		logger.Log("No song to download.")
 	}

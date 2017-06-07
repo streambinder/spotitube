@@ -133,7 +133,7 @@ func MetadataAndMove(track Track, wg *sync.WaitGroup) {
 		track_mp3.SetTitle(track.Title)
 		track_mp3.SetArtist(track.Artist)
 		track_mp3.SetAlbum(track.Album)
-		defer track_mp3.Close()
+		track_mp3.Close()
 	}
 
 	os.Remove(dst_file)

@@ -24,8 +24,8 @@ type YouTubeTrack struct {
 
 func FetchAndDownload(track Track, path string) error {
 	download_path = path
-	logger.Log("Searching for youtube results related to " + track.Filename + ".")
-	url, err := UrlFor(track.Title, track.Artist)
+	logger.Log("Searching for youtube results related to \"" + track.Filename + "\".")
+	url, err := UrlFor(track)
 	if err != nil {
 		return err
 	}
@@ -44,30 +44,30 @@ func FetchAndDownload(track Track, path string) error {
 	return nil
 }
 
-func UrlFor(title string, artist string) (string, error) {
-	doc, err := goquery.NewDocument(fmt.Sprintf(YOUTUBE_QUERY_PATTERN, strings.Replace(artist, " ", "+", -1)+"+"+strings.Replace(title, " ", "+", -1)))
+func UrlFor(track Track) (string, error) {
+	doc, err := goquery.NewDocument(fmt.Sprintf(YOUTUBE_QUERY_PATTERN, strings.Replace(track.Artist, " ", "+", -1)+"+"+strings.Replace(track.Title, " ", "+", -1)))
 	if err != nil {
-		logger.Fatal("Cannot retrieve doc from \"" + fmt.Sprintf(YOUTUBE_QUERY_PATTERN, artist+" "+title) + "\": " + err.Error())
+		logger.Fatal("Cannot retrieve doc from \"" + fmt.Sprintf(YOUTUBE_QUERY_PATTERN, track.Artist+"+"+track.Title) + "\": " + err.Error())
 		return "", err
 	}
 	selection := doc.Find(YOUTUBE_VIDEO_SELECTOR)
 	for selection_item := range selection.Nodes {
 		item := selection.Eq(selection_item)
-		href, ok := item.Attr("href")
-		if ok {
-			if strings.Contains(href, "&list=") || strings.Contains(href, "/user/") {
-				continue
-			} else {
-				return YOUTUBE_VIDEO_PREFIX + href, nil
-				break
+		if item_href, item_href_ok := item.Attr("href"); item_href_ok {
+			if item_title, item_title_ok := item.Attr("title"); item_title_ok {
+				if !(strings.Contains(item_href, "&list=") || strings.Contains(item_href, "/user/")) && !strings.Contains(strings.ToLower(item_title), " cover") && track.Seems(item_title) {
+					logger.Log("Video \"" + item_title + "\" matches with track \"" + track.Artist + " - " + track.Title + "\".")
+					return YOUTUBE_VIDEO_PREFIX + item_href, nil
+					break
+				}
 			}
 		} else {
-			logger.Log("Youtube video url (from href attr) not found. Continuing scraping...")
+			logger.Log("YouTube video url (from href attr) not found. Continuing scraping...")
 		}
 	}
 
-	logger.Log("Youtube video url (from href attr) not found. Dropping song download.")
-	return "", errors.New("Youtube video url not found.")
+	logger.Log("YouTube video url (from href attr) not found. Dropping song download.")
+	return "", errors.New("YouTube video url not found")
 }
 
 func IdFromUrl(url string) string {

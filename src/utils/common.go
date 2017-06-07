@@ -123,7 +123,7 @@ func (track Track) Seems(sequence string) bool {
 	b_radioedit := strings.Contains(strings.ToLower(track.Title), " radio edit")
 
 	if strings.Contains(sequence_sanitized, track_title) && strings.Contains(sequence_sanitized, track_artist) {
-		if !b_live && (strings.Contains(strings.ToLower(sequence), " live at ") || strings.Contains(strings.ToLower(sequence), " @ ")) {
+		if !b_live && (strings.Contains(strings.ToLower(sequence), " live at ") || strings.Contains(strings.ToLower(sequence), " @ ") || strings.Contains(strings.ToLower(sequence), "(live)")) {
 			return false
 		} else if !b_cover && strings.Contains(strings.ToLower(sequence), " cover") {
 			return false

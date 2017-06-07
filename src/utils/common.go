@@ -111,3 +111,29 @@ func (track Track) Normalize() Track {
 	track.FilenameTemp = sanitize.Name("." + track.Filename)
 	return track
 }
+
+func (track Track) Seems(sequence string) bool {
+	sequence_sanitized := sanitize.Name(strings.ToLower(sequence))
+	track_title := sanitize.Name(strings.ToLower(track.Title))
+	track_artist := sanitize.Name(strings.ToLower(track.Artist))
+
+	b_live := strings.Contains(strings.ToLower(track.Title), " live at ")
+	b_cover := strings.Contains(strings.ToLower(track.Title), " cover")
+	b_remix := strings.Contains(strings.ToLower(track.Title), " remix")
+	b_radioedit := strings.Contains(strings.ToLower(track.Title), " radio edit")
+
+	if strings.Contains(sequence_sanitized, track_title) && strings.Contains(sequence_sanitized, track_artist) {
+		if !b_live && (strings.Contains(strings.ToLower(sequence), " live at ") || strings.Contains(strings.ToLower(sequence), " @ ")) {
+			return false
+		} else if !b_cover && strings.Contains(strings.ToLower(sequence), " cover") {
+			return false
+		} else if !b_remix && strings.Contains(strings.ToLower(sequence), " remix") {
+			return false
+		} else if !b_radioedit && strings.Contains(strings.ToLower(sequence), " radio edit") {
+			return false
+		} else {
+			return true
+		}
+	}
+	return false
+}

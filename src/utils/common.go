@@ -103,9 +103,10 @@ func (track Track) Normalize() Track {
 	}
 	track.Title = strings.TrimSpace(track.Title)
 	track.Filename = track.Artist + " - " + track.Title
-	track.Filename = strings.Replace(track.Filename, "/", "", -1)
+	for _, symbol := range []string{"/", "\\", ".", "?", "<", ">", ":", "*"} {
+		track.Filename = strings.Replace(track.Filename, symbol, "", -1)
+	}
 	track.Filename = strings.Replace(track.Filename, "  ", " ", -1)
-	track.Filename = strings.Replace(track.Filename, ".", "", -1)
 	track.Filename = sanitize.Accents(track.Filename)
 	track.Filename = strings.TrimSpace(track.Filename)
 	track.FilenameTemp = sanitize.Name("." + track.Filename)

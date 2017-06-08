@@ -80,7 +80,8 @@ func main() {
 
 	if len(tracks_delta) > 0 {
 		logger.Log(strconv.Itoa(len(tracks_delta)) + " missing songs, " + strconv.Itoa(len(tracks_online)-len(tracks_delta)) + " ignored.")
-		for _, track := range tracks_delta {
+		for track_index, track := range tracks_delta {
+			logger.Log(strconv.Itoa(track_index) + "/" + strconv.Itoa(len(tracks_delta)) + ": " + track.Filename)
 			err := youtube.FetchAndDownload(track, *arg_folder)
 			if err != nil {
 				logger.Log("Something went wrong with \"" + track.Filename + "\": " + err.Error() + ".")

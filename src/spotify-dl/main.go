@@ -4,6 +4,7 @@ import (
 	"flag"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"spotify"
@@ -152,11 +153,13 @@ func MetadataAndMove(track Track, wg *sync.WaitGroup) {
 	}
 
 	os.Remove(dst_file)
-	err = os.Rename(src_file, dst_file)
+	command_cmd := "ffmpeg"
+	command_args := []string{"-i", src_file, "-codec:a", "libmp3lame", "-qscale:a", "0", dst_file}
+	_, err = exec.Command(command_cmd, command_args...).Output()
 	if err != nil {
-		logger.Fatal("Something went wrong while moving song from \"" + src_file + "\" to \"" + dst_file + "\": " + err.Error() + ".")
+		logger.Fatal("Something went wrong while standardizing " + track.FilenameExt[1:] + " structure via \"" + command_cmd + " " + strings.Join(command_args, " ") + "\": " + err.Error())
 	} else {
-		logger.Log("Fixed metadata and moved song to \"" + dst_file + "\".")
+		logger.Log("Fixed metadata, standardized " + track.FilenameExt[1:] + " structure and moved song to \"" + dst_file + "\".")
 	}
 
 	wg.Done()

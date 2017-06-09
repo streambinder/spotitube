@@ -155,7 +155,7 @@ func MetadataAndMove(track Track, wg *sync.WaitGroup) {
 		logger.Fatal("Something went wrong while standardizing " + track.FilenameExt[1:] + " structure via \"" + command_cmd + " " + strings.Join(command_args, " ") + "\": " + err.Error())
 	} else {
 		logger.Log("Fixed metadata, standardized " + track.FilenameExt[1:] + " structure and moved song to \"" + dst_file + "\".")
-        os.Remove(src_file)
+		os.Remove(src_file)
 	}
 
 	wg.Done()

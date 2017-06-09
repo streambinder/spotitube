@@ -81,7 +81,7 @@ func main() {
 	if len(tracks_delta) > 0 {
 		logger.Log(strconv.Itoa(len(tracks_delta)) + " missing songs, " + strconv.Itoa(len(tracks_online)-len(tracks_delta)) + " ignored.")
 		for track_index, track := range tracks_delta {
-			logger.Log(strconv.Itoa(track_index+1) + "/" + strconv.Itoa(len(tracks_delta)) + ": " + track.Filename)
+			logger.Log(strconv.Itoa(track_index+1) + "/" + strconv.Itoa(len(tracks_delta)) + ": \"" + track.Filename + "\"")
 			err := youtube.FetchAndDownload(track, *arg_folder)
 			if err != nil {
 				logger.Log("Something went wrong with \"" + track.Filename + "\": " + err.Error() + ".")
@@ -95,15 +95,9 @@ func main() {
 
 		if len(tracks_failed) > 0 {
 			logger.Log("Synchronization partially completed, " + strconv.Itoa(len(tracks_failed)) + " tracks failed to synchronize:")
-			var tracks_failed_output string
-			for track_index, track := range tracks_failed {
-				if track_index == 0 {
-					tracks_failed_output = "\"" + track.Filename + "\""
-				} else {
-					tracks_failed_output = tracks_failed_output + ", \"" + track.Filename + "\""
-				}
+			for _, track := range tracks_failed {
+				logger.Log(" - \"" + track.Filename + "\"")
 			}
-			logger.Log(tracks_failed_output + ".")
 		} else {
 			logger.Log("Synchronization completed.")
 		}

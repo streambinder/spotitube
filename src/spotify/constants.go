@@ -6,7 +6,7 @@ const (
 	SPOTIFY_REDIRECT_URI  = "http://localhost:8080/callback"
 	SPOTIFY_FAVICON_URL   = "https://raw.githubusercontent.com/streambinder/spotify-dl/master/src/spotify/spotify.ico"
 
-	SPOTIFY_HTML_AUTOCLOSE_TIMEOUT    = "10"                                   // s
+	SPOTIFY_HTML_AUTOCLOSE_TIMEOUT    = "5"                                   // s
 	SPOTIFY_HTML_AUTOCLOSE_TIMEOUT_MS = SPOTIFY_HTML_AUTOCLOSE_TIMEOUT + "000" // ms
 	SPOTIFY_HTML_SIG_AUTHOR           = "streambinder"
 	SPOTIFY_HTML_SIG_ICON             = "https://www.davidepucci.it/assets/img/profile.png"

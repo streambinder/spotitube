@@ -52,18 +52,27 @@ func UrlFor(track Track) (string, error) {
 		return "", err
 	}
 	selection := doc.Find(YOUTUBE_VIDEO_SELECTOR)
-	for selection_item := range selection.Nodes {
-		item := selection.Eq(selection_item)
-		if item_href, item_href_ok := item.Attr("href"); item_href_ok {
-			if item_title, item_title_ok := item.Attr("title"); item_title_ok {
-				if !(strings.Contains(item_href, "&list=") || strings.Contains(item_href, "/user/")) && !strings.Contains(strings.ToLower(item_title), " cover") && track.Seems(item_title) {
-					logger.Log("Video \"" + item_title + "\" matches with track \"" + track.Artist + " - " + track.Title + "\".")
-					return YOUTUBE_VIDEO_PREFIX + item_href, nil
-					break
+	for lap, _ := range [2]int{} {
+		for selection_item := range selection.Nodes {
+			item := selection.Eq(selection_item)
+			if item_href, item_href_ok := item.Attr("href"); item_href_ok {
+				if item_title, item_title_ok := item.Attr("title"); item_title_ok {
+					if !(strings.Contains(item_href, "&list=") || strings.Contains(item_href, "/user/")) &&
+						!strings.Contains(strings.ToLower(item_title), " cover") &&
+						track.Seems(item_title) {
+						if strings.Contains(strings.ToLower(item_title), "official video") && lap == 0 {
+							logger.Log("First page readup, temporarily ignoring \"" + item_title + "\".")
+                            continue
+						}
+						logger.Log("Video \"" + item_title + "\" matches with track \"" + track.Artist + " - " + track.Title + "\".")
+						return YOUTUBE_VIDEO_PREFIX + item_href, nil
+						break
+
+					}
 				}
+			} else {
+				logger.Log("YouTube video url (from href attr) not found. Continuing scraping...")
 			}
-		} else {
-			logger.Log("YouTube video url (from href attr) not found. Continuing scraping...")
 		}
 	}
 

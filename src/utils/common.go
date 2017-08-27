@@ -116,7 +116,7 @@ func (track Track) Normalize() Track {
 func (track Track) Seems(sequence string) bool {
 	sequence_sanitized := sanitize.Name(strings.ToLower(sequence))
 	track_title := strings.ToLower(track.Title)
-	track_title = strings.Replace(track_title, " & ", "and", -1)
+	track_title = strings.Replace(track_title, " & ", " and ", -1)
 	for _, splitter := range []string{" and ", "feat. "} {
 		if strings.Contains(track_title, splitter) {
 			track_title = strings.Split(track_title, splitter)[0]

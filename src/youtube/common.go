@@ -46,9 +46,9 @@ func FetchAndDownload(track Track, path string) error {
 }
 
 func UrlFor(track Track) (string, error) {
-	doc, err := goquery.NewDocument(fmt.Sprintf(YOUTUBE_QUERY_PATTERN, sanitize.Path(strings.Replace(track.Artist, " ", "+", -1)+"+"+strings.Replace(track.Title, " ", "+", -1))))
+	doc, err := goquery.NewDocument(fmt.Sprintf(YOUTUBE_QUERY_PATTERN, sanitize.Path(track.SearchPattern)))
 	if err != nil {
-		logger.Fatal("Cannot retrieve doc from \"" + fmt.Sprintf(YOUTUBE_QUERY_PATTERN, track.Artist+"+"+track.Title) + "\": " + err.Error())
+		logger.Fatal("Cannot retrieve doc from \"" + fmt.Sprintf(YOUTUBE_QUERY_PATTERN, sanitize.Path(track.SearchPattern)) + "\": " + err.Error())
 		return "", err
 	}
 	selection := doc.Find(YOUTUBE_VIDEO_SELECTOR)
@@ -62,7 +62,7 @@ func UrlFor(track Track) (string, error) {
 						track.Seems(item_title) {
 						if strings.Contains(strings.ToLower(item_title), "official video") && lap == 0 {
 							logger.Log("First page readup, temporarily ignoring \"" + item_title + "\".")
-                            continue
+							continue
 						}
 						logger.Log("Video \"" + item_title + "\" matches with track \"" + track.Artist + " - " + track.Title + "\".")
 						return YOUTUBE_VIDEO_PREFIX + item_href, nil

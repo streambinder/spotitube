@@ -63,9 +63,10 @@ func main() {
 				}
 				return featurings
 			}(),
-			Filename:     "",
-			FilenameTemp: "",
-			FilenameExt:  DEFAULT_EXTENSION,
+			Filename:      "",
+			FilenameTemp:  "",
+			FilenameExt:   DEFAULT_EXTENSION,
+			SearchPattern: "",
 		}.Normalize()
 		if !tracks_offline.Has(track) {
 			tracks_delta = append(tracks_delta, track)

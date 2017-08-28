@@ -120,7 +120,7 @@ func (track Track) Normalize() Track {
 	track.Filename = strings.TrimSpace(track.Filename)
 	track.FilenameTemp = sanitize.Name("." + track.Filename)
 
-	track.SearchPattern = strings.Replace(track.FilenameTemp, "-", " ", -1)
+	track.SearchPattern = strings.Replace(track.FilenameTemp[1:], "-", " ", -1)
 
 	return track
 }

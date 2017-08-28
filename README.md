@@ -51,11 +51,10 @@ The way to install it is pretty straightforward:
 git clone https://github.com/streambinder/spotify-dl
 cd spotify-dl
 make
-
-# if you want to use it widely on your system
 sudo make install
-spotify-dl -folder ~/MyMusic
-# else
-./bin/spotify-dl -folder ~/MyMusic
-# endif
+
+# to download your music library
+spotify-dl -folder ~/Music
+# to download a specific - public - playlist
+spotify-dl -folder ~/Music -playlist spotify:user:spotify:playlist:37i9dQZF1DWSQScAbo5nGF
 ```

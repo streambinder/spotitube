@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/kennygrant/sanitize"
 	. "utils"
 )
 
@@ -25,19 +24,16 @@ type YouTubeTrack struct {
 
 func FetchAndDownload(track Track, path string) error {
 	download_path = path
-	logger.Log("Searching for youtube results related to \"" + track.Filename + "\".")
 	url, err := UrlFor(track)
 	if err != nil {
 		return err
 	}
-	logger.Log("Parsing youtube result ID from URL \"" + url + "\".")
 	id := IdFromUrl(url)
 	youtube_track := YouTubeTrack{
 		Track: track,
 		ID:    id,
 		URL:   url,
 	}
-	logger.Log("Firing download procedure for " + track.Filename + ".")
 	err = youtube_track.Download()
 	if err != nil {
 		return err
@@ -46,9 +42,10 @@ func FetchAndDownload(track Track, path string) error {
 }
 
 func UrlFor(track Track) (string, error) {
-	doc, err := goquery.NewDocument(fmt.Sprintf(YOUTUBE_QUERY_PATTERN, sanitize.Path(track.SearchPattern)))
+	logger.Log("Searching youtube results to \"" + fmt.Sprintf(YOUTUBE_QUERY_PATTERN, strings.Replace(track.SearchPattern, " ", "+", -1)) + "\".")
+	doc, err := goquery.NewDocument(fmt.Sprintf(YOUTUBE_QUERY_PATTERN, strings.Replace(track.SearchPattern, " ", "+", -1)))
 	if err != nil {
-		logger.Fatal("Cannot retrieve doc from \"" + fmt.Sprintf(YOUTUBE_QUERY_PATTERN, sanitize.Path(track.SearchPattern)) + "\": " + err.Error())
+		logger.Fatal("Cannot retrieve doc from \"" + fmt.Sprintf(YOUTUBE_QUERY_PATTERN, strings.Replace(track.SearchPattern, " ", "+", -1)) + "\": " + err.Error())
 		return "", err
 	}
 	selection := doc.Find(YOUTUBE_VIDEO_SELECTOR)
@@ -99,7 +96,7 @@ func (track YouTubeTrack) Download() error {
 	for _, filename := range []string{track.Track.FilenameTemp, track.Track.FilenameTemp + track.Track.FilenameExt, track.Track.Filename, track.Track.Filename + track.Track.FilenameExt} {
 		os.Remove(filename)
 	}
-	logger.Log("Proceeding to download from \"" + track.URL + "\" to \"" + track.Track.FilenameTemp + track.Track.FilenameExt + "\".")
+	logger.Log("Going to download \"" + track.URL + "\" to \"" + track.Track.FilenameTemp + track.Track.FilenameExt + "\".")
 	command_cmd := "youtube-dl"
 	command_args := []string{"--output", track.Track.FilenameTemp + ".%(ext)s", "--format", "bestaudio", "--extract-audio", "--audio-format", track.Track.FilenameExt[1:], "--audio-quality", "0", track.URL}
 	_, err := exec.Command(command_cmd, command_args...).Output()

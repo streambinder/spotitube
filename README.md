@@ -41,7 +41,7 @@ Resuming:
 
 1. `youtube-dl`
 2. `ffmpeg`
-3. `golang`
+3. `golang` (`1.7` or major)
 
 ## How to install
 

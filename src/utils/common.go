@@ -77,13 +77,14 @@ func (logger Logger) Fatal(message string) {
 }
 
 type Track struct {
-	Title        string
-	Artist       string
-	Album        string
-	Featurings   []string
-	Filename     string
-	FilenameTemp string
-	FilenameExt  string
+	Title         string
+	Artist        string
+	Album         string
+	Featurings    []string
+	Filename      string
+	FilenameTemp  string
+	FilenameExt   string
+	SearchPattern string
 }
 
 type Tracks []Track
@@ -103,17 +104,7 @@ func (track Track) Normalize() Track {
 		track.Title = strings.Split(track.Title, " live ")[0]
 	}
 	track.Title = strings.TrimSpace(track.Title)
-	if len(track.Featurings) > 0 {
-		var track_featurings string
-		for track_artist_index, track_artist_name := range track.Featurings {
-			if track_artist_index == 0 {
-				track_featurings = track_artist_name
-			} else {
-				track_featurings = track_featurings + ", " + track_artist_name
-			}
-		}
-		track.Title = track.Title + " (ft. " + track_featurings + ")"
-	}
+	track.Title = track.Title + " (ft. " + strings.Join(track.Featurings, ", ") + ")"
 
 	track.Album = strings.Replace(track.Album, "[", "(", -1)
 	track.Album = strings.Replace(track.Album, "]", ")", -1)
@@ -128,6 +119,8 @@ func (track Track) Normalize() Track {
 	track.Filename = sanitize.Accents(track.Filename)
 	track.Filename = strings.TrimSpace(track.Filename)
 	track.FilenameTemp = sanitize.Name("." + track.Filename)
+
+	track.SearchPattern = strings.Replace(track.FilenameTemp, "-", " ", -1)
 
 	return track
 }

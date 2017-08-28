@@ -104,7 +104,9 @@ func (track Track) Normalize() Track {
 		track.Title = strings.Split(track.Title, " live ")[0]
 	}
 	track.Title = strings.TrimSpace(track.Title)
-	track.Title = track.Title + " (ft. " + strings.Join(track.Featurings, ", ") + ")"
+	if len(track.Featurings) > 0 {
+		track.Title = track.Title + " (ft. " + strings.Join(track.Featurings, ", ") + ")"
+	}
 
 	track.Album = strings.Replace(track.Album, "[", "(", -1)
 	track.Album = strings.Replace(track.Album, "]", ")", -1)
@@ -129,7 +131,7 @@ func (track Track) Seems(sequence string) bool {
 	sequence_sanitized := sanitize.Name(strings.ToLower(sequence))
 	track_title := strings.ToLower(track.Title)
 	track_title = strings.Replace(track_title, " & ", " and ", -1)
-	for _, splitter := range []string{" and ", "feat. "} {
+	for _, splitter := range []string{" and ", "feat. ", "ft. "} {
 		if strings.Contains(track_title, splitter) {
 			track_title = strings.Split(track_title, splitter)[0]
 		}
@@ -159,7 +161,9 @@ func (track Track) Seems(sequence string) bool {
 		} else if !b_cover && (strings.Contains(strings.ToLower(sequence), " cover") ||
 			strings.Contains(strings.ToLower(sequence), "(cover") ||
 			strings.Contains(strings.ToLower(sequence), "[cover") ||
-			strings.Contains(strings.ToLower(sequence), "{cover")) {
+			strings.Contains(strings.ToLower(sequence), "{cover") ||
+			strings.Contains(strings.ToLower(sequence), " vs ") ||
+			strings.Contains(strings.ToLower(sequence), " vs.")) {
 			return false
 		} else if !b_remix && strings.Contains(strings.ToLower(sequence), " remix") {
 			return false

@@ -51,11 +51,20 @@ func main() {
 	logger.Log("Checking which songs need to be downloaded.")
 	for _, track_online := range tracks_online {
 		track := Track{
-			Title:        track_online.SimpleTrack.Name,
-			Artist:       (track_online.SimpleTrack.Artists[0]).Name,
-			Album:        track_online.Album.Name,
-			Filename:     (track_online.SimpleTrack.Artists[0]).Name + " - " + track_online.SimpleTrack.Name,
-			FilenameTemp: "." + (track_online.SimpleTrack.Artists[0]).Name + " - " + track_online.SimpleTrack.Name,
+			Title:  track_online.SimpleTrack.Name,
+			Artist: (track_online.SimpleTrack.Artists[0]).Name,
+			Album:  track_online.Album.Name,
+			Featurings: func() []string {
+				var featurings []string
+				if len(track_online.SimpleTrack.Artists) > 1 {
+					for _, artist_item := range track_online.SimpleTrack.Artists[1:] {
+						featurings = append(featurings, artist_item.Name)
+					}
+				}
+				return featurings
+			}(),
+			Filename:     "",
+			FilenameTemp: "",
 			FilenameExt:  DEFAULT_EXTENSION,
 		}.Normalize()
 		if !tracks_offline.Has(track) {

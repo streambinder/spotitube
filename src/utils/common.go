@@ -80,6 +80,7 @@ type Track struct {
 	Title        string
 	Artist       string
 	Album        string
+	Featurings   []string
 	Filename     string
 	FilenameTemp string
 	FilenameExt  string
@@ -102,6 +103,23 @@ func (track Track) Normalize() Track {
 		track.Title = strings.Split(track.Title, " live ")[0]
 	}
 	track.Title = strings.TrimSpace(track.Title)
+	if len(track.Featurings) > 0 {
+		var track_featurings string
+		for track_artist_index, track_artist_name := range track.Featurings {
+			if track_artist_index == 0 {
+				track_featurings = track_artist_name
+			} else {
+				track_featurings = track_featurings + ", " + track_artist_name
+			}
+		}
+		track.Title = track.Title + " (ft. " + track_featurings + ")"
+	}
+
+	track.Album = strings.Replace(track.Album, "[", "(", -1)
+	track.Album = strings.Replace(track.Album, "]", ")", -1)
+	track.Album = strings.Replace(track.Album, "{", "(", -1)
+	track.Album = strings.Replace(track.Album, "}", ")", -1)
+
 	track.Filename = track.Artist + " - " + track.Title
 	for _, symbol := range []string{"/", "\\", ".", "?", "<", ">", ":", "*"} {
 		track.Filename = strings.Replace(track.Filename, symbol, "", -1)
@@ -110,6 +128,7 @@ func (track Track) Normalize() Track {
 	track.Filename = sanitize.Accents(track.Filename)
 	track.Filename = strings.TrimSpace(track.Filename)
 	track.FilenameTemp = sanitize.Name("." + track.Filename)
+
 	return track
 }
 
@@ -140,9 +159,14 @@ func (track Track) Seems(sequence string) bool {
 	b_acoustic := strings.Contains(strings.ToLower(track.Title), "acoustic")
 
 	if strings.Contains(sequence_sanitized, track_title) && strings.Contains(sequence_sanitized, track_artist) {
-		if !b_live && (strings.Contains(strings.ToLower(sequence), " live at ") || strings.Contains(strings.ToLower(sequence), " @ ") || strings.Contains(strings.ToLower(sequence), "(live")) {
+		if !b_live && (strings.Contains(strings.ToLower(sequence), " live at ") ||
+			strings.Contains(strings.ToLower(sequence), " @ ") ||
+			strings.Contains(strings.ToLower(sequence), "(live")) {
 			return false
-		} else if !b_cover && strings.Contains(strings.ToLower(sequence), " cover") {
+		} else if !b_cover && (strings.Contains(strings.ToLower(sequence), " cover") ||
+			strings.Contains(strings.ToLower(sequence), "(cover") ||
+			strings.Contains(strings.ToLower(sequence), "[cover") ||
+			strings.Contains(strings.ToLower(sequence), "{cover")) {
 			return false
 		} else if !b_remix && strings.Contains(strings.ToLower(sequence), " remix") {
 			return false

@@ -4,7 +4,6 @@ import (
 	"flag"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"spotify"
@@ -13,7 +12,7 @@ import (
 	"sync"
 	"youtube"
 
-	id3 "github.com/mikkyang/id3-go"
+	id3 "github.com/bogem/id3v2"
 	api "github.com/zmb3/spotify"
 	. "utils"
 )
@@ -146,7 +145,11 @@ func LocalLibrary(wg *sync.WaitGroup) {
 func MetadataAndMove(track Track, wg *sync.WaitGroup) {
 	src_file := *arg_folder + "/" + track.FilenameTemp + track.FilenameExt
 	dst_file := *arg_folder + "/" + track.Filename + track.FilenameExt
-	track_mp3, err := id3.Open((*arg_folder) + "/" + track.FilenameTemp + track.FilenameExt)
+	track_mp3, err := id3.Open(src_file, id3.Options{Parse: true})
+	if err != nil {
+		logger.Fatal("Error while parsing mp3 file: " + err.Error())
+	}
+	defer track_mp3.Close()
 	if err != nil {
 		logger.Fatal("Something bad happened while opening " + track.Filename + ": " + err.Error() + ".")
 	} else {
@@ -154,19 +157,10 @@ func MetadataAndMove(track Track, wg *sync.WaitGroup) {
 		track_mp3.SetTitle(track.Title)
 		track_mp3.SetArtist(track.Artist)
 		track_mp3.SetAlbum(track.Album)
-		track_mp3.Close()
+		track_mp3.Save()
 	}
 
 	os.Remove(dst_file)
-	command_cmd := "ffmpeg"
-	command_args := []string{"-i", src_file, "-codec:a", "libmp3lame", "-qscale:a", "0", dst_file}
-	_, err = exec.Command(command_cmd, command_args...).Output()
-	if err != nil {
-		logger.Fatal("Something went wrong while standardizing " + track.FilenameExt[1:] + " structure via \"" + command_cmd + " " + strings.Join(command_args, " ") + "\": " + err.Error())
-	} else {
-		logger.Log("Fixed metadata, standardized " + track.FilenameExt[1:] + " structure and moved song to \"" + dst_file + "\".")
-		os.Remove(src_file)
-	}
-
+	os.Rename(src_file, dst_file)
 	wg.Done()
 }

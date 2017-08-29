@@ -147,8 +147,6 @@ func (track Track) Seems(sequence string) bool {
 	}
 	track_artist = sanitize.Name(track_artist)
 
-	fmt.Println(track_artist + " " + track_title + " [VS] " + sequence_sanitized)
-
 	b_live := strings.Contains(strings.ToLower(track.Title), " live at ")
 	b_cover := strings.Contains(strings.ToLower(track.Title), " cover")
 	b_remix := strings.Contains(strings.ToLower(track.Title), " remix")

@@ -15,7 +15,7 @@ _PKGS = \
 
 _DEPENDENCIES = \
 	github.com/zmb3/spotify \
-	github.com/mikkyang/id3-go \
+	github.com/bogem/id3v2 \
 	github.com/PuerkitoBio/goquery \
 	github.com/fatih/color \
 	github.com/kennygrant/sanitize

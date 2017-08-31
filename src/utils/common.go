@@ -149,10 +149,16 @@ func (track Track) Seems(sequence string) bool {
 
 	for _, track_item := range append([]string{track.Song, track.Artist}, track.Featurings...) {
 		track_item = strings.ToLower(track_item)
+		if track_item[:7] == "cast of" {
+			track_item = strings.Replace(track_item, "cast of")
+		} else if track_item[len(track_item)-5:len(track_item)] == " cast" {
+			track_item = strings.Replace(track_item, "cast")
+		}
 		track_item = strings.Replace(track_item, " & ", " and ", -1)
 		if strings.Contains(track_item, " and ") {
 			track_item = strings.Split(track_item, " and ")[0]
 		}
+		track_item = strings.TrimSpace(track_item)
 		track_item = sanitize.Name(track_item)
 		if !strings.Contains(sequence_sanitized, track_item) {
 			return false

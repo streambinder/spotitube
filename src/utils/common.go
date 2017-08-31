@@ -31,6 +31,13 @@ type Logger struct {
 	Color  func(a ...interface{}) string
 }
 
+const (
+	LogNormal  = iota
+	LogDebug   = iota
+	LogWarning = iota
+	LogFatal   = iota
+)
+
 func NewLogger() Logger {
 	var shell_color func(a ...interface{}) string = color.New(SHELL_COLOR_DEFAULT).SprintFunc()
 	var caller_package string = SHELL_NAME_DEFAULT
@@ -61,19 +68,34 @@ func (logger Logger) ColoredPrefix() string {
 	return logger.Color("[" + space_pre + strings.ToUpper(logger.Prefix) + space_post + "]")
 }
 
-func (logger Logger) Log(message string, fatal ...bool) {
-	var is_fatal bool = (len(fatal) == 1 && fatal[0])
-	if is_fatal {
+func (logger Logger) LogOpt(message string, level int) {
+	if level == LogDebug {
+		message = color.MagentaString(message)
+	} else if level == LogWarning {
+		message = color.YellowString(message)
+	} else if level == LogFatal {
 		message = color.RedString(message)
 	}
 	fmt.Println(logger.ColoredPrefix(), message)
-	if is_fatal {
+	if level == LogFatal {
 		os.Exit(1)
 	}
 }
 
+func (logger Logger) Log(message string) {
+	logger.LogOpt(message, LogNormal)
+}
+
+func (logger Logger) Debug(message string) {
+	logger.LogOpt(message, LogDebug)
+}
+
+func (logger Logger) Warn(message string) {
+	logger.LogOpt(message, LogWarning)
+}
+
 func (logger Logger) Fatal(message string) {
-	logger.Log(message, true)
+	logger.LogOpt(message, LogFatal)
 }
 
 type Track struct {

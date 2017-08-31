@@ -101,7 +101,7 @@ func (track YouTubeTrack) Download() error {
 	command_args := []string{"--output", track.Track.FilenameTemp + ".%(ext)s", "--format", "bestaudio", "--extract-audio", "--audio-format", track.Track.FilenameExt[1:], "--audio-quality", "0", track.URL}
 	_, err := exec.Command(command_cmd, command_args...).Output()
 	if err != nil {
-		logger.Fatal("Something went wrong while executing \"" + command_cmd + " " + strings.Join(command_args, " ") + "\": " + err.Error())
+		logger.Warn("Something went wrong while executing \"" + command_cmd + " " + strings.Join(command_args, " ") + "\": " + err.Error())
 		return err
 	}
 	logger.Log("Song downloaded to: \"" + download_path + "/" + track.Track.FilenameTemp + track.Track.FilenameExt + "\".")

@@ -78,6 +78,7 @@ func (logger Logger) Fatal(message string) {
 
 type Track struct {
 	Title         string
+	Song          string
 	Artist        string
 	Album         string
 	Featurings    []string
@@ -88,6 +89,13 @@ type Track struct {
 }
 
 type Tracks []Track
+
+const (
+	SongTypeLive     = iota
+	SongTypeCover    = iota
+	SongTypeRemix    = iota
+	SongTypeAcoustic = iota
+)
 
 func (tracks Tracks) Has(track Track) bool {
 	for _, having_track := range tracks {
@@ -105,7 +113,16 @@ func (track Track) Normalize() Track {
 	}
 	track.Title = strings.TrimSpace(track.Title)
 	if len(track.Featurings) > 0 {
-		track.Title = track.Title + " (ft. " + strings.Join(track.Featurings, ", ") + ")"
+		if strings.Contains(strings.ToLower(track.Title), "feat. ") || strings.Contains(strings.ToLower(track.Title), "ft. ") {
+			track.Title = strings.Replace(track.Title, "ft. ", "feat. ", -1)
+		} else {
+			var track_featurings = "(feat. " + strings.Join(track.Featurings[:len(track.Featurings)-1], ", ") +
+				" and " + track.Featurings[len(track.Featurings)-1] + ")"
+			track.Title = track.Title + " " + track_featurings
+		}
+		track.Song = strings.Split(track.Title, " (feat. ")[0]
+	} else {
+		track.Song = track.Title
 	}
 
 	track.Album = strings.Replace(track.Album, "[", "(", -1)
@@ -129,53 +146,56 @@ func (track Track) Normalize() Track {
 
 func (track Track) Seems(sequence string) bool {
 	sequence_sanitized := sanitize.Name(strings.ToLower(sequence))
-	track_title := strings.ToLower(track.Title)
-	track_title = strings.Replace(track_title, " & ", " and ", -1)
-	for _, splitter := range []string{" and ", "feat. ", "ft. "} {
-		if strings.Contains(track_title, splitter) {
-			track_title = strings.Split(track_title, splitter)[0]
+
+	for _, track_item := range append([]string{track.Song, track.Artist}, track.Featurings...) {
+		track_item = strings.ToLower(track_item)
+		track_item = strings.Replace(track_item, " & ", " and ", -1)
+		if strings.Contains(track_item, " and ") {
+			track_item = strings.Split(track_item, " and ")[0]
+		}
+		track_item = sanitize.Name(track_item)
+		if !strings.Contains(sequence_sanitized, track_item) {
+			return false
 		}
 	}
-	track_title = sanitize.Name(track_title)
 
-	track_artist := strings.ToLower(track.Artist)
-	track_artist = strings.Replace(track_artist, " & ", " and ", -1)
-	for _, splitter := range []string{" and "} {
-		if strings.Contains(track_artist, splitter) {
-			track_artist = strings.Split(track_artist, splitter)[0]
-		}
+	if !SeemsType(track.Title, SongTypeLive) && SeemsType(sequence_sanitized, SongTypeLive) {
+		return false
+	} else if !SeemsType(track.Title, SongTypeCover) && SeemsType(sequence_sanitized, SongTypeCover) {
+		return false
+	} else if !SeemsType(track.Title, SongTypeRemix) && SeemsType(sequence_sanitized, SongTypeRemix) {
+		return false
+	} else if !SeemsType(track.Title, SongTypeAcoustic) && SeemsType(sequence_sanitized, SongTypeAcoustic) {
+		return false
 	}
-	track_artist = sanitize.Name(track_artist)
 
-	b_live := strings.Contains(strings.ToLower(track.Title), " live at ")
-	b_cover := strings.Contains(strings.ToLower(track.Title), " cover")
-	b_remix := strings.Contains(strings.ToLower(track.Title), " remix")
-	b_radioedit := strings.Contains(strings.ToLower(track.Title), " radio edit")
-	b_acoustic := strings.Contains(strings.ToLower(track.Title), "acoustic")
+	return true
+}
 
-	if strings.Contains(sequence_sanitized, track_title) && strings.Contains(sequence_sanitized, track_artist) {
-		if !b_live && (strings.Contains(strings.ToLower(sequence), " live at ") ||
-			strings.Contains(strings.ToLower(sequence), " @ ") ||
-			strings.Contains(strings.ToLower(sequence), "(live") ||
-			strings.Contains(strings.ToLower(sequence), " perform ") ||
-			strings.Contains(strings.ToLower(sequence), " performs ") ||
-			strings.Contains(strings.ToLower(sequence), " performing ") ||
-			strings.Contains(strings.ToLower(sequence), " performance ")) {
-			return false
-		} else if !b_cover && (strings.Contains(strings.ToLower(sequence), " cover") ||
-			strings.Contains(strings.ToLower(sequence), "(cover") ||
-			strings.Contains(strings.ToLower(sequence), "[cover") ||
-			strings.Contains(strings.ToLower(sequence), "{cover") ||
-			strings.Contains(strings.ToLower(sequence), " vs ") ||
-			strings.Contains(strings.ToLower(sequence), " vs.")) {
-			return false
-		} else if !b_remix && strings.Contains(strings.ToLower(sequence), " remix") {
-			return false
-		} else if !b_radioedit && strings.Contains(strings.ToLower(sequence), " radio edit") {
-			return false
-		} else if !b_acoustic && strings.Contains(strings.ToLower(sequence), "acoustic") {
-			return false
-		} else {
+func SeemsType(sequence string, song_type int) bool {
+	sequence = strings.ToLower(sequence)
+	matching := func(sequence string, song_type_alias string) bool {
+		for _, symbol := range []string{"", "(", "[", "{"} {
+			if strings.Contains(strings.ToLower(sequence), symbol+song_type_alias) {
+				return true
+			}
+		}
+		return false
+	}
+
+	var song_type_aliases []string
+	if song_type == SongTypeLive {
+		song_type_aliases = []string{"@", "live at", "perform"}
+	} else if song_type == SongTypeCover {
+		song_type_aliases = []string{"cover", "vs"}
+	} else if song_type == SongTypeRemix {
+		song_type_aliases = []string{"remix", "radio edit"}
+	} else if song_type == SongTypeAcoustic {
+		song_type_aliases = []string{"acoustic"}
+	}
+
+	for _, song_type_alias := range song_type_aliases {
+		if matching(sequence, song_type_alias) {
 			return true
 		}
 	}

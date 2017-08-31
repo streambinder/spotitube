@@ -191,7 +191,7 @@ func SeemsType(sequence string, song_type int) bool {
 
 	var song_type_aliases []string
 	if song_type == SongTypeLive {
-		song_type_aliases = []string{"@", "live at", "perform"}
+		song_type_aliases = []string{"@", "live at", "perform", "tour"}
 	} else if song_type == SongTypeCover {
 		song_type_aliases = []string{"cover", "vs"}
 	} else if song_type == SongTypeRemix {

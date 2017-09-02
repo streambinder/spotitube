@@ -7,10 +7,10 @@ _spotify-dl_'s birth is caused by two major needs of mine:
 1. Was looking for something exciting and fun to work on in order to learn some of _GO lang_ basics.
 2. Needed some way to speed up the process of downloading my music and automate the process of:
 
-  1. Keep track of music I want to download
-  2. Find the best song file I can (both from _YouTube_ or other sources)
-  3. Download it
-  4. Apply correct metadata
+    1. Keep track of music I want to download
+    2. Find the best song file I can (both from _YouTube_ or other sources)
+    3. Download it
+    4. Apply correct metadata
 
 Thus, my music was recently moving from an offline library kept on my desktop computer to a cloud one, on _Spotify_. And I didn't like that.
 

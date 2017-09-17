@@ -49,26 +49,35 @@ func UrlFor(track Track) (string, error) {
 		return "", err
 	}
 	selection := doc.Find(YOUTUBE_VIDEO_SELECTOR)
+	selection_desc := doc.Find(YOUTUBE_DESC_SELECTOR)
 	for lap, _ := range [2]int{} {
 		for selection_item := range selection.Nodes {
 			item := selection.Eq(selection_item)
-			if item_href, item_href_ok := item.Attr("href"); item_href_ok {
-				if item_title, item_title_ok := item.Attr("title"); item_title_ok {
-					if !(strings.Contains(item_href, "&list=") || strings.Contains(item_href, "/user/")) &&
-						!strings.Contains(strings.ToLower(item_title), " cover") &&
-						track.Seems(item_title) {
-						if strings.Contains(strings.ToLower(item_title), "official video") && lap == 0 {
-							logger.Log("First page readup, temporarily ignoring \"" + item_title + "\".")
-							continue
-						}
-						logger.Log("Video \"" + item_title + "\" matches with track \"" + track.Artist + " - " + track.Title + "\".")
-						return YOUTUBE_VIDEO_PREFIX + item_href, nil
-						break
+			item_href, item_href_ok := item.Attr("href")
+			item_title, item_title_ok := item.Attr("title")
+			item_user, item_user_ok := "", false
+			if selection_item < len(selection_desc.Nodes) {
+				item_desc := selection_desc.Eq(selection_item)
+				item_user, item_user_ok = item_desc.Attr("href")
+				if !item_user_ok {
+					continue
+				}
+			}
 
+			if item_href_ok && item_title_ok && item_user_ok {
+				if !(strings.Contains(item_href, "&list=") || strings.Contains(item_href, "/user/")) && track.Seems(item_title) {
+					if lap == 0 && (strings.Contains(strings.ToLower(item_title), "official video") ||
+						(strings.Contains(item_user, "VEVO") && !(strings.Contains(strings.ToLower(item_title), "(audio)") ||
+							strings.Contains(strings.ToLower(item_title), "lyric")))) {
+						logger.Log("First page readup, temporarily ignoring \"" + item_title + "\" by \"" + item_user + "\".")
+						continue
 					}
+					logger.Log("Video \"" + item_title + "\" matches with track \"" + track.Artist + " - " + track.Title + "\".")
+					return YOUTUBE_VIDEO_PREFIX + item_href, nil
+					break
 				}
 			} else {
-				logger.Log("YouTube video url (from href attr) not found. Continuing scraping...")
+				logger.Log("Non-standard YouTube video entry structure. Continuing scraping...")
 			}
 		}
 	}

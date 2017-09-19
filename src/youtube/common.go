@@ -20,19 +20,15 @@ type YouTubeTrack struct {
 	Track Track
 	ID    string
 	URL   string
+	Title string
+	User  string
 }
 
 func FetchAndDownload(track Track, path string) error {
 	download_path = path
-	url, err := UrlFor(track)
+	youtube_track, err := FindTrack(track)
 	if err != nil {
 		return err
-	}
-	id := IdFromUrl(url)
-	youtube_track := YouTubeTrack{
-		Track: track,
-		ID:    id,
-		URL:   url,
 	}
 	err = youtube_track.Download()
 	if err != nil {
@@ -41,12 +37,12 @@ func FetchAndDownload(track Track, path string) error {
 	return nil
 }
 
-func UrlFor(track Track) (string, error) {
+func FindTrack(track Track) (YouTubeTrack, error) {
 	logger.Log("Searching youtube results to \"" + fmt.Sprintf(YOUTUBE_QUERY_PATTERN, strings.Replace(track.SearchPattern, " ", "+", -1)) + "\".")
 	doc, err := goquery.NewDocument(fmt.Sprintf(YOUTUBE_QUERY_PATTERN, strings.Replace(track.SearchPattern, " ", "+", -1)))
 	if err != nil {
 		logger.Fatal("Cannot retrieve doc from \"" + fmt.Sprintf(YOUTUBE_QUERY_PATTERN, strings.Replace(track.SearchPattern, " ", "+", -1)) + "\": " + err.Error())
-		return "", err
+		return YouTubeTrack{}, err
 	}
 	selection := doc.Find(YOUTUBE_VIDEO_SELECTOR)
 	selection_desc := doc.Find(YOUTUBE_DESC_SELECTOR)
@@ -63,26 +59,28 @@ func UrlFor(track Track) (string, error) {
 					continue
 				}
 			}
-
-			if item_href_ok && item_title_ok && item_user_ok {
-				if !(strings.Contains(item_href, "&list=") || strings.Contains(item_href, "/user/")) && track.Seems(item_title) {
-					if lap == 0 && (strings.Contains(strings.ToLower(item_title), "official video") ||
-						(strings.Contains(item_user, "VEVO") && !(strings.Contains(strings.ToLower(item_title), "(audio)") ||
-							strings.Contains(strings.ToLower(item_title), "lyric")))) {
-						logger.Log("First page readup, temporarily ignoring \"" + item_title + "\" by \"" + item_user + "\".")
-						continue
-					}
-					logger.Log("Video \"" + item_title + "\" matches with track \"" + track.Artist + " - " + track.Title + "\".")
-					return YOUTUBE_VIDEO_PREFIX + item_href, nil
-				}
-			} else {
+			if !(item_href_ok && item_title_ok && item_user_ok) {
 				logger.Log("Non-standard YouTube video entry structure. Continuing scraping...")
+				continue
+			}
+
+			youtube_track := YouTubeTrack{
+				Track: track,
+				ID:    IdFromUrl(item_href),
+				URL:   YOUTUBE_VIDEO_PREFIX + item_href,
+				Title: item_title,
+				User:  item_user,
+			}
+
+			if (lap == 0 && youtube_track.Match(track, false)) ||
+				(lap == 0 && youtube_track.Match(track, true)) {
+				return youtube_track, nil
 			}
 		}
 	}
 
-	logger.Log("YouTube video url (from href attr) not found. Dropping song download.")
-	return "", errors.New("YouTube video url not found")
+	logger.Warn("YouTube video URL not found. Dropping song download.")
+	return YouTubeTrack{}, errors.New("YouTube video URL not found")
 }
 
 func IdFromUrl(url string) string {
@@ -97,6 +95,21 @@ func IdFromUrl(url string) string {
 	} else {
 		return id_part
 	}
+}
+
+func (youtube_track YouTubeTrack) Match(track Track, soft bool) bool {
+	item_title := strings.ToLower(youtube_track.Title)
+	if !(strings.Contains(youtube_track.URL, "&list=") || strings.Contains(youtube_track.URL, "/user/")) && track.Seems(youtube_track.Title) {
+		if !soft && (strings.Contains(item_title, "official video") ||
+			(strings.Contains(youtube_track.User, "VEVO") && !(strings.Contains(item_title, "(audio)") ||
+				strings.Contains(item_title, "lyric")))) {
+			logger.Log("First page readup, temporarily ignoring \"" + youtube_track.Title + "\" by \"" + youtube_track.User + "\".")
+			return false
+		}
+		logger.Log("Video \"" + youtube_track.Title + "\" matches with track \"" + track.Artist + " - " + track.Title + "\".")
+		return true
+	}
+	return false
 }
 
 func (track YouTubeTrack) Download() error {

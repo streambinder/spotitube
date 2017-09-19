@@ -54,10 +54,8 @@ func FindTrack(track Track) (YouTubeTrack, error) {
 			item_user, item_user_ok := "", false
 			if selection_item < len(selection_desc.Nodes) {
 				item_desc := selection_desc.Eq(selection_item)
-				item_user, item_user_ok = item_desc.Attr("href")
-				if !item_user_ok {
-					continue
-				}
+				item_user = item_desc.Text()
+				item_user_ok = true
 			}
 			if !(item_href_ok && item_title_ok && item_user_ok) {
 				logger.Log("Non-standard YouTube video entry structure. Continuing scraping...")
@@ -72,8 +70,13 @@ func FindTrack(track Track) (YouTubeTrack, error) {
 				User:  item_user,
 			}
 
-			if (lap == 0 && youtube_track.Match(track, false)) ||
-				(lap == 0 && youtube_track.Match(track, true)) {
+			// logger.Debug("ID: " + youtube_track.ID +
+			// 	" | URL: " + youtube_track.URL +
+			// 	" | Title: " + youtube_track.Title +
+			// 	" | User: " + youtube_track.User)
+
+			if (lap == 0 && youtube_track.Match(track, true)) ||
+				(lap == 1 && youtube_track.Match(track, false)) {
 				return youtube_track, nil
 			}
 		}
@@ -97,18 +100,23 @@ func IdFromUrl(url string) string {
 	}
 }
 
-func (youtube_track YouTubeTrack) Match(track Track, soft bool) bool {
+func (youtube_track YouTubeTrack) Match(track Track, strict bool) bool {
 	item_title := strings.ToLower(youtube_track.Title)
-	if !(strings.Contains(youtube_track.URL, "&list=") || strings.Contains(youtube_track.URL, "/user/")) && track.Seems(youtube_track.Title) {
-		if !soft && (strings.Contains(item_title, "official video") ||
-			(strings.Contains(youtube_track.User, "VEVO") && !(strings.Contains(item_title, "(audio)") ||
-				strings.Contains(item_title, "lyric")))) {
+
+	if strings.Contains(youtube_track.URL, "&list=") || strings.Contains(youtube_track.URL, "/user/") {
+		return false
+	} else if track.Seems(youtube_track.Title) {
+		if strict &&
+			(strings.Contains(item_title, "official video") ||
+				(strings.Contains(youtube_track.User, "VEVO") &&
+					!(strings.Contains(item_title, "(audio)") || strings.Contains(item_title, "lyric")))) {
 			logger.Log("First page readup, temporarily ignoring \"" + youtube_track.Title + "\" by \"" + youtube_track.User + "\".")
 			return false
 		}
 		logger.Log("Video \"" + youtube_track.Title + "\" matches with track \"" + track.Artist + " - " + track.Title + "\".")
 		return true
 	}
+
 	return false
 }
 

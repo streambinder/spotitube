@@ -169,6 +169,24 @@ func (track Track) Normalize() Track {
 func (track Track) Seems(sequence string) bool {
 	sequence_sanitized := sanitize.Name(strings.ToLower(sequence))
 
+	if !track.SeemsByWordMatch(sequence_sanitized) {
+		return false
+	}
+
+	if !SeemsType(track.Title, SongTypeLive) && SeemsType(sequence_sanitized, SongTypeLive) {
+		return false
+	} else if !SeemsType(track.Title, SongTypeCover) && SeemsType(sequence_sanitized, SongTypeCover) {
+		return false
+	} else if !SeemsType(track.Title, SongTypeRemix) && SeemsType(sequence_sanitized, SongTypeRemix) {
+		return false
+	} else if !SeemsType(track.Title, SongTypeAcoustic) && SeemsType(sequence_sanitized, SongTypeAcoustic) {
+		return false
+	}
+
+	return true
+}
+
+func (track Track) SeemsByWordMatch(sequence string) bool {
 	for _, track_item := range append([]string{track.Song, track.Artist}, track.Featurings...) {
 		track_item = strings.ToLower(track_item)
 		if len(track_item) > 7 && track_item[:7] == "cast of" {
@@ -182,21 +200,10 @@ func (track Track) Seems(sequence string) bool {
 		}
 		track_item = strings.TrimSpace(track_item)
 		track_item = sanitize.Name(track_item)
-		if !strings.Contains(sequence_sanitized, track_item) {
+		if !strings.Contains(sequence, track_item) {
 			return false
 		}
 	}
-
-	if !SeemsType(track.Title, SongTypeLive) && SeemsType(sequence_sanitized, SongTypeLive) {
-		return false
-	} else if !SeemsType(track.Title, SongTypeCover) && SeemsType(sequence_sanitized, SongTypeCover) {
-		return false
-	} else if !SeemsType(track.Title, SongTypeRemix) && SeemsType(sequence_sanitized, SongTypeRemix) {
-		return false
-	} else if !SeemsType(track.Title, SongTypeAcoustic) && SeemsType(sequence_sanitized, SongTypeAcoustic) {
-		return false
-	}
-
 	return true
 }
 

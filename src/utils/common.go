@@ -173,7 +173,7 @@ func (track Track) Seems(sequence string) bool {
 		track_item = strings.ToLower(track_item)
 		if len(track_item) > 7 && track_item[:7] == "cast of" {
 			track_item = strings.Replace(track_item, "cast of", "", -1)
-		} else if len(track_item) > 5 && track_item[len(track_item)-5:len(track_item)] == " cast" {
+		} else if len(track_item) > 5 && track_item[len(track_item)-5:] == " cast" {
 			track_item = strings.Replace(track_item, "cast", "", -1)
 		}
 		track_item = strings.Replace(track_item, " & ", " and ", -1)

@@ -50,7 +50,7 @@ func UrlFor(track Track) (string, error) {
 	}
 	selection := doc.Find(YOUTUBE_VIDEO_SELECTOR)
 	selection_desc := doc.Find(YOUTUBE_DESC_SELECTOR)
-	for lap, _ := range [2]int{} {
+	for lap := range [2]int{} {
 		for selection_item := range selection.Nodes {
 			item := selection.Eq(selection_item)
 			item_href, item_href_ok := item.Attr("href")

@@ -74,7 +74,6 @@ func UrlFor(track Track) (string, error) {
 					}
 					logger.Log("Video \"" + item_title + "\" matches with track \"" + track.Artist + " - " + track.Title + "\".")
 					return YOUTUBE_VIDEO_PREFIX + item_href, nil
-					break
 				}
 			} else {
 				logger.Log("Non-standard YouTube video entry structure. Continuing scraping...")

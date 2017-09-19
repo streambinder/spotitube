@@ -138,8 +138,13 @@ func (track Track) Normalize() Track {
 		if strings.Contains(strings.ToLower(track.Title), "feat. ") || strings.Contains(strings.ToLower(track.Title), "ft. ") {
 			track.Title = strings.Replace(track.Title, "ft. ", "feat. ", -1)
 		} else {
-			var track_featurings = "(feat. " + strings.Join(track.Featurings[:len(track.Featurings)-1], ", ") +
-				" and " + track.Featurings[len(track.Featurings)-1] + ")"
+			var track_featurings string
+			if len(track.Featurings) > 1 {
+				track_featurings = "(feat. " + strings.Join(track.Featurings[:len(track.Featurings)-1], ", ") +
+					" and " + track.Featurings[len(track.Featurings)-1] + ")"
+			} else {
+				track_featurings = "(feat. " + track.Featurings[0] + ")"
+			}
 			track.Title = track.Title + " " + track_featurings
 		}
 		track.Song = strings.Split(track.Title, " (feat. ")[0]

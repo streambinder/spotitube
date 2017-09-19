@@ -60,11 +60,15 @@ func FindTrack(track Track) (YouTubeTrack, error) {
 			if !(item_href_ok && item_title_ok && item_user_ok) {
 				logger.Log("Non-standard YouTube video entry structure. Continuing scraping...")
 				continue
+			} else if !strings.Contains(strings.ToLower(item_href), "youtu.be") &&
+				!strings.Contains(strings.ToLower(item_href), "watch?v=") {
+				logger.Log("Advertising URL found. Continuing scraping...")
+				continue
 			}
 
 			youtube_track := YouTubeTrack{
 				Track: track,
-				ID:    IdFromUrl(item_href),
+				ID:    IdFromUrl(YOUTUBE_VIDEO_PREFIX + item_href),
 				URL:   YOUTUBE_VIDEO_PREFIX + item_href,
 				Title: item_title,
 				User:  item_user,

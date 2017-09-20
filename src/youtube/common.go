@@ -114,7 +114,7 @@ func (youtube_track YouTubeTrack) Match(track Track, strict bool) bool {
 			(strings.Contains(item_title, "official video") ||
 				(strings.Contains(youtube_track.User, "VEVO") &&
 					!(strings.Contains(item_title, "(audio)") || strings.Contains(item_title, "lyric")))) {
-			logger.Log("First page readup, temporarily ignoring \"" + youtube_track.Title + "\" by \"" + youtube_track.User + "\".")
+			logger.Debug("First page readup, temporarily ignoring \"" + youtube_track.Title + "\" by \"" + youtube_track.User + "\".")
 			return false
 		}
 		logger.Log("Video \"" + youtube_track.Title + "\" matches with track \"" + track.Artist + " - " + track.Title + "\".")

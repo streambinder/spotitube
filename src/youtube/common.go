@@ -74,10 +74,10 @@ func FindTrack(track Track) (YouTubeTrack, error) {
 				User:  item_user,
 			}
 
-			// logger.Debug("ID: " + youtube_track.ID +
-			// 	" | URL: " + youtube_track.URL +
-			// 	" | Title: " + youtube_track.Title +
-			// 	" | User: " + youtube_track.User)
+			logger.Debug("ID: " + youtube_track.ID +
+				" | URL: " + youtube_track.URL +
+				" | Title: " + youtube_track.Title +
+				" | User: " + youtube_track.User)
 
 			if (lap == 0 && youtube_track.Match(track, true)) ||
 				(lap == 1 && youtube_track.Match(track, false)) {

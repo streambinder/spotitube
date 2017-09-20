@@ -39,7 +39,8 @@ const (
 )
 
 var (
-	log_to_file *bool = GetBoolPointer(false)
+	enable_logfile *bool = GetBoolPointer(false)
+	enable_debug   *bool = GetBoolPointer(false)
 )
 
 type Logger struct {
@@ -83,6 +84,12 @@ func (logger Logger) ColoredPrefix() string {
 }
 
 func (logger Logger) LogOpt(message string, level int) {
+	if !(*enable_debug) && level == LogDebug {
+		return
+	}
+	if *enable_logfile {
+		logger.LogWrite(message)
+	}
 	if level == LogDebug {
 		message = color.MagentaString(message)
 	} else if level == LogWarning {
@@ -91,9 +98,6 @@ func (logger Logger) LogOpt(message string, level int) {
 		message = color.RedString(message)
 	}
 	fmt.Println(logger.ColoredPrefix(), message)
-	if *log_to_file {
-		logger.LogWrite(message)
-	}
 	if level == LogFatal {
 		os.Exit(1)
 	}
@@ -116,12 +120,12 @@ func (logger Logger) Fatal(message string) {
 }
 
 func (logger Logger) LogWrite(message string) {
-	f, err := os.OpenFile(logger.File, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	logfile, err := os.OpenFile(logger.File, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
 		panic(err)
 	}
-	defer f.Close()
-	if _, err = f.WriteString(time.Now().Format("2006-01-02 15:04:05") + " " +
+	defer logfile.Close()
+	if _, err = logfile.WriteString(time.Now().Format("2006-01-02 15:04:05") + " " +
 		logger.UncoloredPrefix() + " " +
 		message + "\n"); err != nil {
 		panic(err)
@@ -129,12 +133,16 @@ func (logger Logger) LogWrite(message string) {
 }
 
 func (logger Logger) SetFile(path string) {
-	logger.EnableLogToFile()
+	logger.EnableLogFile()
 	logger.File = path
 }
 
-func (logger Logger) EnableLogToFile() {
-	log_to_file = GetBoolPointer(true)
+func (logger Logger) EnableLogFile() {
+	enable_logfile = GetBoolPointer(true)
+}
+
+func (logger Logger) EnableDebug() {
+	enable_debug = GetBoolPointer(true)
 }
 
 type Track struct {

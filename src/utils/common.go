@@ -262,8 +262,8 @@ func (track Track) SeemsByWordMatch(sequence string) bool {
 func SeemsType(sequence string, song_type int) bool {
 	sequence = strings.ToLower(sequence)
 	matching := func(sequence string, song_type_alias string) bool {
-		for _, symbol := range []string{"", "(", "[", "{"} {
-			if strings.Contains(strings.ToLower(sequence), symbol+song_type_alias) {
+		for _, symbol := range []string{" ", "(", "[", "{"} {
+			if strings.Contains(sequence, symbol+song_type_alias) {
 				return true
 			}
 		}

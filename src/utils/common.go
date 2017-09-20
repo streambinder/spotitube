@@ -5,6 +5,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/kennygrant/sanitize"
@@ -24,12 +25,11 @@ func IsDir(path string) bool {
 	return file_stat.IsDir()
 }
 
-// spotify-dl utils
-
-type Logger struct {
-	Prefix string
-	Color  func(a ...interface{}) string
+func GetBoolPointer(value bool) *bool {
+	return &value
 }
+
+// spotify-dl utils
 
 const (
 	LogNormal  = iota
@@ -37,6 +37,16 @@ const (
 	LogWarning = iota
 	LogFatal   = iota
 )
+
+var (
+	log_to_file *bool = GetBoolPointer(false)
+)
+
+type Logger struct {
+	Prefix string
+	Color  func(a ...interface{}) string
+	File   string
+}
 
 func NewLogger() Logger {
 	var shell_color func(a ...interface{}) string = color.New(SHELL_COLOR_DEFAULT).SprintFunc()
@@ -55,17 +65,21 @@ func NewLogger() Logger {
 	logger := Logger{
 		Prefix: caller_package,
 		Color:  shell_color,
+		File:   DEFAULT_LOG_PATH,
 	}
 	return logger
 }
-
-func (logger Logger) ColoredPrefix() string {
+func (logger Logger) UncoloredPrefix() string {
 	space_pre := strings.Repeat(" ", ((SHELL_NAME_MIN_LENGTH - len(logger.Prefix)) / 2))
 	space_post := space_pre
 	if len(logger.Prefix)%2 == 1 {
 		space_post = space_post + " "
 	}
-	return logger.Color("[" + space_pre + strings.ToUpper(logger.Prefix) + space_post + "]")
+	return "[" + space_pre + strings.ToUpper(logger.Prefix) + space_post + "]"
+}
+
+func (logger Logger) ColoredPrefix() string {
+	return logger.Color(logger.UncoloredPrefix())
 }
 
 func (logger Logger) LogOpt(message string, level int) {
@@ -77,6 +91,9 @@ func (logger Logger) LogOpt(message string, level int) {
 		message = color.RedString(message)
 	}
 	fmt.Println(logger.ColoredPrefix(), message)
+	if *log_to_file {
+		logger.LogWrite(message)
+	}
 	if level == LogFatal {
 		os.Exit(1)
 	}
@@ -96,6 +113,28 @@ func (logger Logger) Warn(message string) {
 
 func (logger Logger) Fatal(message string) {
 	logger.LogOpt(message, LogFatal)
+}
+
+func (logger Logger) LogWrite(message string) {
+	f, err := os.OpenFile(logger.File, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	if _, err = f.WriteString(time.Now().Format("2006-01-02 15:04:05") + " " +
+		logger.UncoloredPrefix() + " " +
+		message + "\n"); err != nil {
+		panic(err)
+	}
+}
+
+func (logger Logger) SetFile(path string) {
+	logger.EnableLogToFile()
+	logger.File = path
+}
+
+func (logger Logger) EnableLogToFile() {
+	log_to_file = GetBoolPointer(true)
 }
 
 type Track struct {

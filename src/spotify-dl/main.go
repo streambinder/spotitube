@@ -24,13 +24,20 @@ var (
 	wait_group     sync.WaitGroup
 	arg_folder     *string
 	arg_playlist   *string
+	arg_log        *bool
 	logger         = NewLogger()
 )
 
 func main() {
 	arg_folder = flag.String("folder", "~/Music", "Folder to sync with music.")
 	arg_playlist = flag.String("playlist", "none", "Playlist URI to synchronize.")
+	arg_log = flag.Bool("log", false, "Enable logging into file ./spotify-dl.log")
 	flag.Parse()
+
+	if *arg_log {
+		logger.SetFile(DEFAULT_LOG_PATH)
+	}
+
 	if !(IsDir(*arg_folder)) {
 		logger.Fatal("Chosen music folder does not exist: " + *arg_folder)
 	} else {

@@ -25,6 +25,7 @@ var (
 	arg_folder     *string
 	arg_playlist   *string
 	arg_log        *bool
+	arg_debug      *bool
 	logger         = NewLogger()
 )
 
@@ -32,10 +33,15 @@ func main() {
 	arg_folder = flag.String("folder", "~/Music", "Folder to sync with music.")
 	arg_playlist = flag.String("playlist", "none", "Playlist URI to synchronize.")
 	arg_log = flag.Bool("log", false, "Enable logging into file ./spotify-dl.log")
+	arg_debug = flag.Bool("debug", false, "Enable debug messages")
 	flag.Parse()
 
 	if *arg_log {
 		logger.SetFile(DEFAULT_LOG_PATH)
+	}
+
+	if *arg_debug {
+		logger.EnableDebug()
 	}
 
 	if !(IsDir(*arg_folder)) {

@@ -41,7 +41,7 @@ func FindTrack(track Track) (YouTubeTrack, error) {
 	logger.Log("Searching youtube results to \"" + fmt.Sprintf(YOUTUBE_QUERY_PATTERN, strings.Replace(track.SearchPattern, " ", "+", -1)) + "\".")
 	doc, err := goquery.NewDocument(fmt.Sprintf(YOUTUBE_QUERY_PATTERN, strings.Replace(track.SearchPattern, " ", "+", -1)))
 	if err != nil {
-		logger.Fatal("Cannot retrieve doc from \"" + fmt.Sprintf(YOUTUBE_QUERY_PATTERN, strings.Replace(track.SearchPattern, " ", "+", -1)) + "\": " + err.Error())
+		logger.Warn("Cannot retrieve doc from \"" + fmt.Sprintf(YOUTUBE_QUERY_PATTERN, strings.Replace(track.SearchPattern, " ", "+", -1)) + "\": " + err.Error())
 		return YouTubeTrack{}, err
 	}
 	selection := doc.Find(YOUTUBE_VIDEO_SELECTOR)
@@ -98,22 +98,26 @@ func IdFromUrl(url string) string {
 		id_part = strings.Split(url, "watch?v=")[1]
 	}
 	if strings.Contains(id_part, "?") {
-		return strings.Split(id_part, "?")[0]
-	} else {
-		return id_part
+		id_part = strings.Split(id_part, "?")[0]
 	}
+	if strings.Contains(id_part, "&list") {
+		id_part = strings.Split(id_part, "&list")[0]
+	}
+	return id_part
 }
 
 func (youtube_track YouTubeTrack) Match(track Track, strict bool) bool {
 	item_title := strings.ToLower(youtube_track.Title)
 
 	if strings.Contains(youtube_track.URL, "&list=") || strings.Contains(youtube_track.URL, "/user/") {
+		logger.Debug("Track is actually pointing to playlist or user.")
 		return false
 	} else if track.Seems(youtube_track.Title) {
+		logger.Debug("Song seems that one: checking for VEVO.")
 		if strict &&
 			(strings.Contains(item_title, "official video") ||
 				(strings.Contains(youtube_track.User, "VEVO") &&
-					!(strings.Contains(item_title, "(audio)") || strings.Contains(item_title, "lyric")))) {
+					!(strings.Contains(item_title, "audio") || strings.Contains(item_title, "lyric")))) {
 			logger.Debug("First page readup, temporarily ignoring \"" + youtube_track.Title + "\" by \"" + youtube_track.User + "\".")
 			return false
 		}

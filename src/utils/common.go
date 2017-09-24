@@ -160,6 +160,7 @@ const (
 	SongTypeCover    = iota
 	SongTypeRemix    = iota
 	SongTypeAcoustic = iota
+	SongTypeKaraoke  = iota
 )
 
 type Track struct {
@@ -188,7 +189,7 @@ func (tracks Tracks) Has(track Track) bool {
 
 func (track Track) Normalize() Track {
 	track.SongType = SongTypeAlbum
-	for song_type := range []int{SongTypeLive, SongTypeCover, SongTypeRemix, SongTypeAcoustic} {
+	for song_type := range []int{SongTypeLive, SongTypeCover, SongTypeRemix, SongTypeAcoustic, SongTypeKaraoke} {
 		if SeemsType(track.Title, song_type) {
 			track.SongType = song_type
 		}
@@ -241,14 +242,10 @@ func (track Track) Seems(sequence string) bool {
 		return false
 	}
 
-	if SeemsType(sequence, SongTypeLive) && track.SongType != SongTypeLive {
-		return false
-	} else if SeemsType(sequence, SongTypeCover) && track.SongType != SongTypeCover {
-		return false
-	} else if SeemsType(sequence, SongTypeRemix) && track.SongType != SongTypeRemix {
-		return false
-	} else if SeemsType(sequence, SongTypeAcoustic) && track.SongType != SongTypeAcoustic {
-		return false
+	for song_type := range []int{SongTypeLive, SongTypeCover, SongTypeRemix, SongTypeAcoustic, SongTypeKaraoke} {
+		if SeemsType(track.sequence, song_type) && track.SongType != song_type {
+			return false
+		}
 	}
 
 	return true
@@ -291,6 +288,8 @@ func SeemsType(sequence string, song_type int) bool {
 		song_type_aliases = []string{"remix", "radio edit"}
 	} else if song_type == SongTypeAcoustic {
 		song_type_aliases = []string{"acoustic"}
+	} else if song_type == SongTypeKaraoke {
+		song_type_aliases = []string{"karaoke"}
 	}
 
 	for _, song_type_alias := range song_type_aliases {

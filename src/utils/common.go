@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,6 +24,14 @@ func IsDir(path string) bool {
 		return false
 	}
 	return file_stat.IsDir()
+}
+
+func MakeRange(min, max int) []int {
+	a := make([]int, max-min+1)
+	for i := range a {
+		a[i] = min + i
+	}
+	return a
 }
 
 func GetBoolPointer(value bool) *bool {
@@ -145,6 +154,14 @@ func (logger Logger) EnableDebug() {
 	enable_debug = GetBoolPointer(true)
 }
 
+const (
+	SongTypeAlbum    = iota
+	SongTypeLive     = iota
+	SongTypeCover    = iota
+	SongTypeRemix    = iota
+	SongTypeAcoustic = iota
+)
+
 type Track struct {
 	Title         string
 	Song          string
@@ -155,16 +172,10 @@ type Track struct {
 	FilenameTemp  string
 	FilenameExt   string
 	SearchPattern string
+	SongType      int
 }
 
 type Tracks []Track
-
-const (
-	SongTypeLive     = iota
-	SongTypeCover    = iota
-	SongTypeRemix    = iota
-	SongTypeAcoustic = iota
-)
 
 func (tracks Tracks) Has(track Track) bool {
 	for _, having_track := range tracks {
@@ -176,6 +187,13 @@ func (tracks Tracks) Has(track Track) bool {
 }
 
 func (track Track) Normalize() Track {
+	track.SongType = SongTypeAlbum
+	for song_type := range []int{SongTypeLive, SongTypeCover, SongTypeRemix, SongTypeAcoustic} {
+		if SeemsType(track.Title, song_type) {
+			track.SongType = song_type
+		}
+	}
+
 	track.Title = strings.Split(track.Title, " - ")[0]
 	if strings.Contains(track.Title, " live ") {
 		track.Title = strings.Split(track.Title, " live ")[0]
@@ -219,19 +237,17 @@ func (track Track) Normalize() Track {
 }
 
 func (track Track) Seems(sequence string) bool {
-	sequence_sanitized := sanitize.Name(strings.ToLower(sequence))
-
-	if !track.SeemsByWordMatch(sequence_sanitized) {
+	if !track.SeemsByWordMatch(sequence) {
 		return false
 	}
 
-	if !SeemsType(track.Title, SongTypeLive) && SeemsType(sequence_sanitized, SongTypeLive) {
+	if SeemsType(sequence, SongTypeLive) && track.SongType != SongTypeLive {
 		return false
-	} else if !SeemsType(track.Title, SongTypeCover) && SeemsType(sequence_sanitized, SongTypeCover) {
+	} else if SeemsType(sequence, SongTypeCover) && track.SongType != SongTypeCover {
 		return false
-	} else if !SeemsType(track.Title, SongTypeRemix) && SeemsType(sequence_sanitized, SongTypeRemix) {
+	} else if SeemsType(sequence, SongTypeRemix) && track.SongType != SongTypeRemix {
 		return false
-	} else if !SeemsType(track.Title, SongTypeAcoustic) && SeemsType(sequence_sanitized, SongTypeAcoustic) {
+	} else if SeemsType(sequence, SongTypeAcoustic) && track.SongType != SongTypeAcoustic {
 		return false
 	}
 
@@ -239,6 +255,7 @@ func (track Track) Seems(sequence string) bool {
 }
 
 func (track Track) SeemsByWordMatch(sequence string) bool {
+	sequence = sanitize.Name(strings.ToLower(sequence))
 	for _, track_item := range append([]string{track.Song, track.Artist}, track.Featurings...) {
 		track_item = strings.ToLower(track_item)
 		if len(track_item) > 7 && track_item[:7] == "cast of" {
@@ -260,19 +277,14 @@ func (track Track) SeemsByWordMatch(sequence string) bool {
 }
 
 func SeemsType(sequence string, song_type int) bool {
-	sequence = strings.ToLower(sequence)
-	matching := func(sequence string, song_type_alias string) bool {
-		for _, symbol := range []string{" ", "(", "[", "{"} {
-			if strings.Contains(sequence, symbol+song_type_alias) {
-				return true
-			}
-		}
-		return false
-	}
+	sequence = sanitize.Name(strings.ToLower(sequence))
 
 	var song_type_aliases []string
 	if song_type == SongTypeLive {
 		song_type_aliases = []string{"@", "live", "perform", "tour"}
+		for _, year := range MakeRange(1950, 2050) {
+			song_type_aliases = append(song_type_aliases, strconv.Itoa(year))
+		}
 	} else if song_type == SongTypeCover {
 		song_type_aliases = []string{"cover", "vs"}
 	} else if song_type == SongTypeRemix {
@@ -282,7 +294,10 @@ func SeemsType(sequence string, song_type int) bool {
 	}
 
 	for _, song_type_alias := range song_type_aliases {
-		if matching(sequence, song_type_alias) {
+		if len(sanitize.Name(strings.ToLower(song_type_alias))) == len(song_type_alias) {
+			song_type_alias = sanitize.Name(strings.ToLower(song_type_alias))
+		}
+		if strings.Contains(sequence, song_type_alias) {
 			return true
 		}
 	}

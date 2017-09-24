@@ -243,7 +243,7 @@ func (track Track) Seems(sequence string) bool {
 	}
 
 	for song_type := range []int{SongTypeLive, SongTypeCover, SongTypeRemix, SongTypeAcoustic, SongTypeKaraoke} {
-		if SeemsType(track.sequence, song_type) && track.SongType != song_type {
+		if SeemsType(sequence, song_type) && track.SongType != song_type {
 			return false
 		}
 	}

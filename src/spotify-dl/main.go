@@ -52,6 +52,9 @@ func main() {
 
 	wait_group.Add(1)
 	go LocalLibrary(&wait_group)
+	if *arg_debug {
+		wait_group.Wait()
+	}
 	var tracks_online []api.FullTrack
 	if *arg_playlist == "none" {
 		tracks_online = spotify.AuthAndTracks()
@@ -111,6 +114,9 @@ func main() {
 			} else {
 				wait_group.Add(1)
 				go MetadataAndMove(track, &wait_group)
+				if *arg_debug {
+					wait_group.Wait()
+				}
 			}
 		}
 		wait_group.Wait()

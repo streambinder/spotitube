@@ -274,8 +274,6 @@ func (track Track) SeemsByWordMatch(sequence string) bool {
 }
 
 func SeemsType(sequence string, song_type int) bool {
-	sequence = sanitize.Name(strings.ToLower(sequence))
-
 	var song_type_aliases []string
 	if song_type == SongTypeLive {
 		song_type_aliases = []string{"@", "live", "perform", "tour"}
@@ -293,10 +291,16 @@ func SeemsType(sequence string, song_type int) bool {
 	}
 
 	for _, song_type_alias := range song_type_aliases {
+		sequence_tmp := sequence
+		if len(song_type_alias) == 1 {
+			sequence_tmp = strings.ToLower(sequence)
+		} else {
+			sequence_tmp = sanitize.Name(strings.ToLower(sequence))
+		}
 		if len(sanitize.Name(strings.ToLower(song_type_alias))) == len(song_type_alias) {
 			song_type_alias = sanitize.Name(strings.ToLower(song_type_alias))
 		}
-		if strings.Contains(sequence, song_type_alias) {
+		if strings.Contains(sequence_tmp, song_type_alias) {
 			return true
 		}
 	}

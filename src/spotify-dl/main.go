@@ -1,6 +1,7 @@
 package main
 
 import (
+	"exec"
 	"flag"
 	"io/ioutil"
 	"os"
@@ -24,6 +25,7 @@ var (
 	wait_group     sync.WaitGroup
 	arg_folder     *string
 	arg_playlist   *string
+	arg_disnorm    *bool
 	arg_log        *bool
 	arg_debug      *bool
 	logger         = NewLogger()
@@ -32,6 +34,7 @@ var (
 func main() {
 	arg_folder = flag.String("folder", "~/Music", "Folder to sync with music.")
 	arg_playlist = flag.String("playlist", "none", "Playlist URI to synchronize.")
+	arg_disnorm = flag.Bool("disnorm", false, "Disable songs volume normalization")
 	arg_log = flag.Bool("log", false, "Enable logging into file ./spotify-dl.log")
 	arg_debug = flag.Bool("debug", false, "Enable debug messages")
 	flag.Parse()
@@ -113,7 +116,7 @@ func main() {
 				tracks_failed = append(tracks_failed, track)
 			} else {
 				wait_group.Add(1)
-				go MetadataAndMove(track, &wait_group)
+				go MetadataNormalizeAndMove(track, &wait_group)
 				if *arg_debug {
 					wait_group.Wait()
 				}
@@ -161,7 +164,7 @@ func LocalLibrary(wg *sync.WaitGroup) {
 	wg.Done()
 }
 
-func MetadataAndMove(track Track, wg *sync.WaitGroup) {
+func MetadataNormalizeAndMove(track Track, wg *sync.WaitGroup) {
 	src_file := *arg_folder + "/" + track.FilenameTemp + track.FilenameExt
 	dst_file := *arg_folder + "/" + track.Filename + track.FilenameExt
 	track_mp3, err := id3.Open(src_file, id3.Options{Parse: true})
@@ -179,7 +182,20 @@ func MetadataAndMove(track Track, wg *sync.WaitGroup) {
 		track_mp3.Save()
 	}
 
-	os.Remove(dst_file)
-	os.Rename(src_file, dst_file)
+	if !(*arg_disnorm) {
+		os.Remove(dst_file)
+		command_cmd := "ffmpeg"
+		command_args := []string{"-i", src_file, "-af", "volume=+5dB", "-y", dst_file}
+		logger.Log("Normalizing volume for: " + track.Filename + ".")
+		_, err = exec.Command(command_cmd, command_args...).Output()
+		if err != nil {
+			logger.Warn("Something went wrong while normalizing song volume: " + err.Error())
+			os.Remove(src_file)
+		}
+	} else {
+		os.Remove(dst_file)
+		os.Rename(src_file, dst_file)
+	}
+
 	wg.Done()
 }

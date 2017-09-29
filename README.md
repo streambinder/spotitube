@@ -83,6 +83,12 @@ spotify-dl -folder ~/Music
 spotify-dl -folder ~/Music -playlist spotify:user:spotify:playlist:37i9dQZF1DWSQScAbo5nGF
 ```
 
+#### Additional flags
+
+You may want to use some of the following input flags:
+
+1. `-disnorm`: disable songs volume normalization. Although volume normalization is really useful, as lot of songs gets downloaded with several `max_volume` values, resulting into some of them with very low volume level, this option (enabled by default) make the process slow down.
+
 #### Developers
 
 For developers, maybe two additional flags could be really useful to simplify the troubleshooting and bugfixing process:

@@ -7,13 +7,15 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/AlecAivazis/survey"
 	"github.com/PuerkitoBio/goquery"
 	. "utils"
 )
 
 var (
+	interactive   *bool = GetBoolPointer(false)
 	download_path string
-	logger        = NewLogger()
+	logger        Logger = NewLogger()
 )
 
 type YouTubeTrack struct {
@@ -22,6 +24,10 @@ type YouTubeTrack struct {
 	URL   string
 	Title string
 	User  string
+}
+
+func SetInteractive(set_interactive *bool) {
+	interactive = set_interactive
 }
 
 func FetchAndDownload(track Track, path string) error {
@@ -79,7 +85,19 @@ func FindTrack(track Track) (YouTubeTrack, error) {
 				" | Title: " + youtube_track.Title +
 				" | User: " + youtube_track.User)
 
-			if (lap == 0 && youtube_track.Match(track, true)) ||
+			ans := false
+			if *interactive {
+				prompt := &survey.Confirm{
+					Message: "Do you want to download \"" + youtube_track.Title + "\" by \"" + youtube_track.User + "\" (" + youtube_track.URL + ")?",
+				}
+				survey.AskOne(prompt, &ans, nil)
+				if !ans {
+					continue
+				}
+			}
+
+			if ans ||
+				(lap == 0 && youtube_track.Match(track, true)) ||
 				(lap == 1 && youtube_track.Match(track, false)) {
 				return youtube_track, nil
 			}

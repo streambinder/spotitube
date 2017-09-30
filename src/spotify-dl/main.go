@@ -1,10 +1,10 @@
 package main
 
 import (
-	"exec"
 	"flag"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"spotify"
@@ -19,22 +19,24 @@ import (
 )
 
 var (
-	tracks_offline Tracks
-	tracks_delta   Tracks
-	tracks_failed  Tracks
-	wait_group     sync.WaitGroup
-	arg_folder     *string
-	arg_playlist   *string
-	arg_disnorm    *bool
-	arg_log        *bool
-	arg_debug      *bool
-	logger         = NewLogger()
+	tracks_offline  Tracks
+	tracks_delta    Tracks
+	tracks_failed   Tracks
+	wait_group      sync.WaitGroup
+	arg_folder      *string
+	arg_playlist    *string
+	arg_disnorm     *bool
+	arg_interactive *bool
+	arg_log         *bool
+	arg_debug       *bool
+	logger          Logger = NewLogger()
 )
 
 func main() {
 	arg_folder = flag.String("folder", "~/Music", "Folder to sync with music.")
 	arg_playlist = flag.String("playlist", "none", "Playlist URI to synchronize.")
 	arg_disnorm = flag.Bool("disnorm", false, "Disable songs volume normalization")
+	arg_interactive = flag.Bool("interactive", false, "Enable interactive mode")
 	arg_log = flag.Bool("log", false, "Enable logging into file ./spotify-dl.log")
 	arg_debug = flag.Bool("debug", false, "Enable debug messages")
 	flag.Parse()
@@ -107,6 +109,7 @@ func main() {
 	}()
 
 	if len(tracks_delta) > 0 {
+		youtube.SetInteractive(arg_interactive)
 		logger.Log(strconv.Itoa(len(tracks_delta)) + " missing songs, " + strconv.Itoa(len(tracks_online)-len(tracks_delta)) + " ignored.")
 		for track_index, track := range tracks_delta {
 			logger.Log(strconv.Itoa(track_index+1) + "/" + strconv.Itoa(len(tracks_delta)) + ": \"" + track.Filename + "\"")

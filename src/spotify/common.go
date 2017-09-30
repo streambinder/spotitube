@@ -13,12 +13,12 @@ import (
 )
 
 var (
-	auth           = spotify.NewAuthenticator(SPOTIFY_REDIRECT_URI, spotify.ScopeUserLibraryRead, spotify.ScopePlaylistReadPrivate, spotify.ScopePlaylistReadCollaborative)
-	ch             = make(chan *spotify.Client)
-	state          = "state"
-	logger         = NewLogger()
-	playlist_id    = ""
-	playlist_owner = ""
+	auth                  = spotify.NewAuthenticator(SPOTIFY_REDIRECT_URI, spotify.ScopeUserLibraryRead, spotify.ScopePlaylistReadPrivate, spotify.ScopePlaylistReadCollaborative)
+	ch                    = make(chan *spotify.Client)
+	state                 = "state"
+	logger         Logger = NewLogger()
+	playlist_id           = ""
+	playlist_owner        = ""
 )
 
 func AuthAndTracks(parameters ...string) []spotify.FullTrack {

@@ -35,7 +35,7 @@ var (
 )
 
 func main() {
-	arg_folder = flag.String("folder", "~/Music", "Folder to sync with music.")
+	arg_folder = flag.String("folder", ".", "Folder to sync with music.")
 	arg_playlist = flag.String("playlist", "none", "Playlist URI to synchronize.")
 	arg_disnorm = flag.Bool("disnorm", false, "Disable songs volume normalization")
 	arg_interactive = flag.Bool("interactive", false, "Enable interactive mode")

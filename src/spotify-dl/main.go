@@ -223,7 +223,7 @@ func MetadataNormalizeAndMove(track Track, wg *sync.WaitGroup) {
 			logger.Warn("Unable to pull max_volume delta to be applied along with song volume normalization: " + normalization_delta + ".")
 			normalization_delta = "0"
 		}
-		command_args = []string{"-i", src_file, "-af", "volume=+" + normalization_delta + "dB", "-y", dst_file}
+		command_args = []string{"-i", src_file, "-af", "volume=+" + normalization_delta + "dB", "-b:a", "320k", "-y", dst_file}
 		logger.Log("Normalizing volume by " + normalization_delta + "dB for: " + track.Filename + ".")
 		logger.Debug("Using command: \"" + command_cmd + " " + strings.Join(command_args, " ") + "\"")
 		if _, command_err = exec.Command(command_cmd, command_args...).Output(); command_err != nil {

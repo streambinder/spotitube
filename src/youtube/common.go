@@ -60,7 +60,7 @@ func FindTrack(track Track) (YouTubeTrack, error) {
 			item_user, item_user_ok := "", false
 			if selection_item < len(selection_desc.Nodes) {
 				item_desc := selection_desc.Eq(selection_item)
-				item_user = item_desc.Text()
+				item_user = strings.TrimSpace(item_desc.Text())
 				item_user_ok = true
 			}
 			if !(item_href_ok && item_title_ok && item_user_ok) {

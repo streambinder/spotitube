@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"flag"
 	"io/ioutil"
 	"os"
@@ -168,6 +170,8 @@ func LocalLibrary(wg *sync.WaitGroup) {
 }
 
 func MetadataNormalizeAndMove(track Track, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	src_file := *arg_folder + "/" + track.FilenameTemp + track.FilenameExt
 	dst_file := *arg_folder + "/" + track.Filename + track.FilenameExt
 	track_mp3, err := id3.Open(src_file, id3.Options{Parse: true})
@@ -186,19 +190,46 @@ func MetadataNormalizeAndMove(track Track, wg *sync.WaitGroup) {
 	}
 
 	if !(*arg_disnorm) {
+		defer os.Remove(src_file)
 		os.Remove(dst_file)
-		command_cmd := "ffmpeg"
-		command_args := []string{"-i", src_file, "-af", "volume=+5dB", "-y", dst_file}
-		logger.Log("Normalizing volume for: " + track.Filename + ".")
-		_, err = exec.Command(command_cmd, command_args...).Output()
-		if err != nil {
-			logger.Warn("Something went wrong while normalizing song volume: " + err.Error())
-			os.Remove(src_file)
+
+		var (
+			command_cmd         = "ffmpeg"
+			command_args        []string
+			command_out         bytes.Buffer
+			command_err         error
+			normalization_delta string
+		)
+
+		command_args = []string{"-i", src_file, "-af", "volumedetect", "-f", "null", "-y", "null"}
+		logger.Debug("Getting max_volume value: \"" + command_cmd + " " + strings.Join(command_args, " ") + "\".")
+		command_obj := exec.Command(command_cmd, command_args...)
+		command_obj.Stderr = &command_out
+		command_err = command_obj.Run()
+		if command_err != nil {
+			logger.Warn("Unable to use ffmpeg to pull max_volume song value: " + command_err.Error() + ".")
+			normalization_delta = "0"
+		} else {
+			command_scanner := bufio.NewScanner(strings.NewReader(command_out.String()))
+			for command_scanner.Scan() {
+				if strings.Contains(command_scanner.Text(), "max_volume:") {
+					normalization_delta = strings.Split(strings.Split(command_scanner.Text(), "max_volume:")[1], " ")[1]
+					normalization_delta = strings.Replace(normalization_delta, "-", "", -1)
+				}
+			}
+		}
+
+		if _, command_err = strconv.ParseFloat(normalization_delta, 64); command_err != nil {
+			logger.Warn("Unable to pull max_volume delta to be applied along with song volume normalization: " + normalization_delta + ".")
+			normalization_delta = "0"
+		}
+		command_args = []string{"-i", src_file, "-af", "volume=+" + normalization_delta + "dB", "-y", dst_file}
+		logger.Log("Normalizing volume by " + normalization_delta + "dB for: " + track.Filename + ".")
+		logger.Debug("Using command: \"" + command_cmd + " " + strings.Join(command_args, " ") + "\"")
+		if _, command_err = exec.Command(command_cmd, command_args...).Output(); command_err != nil {
+			logger.Warn("Something went wrong while normalizing song \"" + track.Filename + "\" volume: " + command_err.Error())
 		}
 	} else {
-		os.Remove(dst_file)
 		os.Rename(src_file, dst_file)
 	}
-
-	wg.Done()
 }

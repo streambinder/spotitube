@@ -85,6 +85,7 @@ func main() {
 				}
 				return featurings
 			}(),
+			Image:         track_online.Album.Images[0],
 			Filename:      "",
 			FilenameTemp:  "",
 			FilenameExt:   DEFAULT_EXTENSION,
@@ -172,10 +173,23 @@ func LocalLibrary(wg *sync.WaitGroup) {
 func MetadataNormalizeAndMove(track Track, wg *sync.WaitGroup) {
 	defer wg.Done()
 
+	img_file_path := *arg_folder + "/" + track.FilenameTemp + ".jpg"
+	img_file, err := os.Create(img_file_path)
+	if err != nil {
+		logger.Warn("Something wrong while creating artwork file: " + err.Error())
+	}
+	img_file_writer := bufio.NewWriter(img_file)
+	err = track.Image.Download(img_file_writer)
+	if err != nil {
+		logger.Warn("Something wrong while downloading artwork file: " + err.Error())
+	}
+	defer os.Remove(img_file_path)
+	defer img_file.Close()
+
 	src_file := *arg_folder + "/" + track.FilenameTemp + track.FilenameExt
 	dst_file := *arg_folder + "/" + track.Filename + track.FilenameExt
 	track_mp3, err := id3.Open(src_file, id3.Options{Parse: true})
-	if err != nil {
+	if track_mp3 == nil || err != nil {
 		logger.Fatal("Error while parsing mp3 file: " + err.Error())
 	}
 	defer track_mp3.Close()
@@ -186,6 +200,18 @@ func MetadataNormalizeAndMove(track Track, wg *sync.WaitGroup) {
 		track_mp3.SetTitle(track.Title)
 		track_mp3.SetArtist(track.Artist)
 		track_mp3.SetAlbum(track.Album)
+		track_artwork_read, err := ioutil.ReadFile(img_file_path)
+		if err != nil {
+			logger.Warn("Unable to read artwork file: " + err.Error())
+		}
+		track_artwork := id3.PictureFrame{
+			Encoding:    id3.EncodingUTF8,
+			MimeType:    "image/jpeg",
+			PictureType: id3.PTFrontCover,
+			Description: "Front cover",
+			Picture:     track_artwork_read,
+		}
+		track_mp3.AddAttachedPicture(track_artwork)
 		track_mp3.Save()
 	}
 

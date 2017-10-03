@@ -10,6 +10,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/kennygrant/sanitize"
+	spotify "github.com/zmb3/spotify"
 )
 
 // system utils
@@ -169,6 +170,7 @@ type Track struct {
 	Artist        string
 	Album         string
 	Featurings    []string
+	Image         spotify.Image
 	Filename      string
 	FilenameTemp  string
 	FilenameExt   string

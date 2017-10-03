@@ -131,7 +131,7 @@ func (youtube_track YouTubeTrack) Match(track Track, strict bool) bool {
 		logger.Debug("Track is actually pointing to playlist or user.")
 		return false
 	} else if track.Seems(youtube_track.Title) {
-		logger.Debug("Song seems that one: checking for VEVO.")
+		logger.Debug("Song seems the we're looking for. Checking youtube specific stuff.")
 		if strict &&
 			(strings.Contains(item_title, "official video") ||
 				(strings.Contains(youtube_track.User, "VEVO") &&

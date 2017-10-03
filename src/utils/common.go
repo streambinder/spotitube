@@ -238,7 +238,8 @@ func (track Track) Normalize() Track {
 }
 
 func (track Track) Seems(sequence string) bool {
-	if !track.SeemsByWordMatch(sequence) {
+	if !track.SeemsByWordMatch(sequence) ||
+		strings.Contains(strings.ToLower(sequence), "full album") {
 		return false
 	}
 

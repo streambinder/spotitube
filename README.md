@@ -1,5 +1,7 @@
 # SPOTIFY-DL
 
+[![asciicast](https://asciinema.org/a/esfGs4nuuE6x7g7tC9M0eTWJo.png)](https://asciinema.org/a/esfGs4nuuE6x7g7tC9M0eTWJo)
+
 ## What is
 
 This project was born as per two needs:

@@ -21,23 +21,23 @@ import (
 )
 
 var (
-	tracks_offline  Tracks
-	tracks_delta    Tracks
-	tracks_failed   Tracks
-	wait_group      sync.WaitGroup
-	arg_folder      *string
-	arg_playlist    *string
-	arg_disnorm     *bool
-	arg_interactive *bool
-	arg_log         *bool
-	arg_debug       *bool
-	logger          Logger = NewLogger()
+	tracks_offline            Tracks
+	tracks_delta              Tracks
+	tracks_failed             Tracks
+	wait_group                sync.WaitGroup
+	arg_folder                *string
+	arg_playlist              *string
+	arg_disable_normalization *bool
+	arg_interactive           *bool
+	arg_log                   *bool
+	arg_debug                 *bool
+	logger                    Logger = NewLogger()
 )
 
 func main() {
 	arg_folder = flag.String("folder", ".", "Folder to sync with music.")
 	arg_playlist = flag.String("playlist", "none", "Playlist URI to synchronize.")
-	arg_disnorm = flag.Bool("disnorm", false, "Disable songs volume normalization")
+	arg_disable_normalization = flag.Bool("disable-normalization", false, "Disable songs volume normalization")
 	arg_interactive = flag.Bool("interactive", false, "Enable interactive mode")
 	arg_log = flag.Bool("log", false, "Enable logging into file ./spotify-dl.log")
 	arg_debug = flag.Bool("debug", false, "Enable debug messages")
@@ -86,7 +86,7 @@ func main() {
 				return featurings
 			}(),
 			Image:         track_online.Album.Images[0],
-                        Duration:      track_online.SimpleTrack.Duration,
+			Duration:      track_online.SimpleTrack.Duration,
 			Filename:      "",
 			FilenameTemp:  "",
 			FilenameExt:   DEFAULT_EXTENSION,
@@ -216,7 +216,7 @@ func MetadataNormalizeAndMove(track Track, wg *sync.WaitGroup) {
 		track_mp3.Save()
 	}
 
-	if !(*arg_disnorm) {
+	if !(*arg_disable_normalization) {
 		defer os.Remove(src_file)
 		os.Remove(dst_file)
 

@@ -86,6 +86,7 @@ func main() {
 				return featurings
 			}(),
 			Image:         track_online.Album.Images[0],
+                        Duration:      track_online.SimpleTrack.Duration,
 			Filename:      "",
 			FilenameTemp:  "",
 			FilenameExt:   DEFAULT_EXTENSION,

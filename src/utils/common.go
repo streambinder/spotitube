@@ -171,6 +171,7 @@ type Track struct {
 	Album         string
 	Featurings    []string
 	Image         spotify.Image
+	Duration      int
 	Filename      string
 	FilenameTemp  string
 	FilenameExt   string

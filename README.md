@@ -89,6 +89,7 @@ You may want to use some of the following input flags:
 
 1. `-disable-normalization`: disable songs volume normalization. Although volume normalization is really useful, as lot of songs gets downloaded with several `max_volume` values, resulting into some of them with very low volume level, this option (enabled by default) make the process slow down.
 2. `-interactive`: enable interactive mode. This allows to eventually override `spotify-dl` decisions about which _YouTube_ result to pick, prompting for user input on every - legal - song it encounters.
+3. `-flush-metadata`: enable metadata informations flush also for songs that have been already synchronized.
 
 #### Developers
 

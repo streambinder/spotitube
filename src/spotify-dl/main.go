@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"path/filepath"
 	"spotify"
 	"strconv"
 	"strings"
@@ -27,6 +26,7 @@ var (
 	wait_group                sync.WaitGroup
 	arg_folder                *string
 	arg_playlist              *string
+	arg_flush_metadata        *bool
 	arg_disable_normalization *bool
 	arg_interactive           *bool
 	arg_log                   *bool
@@ -37,6 +37,7 @@ var (
 func main() {
 	arg_folder = flag.String("folder", ".", "Folder to sync with music.")
 	arg_playlist = flag.String("playlist", "none", "Playlist URI to synchronize.")
+	arg_flush_metadata = flag.Bool("flush-metadata", false, "Flush metadata informations to already synchronized songs")
 	arg_disable_normalization = flag.Bool("disable-normalization", false, "Disable songs volume normalization")
 	arg_interactive = flag.Bool("interactive", false, "Enable interactive mode")
 	arg_log = flag.Bool("log", false, "Enable logging into file ./spotify-dl.log")
@@ -57,18 +58,12 @@ func main() {
 		logger.Log("Synchronization folder: " + *arg_folder)
 	}
 
-	wait_group.Add(1)
-	go LocalLibrary(&wait_group)
-	if *arg_debug {
-		wait_group.Wait()
-	}
 	var tracks_online []api.FullTrack
 	if *arg_playlist == "none" {
 		tracks_online = spotify.AuthAndTracks()
 	} else {
 		tracks_online = spotify.AuthAndTracks(*arg_playlist)
 	}
-	wait_group.Wait()
 
 	logger.Log("Checking which songs need to be downloaded.")
 	for _, track_online := range tracks_online {
@@ -92,7 +87,9 @@ func main() {
 			FilenameExt:   DEFAULT_EXTENSION,
 			SearchPattern: "",
 		}.Normalize()
-		if !tracks_offline.Has(track) {
+		if _, err := os.Stat(*arg_folder + "/" + track.Filename + track.FilenameExt); !os.IsNotExist(err) {
+			tracks_offline = append(tracks_offline, track)
+		} else {
 			tracks_delta = append(tracks_delta, track)
 		}
 	}
@@ -129,6 +126,19 @@ func main() {
 				}
 			}
 		}
+		if *arg_flush_metadata {
+			for track_index, track := range tracks_offline {
+				logger.Log("Local " + strconv.Itoa(track_index+1) + "/" + strconv.Itoa(len(tracks_offline)) + ": \"" + track.Filename + "\"")
+				os.Remove(*arg_folder + "/" + track.FilenameTemp + track.FilenameExt)
+				os.Rename(*arg_folder+"/"+track.Filename+track.FilenameExt,
+					*arg_folder+"/"+track.FilenameTemp+track.FilenameExt)
+				wait_group.Add(1)
+				go MetadataNormalizeAndMove(track, &wait_group)
+				if *arg_debug {
+					wait_group.Wait()
+				}
+			}
+		}
 		wait_group.Wait()
 
 		if len(tracks_failed) > 0 {
@@ -140,35 +150,26 @@ func main() {
 			logger.Log("Synchronization completed.")
 		}
 	} else {
-		logger.Log("No song to download.")
+		logger.Log("No song needs to be downloaded.")
 	}
-}
-
-func LocalLibrary(wg *sync.WaitGroup) {
-	logger.Log("Reading files in local storage \"" + *arg_folder + "\".")
-	tracks_files, _ := ioutil.ReadDir(*arg_folder)
-	for _, track_file_info := range tracks_files {
-		track_file := track_file_info.Name()
-		track_file_ext := filepath.Ext(track_file)
-		if track_file_ext != DEFAULT_EXTENSION || !strings.Contains(track_file, " - ") {
-			continue
+	if *arg_flush_metadata {
+		if len(tracks_offline) > 0 {
+			logger.Log("Flushing metadata for " + strconv.Itoa(len(tracks_offline)) + " songs.")
 		}
-		track_file_name := track_file[0 : len(track_file)-len(track_file_ext)]
-		track_title := strings.Split(track_file_name, " - ")[1]
-		track_artist := strings.Split(track_file_name, " - ")[0]
-		track_album := "none"
-		track := Track{
-			Title:        track_title,
-			Artist:       track_artist,
-			Album:        track_album,
-			Filename:     track_file_name,
-			FilenameTemp: "." + track_file_name,
-			FilenameExt:  track_file_ext,
+		for track_index, track := range tracks_offline {
+			logger.Log("Local " + strconv.Itoa(track_index+1) + "/" + strconv.Itoa(len(tracks_offline)) + ": \"" + track.Filename + "\"")
+			os.Remove(*arg_folder + "/" + track.FilenameTemp + track.FilenameExt)
+			os.Rename(*arg_folder+"/"+track.Filename+track.FilenameExt,
+				*arg_folder+"/"+track.FilenameTemp+track.FilenameExt)
+			wait_group.Add(1)
+			go MetadataNormalizeAndMove(track, &wait_group)
+			if *arg_debug {
+				wait_group.Wait()
+			}
 		}
-		tracks_offline = append(tracks_offline, track)
+		logger.Log("Job done.")
 	}
-
-	wg.Done()
+	wait_group.Wait()
 }
 
 func MetadataNormalizeAndMove(track Track, wg *sync.WaitGroup) {

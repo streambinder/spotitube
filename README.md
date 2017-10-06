@@ -1,6 +1,8 @@
 # SPOTIFY-DL
 
-[![asciicast](https://asciinema.org/a/esfGs4nuuE6x7g7tC9M0eTWJo.png)](https://asciinema.org/a/esfGs4nuuE6x7g7tC9M0eTWJo)
+<a href="#spotify-dl">
+    <img src="https://raw.githubusercontent.com/streambinder/spotify-dl/master/.github/sample.gif" width="100%">
+</a>
 
 ## What is
 

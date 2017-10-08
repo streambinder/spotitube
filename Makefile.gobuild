@@ -1,7 +1,7 @@
 CUR_DIR = $(shell pwd)
 
 %.statbin:
-	GOPATH=$(CUR_DIR) go install -v $(subst .statbin,,$@)
+	GOPATH=$(CUR_DIR) go build -v -o $(CUR_DIR)/bin/$(NAME) $(subst .statbin,,$@)
 
 clean:
 	test ! -d $(CUR_DIR)/pkg || rm -rvf $(CUR_DIR)/pkg; \

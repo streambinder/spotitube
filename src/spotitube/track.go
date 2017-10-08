@@ -1,159 +1,12 @@
-package utils
+package spotitube
 
 import (
-	"fmt"
-	"os"
-	"runtime"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/fatih/color"
 	"github.com/kennygrant/sanitize"
-	spotify "github.com/zmb3/spotify"
+	"github.com/zmb3/spotify"
 )
-
-// system utils
-
-func IsDir(path string) bool {
-	file, err := os.Open(path)
-	if err != nil {
-		return false
-	}
-	file_stat, err := file.Stat()
-	if err != nil {
-		return false
-	}
-	return file_stat.IsDir()
-}
-
-func MakeRange(min, max int) []int {
-	a := make([]int, max-min+1)
-	for i := range a {
-		a[i] = min + i
-	}
-	return a
-}
-
-func GetBoolPointer(value bool) *bool {
-	return &value
-}
-
-// spotify-dl utils
-
-const (
-	LogNormal  = iota
-	LogDebug   = iota
-	LogWarning = iota
-	LogFatal   = iota
-)
-
-var (
-	enable_logfile *bool = GetBoolPointer(false)
-	enable_debug   *bool = GetBoolPointer(false)
-)
-
-type Logger struct {
-	Prefix string
-	Color  func(a ...interface{}) string
-	File   string
-}
-
-func NewLogger() Logger {
-	var shell_color func(a ...interface{}) string = color.New(SHELL_COLOR_DEFAULT).SprintFunc()
-	var caller_package string = SHELL_NAME_DEFAULT
-
-	pc, _, _, ok := runtime.Caller(1)
-	details := runtime.FuncForPC(pc)
-	if ok && details != nil && details.Name()[:4] != "main" {
-		caller_package = strings.Split(details.Name(), ".")[0]
-		if caller_package == "spotify" {
-			shell_color = color.New(SHELL_COLOR_SPOTIFY).SprintFunc()
-		} else if caller_package == "youtube" {
-			shell_color = color.New(SHELL_COLOR_YOUTUBE).SprintFunc()
-		}
-	}
-	logger := Logger{
-		Prefix: caller_package,
-		Color:  shell_color,
-		File:   DEFAULT_LOG_PATH,
-	}
-	return logger
-}
-func (logger Logger) UncoloredPrefix() string {
-	space_pre := strings.Repeat(" ", ((SHELL_NAME_MIN_LENGTH - len(logger.Prefix)) / 2))
-	space_post := space_pre
-	if len(logger.Prefix)%2 == 1 {
-		space_post = space_post + " "
-	}
-	return "[" + space_pre + strings.ToUpper(logger.Prefix) + space_post + "]"
-}
-
-func (logger Logger) ColoredPrefix() string {
-	return logger.Color(logger.UncoloredPrefix())
-}
-
-func (logger Logger) LogOpt(message string, level int) {
-	if !(*enable_debug) && level == LogDebug {
-		return
-	}
-	if *enable_logfile {
-		logger.LogWrite(message)
-	}
-	if level == LogDebug {
-		message = color.MagentaString(message)
-	} else if level == LogWarning {
-		message = color.YellowString(message)
-	} else if level == LogFatal {
-		message = color.RedString(message)
-	}
-	fmt.Println(logger.ColoredPrefix(), message)
-	if level == LogFatal {
-		os.Exit(1)
-	}
-}
-
-func (logger Logger) Log(message string) {
-	logger.LogOpt(message, LogNormal)
-}
-
-func (logger Logger) Debug(message string) {
-	logger.LogOpt(message, LogDebug)
-}
-
-func (logger Logger) Warn(message string) {
-	logger.LogOpt(message, LogWarning)
-}
-
-func (logger Logger) Fatal(message string) {
-	logger.LogOpt(message, LogFatal)
-}
-
-func (logger Logger) LogWrite(message string) {
-	logfile, err := os.OpenFile(logger.File, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
-	if err != nil {
-		panic(err)
-	}
-	defer logfile.Close()
-	if _, err = logfile.WriteString(time.Now().Format("2006-01-02 15:04:05") + " " +
-		logger.UncoloredPrefix() + " " +
-		message + "\n"); err != nil {
-		panic(err)
-	}
-}
-
-func (logger Logger) SetFile(path string) {
-	logger.EnableLogFile()
-	logger.File = path
-}
-
-func (logger Logger) EnableLogFile() {
-	enable_logfile = GetBoolPointer(true)
-}
-
-func (logger Logger) EnableDebug() {
-	enable_debug = GetBoolPointer(true)
-}
 
 const (
 	SongTypeAlbum    = iota
@@ -190,7 +43,28 @@ func (tracks Tracks) Has(track Track) bool {
 	return false
 }
 
-func (track Track) Normalize() Track {
+func ParseSpotifyTrack(spotify_track spotify.FullTrack) Track {
+	track := Track{
+		Title:  spotify_track.SimpleTrack.Name,
+		Artist: (spotify_track.SimpleTrack.Artists[0]).Name,
+		Album:  spotify_track.Album.Name,
+		Featurings: func() []string {
+			var featurings []string
+			if len(spotify_track.SimpleTrack.Artists) > 1 {
+				for _, artist_item := range spotify_track.SimpleTrack.Artists[1:] {
+					featurings = append(featurings, artist_item.Name)
+				}
+			}
+			return featurings
+		}(),
+		Image:         spotify_track.Album.Images[0],
+		Duration:      spotify_track.SimpleTrack.Duration,
+		Filename:      "",
+		FilenameTemp:  "",
+		FilenameExt:   DEFAULT_EXTENSION,
+		SearchPattern: "",
+	}
+
 	track.SongType = SongTypeAlbum
 	for song_type := range []int{SongTypeLive, SongTypeCover, SongTypeRemix, SongTypeAcoustic, SongTypeKaraoke} {
 		if SeemsType(track.Title, song_type) {

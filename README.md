@@ -1,7 +1,7 @@
 # SPOTITUBE
 
 <a href="#spotitube">
-    <img src="https://raw.githubusercontent.com/streambinder/spotitube/master/.github/sample.gif" width="100%">
+    <img src="https://raw.githubusercontent.com/streambinder/spotitube/master/assets/sample.gif" width="100%">
 </a>
 
 ## What is

@@ -1,4 +1,4 @@
-package youtube
+package spotitube
 
 import (
 	"errors"
@@ -9,14 +9,11 @@ import (
 
 	"github.com/AlecAivazis/survey"
 	"github.com/PuerkitoBio/goquery"
-	. "utils"
 )
 
-var (
-	interactive   *bool = GetBoolPointer(false)
-	download_path string
-	logger        Logger = NewLogger()
-)
+type YouTube struct {
+	interactive bool
+}
 
 type YouTubeTrack struct {
 	Track Track
@@ -26,13 +23,19 @@ type YouTubeTrack struct {
 	User  string
 }
 
-func SetInteractive(set_interactive *bool) {
-	interactive = set_interactive
+func NewYouTubeClient() *YouTube {
+	return &YouTube{
+		interactive: false,
+	}
 }
 
-func FetchAndDownload(track Track, path string) error {
-	download_path = path
-	youtube_track, err := FindTrack(track)
+func (youtube *YouTube) SetInteractive(set_interactive *bool) {
+	youtube.interactive = true
+}
+
+func (youtube *YouTube) FetchAndDownload(track Track, path string) error {
+	opt_download_path = path
+	youtube_track, err := youtube.FindTrack(track)
 	if err != nil {
 		return err
 	}
@@ -43,7 +46,7 @@ func FetchAndDownload(track Track, path string) error {
 	return nil
 }
 
-func FindTrack(track Track) (YouTubeTrack, error) {
+func (youtube *YouTube) FindTrack(track Track) (YouTubeTrack, error) {
 	logger.Log("Searching youtube results to \"" + fmt.Sprintf(YOUTUBE_QUERY_PATTERN, strings.Replace(track.SearchPattern, " ", "+", -1)) + "\".")
 	doc, err := goquery.NewDocument(fmt.Sprintf(YOUTUBE_QUERY_PATTERN, strings.Replace(track.SearchPattern, " ", "+", -1)))
 	if err != nil {
@@ -86,7 +89,7 @@ func FindTrack(track Track) (YouTubeTrack, error) {
 				" | User: " + youtube_track.User)
 
 			ans := false
-			if *interactive {
+			if *opt_interactive {
 				prompt := &survey.Confirm{
 					Message: "Do you want to download \"" + youtube_track.Title + "\" by \"" + youtube_track.User + "\" (" + youtube_track.URL + ")?",
 				}
@@ -147,7 +150,7 @@ func (youtube_track YouTubeTrack) Match(track Track, strict bool) bool {
 }
 
 func (track YouTubeTrack) Download() error {
-	os.Chdir(download_path)
+	os.Chdir(opt_download_path)
 	for _, filename := range []string{track.Track.FilenameTemp, track.Track.FilenameTemp + track.Track.FilenameExt, track.Track.Filename, track.Track.Filename + track.Track.FilenameExt} {
 		os.Remove(filename)
 	}
@@ -159,7 +162,7 @@ func (track YouTubeTrack) Download() error {
 		logger.Warn("Something went wrong while executing \"" + command_cmd + " " + strings.Join(command_args, " ") + "\": " + err.Error())
 		return err
 	}
-	logger.Log("Song downloaded to: \"" + download_path + "/" + track.Track.FilenameTemp + track.Track.FilenameExt + "\".")
+	logger.Log("Song downloaded to: \"" + opt_download_path + "/" + track.Track.FilenameTemp + track.Track.FilenameExt + "\".")
 
 	return nil
 }

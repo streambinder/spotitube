@@ -1,17 +1,15 @@
 .DEFAULT_GOAL := all
 PROJECT_ROOT := src/
 
+NAME := spotitube
 
 BINARIES = \
-	spotify-dl
+	main
 
 include Makefile.gobuild
 
 _PKGS = \
-	spotify-dl \
-	spotify \
-	utils \
-	youtube
+	spotitube
 
 _DEPENDENCIES = \
 	github.com/zmb3/spotify \

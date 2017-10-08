@@ -8,22 +8,16 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"spotify"
 	"strconv"
 	"strings"
 	"sync"
-	"youtube"
 
 	id3 "github.com/bogem/id3v2"
 	api "github.com/zmb3/spotify"
-	. "utils"
+	. "spotitube"
 )
 
 var (
-	tracks_offline            Tracks
-	tracks_delta              Tracks
-	tracks_failed             Tracks
-	wait_group                sync.WaitGroup
 	arg_folder                *string
 	arg_playlist              *string
 	arg_flush_metadata        *bool
@@ -31,7 +25,14 @@ var (
 	arg_interactive           *bool
 	arg_log                   *bool
 	arg_debug                 *bool
-	logger                    Logger = NewLogger()
+
+	tracks_offline Tracks
+	tracks_delta   Tracks
+	tracks_failed  Tracks
+	youtube_client *YouTube = NewYouTubeClient()
+	spotify_client *Spotify = NewSpotifyClient()
+	logger         *Logger  = NewLogger()
+	wait_group     sync.WaitGroup
 )
 
 func main() {
@@ -40,7 +41,7 @@ func main() {
 	arg_flush_metadata = flag.Bool("flush-metadata", false, "Flush metadata informations to already synchronized songs")
 	arg_disable_normalization = flag.Bool("disable-normalization", false, "Disable songs volume normalization")
 	arg_interactive = flag.Bool("interactive", false, "Enable interactive mode")
-	arg_log = flag.Bool("log", false, "Enable logging into file ./spotify-dl.log")
+	arg_log = flag.Bool("log", false, "Enable logging into file ./spotitube.log")
 	arg_debug = flag.Bool("debug", false, "Enable debug messages")
 	flag.Parse()
 
@@ -60,33 +61,14 @@ func main() {
 
 	var tracks_online []api.FullTrack
 	if *arg_playlist == "none" {
-		tracks_online = spotify.AuthAndTracks()
+		tracks_online = spotify_client.AuthAndTracks()
 	} else {
-		tracks_online = spotify.AuthAndTracks(*arg_playlist)
+		tracks_online = spotify_client.AuthAndTracks(*arg_playlist)
 	}
 
 	logger.Log("Checking which songs need to be downloaded.")
 	for _, track_online := range tracks_online {
-		track := Track{
-			Title:  track_online.SimpleTrack.Name,
-			Artist: (track_online.SimpleTrack.Artists[0]).Name,
-			Album:  track_online.Album.Name,
-			Featurings: func() []string {
-				var featurings []string
-				if len(track_online.SimpleTrack.Artists) > 1 {
-					for _, artist_item := range track_online.SimpleTrack.Artists[1:] {
-						featurings = append(featurings, artist_item.Name)
-					}
-				}
-				return featurings
-			}(),
-			Image:         track_online.Album.Images[0],
-			Duration:      track_online.SimpleTrack.Duration,
-			Filename:      "",
-			FilenameTemp:  "",
-			FilenameExt:   DEFAULT_EXTENSION,
-			SearchPattern: "",
-		}.Normalize()
+		track := ParseSpotifyTrack(track_online)
 		if _, err := os.Stat(*arg_folder + "/" + track.Filename + track.FilenameExt); !os.IsNotExist(err) {
 			tracks_offline = append(tracks_offline, track)
 		} else {
@@ -110,11 +92,11 @@ func main() {
 	}()
 
 	if len(tracks_delta) > 0 {
-		youtube.SetInteractive(arg_interactive)
+		youtube_client.SetInteractive(arg_interactive)
 		logger.Log(strconv.Itoa(len(tracks_delta)) + " missing songs, " + strconv.Itoa(len(tracks_online)-len(tracks_delta)) + " ignored.")
 		for track_index, track := range tracks_delta {
 			logger.Log(strconv.Itoa(track_index+1) + "/" + strconv.Itoa(len(tracks_delta)) + ": \"" + track.Filename + "\"")
-			err := youtube.FetchAndDownload(track, *arg_folder)
+			err := youtube_client.FetchAndDownload(track, *arg_folder)
 			if err != nil {
 				logger.Log("Something went wrong with \"" + track.Filename + "\": " + err.Error() + ".")
 				tracks_failed = append(tracks_failed, track)

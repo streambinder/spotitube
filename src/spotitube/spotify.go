@@ -1,4 +1,4 @@
-package spotify
+package spotitube
 
 import (
 	"fmt"
@@ -8,20 +8,29 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/zmb3/spotify"
-	. "utils"
+	api "github.com/zmb3/spotify"
 )
 
 var (
-	auth                  = spotify.NewAuthenticator(SPOTIFY_REDIRECT_URI, spotify.ScopeUserLibraryRead, spotify.ScopePlaylistReadPrivate, spotify.ScopePlaylistReadCollaborative)
-	ch                    = make(chan *spotify.Client)
-	state                 = "state"
-	logger         Logger = NewLogger()
-	playlist_id           = ""
-	playlist_owner        = ""
+	ch             = make(chan *api.Client)
+	state          = "state"
+	playlist_id    = ""
+	playlist_owner = ""
+	auth           = api.NewAuthenticator(
+		SPOTIFY_REDIRECT_URI,
+		api.ScopeUserLibraryRead,
+		api.ScopePlaylistReadPrivate,
+		api.ScopePlaylistReadCollaborative)
 )
 
-func AuthAndTracks(parameters ...string) []spotify.FullTrack {
+type Spotify struct {
+}
+
+func NewSpotifyClient() *Spotify {
+	return &Spotify{}
+}
+
+func (spotify *Spotify) AuthAndTracks(parameters ...string) []api.FullTrack {
 	if len(parameters) > 0 {
 		playlist_owner = strings.Split(parameters[0], ":")[2]
 		playlist_id = strings.Split(parameters[0], ":")[4]
@@ -48,7 +57,7 @@ func AuthAndTracks(parameters ...string) []spotify.FullTrack {
 	logger.Log("Waiting for authentication process to complete.")
 	client := <-ch
 
-	var tracks []spotify.FullTrack
+	var tracks []api.FullTrack
 	if playlist_id == "" {
 		logger.Log("Pulling out user library.")
 	} else {
@@ -58,7 +67,7 @@ func AuthAndTracks(parameters ...string) []spotify.FullTrack {
 	opt_limit := 50
 	for true {
 		opt_offset := times * opt_limit
-		options := spotify.Options{
+		options := api.Options{
 			Limit:  &opt_limit,
 			Offset: &opt_offset,
 		}
@@ -74,7 +83,7 @@ func AuthAndTracks(parameters ...string) []spotify.FullTrack {
 				break
 			}
 		} else {
-			chunk, err := client.GetPlaylistTracksOpt(playlist_owner, spotify.ID(playlist_id), &options, "")
+			chunk, err := client.GetPlaylistTracksOpt(playlist_owner, api.ID(playlist_id), &options, "")
 			if err != nil {
 				logger.Fatal("Something gone wrong while getting playlist \"" + playlist_id + "\" songs: " + err.Error() + ".")
 			}

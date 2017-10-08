@@ -1,6 +1,6 @@
 bin
 pkg
-spotify-dl.log
+spotitube.log
 src/github.com
 src/golang.org
 src/gopkg.in

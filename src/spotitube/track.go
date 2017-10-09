@@ -74,7 +74,7 @@ func ParseSpotifyTrack(spotify_track spotify.FullTrack) Track {
 			return featurings
 		}(),
 		Image:         spotify_track.Album.Images[0],
-		Duration:      spotify_track.SimpleTrack.Duration,
+		Duration:      spotify_track.SimpleTrack.Duration / 1000,
 		Filename:      "",
 		FilenameTemp:  "",
 		FilenameExt:   DEFAULT_EXTENSION,

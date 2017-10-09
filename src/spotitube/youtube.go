@@ -3,7 +3,9 @@ package spotitube
 import (
 	"errors"
 	"fmt"
+	"math"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	"github.com/AlecAivazis/survey"
@@ -15,11 +17,12 @@ type YouTube struct {
 }
 
 type YouTubeTrack struct {
-	Track Track
-	ID    string
-	URL   string
-	Title string
-	User  string
+	Track    Track
+	ID       string
+	URL      string
+	Title    string
+	User     string
+	Duration int
 }
 
 func NewYouTubeClient() *YouTube {
@@ -41,18 +44,37 @@ func (youtube *YouTube) FindTrack(track Track) (YouTubeTrack, error) {
 	}
 	selection := doc.Find(YOUTUBE_VIDEO_SELECTOR)
 	selection_desc := doc.Find(YOUTUBE_DESC_SELECTOR)
+	selection_duration := doc.Find(YOUTUBE_DURATION_SELECTOR)
 	for lap := range [2]int{} {
 		for selection_item := range selection.Nodes {
 			item := selection.Eq(selection_item)
 			item_href, item_href_ok := item.Attr("href")
 			item_title, item_title_ok := item.Attr("title")
 			item_user, item_user_ok := "", false
+			item_length, item_length_ok := 0, false
 			if selection_item < len(selection_desc.Nodes) {
 				item_desc := selection_desc.Eq(selection_item)
 				item_user = strings.TrimSpace(item_desc.Text())
 				item_user_ok = true
 			}
-			if !(item_href_ok && item_title_ok && item_user_ok) {
+			if selection_item < len(selection_duration.Nodes) {
+				var item_length_m, item_length_s int
+				item_duration := selection_duration.Eq(selection_item)
+				item_length_str := strings.TrimSpace(item_duration.Text())
+				item_length_str = strings.Split(item_length_str, ": ")[1]
+				item_length_m, err = strconv.Atoi(strings.Split(item_length_str, ":")[0])
+				if err != nil {
+					item_length_ok = false
+				} else {
+					item_length_s, err = strconv.Atoi(strings.Split(item_length_str, ":")[1][:2])
+					if err != nil {
+						item_length_ok = false
+					}
+				}
+				item_length = item_length_m*60 + item_length_s
+				item_length_ok = true
+			}
+			if !(item_href_ok && item_title_ok && item_user_ok && item_length_ok) {
 				logger.Debug("Non-standard YouTube video entry structure. Continuing scraping...")
 				continue
 			} else if !strings.Contains(strings.ToLower(item_href), "youtu.be") &&
@@ -62,17 +84,19 @@ func (youtube *YouTube) FindTrack(track Track) (YouTubeTrack, error) {
 			}
 
 			youtube_track := YouTubeTrack{
-				Track: track,
-				ID:    IdFromUrl(YOUTUBE_VIDEO_PREFIX + item_href),
-				URL:   YOUTUBE_VIDEO_PREFIX + item_href,
-				Title: item_title,
-				User:  item_user,
+				Track:    track,
+				ID:       IdFromUrl(YOUTUBE_VIDEO_PREFIX + item_href),
+				URL:      YOUTUBE_VIDEO_PREFIX + item_href,
+				Title:    item_title,
+				User:     item_user,
+				Duration: item_length,
 			}
 
 			logger.Debug("ID: " + youtube_track.ID +
 				" | URL: " + youtube_track.URL +
 				" | Title: " + youtube_track.Title +
-				" | User: " + youtube_track.User)
+				" | User: " + youtube_track.User +
+				" | Duration: " + fmt.Sprintf("%d", youtube_track.Duration))
 
 			ans := false
 			if youtube.Interactive {
@@ -99,6 +123,12 @@ func (youtube *YouTube) FindTrack(track Track) (YouTubeTrack, error) {
 
 func (youtube_track YouTubeTrack) Match(track Track, strict bool) bool {
 	item_title := strings.ToLower(youtube_track.Title)
+
+	if int(math.Abs(float64(track.Duration-youtube_track.Duration))) > YOUTUBE_DURATION_TOLERANCE {
+		logger.Debug(fmt.Sprintf("The duration difference is excessive: | %d - %d | = %d (max tolerated: %d)",
+			track.Duration, youtube_track.Duration, int(math.Abs(float64(track.Duration-youtube_track.Duration))), YOUTUBE_DURATION_TOLERANCE))
+		return false
+	}
 
 	if strings.Contains(youtube_track.URL, "&list=") || strings.Contains(youtube_track.URL, "/user/") {
 		logger.Debug("Track is actually pointing to playlist or user.")

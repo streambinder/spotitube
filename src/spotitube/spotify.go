@@ -12,11 +12,9 @@ import (
 )
 
 var (
-	ch             = make(chan *api.Client)
-	state          = "state"
-	playlist_id    = ""
-	playlist_owner = ""
-	auth           = api.NewAuthenticator(
+	client_channel       = make(chan *api.Client)
+	client_state         = RandString(20)
+	client_authenticator = api.NewAuthenticator(
 		SPOTIFY_REDIRECT_URI,
 		api.ScopeUserLibraryRead,
 		api.ScopePlaylistReadPrivate,
@@ -24,18 +22,14 @@ var (
 )
 
 type Spotify struct {
+	Client *api.Client
 }
 
 func NewSpotifyClient() *Spotify {
 	return &Spotify{}
 }
 
-func (spotify *Spotify) AuthAndTracks(parameters ...string) []api.FullTrack {
-	if len(parameters) > 0 {
-		playlist_owner = strings.Split(parameters[0], ":")[2]
-		playlist_id = strings.Split(parameters[0], ":")[4]
-	}
-
+func (spotify *Spotify) Auth() bool {
 	http.HandleFunc("/favicon.ico", HttpFaviconHandler)
 	http.HandleFunc("/callback", HttpCompleteAuthHandler)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -43,8 +37,8 @@ func (spotify *Spotify) AuthAndTracks(parameters ...string) []api.FullTrack {
 	})
 	go http.ListenAndServe(":8080", nil)
 
-	auth.SetAuthInfo(SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET)
-	url := auth.AuthURL(state)
+	client_authenticator.SetAuthInfo(SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET)
+	url := client_authenticator.AuthURL(client_state)
 	command_cmd := "xdg-open"
 	command_args := []string{url}
 	_, err := exec.Command(command_cmd, command_args...).Output()
@@ -53,51 +47,69 @@ func (spotify *Spotify) AuthAndTracks(parameters ...string) []api.FullTrack {
 		logger.Log("Please, in order to authorize me to read your library, go to:\n" + url)
 	}
 
-	// wait for auth to complete
 	logger.Log("Waiting for authentication process to complete.")
-	client := <-ch
+	client := <-client_channel
+	spotify.Client = client
 
+	return true
+}
+
+func (spotify *Spotify) Library() []api.FullTrack {
+	logger.Log("Reading user library.")
 	var tracks []api.FullTrack
-	if playlist_id == "" {
-		logger.Log("Pulling out user library.")
-	} else {
-		logger.Log("Pulling out playlist \"" + playlist_id + "\".")
-	}
-	times := 0
-	opt_limit := 50
+	var iterations int = 0
+	var options api.Options = spotify.DefaultOptions()
 	for true {
-		opt_offset := times * opt_limit
-		options := api.Options{
-			Limit:  &opt_limit,
-			Offset: &opt_offset,
+		*options.Offset = *options.Limit * iterations
+		chunk, err := spotify.Client.CurrentUsersTracksOpt(&options)
+		if err != nil {
+			logger.Fatal("Something gone wrong while reading " + strconv.Itoa(iterations) + "th chunk of tracks: " + err.Error() + ".")
 		}
-		if playlist_id == "" {
-			chunk, err := client.CurrentUsersTracksOpt(&options)
-			if err != nil {
-				logger.Fatal("Something gone wrong while getting user library: " + err.Error() + ".")
-			}
-			for _, track := range chunk.Tracks {
-				tracks = append(tracks, track.FullTrack)
-			}
-			if len(chunk.Tracks) < 50 {
-				break
-			}
-		} else {
-			chunk, err := client.GetPlaylistTracksOpt(playlist_owner, api.ID(playlist_id), &options, "")
-			if err != nil {
-				logger.Fatal("Something gone wrong while getting playlist \"" + playlist_id + "\" songs: " + err.Error() + ".")
-			}
-			for _, track := range chunk.Tracks {
-				tracks = append(tracks, track.Track)
-			}
-			if len(chunk.Tracks) < 50 {
-				break
-			}
+		for _, track := range chunk.Tracks {
+			tracks = append(tracks, track.FullTrack)
 		}
-		times++
+		if len(chunk.Tracks) < 50 {
+			break
+		}
+		iterations++
 	}
-	logger.Log(strconv.Itoa(len(tracks)) + " songs taken.")
 	return tracks
+}
+
+func (spotify *Spotify) Playlist(playlist_uri string) []api.FullTrack {
+	playlist_owner, playlist_id := spotify.ParsePlaylistUri(playlist_uri)
+	logger.Log("Reading playlist with ID \"" + string(playlist_id) + "\" by \"" + playlist_owner + "\".")
+	var tracks []api.FullTrack
+	var iterations int = 0
+	var options api.Options = spotify.DefaultOptions()
+	for true {
+		*options.Offset = *options.Limit * iterations
+		chunk, err := spotify.Client.GetPlaylistTracksOpt(playlist_owner, playlist_id, &options, "")
+		if err != nil {
+			logger.Fatal("Something gone wrong while reading " + strconv.Itoa(iterations) + "th chunk of tracks: " + err.Error() + ".")
+		}
+		for _, track := range chunk.Tracks {
+			tracks = append(tracks, track.Track)
+		}
+		if len(chunk.Tracks) < 50 {
+			break
+		}
+		iterations++
+	}
+	return tracks
+}
+
+func (spotify *Spotify) DefaultOptions() api.Options {
+	var opt_limit int = 50
+	var opt_offset int = 0
+	return api.Options{
+		Limit:  &opt_limit,
+		Offset: &opt_offset,
+	}
+}
+
+func (spotify *Spotify) ParsePlaylistUri(playlist_uri string) (string, api.ID) {
+	return strings.Split(playlist_uri, ":")[2], api.ID(strings.Split(playlist_uri, ":")[4])
 }
 
 func HttpFaviconHandler(w http.ResponseWriter, r *http.Request) {
@@ -105,19 +117,19 @@ func HttpFaviconHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func HttpCompleteAuthHandler(w http.ResponseWriter, r *http.Request) {
-	tok, err := auth.Token(state, r)
+	tok, err := client_authenticator.Token(client_state, r)
 	if err != nil {
 		http.Error(w, HttpMessage("Couldn't get token", "none"), http.StatusForbidden)
 		logger.Fatal("Couldn't get token.")
 	}
-	if st := r.FormValue("state"); st != state {
+	if st := r.FormValue("state"); st != client_state {
 		http.NotFound(w, r)
 		logger.Fatal("\"state\" value not found.")
 	}
-	client := auth.NewClient(tok)
+	client := client_authenticator.NewClient(tok)
 	fmt.Fprintf(w, HttpMessage("Login completed", "Come back to the shell and enjoy the magic!"))
 	logger.Log("Login process completed.")
-	ch <- &client
+	client_channel <- &client
 }
 
 func HttpMessage(content_title string, content_subtitle string) string {

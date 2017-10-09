@@ -1,6 +1,7 @@
 package spotitube
 
 import (
+	"os"
 	"strconv"
 	"strings"
 
@@ -30,6 +31,7 @@ type Track struct {
 	FilenameExt   string
 	SearchPattern string
 	SongType      int
+	Local         bool
 }
 
 type Tracks []Track
@@ -41,6 +43,20 @@ func (tracks Tracks) Has(track Track) bool {
 		}
 	}
 	return false
+}
+
+func (tracks Tracks) CountOffline() int {
+	return len(tracks) - tracks.CountOnline()
+}
+
+func (tracks Tracks) CountOnline() int {
+	var counter int = 0
+	for _, track := range tracks {
+		if !track.Local {
+			counter++
+		}
+	}
+	return counter
 }
 
 func ParseSpotifyTrack(spotify_track spotify.FullTrack) Track {
@@ -63,6 +79,7 @@ func ParseSpotifyTrack(spotify_track spotify.FullTrack) Track {
 		FilenameTemp:  "",
 		FilenameExt:   DEFAULT_EXTENSION,
 		SearchPattern: "",
+		Local:         false,
 	}
 
 	track.SongType = SongTypeAlbum
@@ -111,7 +128,32 @@ func ParseSpotifyTrack(spotify_track spotify.FullTrack) Track {
 
 	track.SearchPattern = strings.Replace(track.FilenameTemp[1:], "-", " ", -1)
 
+	_, err := os.Stat(track.Filename + track.FilenameExt)
+	track.Local = !os.IsNotExist(err)
+
 	return track
+}
+
+func (track Track) FilenameFinal() string {
+	return track.Filename + track.FilenameExt
+}
+
+func (track Track) FilenameTemporary() string {
+	return track.FilenameTemp + track.FilenameExt
+}
+
+func (track Track) FilenameArtwork() string {
+	return track.FilenameTemp + ".jpg"
+}
+
+func (track Track) TempFiles() []string {
+	return []string{track.FilenameTemp,
+		track.FilenameTemporary(),
+		track.FilenameTemp + ".part",
+		track.FilenameTemp + ".part*",
+		track.FilenameTemp + ".ytdl",
+		track.FilenameArtwork(),
+	}
 }
 
 func (track Track) Seems(sequence string) bool {

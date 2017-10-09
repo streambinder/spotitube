@@ -26,8 +26,7 @@ var (
 	arg_log                   *bool
 	arg_debug                 *bool
 
-	tracks_offline Tracks
-	tracks_delta   Tracks
+	tracks         Tracks
 	tracks_failed  Tracks
 	youtube_client *YouTube = NewYouTubeClient()
 	spotify_client *Spotify = NewSpotifyClient()
@@ -56,24 +55,26 @@ func main() {
 	if !(IsDir(*arg_folder)) {
 		logger.Fatal("Chosen music folder does not exist: " + *arg_folder)
 	} else {
+		os.Chdir(*arg_folder)
 		logger.Log("Synchronization folder: " + *arg_folder)
+	}
+
+	youtube_client.SetInteractive(*arg_interactive)
+
+	if !spotify_client.Auth() {
+		logger.Fatal("Unable to authenticate to spotify.")
 	}
 
 	var tracks_online []api.FullTrack
 	if *arg_playlist == "none" {
-		tracks_online = spotify_client.AuthAndTracks()
+		tracks_online = spotify_client.Library()
 	} else {
-		tracks_online = spotify_client.AuthAndTracks(*arg_playlist)
+		tracks_online = spotify_client.Playlist(*arg_playlist)
 	}
 
 	logger.Log("Checking which songs need to be downloaded.")
-	for _, track_online := range tracks_online {
-		track := ParseSpotifyTrack(track_online)
-		if _, err := os.Stat(*arg_folder + "/" + track.Filename + track.FilenameExt); !os.IsNotExist(err) {
-			tracks_offline = append(tracks_offline, track)
-		} else {
-			tracks_delta = append(tracks_delta, track)
-		}
+	for _, track := range tracks_online {
+		tracks = append(tracks, ParseSpotifyTrack(track))
 	}
 
 	ch := make(chan os.Signal, 1)
@@ -81,45 +82,42 @@ func main() {
 	go func() {
 		<-ch
 		logger.Log("SIGINT captured: cleaning up temporary files.")
-		for _, track := range tracks_delta {
-			os.Remove(*arg_folder + "/" + track.FilenameTemp)
-			os.Remove(*arg_folder + "/" + track.FilenameTemp + track.FilenameExt)
-			os.Remove(*arg_folder + "/" + track.FilenameTemp + ".part")
-			os.Remove(*arg_folder + "/" + track.FilenameTemp + ".part*")
-			os.Remove(*arg_folder + "/" + track.FilenameTemp + ".ytdl")
+		for _, track := range tracks {
+			for _, track_filename := range track.TempFiles() {
+				os.Remove(track_filename)
+			}
 		}
 		logger.Fatal("Explicit closure request by the user. Exiting.")
 	}()
 
-	if len(tracks_delta) > 0 {
-		youtube_client.SetInteractive(arg_interactive)
-		logger.Log(strconv.Itoa(len(tracks_delta)) + " missing songs, " + strconv.Itoa(len(tracks_online)-len(tracks_delta)) + " ignored.")
-		for track_index, track := range tracks_delta {
-			logger.Log(strconv.Itoa(track_index+1) + "/" + strconv.Itoa(len(tracks_delta)) + ": \"" + track.Filename + "\"")
-			err := youtube_client.FetchAndDownload(track, *arg_folder)
-			if err != nil {
-				logger.Log("Something went wrong with \"" + track.Filename + "\": " + err.Error() + ".")
-				tracks_failed = append(tracks_failed, track)
+	if len(tracks) > 0 {
+		logger.Log(strconv.Itoa(tracks.CountOnline()) + " missing songs, " + strconv.Itoa(tracks.CountOffline()) + " ignored.")
+		for track_index, track := range tracks {
+			logger.Log(strconv.Itoa(track_index+1) + "/" + strconv.Itoa(len(tracks)) + ": \"" + track.Filename + "\"")
+			if !track.Local {
+				youtube_track, err := youtube_client.FindTrack(track)
+				if err != nil {
+					logger.Warn("Something went wrong while searching for \"" + track.Filename + "\" track: " + err.Error() + ".")
+					continue
+				}
+				err = youtube_track.Download()
+				if err != nil {
+					logger.Warn("Something went wrong downloading \"" + track.Filename + "\": " + err.Error() + ".")
+					tracks_failed = append(tracks_failed, track)
+					continue
+				}
 			} else {
-				wait_group.Add(1)
-				go MetadataNormalizeAndMove(track, &wait_group)
-				if *arg_debug {
-					wait_group.Wait()
-				}
+				os.Rename(track.FilenameFinal(),
+					track.FilenameTemporary())
 			}
-		}
-		if *arg_flush_metadata {
-			for track_index, track := range tracks_offline {
-				logger.Log("Local " + strconv.Itoa(track_index+1) + "/" + strconv.Itoa(len(tracks_offline)) + ": \"" + track.Filename + "\"")
-				os.Remove(*arg_folder + "/" + track.FilenameTemp + track.FilenameExt)
-				os.Rename(*arg_folder+"/"+track.Filename+track.FilenameExt,
-					*arg_folder+"/"+track.FilenameTemp+track.FilenameExt)
-				wait_group.Add(1)
-				go MetadataNormalizeAndMove(track, &wait_group)
-				if *arg_debug {
-					wait_group.Wait()
-				}
+
+			wait_group.Add(1)
+			go ParallelSongProcess(track, &wait_group)
+			if *arg_debug {
+				wait_group.Wait()
 			}
+			os.Rename(track.FilenameTemporary(),
+				track.FilenameFinal())
 		}
 		wait_group.Wait()
 
@@ -134,84 +132,66 @@ func main() {
 	} else {
 		logger.Log("No song needs to be downloaded.")
 	}
-	if *arg_flush_metadata {
-		if len(tracks_offline) > 0 {
-			logger.Log("Flushing metadata for " + strconv.Itoa(len(tracks_offline)) + " songs.")
-		}
-		for track_index, track := range tracks_offline {
-			logger.Log("Local " + strconv.Itoa(track_index+1) + "/" + strconv.Itoa(len(tracks_offline)) + ": \"" + track.Filename + "\"")
-			os.Remove(*arg_folder + "/" + track.FilenameTemp + track.FilenameExt)
-			os.Rename(*arg_folder+"/"+track.Filename+track.FilenameExt,
-				*arg_folder+"/"+track.FilenameTemp+track.FilenameExt)
-			wait_group.Add(1)
-			go MetadataNormalizeAndMove(track, &wait_group)
-			if *arg_debug {
-				wait_group.Wait()
-			}
-		}
-		logger.Log("Job done.")
-	}
 	wait_group.Wait()
 }
 
-func MetadataNormalizeAndMove(track Track, wg *sync.WaitGroup) {
+func ParallelSongProcess(track Track, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	img_file_path := *arg_folder + "/" + track.FilenameTemp + ".jpg"
-	img_file, err := os.Create(img_file_path)
-	if err != nil {
-		logger.Warn("Something wrong while creating artwork file: " + err.Error())
-	}
-	img_file_writer := bufio.NewWriter(img_file)
-	err = track.Image.Download(img_file_writer)
-	if err != nil {
-		logger.Warn("Something wrong while downloading artwork file: " + err.Error())
-	}
-	defer os.Remove(img_file_path)
-	defer img_file.Close()
-
-	src_file := *arg_folder + "/" + track.FilenameTemp + track.FilenameExt
-	dst_file := *arg_folder + "/" + track.Filename + track.FilenameExt
-	track_mp3, err := id3.Open(src_file, id3.Options{Parse: true})
-	if track_mp3 == nil || err != nil {
-		logger.Fatal("Error while parsing mp3 file: " + err.Error())
-	}
-	defer track_mp3.Close()
-	if err != nil {
-		logger.Fatal("Something bad happened while opening " + track.Filename + ": " + err.Error() + ".")
-	} else {
-		logger.Log("Fixing metadata for: " + track.Filename + ".")
-		track_mp3.SetTitle(track.Title)
-		track_mp3.SetArtist(track.Artist)
-		track_mp3.SetAlbum(track.Album)
-		track_artwork_read, err := ioutil.ReadFile(img_file_path)
+	if (track.Local && *arg_flush_metadata) || !track.Local {
+		os.Remove(track.FilenameArtwork())
+		img_file, err := os.Create(track.FilenameArtwork())
 		if err != nil {
-			logger.Warn("Unable to read artwork file: " + err.Error())
+			logger.Warn("Something wrong while creating artwork file: " + err.Error())
 		}
-		track_artwork := id3.PictureFrame{
-			Encoding:    id3.EncodingUTF8,
-			MimeType:    "image/jpeg",
-			PictureType: id3.PTFrontCover,
-			Description: "Front cover",
-			Picture:     track_artwork_read,
+		img_file_writer := bufio.NewWriter(img_file)
+		err = track.Image.Download(img_file_writer)
+		if err != nil {
+			logger.Warn("Something wrong while downloading artwork file: " + err.Error())
 		}
-		track_mp3.AddAttachedPicture(track_artwork)
-		track_mp3.Save()
+		defer os.Remove(track.FilenameArtwork())
+		defer img_file.Close()
+
+		track_mp3, err := id3.Open(track.FilenameTemporary(), id3.Options{Parse: true})
+		if track_mp3 == nil || err != nil {
+			logger.Fatal("Error while parsing mp3 file: " + err.Error())
+		}
+		defer track_mp3.Close()
+		if err != nil {
+			logger.Fatal("Something bad happened while opening " + track.Filename + ": " + err.Error() + ".")
+		} else {
+			logger.Log("Fixing metadata for: " + track.Filename + ".")
+			track_mp3.SetTitle(track.Title)
+			track_mp3.SetArtist(track.Artist)
+			track_mp3.SetAlbum(track.Album)
+			track_artwork_read, err := ioutil.ReadFile(track.FilenameArtwork())
+			if err != nil {
+				logger.Warn("Unable to read artwork file: " + err.Error())
+			}
+			track_artwork := id3.PictureFrame{
+				Encoding:    id3.EncodingUTF8,
+				MimeType:    "image/jpeg",
+				PictureType: id3.PTFrontCover,
+				Description: "Front cover",
+				Picture:     track_artwork_read,
+			}
+			track_mp3.AddAttachedPicture(track_artwork)
+			defer track_mp3.Save()
+		}
 	}
 
-	if !(*arg_disable_normalization) {
-		defer os.Remove(src_file)
-		os.Remove(dst_file)
-
+	if !track.Local && !*arg_disable_normalization {
 		var (
-			command_cmd         = "ffmpeg"
+			command_cmd         string = "ffmpeg"
 			command_args        []string
 			command_out         bytes.Buffer
 			command_err         error
 			normalization_delta string
+			normalization_file  string = strings.Replace(track.FilenameTemporary(),
+				track.FilenameExt, ".norm"+track.FilenameExt, -1)
 		)
 
-		command_args = []string{"-i", src_file, "-af", "volumedetect", "-f", "null", "-y", "null"}
+		command_args = []string{"-i", track.FilenameTemporary(), "-af", "volumedetect", "-f", "null", "-y", "null"}
 		logger.Debug("Getting max_volume value: \"" + command_cmd + " " + strings.Join(command_args, " ") + "\".")
 		command_obj := exec.Command(command_cmd, command_args...)
 		command_obj.Stderr = &command_out
@@ -233,13 +213,13 @@ func MetadataNormalizeAndMove(track Track, wg *sync.WaitGroup) {
 			logger.Warn("Unable to pull max_volume delta to be applied along with song volume normalization: " + normalization_delta + ".")
 			normalization_delta = "0"
 		}
-		command_args = []string{"-i", src_file, "-af", "volume=+" + normalization_delta + "dB", "-b:a", "320k", "-y", dst_file}
+		command_args = []string{"-i", track.FilenameTemporary(), "-af", "volume=+" + normalization_delta + "dB", "-b:a", "320k", "-y", normalization_file}
 		logger.Log("Normalizing volume by " + normalization_delta + "dB for: " + track.Filename + ".")
 		logger.Debug("Using command: \"" + command_cmd + " " + strings.Join(command_args, " ") + "\"")
 		if _, command_err = exec.Command(command_cmd, command_args...).Output(); command_err != nil {
 			logger.Warn("Something went wrong while normalizing song \"" + track.Filename + "\" volume: " + command_err.Error())
 		}
-	} else {
-		os.Rename(src_file, dst_file)
+		os.Remove(track.FilenameTemporary())
+		os.Rename(normalization_file, track.FilenameTemporary())
 	}
 }

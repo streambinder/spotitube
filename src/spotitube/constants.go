@@ -19,11 +19,13 @@ const (
 	SYSTEM_LETTER_IDX_MASK = 1<<SYSTEM_LETTER_IDX_BITS - 1
 	SYSTEM_LETTER_IDX_MAX  = 63 / SYSTEM_LETTER_IDX_BITS
 
-	YOUTUBE_QUERY_URL      = "https://www.youtube.com/results"
-	YOUTUBE_QUERY_PATTERN  = YOUTUBE_QUERY_URL + "?q=%s"
-	YOUTUBE_VIDEO_SELECTOR = ".yt-uix-tile-link"
-	YOUTUBE_DESC_SELECTOR  = ".g-hovercard"
-	YOUTUBE_VIDEO_PREFIX   = "https://www.youtube.com"
+	YOUTUBE_QUERY_URL          = "https://www.youtube.com/results"
+	YOUTUBE_QUERY_PATTERN      = YOUTUBE_QUERY_URL + "?q=%s"
+	YOUTUBE_VIDEO_SELECTOR     = ".yt-uix-tile-link"
+	YOUTUBE_DESC_SELECTOR      = ".g-hovercard"
+	YOUTUBE_DURATION_SELECTOR  = ".accessible-description"
+	YOUTUBE_DURATION_TOLERANCE = 20 // second(s)
+	YOUTUBE_VIDEO_PREFIX       = "https://www.youtube.com"
 
 	SPOTIFY_CLIENT_ID                 = "d84f9faa18a84162ad6c73697990386c"
 	SPOTIFY_CLIENT_SECRET             = "8f40647775b8401a866e69e3f0044bf7"

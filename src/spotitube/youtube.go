@@ -3,7 +3,6 @@ package spotitube
 import (
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 
@@ -12,7 +11,7 @@ import (
 )
 
 type YouTube struct {
-	interactive bool
+	Interactive bool
 }
 
 type YouTubeTrack struct {
@@ -25,25 +24,12 @@ type YouTubeTrack struct {
 
 func NewYouTubeClient() *YouTube {
 	return &YouTube{
-		interactive: false,
+		Interactive: false,
 	}
 }
 
-func (youtube *YouTube) SetInteractive(set_interactive *bool) {
-	youtube.interactive = true
-}
-
-func (youtube *YouTube) FetchAndDownload(track Track, path string) error {
-	opt_download_path = path
-	youtube_track, err := youtube.FindTrack(track)
-	if err != nil {
-		return err
-	}
-	err = youtube_track.Download()
-	if err != nil {
-		return err
-	}
-	return nil
+func (youtube *YouTube) SetInteractive(set_interactive bool) {
+	youtube.Interactive = set_interactive
 }
 
 func (youtube *YouTube) FindTrack(track Track) (YouTubeTrack, error) {
@@ -89,7 +75,7 @@ func (youtube *YouTube) FindTrack(track Track) (YouTubeTrack, error) {
 				" | User: " + youtube_track.User)
 
 			ans := false
-			if *opt_interactive {
+			if youtube.Interactive {
 				prompt := &survey.Confirm{
 					Message: "Do you want to download \"" + youtube_track.Title + "\" by \"" + youtube_track.User + "\" (" + youtube_track.URL + ")?",
 				}
@@ -109,22 +95,6 @@ func (youtube *YouTube) FindTrack(track Track) (YouTubeTrack, error) {
 
 	logger.Warn("YouTube video URL not found. Dropping song download.")
 	return YouTubeTrack{}, errors.New("YouTube video URL not found")
-}
-
-func IdFromUrl(url string) string {
-	var id_part string
-	if strings.Contains(strings.ToLower(url), "youtu.be/") {
-		id_part = strings.Split(url, "youtu.be/")[1]
-	} else {
-		id_part = strings.Split(url, "watch?v=")[1]
-	}
-	if strings.Contains(id_part, "?") {
-		id_part = strings.Split(id_part, "?")[0]
-	}
-	if strings.Contains(id_part, "&list") {
-		id_part = strings.Split(id_part, "&list")[0]
-	}
-	return id_part
 }
 
 func (youtube_track YouTubeTrack) Match(track Track, strict bool) bool {
@@ -150,11 +120,7 @@ func (youtube_track YouTubeTrack) Match(track Track, strict bool) bool {
 }
 
 func (track YouTubeTrack) Download() error {
-	os.Chdir(opt_download_path)
-	for _, filename := range []string{track.Track.FilenameTemp, track.Track.FilenameTemp + track.Track.FilenameExt, track.Track.Filename, track.Track.Filename + track.Track.FilenameExt} {
-		os.Remove(filename)
-	}
-	logger.Log("Going to download \"" + track.URL + "\" to \"" + track.Track.FilenameTemp + track.Track.FilenameExt + "\".")
+	logger.Log("Going to download \"" + track.URL + "\" to \"" + track.Track.FilenameTemporary() + "\".")
 	command_cmd := "youtube-dl"
 	command_args := []string{"--output", track.Track.FilenameTemp + ".%(ext)s", "--format", "bestaudio", "--extract-audio", "--audio-format", track.Track.FilenameExt[1:], "--audio-quality", "0", track.URL}
 	_, err := exec.Command(command_cmd, command_args...).Output()
@@ -162,7 +128,22 @@ func (track YouTubeTrack) Download() error {
 		logger.Warn("Something went wrong while executing \"" + command_cmd + " " + strings.Join(command_args, " ") + "\": " + err.Error())
 		return err
 	}
-	logger.Log("Song downloaded to: \"" + opt_download_path + "/" + track.Track.FilenameTemp + track.Track.FilenameExt + "\".")
-
+	logger.Log("Song downloaded to: \"" + track.Track.FilenameTemporary() + "\".")
 	return nil
+}
+
+func IdFromUrl(url string) string {
+	var id_part string
+	if strings.Contains(strings.ToLower(url), "youtu.be/") {
+		id_part = strings.Split(url, "youtu.be/")[1]
+	} else {
+		id_part = strings.Split(url, "watch?v=")[1]
+	}
+	if strings.Contains(id_part, "?") {
+		id_part = strings.Split(id_part, "?")[0]
+	}
+	if strings.Contains(id_part, "&list") {
+		id_part = strings.Split(id_part, "&list")[0]
+	}
+	return id_part
 }

@@ -1,7 +1,9 @@
 package spotitube
 
 import (
+	"math/rand"
 	"os"
+	"time"
 )
 
 var (
@@ -36,4 +38,22 @@ func MakeRange(min, max int) []int {
 
 func GetBoolPointer(value bool) *bool {
 	return &value
+}
+
+func RandString(n int) string {
+	var src = rand.NewSource(time.Now().UnixNano())
+	b := make([]byte, n)
+	for i, cache, remain := n-1, src.Int63(), SYSTEM_LETTER_IDX_MAX; i >= 0; {
+		if remain == 0 {
+			cache, remain = src.Int63(), SYSTEM_LETTER_IDX_MAX
+		}
+		if idx := int(cache & SYSTEM_LETTER_IDX_MASK); idx < len(SYSTEM_LETTER_BYTES) {
+			b[i] = SYSTEM_LETTER_BYTES[idx]
+			i--
+		}
+		cache >>= SYSTEM_LETTER_IDX_BITS
+		remain--
+	}
+
+	return string(b)
 }

@@ -25,6 +25,7 @@ var (
 	arg_interactive           *bool
 	arg_log                   *bool
 	arg_debug                 *bool
+	arg_simulate              *bool
 
 	tracks         Tracks
 	tracks_failed  Tracks
@@ -42,6 +43,7 @@ func main() {
 	arg_interactive = flag.Bool("interactive", false, "Enable interactive mode")
 	arg_log = flag.Bool("log", false, "Enable logging into file ./spotitube.log")
 	arg_debug = flag.Bool("debug", false, "Enable debug messages")
+	arg_simulate = flag.Bool("simulate", false, "Simulate process flow, without really altering filesystem")
 	flag.Parse()
 
 	if *arg_log {
@@ -98,6 +100,9 @@ func main() {
 				youtube_track, err := youtube_client.FindTrack(track)
 				if err != nil {
 					logger.Warn("Something went wrong while searching for \"" + track.Filename + "\" track: " + err.Error() + ".")
+					continue
+				} else if *arg_simulate {
+					logger.Log("I would like to download \"" + youtube_track.URL + "\" for \"" + track.Filename + "\" track, but I'm just simulating.")
 					continue
 				}
 				err = youtube_track.Download()

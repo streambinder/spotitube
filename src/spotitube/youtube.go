@@ -44,8 +44,6 @@ func (youtube *YouTube) FindTrack(track Track) (YouTubeTrack, error) {
 	response, err := http.DefaultClient.Do(req)
 	if err == nil {
 		doc, _ = goquery.NewDocumentFromResponse(response)
-		content, _ := doc.Html()
-		logger.Debug(content)
 	} else {
 		doc, err = goquery.NewDocument(fmt.Sprintf(YOUTUBE_QUERY_PATTERN, strings.Replace(track.SearchPattern, " ", "+", -1)))
 	}

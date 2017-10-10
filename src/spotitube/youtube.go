@@ -61,18 +61,17 @@ func (youtube *YouTube) FindTrack(track Track) (YouTubeTrack, error) {
 				var item_length_m, item_length_s int
 				item_duration := selection_duration.Eq(selection_item)
 				item_length_str := strings.TrimSpace(item_duration.Text())
-				item_length_str = strings.Split(item_length_str, ": ")[1]
-				item_length_m, err = strconv.Atoi(strings.Split(item_length_str, ":")[0])
-				if err != nil {
-					item_length_ok = false
-				} else {
-					item_length_s, err = strconv.Atoi(strings.Split(item_length_str, ":")[1][:2])
-					if err != nil {
-						item_length_ok = false
+				if strings.Contains(item_length_str, ": ") {
+					item_length_str = strings.Split(item_length_str, ": ")[1]
+					item_length_m, err = strconv.Atoi(strings.Split(item_length_str, ":")[0])
+					if err == nil {
+						item_length_s, err = strconv.Atoi(strings.Split(item_length_str, ":")[1][:2])
+						if err == nil {
+							item_length = item_length_m*60 + item_length_s
+							item_length_ok = true
+						}
 					}
 				}
-				item_length = item_length_m*60 + item_length_s
-				item_length_ok = true
 			}
 			if !(item_href_ok && item_title_ok && item_user_ok && item_length_ok) {
 				logger.Debug("Non-standard YouTube video entry structure. Continuing scraping...")
@@ -112,6 +111,7 @@ func (youtube *YouTube) FindTrack(track Track) (YouTubeTrack, error) {
 			if ans ||
 				(lap == 0 && youtube_track.Match(track, true)) ||
 				(lap == 1 && youtube_track.Match(track, false)) {
+				track.URL = youtube_track.URL
 				return youtube_track, nil
 			}
 		}

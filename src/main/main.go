@@ -105,17 +105,24 @@ func main() {
 					logger.Warn("Something went wrong downloading \"" + track.Filename + "\": " + err.Error() + ".")
 					tracks_failed = append(tracks_failed, track)
 					continue
+				} else {
+					track.URL = youtube_track.URL
 				}
-			} else {
-				os.Rename(track.FilenameFinal(),
-					track.FilenameTemporary())
 			}
+
+			if track.Local && !*arg_flush_metadata {
+				continue
+			}
+
+			os.Rename(track.FilenameFinal(),
+				track.FilenameTemporary())
 
 			wait_group.Add(1)
 			go ParallelSongProcess(track, &wait_group)
 			if *arg_debug {
 				wait_group.Wait()
 			}
+
 			os.Rename(track.FilenameTemporary(),
 				track.FilenameFinal())
 		}
@@ -168,14 +175,21 @@ func ParallelSongProcess(track Track, wg *sync.WaitGroup) {
 			if err != nil {
 				logger.Warn("Unable to read artwork file: " + err.Error())
 			}
-			track_artwork := id3.PictureFrame{
+			track_mp3.AddAttachedPicture(id3.PictureFrame{
 				Encoding:    id3.EncodingUTF8,
 				MimeType:    "image/jpeg",
 				PictureType: id3.PTFrontCover,
 				Description: "Front cover",
 				Picture:     track_artwork_read,
+			})
+			if len(track.URL) > 0 {
+				track_mp3.AddCommentFrame(id3.CommentFrame{
+					Encoding:    id3.EncodingUTF8,
+					Language:    "eng",
+					Description: "URL",
+					Text:        track.URL,
+				})
 			}
-			track_mp3.AddAttachedPicture(track_artwork)
 			defer track_mp3.Save()
 		}
 	}

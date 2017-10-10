@@ -200,7 +200,7 @@ func SeemsType(sequence string, song_type int) bool {
 	if song_type == SongTypeLive {
 		song_type_aliases = []string{"@", "live", "perform", "tour"}
 		for _, year := range MakeRange(1950, 2050) {
-			song_type_aliases = append(song_type_aliases, strconv.Itoa(year))
+			song_type_aliases = append(song_type_aliases, []string{strconv.Itoa(year), "'" + strconv.Itoa(year)[2:]}...)
 		}
 	} else if song_type == SongTypeCover {
 		song_type_aliases = []string{"cover", "vs"}

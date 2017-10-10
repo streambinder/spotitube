@@ -111,14 +111,15 @@ func main() {
 				} else if *arg_simulate {
 					logger.Log("I would like to download \"" + youtube_track.URL + "\" for \"" + track.Filename + "\" track, but I'm just simulating.")
 					continue
-				} else if *arg_replace_local && track.URL == youtube_track.URL {
-					logger.Log("Track \"" + track.Filename + "\" is still the best result I can find.")
-					continue
-				}
-
-				if track.Local {
-					track.Local = false
-					os.Remove(track.FilenameFinal())
+				} else if *arg_replace_local {
+					if track.URL == youtube_track.URL {
+						logger.Log("Track \"" + track.Filename + "\" is still the best result I can find.")
+						continue
+					} else {
+						track.URL = ""
+						track.Local = false
+						os.Remove(track.FilenameFinal())
+					}
 				}
 
 				err = youtube_track.Download()
@@ -133,19 +134,16 @@ func main() {
 
 			if track.Local && !*arg_flush_metadata && !*arg_replace_local {
 				continue
+			} else if track.Local && *arg_flush_metadata {
+				os.Rename(track.FilenameFinal(),
+					track.FilenameTemporary())
 			}
-
-			os.Rename(track.FilenameFinal(),
-				track.FilenameTemporary())
 
 			wait_group.Add(1)
 			go ParallelSongProcess(track, &wait_group)
 			if *arg_debug {
 				wait_group.Wait()
 			}
-
-			os.Rename(track.FilenameTemporary(),
-				track.FilenameFinal())
 		}
 		wait_group.Wait()
 
@@ -176,27 +174,23 @@ func ParallelSongProcess(track Track, wg *sync.WaitGroup) {
 
 		track_mp3, err := id3.Open(track.FilenameTemporary(), id3.Options{Parse: true})
 		if track_mp3 == nil || err != nil {
-			logger.Fatal("Error while parsing mp3 file: " + err.Error())
-		}
-		defer track_mp3.Close()
-		if err != nil {
-			logger.Fatal("Something bad happened while opening " + track.Filename + ": " + err.Error() + ".")
+			logger.Fatal("Something bad happened while opening: " + err.Error())
 		} else {
 			logger.Log("Fixing metadata for: " + track.Filename + ".")
 			track_mp3.SetTitle(track.Title)
 			track_mp3.SetArtist(track.Artist)
 			track_mp3.SetAlbum(track.Album)
-			track_artwork_read, err := ioutil.ReadFile(track.FilenameArtwork())
+			_, err := ioutil.ReadFile(track.FilenameArtwork())
 			if err != nil {
 				logger.Warn("Unable to read artwork file: " + err.Error())
 			}
-			track_mp3.AddAttachedPicture(id3.PictureFrame{
-				Encoding:    id3.EncodingUTF8,
-				MimeType:    "image/jpeg",
-				PictureType: id3.PTFrontCover,
-				Description: "Front cover",
-				Picture:     track_artwork_read,
-			})
+			// track_mp3.AddAttachedPicture(id3.PictureFrame{
+			// 	Encoding:    id3.EncodingUTF8,
+			// 	MimeType:    "image/jpeg",
+			// 	PictureType: id3.PTFrontCover,
+			// 	Description: "Front cover",
+			// 	Picture:     track_artwork_read,
+			// })
 			if len(track.URL) > 0 {
 				track_mp3.AddCommentFrame(id3.CommentFrame{
 					Encoding:    id3.EncodingUTF8,
@@ -205,8 +199,9 @@ func ParallelSongProcess(track Track, wg *sync.WaitGroup) {
 					Text:        track.URL,
 				})
 			}
-			defer track_mp3.Save()
+			track_mp3.Save()
 		}
+		track_mp3.Close()
 	}
 
 	if !track.Local && !*arg_disable_normalization {
@@ -226,7 +221,7 @@ func ParallelSongProcess(track Track, wg *sync.WaitGroup) {
 		command_obj.Stderr = &command_out
 		command_err = command_obj.Run()
 		if command_err != nil {
-			logger.Warn("Unable to use ffmpeg to pull max_volume song value: " + command_err.Error() + ".")
+			logger.Warn("Unable to use ffmpeg to pull max_volume song value: " + command_out.String() + ".")
 			normalization_delta = "0"
 		} else {
 			command_scanner := bufio.NewScanner(strings.NewReader(command_out.String()))
@@ -251,4 +246,5 @@ func ParallelSongProcess(track Track, wg *sync.WaitGroup) {
 		os.Remove(track.FilenameTemporary())
 		os.Rename(normalization_file, track.FilenameTemporary())
 	}
+	os.Rename(track.FilenameTemporary(), track.FilenameFinal())
 }

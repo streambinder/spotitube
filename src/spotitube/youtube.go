@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net/http"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -36,8 +37,18 @@ func (youtube *YouTube) SetInteractive(set_interactive bool) {
 }
 
 func (youtube *YouTube) FindTrack(track Track) (YouTubeTrack, error) {
+	var doc *goquery.Document
 	logger.Log("Searching youtube results to \"" + fmt.Sprintf(YOUTUBE_QUERY_PATTERN, strings.Replace(track.SearchPattern, " ", "+", -1)) + "\".")
-	doc, err := goquery.NewDocument(fmt.Sprintf(YOUTUBE_QUERY_PATTERN, strings.Replace(track.SearchPattern, " ", "+", -1)))
+	req, _ := http.NewRequest("GET", fmt.Sprintf(YOUTUBE_QUERY_PATTERN, strings.Replace(track.SearchPattern, " ", "+", -1)), nil)
+	req.Header.Add("Accept-Language", "en")
+	response, err := http.DefaultClient.Do(req)
+	if err == nil {
+		doc, _ = goquery.NewDocumentFromResponse(response)
+		content, _ := doc.Html()
+		logger.Debug(content)
+	} else {
+		doc, err = goquery.NewDocument(fmt.Sprintf(YOUTUBE_QUERY_PATTERN, strings.Replace(track.SearchPattern, " ", "+", -1)))
+	}
 	if err != nil {
 		logger.Warn("Cannot retrieve doc from \"" + fmt.Sprintf(YOUTUBE_QUERY_PATTERN, strings.Replace(track.SearchPattern, " ", "+", -1)) + "\": " + err.Error())
 		return YouTubeTrack{}, err

@@ -147,17 +147,11 @@ func ParallelSongProcess(track Track, wg *sync.WaitGroup) {
 
 	if (track.Local && *arg_flush_metadata) || !track.Local {
 		os.Remove(track.FilenameArtwork())
-		img_file, err := os.Create(track.FilenameArtwork())
-		if err != nil {
-			logger.Warn("Something wrong while creating artwork file: " + err.Error())
-		}
-		img_file_writer := bufio.NewWriter(img_file)
-		err = track.Image.Download(img_file_writer)
+		err := Wget(track.URL, track.FilenameArtwork())
 		if err != nil {
 			logger.Warn("Something wrong while downloading artwork file: " + err.Error())
 		}
 		defer os.Remove(track.FilenameArtwork())
-		defer img_file.Close()
 
 		track_mp3, err := id3.Open(track.FilenameTemporary(), id3.Options{Parse: true})
 		if track_mp3 == nil || err != nil {

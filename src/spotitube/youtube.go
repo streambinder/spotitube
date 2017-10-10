@@ -107,9 +107,19 @@ func (youtube *YouTube) FindTrack(track Track) (YouTubeTrack, error) {
 				" | Duration: " + fmt.Sprintf("%d", youtube_track.Duration))
 
 			ans := false
+			ans_automated := (lap == 0 && youtube_track.Match(track, true)) ||
+				(lap == 1 && youtube_track.Match(track, false))
 			if youtube.Interactive {
+				var ans_automated_msg string
+				if ans_automated {
+					ans_automated_msg = "I would do it"
+				} else {
+					ans_automated_msg = "I wouldn't do it"
+				}
 				prompt := &survey.Confirm{
-					Message: "Do you want to download \"" + youtube_track.Title + "\" by \"" + youtube_track.User + "\" (" + youtube_track.URL + ")?",
+					Message: "Do you want to download " + youtube_track.User +
+						"'s video \"" + youtube_track.Title + "\" at \"" + youtube_track.URL +
+						"\" (" + ans_automated_msg + ")?",
 				}
 				survey.AskOne(prompt, &ans, nil)
 				if !ans {
@@ -117,9 +127,7 @@ func (youtube *YouTube) FindTrack(track Track) (YouTubeTrack, error) {
 				}
 			}
 
-			if ans ||
-				(lap == 0 && youtube_track.Match(track, true)) ||
-				(lap == 1 && youtube_track.Match(track, false)) {
+			if ans || ans_automated {
 				track.URL = youtube_track.URL
 				return youtube_track, nil
 			}

@@ -26,11 +26,12 @@ type Track struct {
 	Featurings    []string
 	Image         spotify.Image
 	Duration      int
+	SongType      int
+	URL           string
 	Filename      string
 	FilenameTemp  string
 	FilenameExt   string
 	SearchPattern string
-	SongType      int
 	Local         bool
 }
 

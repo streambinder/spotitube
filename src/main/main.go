@@ -106,6 +106,7 @@ func main() {
 				youtube_track, err := youtube_client.FindTrack(track)
 				if err != nil {
 					logger.Warn("Something went wrong while searching for \"" + track.Filename + "\" track: " + err.Error() + ".")
+					tracks_failed = append(tracks_failed, track)
 					continue
 				} else if *arg_simulate {
 					logger.Log("I would like to download \"" + youtube_track.URL + "\" for \"" + track.Filename + "\" track, but I'm just simulating.")

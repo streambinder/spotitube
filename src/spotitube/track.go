@@ -1,7 +1,6 @@
 package spotitube
 
 import (
-	"os"
 	"strconv"
 	"strings"
 
@@ -131,8 +130,9 @@ func ParseSpotifyTrack(spotify_track spotify.FullTrack) Track {
 
 	track.SearchPattern = strings.Replace(track.FilenameTemp[1:], "-", " ", -1)
 
-	_, err := os.Stat(track.Filename + track.FilenameExt)
-	track.Local = !os.IsNotExist(err)
+	if FileExists(track.FilenameFinal()) {
+		track.Local = true
+	}
 
 	if track.Local {
 		track.URL = track.ReadFrame("YouTubeURL")

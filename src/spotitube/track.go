@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/bogem/id3v2"
 	"github.com/kennygrant/sanitize"
 	"github.com/zmb3/spotify"
 )
@@ -133,6 +134,10 @@ func ParseSpotifyTrack(spotify_track spotify.FullTrack) Track {
 	_, err := os.Stat(track.Filename + track.FilenameExt)
 	track.Local = !os.IsNotExist(err)
 
+	if track.Local {
+		track.URL = track.ReadFrame("YouTubeURL")
+	}
+
 	return track
 }
 
@@ -193,6 +198,26 @@ func (track Track) SeemsByWordMatch(sequence string) bool {
 		}
 	}
 	return true
+}
+
+func (track Track) ReadFrame(name string) string {
+	tag, err := id3v2.Open(track.FilenameFinal(), id3v2.Options{Parse: true})
+	if tag == nil || err != nil {
+		return ""
+	}
+	defer tag.Close()
+	comments := tag.GetFrames(tag.CommonID("Comments"))
+	for _, f := range comments {
+		comment, ok := f.(id3v2.CommentFrame)
+		if !ok {
+			return ""
+		}
+		if comment.Description == "YouTubeURL" {
+			return comment.Text
+		}
+	}
+
+	return ""
 }
 
 func SeemsType(sequence string, song_type int) bool {

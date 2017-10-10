@@ -20,6 +20,7 @@ import (
 var (
 	arg_folder                *string
 	arg_playlist              *string
+	arg_replace_local         *bool
 	arg_flush_metadata        *bool
 	arg_disable_normalization *bool
 	arg_interactive           *bool
@@ -38,6 +39,7 @@ var (
 func main() {
 	arg_folder = flag.String("folder", ".", "Folder to sync with music.")
 	arg_playlist = flag.String("playlist", "none", "Playlist URI to synchronize.")
+	arg_replace_local = flag.Bool("replace-local", false, "Replace local library songs if better results get encountered")
 	arg_flush_metadata = flag.Bool("flush-metadata", false, "Flush metadata informations to already synchronized songs")
 	arg_disable_normalization = flag.Bool("disable-normalization", false, "Disable songs volume normalization")
 	arg_interactive = flag.Bool("interactive", false, "Enable interactive mode")
@@ -93,10 +95,14 @@ func main() {
 	}()
 
 	if len(tracks) > 0 {
-		logger.Log(strconv.Itoa(tracks.CountOnline()) + " missing songs, " + strconv.Itoa(tracks.CountOffline()) + " ignored.")
+		if *arg_replace_local {
+			logger.Log(strconv.Itoa(len(tracks)) + " missing songs.")
+		} else {
+			logger.Log(strconv.Itoa(tracks.CountOnline()) + " missing songs, " + strconv.Itoa(tracks.CountOffline()) + " ignored.")
+		}
 		for track_index, track := range tracks {
 			logger.Log(strconv.Itoa(track_index+1) + "/" + strconv.Itoa(len(tracks)) + ": \"" + track.Filename + "\"")
-			if !track.Local {
+			if !track.Local || *arg_replace_local {
 				youtube_track, err := youtube_client.FindTrack(track)
 				if err != nil {
 					logger.Warn("Something went wrong while searching for \"" + track.Filename + "\" track: " + err.Error() + ".")
@@ -104,7 +110,16 @@ func main() {
 				} else if *arg_simulate {
 					logger.Log("I would like to download \"" + youtube_track.URL + "\" for \"" + track.Filename + "\" track, but I'm just simulating.")
 					continue
+				} else if *arg_replace_local && track.URL == youtube_track.URL {
+					logger.Log("Track \"" + track.Filename + "\" is still the best result I can find.")
+					continue
 				}
+
+				if track.Local {
+					track.Local = false
+					os.Remove(track.FilenameFinal())
+				}
+
 				err = youtube_track.Download()
 				if err != nil {
 					logger.Warn("Something went wrong downloading \"" + track.Filename + "\": " + err.Error() + ".")
@@ -115,7 +130,7 @@ func main() {
 				}
 			}
 
-			if track.Local && !*arg_flush_metadata {
+			if track.Local && !*arg_flush_metadata && !*arg_replace_local {
 				continue
 			}
 
@@ -185,7 +200,7 @@ func ParallelSongProcess(track Track, wg *sync.WaitGroup) {
 				track_mp3.AddCommentFrame(id3.CommentFrame{
 					Encoding:    id3.EncodingUTF8,
 					Language:    "eng",
-					Description: "URL",
+					Description: "YouTubeURL",
 					Text:        track.URL,
 				})
 			}

@@ -1,8 +1,6 @@
 # SPOTITUBE
 
-<a href="#spotitube">
-    <img src="https://raw.githubusercontent.com/streambinder/spotitube/master/assets/sample.gif" width="100%">
-</a>
+[![](https://raw.githubusercontent.com/streambinder/spotitube/master/assets/sample.gif)](#spotitube)
 
 ## What is
 
@@ -11,10 +9,10 @@ This project was born as per two needs:
 1. I wanted to learn some _GO-lang_ basics.
 2. I needed to automate the process of synchronize the songs I wanted to download. This process is composed by several phases:
 
-    - Keep track of music I want to download
-    - Find the best song file I can
-    - Download it
-    - Apply correct metadata
+  - Keep track of music I want to download
+  - Find the best song file I can
+  - Download it
+  - Apply correct metadata
 
 _spotitube_ basically solves these two major problems in a simple, elegant, but especially rapid way.
 
@@ -24,11 +22,11 @@ The solution I wrote to automate the process is covered by two major components:
 
 1. _Spotify_
 
-    This component, once authenticated, is used to keep track of the music to synchronize (both via library or a playlist) and as database for the metadata to apply to every downloaded _mp3_.
+  This component, once authenticated, is used to keep track of the music to synchronize (both via library or a playlist) and as database for the metadata to apply to every downloaded _mp3_.
 
 2. _YouTube_:
 
-    This one is our free music shop, used to be queried to give us the best video it owns about the songs we're looking for. Once found, that one gets downloaded using a combination of `youtube-dl` and `ffmpeg` commands.
+  This one is our free music shop, used to be queried to give us the best video it owns about the songs we're looking for. Once found, that one gets downloaded using a combination of `youtube-dl` and `ffmpeg` commands.
 
 ## What does it need
 
@@ -94,6 +92,7 @@ You may want to use some of the following input flags:
 1. `-disable-normalization`: disable songs volume normalization. Although volume normalization is really useful, as lot of songs gets downloaded with several `max_volume` values, resulting into some of them with very low volume level, this option (enabled by default) make the process slow down.
 2. `-interactive`: enable interactive mode. This allows to eventually override `spotitube` decisions about which _YouTube_ result to pick, prompting for user input on every - legal - song it encounters.
 3. `-flush-metadata`: enable metadata informations flush also for songs that have been already synchronized.
+4. `-replace-local`: replace already downloaded (via `spotitube`) songs, if better ones get encountered.
 
 #### Developers
 

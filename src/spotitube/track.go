@@ -24,9 +24,9 @@ type Track struct {
 	Artist        string
 	Album         string
 	Featurings    []string
-	Image         spotify.Image
 	Duration      int
 	SongType      int
+	Image         string
 	URL           string
 	Filename      string
 	FilenameTemp  string
@@ -74,8 +74,9 @@ func ParseSpotifyTrack(spotify_track spotify.FullTrack) Track {
 			}
 			return featurings
 		}(),
-		Image:         spotify_track.Album.Images[0],
 		Duration:      spotify_track.SimpleTrack.Duration / 1000,
+		Image:         spotify_track.Album.Images[0].URL,
+		URL:           "",
 		Filename:      "",
 		FilenameTemp:  "",
 		FilenameExt:   DEFAULT_EXTENSION,

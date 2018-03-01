@@ -39,11 +39,11 @@ public class Track {
             for (int i = 1; i < trackObject.getJSONArray("artists").length(); i++) {
                 featurings.add(trackObject.getJSONArray("artists").getJSONObject(i).getString("name"));
             }
-            for (int i = 0; i < trackObject.getJSONObject("album").getJSONArray("genres").length(); i++) {
+            /*for (int i = 0; i < trackObject.getJSONObject("album").getJSONArray("genres").length(); i++) {
                 featurings.add(trackObject.getJSONObject("album").getJSONArray("genres").get(i).toString());
-            }
+            }*/
             trackNumber = trackObject.getInt("track_number");
-            trackTotals = trackObject.getJSONObject("album").getJSONArray("tracks").length();
+            //trackTotals = trackObject.getJSONObject("album").getJSONArray("tracks").length();
             duration = trackObject.getInt("duration_ms") / 1000;
             image = trackObject.getJSONObject("album").getJSONArray("images").getJSONObject(0).getString("url");
             filenameExt = "mp3";
@@ -74,8 +74,8 @@ public class Track {
                     }
                     String inlineFeaturings = new String();
                     if (featurings.size() > 1) {
-                        inlineFeaturings += String.join(", ", featurings.subList(0, featurings.size() - 1))
-                                + " and " + featurings.get(featurings.size());
+                        inlineFeaturings += String.join(", ", featurings.subList(0, featurings.size() - 2))
+                                + " and " + featurings.get(featurings.size() - 1);
                     } else {
                         inlineFeaturings += featurings.get(0);
                     }
@@ -86,7 +86,7 @@ public class Track {
                 song = title;
             }
 
-            album = album.replaceAll("\\[", "(");
+            /*album = album.replaceAll("\\[", "(");
             album = album.replaceAll("]", ")");
             album = album.replaceAll("\\{", "(");
             album = album.replaceAll("}", "(");
@@ -95,10 +95,10 @@ public class Track {
             for (String symbol : new String[]{"/", "\\", ".", "?", "<", ">", ":", "*"}) {
                 filename = filename.replaceAll(symbol, "");
             }
-            filename = filename.replaceAll("  ", " ");
+            filename = filename.replaceAll("\\ \\ ", " ");*/
             filenameTemp = "." + filename;
 
-            searchPattern = filenameTemp.replaceAll("-", " ");
+            searchPattern = filenameTemp.replaceAll("\\-", " ");
 
             File file = new File(filenameFinal());
             if (file.exists() && !file.isDirectory()) {

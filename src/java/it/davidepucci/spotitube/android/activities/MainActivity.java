@@ -4,8 +4,13 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.design.widget.Snackbar;
+import android.support.design.widget.TabLayout;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.widget.TextView;
 
 import com.spotify.sdk.android.authentication.AuthenticationClient;
@@ -21,6 +26,7 @@ import java.util.Locale;
 
 import it.davidepucci.spotitube.R;
 import it.davidepucci.spotitube.android.callbacks.ReturningCallback;
+import it.davidepucci.spotitube.android.pagers.PagerAdapter;
 import it.davidepucci.spotitube.model.Track;
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -41,12 +47,44 @@ public class MainActivity extends AppCompatActivity {
 
     private LinkedList<Track> library = new LinkedList<>();
 
+    // Choose your own preferred column width
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
         locale = getResources().getConfiguration().locale;
+
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+
+        TabLayout tabLayout = (TabLayout) findViewById(R.id.tab_layout);
+        tabLayout.addTab(tabLayout.newTab().setText("Libreria"));
+        tabLayout.addTab(tabLayout.newTab().setText("Playlist"));
+        tabLayout.setTabGravity(TabLayout.GRAVITY_FILL);
+
+        final ViewPager viewPager = (ViewPager) findViewById(R.id.pager);
+        final PagerAdapter adapter = new PagerAdapter
+                (getSupportFragmentManager(), tabLayout.getTabCount());
+        viewPager.setAdapter(adapter);
+        viewPager.addOnPageChangeListener(new TabLayout.TabLayoutOnPageChangeListener(tabLayout));
+        tabLayout.setOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+            @Override
+            public void onTabSelected(TabLayout.Tab tab) {
+                viewPager.setCurrentItem(tab.getPosition());
+            }
+
+            @Override
+            public void onTabUnselected(TabLayout.Tab tab) {
+
+            }
+
+            @Override
+            public void onTabReselected(TabLayout.Tab tab) {
+
+            }
+        });
 
         final AuthenticationRequest request = getAuthenticationRequest(AuthenticationResponse.Type.TOKEN);
         AuthenticationClient.openLoginActivity(this, AUTH_TOKEN_REQUEST_CODE, request);
@@ -76,7 +114,10 @@ public class MainActivity extends AppCompatActivity {
                 mCall.enqueue(new Callback() {
                     @Override
                     public void onFailure(Call call, IOException e) {
-                        setResponse("Failed to fetch data: " + e);
+                        final Snackbar snackbar = Snackbar.make(findViewById(R.id.activity_main),
+                                "Failed to fetch data: " + e, Snackbar.LENGTH_SHORT);
+                        snackbar.getView().setBackgroundColor(ContextCompat.getColor(getApplicationContext(), R.color.colorSnackbar));
+                        snackbar.show();
                     }
 
                     @Override
@@ -84,9 +125,8 @@ public class MainActivity extends AppCompatActivity {
                         try {
                             final JSONObject jsonObject = new JSONObject(response.body().string());
                             final Snackbar snackbar = Snackbar.make(findViewById(R.id.activity_main),
-                                    jsonObject.getString("display_name")
-                                            + " <" + jsonObject.getString("email") + ">", Snackbar.LENGTH_SHORT);
-                            snackbar.getView().setBackgroundColor(ContextCompat.getColor(getApplicationContext(), R.color.colorAccent));
+                                    "Connesso come: " + jsonObject.getString("display_name"), Snackbar.LENGTH_SHORT);
+                            snackbar.getView().setBackgroundColor(ContextCompat.getColor(getApplicationContext(), R.color.colorSnackbar));
                             snackbar.show();
 
                             final Request requestLibraryTotals = new Request.Builder()
@@ -99,7 +139,10 @@ public class MainActivity extends AppCompatActivity {
                             ReturningCallback<Integer> mCallBack = new ReturningCallback<Integer>() {
                                 @Override
                                 public void onFailure(Call call, IOException e) {
-                                    setResponse("Failed to fetch data: " + e);
+                                    final Snackbar snackbar = Snackbar.make(findViewById(R.id.activity_main),
+                                            "Failed to fetch data: " + e, Snackbar.LENGTH_SHORT);
+                                    snackbar.getView().setBackgroundColor(ContextCompat.getColor(getApplicationContext(), R.color.colorSnackbar));
+                                    snackbar.show();
                                 }
 
                                 @Override
@@ -108,7 +151,10 @@ public class MainActivity extends AppCompatActivity {
                                         final JSONObject jsonObject = new JSONObject(response.body().string());
                                         setResult(jsonObject.getInt("total"));
                                     } catch (JSONException e) {
-                                        setResponse("Failed to parse data: " + e);
+                                        final Snackbar snackbar = Snackbar.make(findViewById(R.id.activity_main),
+                                                "Failed to parse data: " + e, Snackbar.LENGTH_SHORT);
+                                        snackbar.getView().setBackgroundColor(ContextCompat.getColor(getApplicationContext(), R.color.colorSnackbar));
+                                        snackbar.show();
                                     }
                                 }
                             };
@@ -131,7 +177,10 @@ public class MainActivity extends AppCompatActivity {
                                 mCall.enqueue(new Callback() {
                                     @Override
                                     public void onFailure(Call call, IOException e) {
-                                        setResponse("Failed to fetch data: " + e);
+                                        final Snackbar snackbar = Snackbar.make(findViewById(R.id.activity_main),
+                                                "Failed to fetch data: " + e, Snackbar.LENGTH_SHORT);
+                                        snackbar.getView().setBackgroundColor(ContextCompat.getColor(getApplicationContext(), R.color.colorSnackbar));
+                                        snackbar.show();
                                     }
 
                                     @Override
@@ -143,21 +192,39 @@ public class MainActivity extends AppCompatActivity {
                                                 synchronized (library) {
                                                     library.add(track);
                                                 }
-                                                setResponse(track.toString());
+                                                addToLibrary(track.getArtist() + " - " + track.getTitle());
                                             }
                                         } catch (JSONException e) {
-                                            setResponse("Failed to parse data: " + e);
+                                            final Snackbar snackbar = Snackbar.make(findViewById(R.id.activity_main),
+                                                    "Failed to parse data: " + e, Snackbar.LENGTH_SHORT);
+                                            snackbar.getView().setBackgroundColor(ContextCompat.getColor(getApplicationContext(), R.color.colorSnackbar));
+                                            snackbar.show();
                                         }
                                     }
                                 });
                             }
                         } catch (JSONException e) {
-                            setResponse("Failed to parse data: " + e);
+                            final Snackbar snackbar = Snackbar.make(findViewById(R.id.activity_main),
+                                    "Failed to parse data: " + e, Snackbar.LENGTH_SHORT);
+                            snackbar.getView().setBackgroundColor(ContextCompat.getColor(getApplicationContext(), R.color.colorSnackbar));
+                            snackbar.show();
                         }
                     }
                 });
             }
         }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+
+        return super.onOptionsItemSelected(item);
     }
 
     private AuthenticationRequest getAuthenticationRequest(AuthenticationResponse.Type type) {
@@ -168,12 +235,13 @@ public class MainActivity extends AppCompatActivity {
                 .build();
     }
 
-    private void setResponse(final String text) {
+    private void addToLibrary(final String text) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 final TextView responseView = (TextView) findViewById(R.id.response_text_view);
-                responseView.append(text + "\n");
+                responseView.append("> " + text + "\n");
+
             }
         });
     }

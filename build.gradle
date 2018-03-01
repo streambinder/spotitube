@@ -58,5 +58,7 @@ dependencies {
     compile 'com.android.support:design:25.1.1'
     compile 'com.squareup.okhttp3:okhttp:3.4.1'
     compile 'com.spotify.android:auth:1.0.0-alpha'
+
+
 }
 

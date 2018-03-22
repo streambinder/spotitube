@@ -81,11 +81,23 @@ The way to build it is pretty straightforward:
 ```bash
 git clone https://github.com/streambinder/spotitube
 cd spotitube
-make
+# the following SPOTIFY_ID and SPOTIFY_KEY are bogus
+# read the "Spotify application keys" section for further informations
+SPOTIFY_ID=YJ5U6TSB317572L40EMQQPVEI2HICXFL SPOTIFY_KEY=4SW2W3ICZ3DPY6NWC88UFJDBCZJAQA8J make
 # to install system-wide
 sudo make install
 # otherwise you'll find the binary inside ./bin
 ```
+
+##### Spotify application keys
+
+Behind this tool there's a Spotify application that gets called during the authentication phase, which Spotify gives permissions to, to read many informations, such as the user name, library and playlists.
+When you use _Spotitube_ for the very first time, Spotify will ask you if you really want to grant this informations to it.
+
+The Spotify application gets linked to this go-lang code using the `SPOTIFY_ID` and the `SPOITIFY_KEY` provided by Spotify to the user who created the application (me).
+It's not a good deal to hardcode these application credentials into the source code (as I previously was doing), letting anyone to see and use the same ones and letting anyone to pretend to be _Spotitube_, being then able to steal such informations, hiding his real identity.
+This is the reason behind the choice to hide those credentials from the source code, and applying - expliciting as environment variables - them during the compilation phase.
+On the other hand, this unfortunately means that no one can compile the tool but me (or anyone else which the keys are granted to): if you want, you can easily create an application to the Spotify [developer area](https://beta.developer.spotify.com/dashboard/applications) and use your own credentials.
 
 ### How to use
 

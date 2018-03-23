@@ -78,13 +78,19 @@ func (spotify *Spotify) LibraryTracks() ([]api.FullTrack, error) {
 }
 
 func (spotify *Spotify) Playlist(playlist_uri string) (*api.FullPlaylist, error) {
-	playlist_owner, playlist_id := spotify.ParsePlaylistUri(playlist_uri)
+	playlist_owner, playlist_id, playlist_err := spotify.ParsePlaylistUri(playlist_uri)
+	if playlist_err != nil {
+		return &api.FullPlaylist{}, playlist_err
+	}
 	return spotify.Client.GetPlaylist(playlist_owner, playlist_id)
 }
 
 func (spotify *Spotify) PlaylistTracks(playlist_uri string) ([]api.FullTrack, error) {
-	playlist_owner, playlist_id := spotify.ParsePlaylistUri(playlist_uri)
 	var tracks []api.FullTrack
+	playlist_owner, playlist_id, playlist_err := spotify.ParsePlaylistUri(playlist_uri)
+	if playlist_err != nil {
+		return tracks, playlist_err
+	}
 	var iterations int = 0
 	var options api.Options = spotify.DefaultOptions()
 	for true {
@@ -145,8 +151,11 @@ func (spotify *Spotify) DefaultOptions() api.Options {
 	}
 }
 
-func (spotify *Spotify) ParsePlaylistUri(playlist_uri string) (string, api.ID) {
-	return strings.Split(playlist_uri, ":")[2], api.ID(strings.Split(playlist_uri, ":")[4])
+func (spotify *Spotify) ParsePlaylistUri(playlist_uri string) (string, api.ID, error) {
+	if strings.Count(playlist_uri, ":") == 4 {
+		return strings.Split(playlist_uri, ":")[2], api.ID(strings.Split(playlist_uri, ":")[4]), nil
+	}
+	return "", "", errors.New(fmt.Sprintf("Malformed playlist URI: expected 5 columns, given %d.", strings.Count(playlist_uri, ":")))
 }
 
 func HttpFaviconHandler(w http.ResponseWriter, r *http.Request) {

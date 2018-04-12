@@ -241,7 +241,6 @@ func (gui *Gui) ClearAppend(message string, options uint64) error {
 		view.Clear()
 		return gui.Append(message, options|panel)
 	}
-	return nil
 }
 
 func (gui *Gui) ErrAppend(message string, options uint64) error {
@@ -373,7 +372,7 @@ func GuiSTDLayout(gui *gocui.Gui) error {
 		}
 		view.Autoscroll = true
 		view.Title = strings.ToUpper(" SpotiTube ")
-		fmt.Fprintln(view, "\n")
+		fmt.Fprint(view, "\n")
 	}
 	if view, err := gui.SetView("GuiPanelLeftBottom", 0, gui_max_height/2+1,
 		gui_max_width/3, gui_max_height-4); err != nil {
@@ -382,7 +381,7 @@ func GuiSTDLayout(gui *gocui.Gui) error {
 		}
 		view.Autoscroll = true
 		view.Title = strings.ToUpper(" Informations ")
-		fmt.Fprintln(view, "\n")
+		fmt.Fprint(view, "\n")
 	}
 	if view, err := gui.SetView("GuiPanelRight", gui_max_width/3+1, 0,
 		gui_max_width-1, gui_max_height-4); err != nil {
@@ -391,7 +390,7 @@ func GuiSTDLayout(gui *gocui.Gui) error {
 		}
 		view.Autoscroll = true
 		view.Title = strings.ToUpper(" Status ")
-		fmt.Fprintln(view, "\n")
+		fmt.Fprint(view, "\n")
 	}
 	if _, err := gui.SetView("GuiPanelLoading", 0, gui_max_height-3,
 		gui_max_width-1, gui_max_height-1); err != nil {
@@ -446,9 +445,7 @@ func MessageOrientate(message string, view *gocui.View, orientation int) string 
 	for _, line := range strings.Split(message, "\n") {
 		if len(line) < line_length {
 			line_spacing := (line_length - len(line)) / 2
-			if orientation == OrientationLeft {
-				line = line
-			} else if orientation == OrientationCenter {
+			if orientation == OrientationCenter {
 				line = strings.Repeat(" ", line_spacing) +
 					line + strings.Repeat(" ", line_spacing)
 			} else if orientation == OrientationRight {
@@ -475,7 +472,7 @@ func MessageParagraphStyle(message string, style_const int, width int) string {
 		var message_paragraph string
 		for len(message) > 0 {
 			if len(message) < width {
-				message_paragraph = message_paragraph + message[:len(message)]
+				message_paragraph = message_paragraph + message
 				message = ""
 			} else {
 				message_paragraph = message_paragraph + message[:width] + "\n"

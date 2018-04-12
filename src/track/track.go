@@ -266,50 +266,51 @@ func (track Track) SeemsByWordMatch(sequence string) error {
 }
 
 func TagGetFrame(tag *id3v2.Tag, frame int) string {
-	if frame == ID3FrameTitle {
+	switch frame {
+	case ID3FrameTitle:
 		return tag.Title()
-	} else if frame == ID3FrameArtist {
+	case ID3FrameArtist:
 		return tag.Artist()
-	} else if frame == ID3FrameAlbum {
+	case ID3FrameAlbum:
 		return tag.Album()
-	} else if frame == ID3FrameGenre {
+	case ID3FrameGenre:
 		return tag.Genre()
-	} else if frame == ID3FrameYear {
+	case ID3FrameYear:
 		return tag.Year()
-	} else if frame == ID3FrameTrackNumber &&
-		len(tag.GetFrames(tag.CommonID("Track number/Position in set"))) > 0 {
-		for _, frame_text := range tag.GetFrames(tag.CommonID("Track number/Position in set")) {
-			text, ok := frame_text.(id3v2.TextFrame)
-			if ok {
-				return text.Text
+	case ID3FrameTrackNumber:
+		if len(tag.GetFrames(tag.CommonID("Track number/Position in set"))) > 0 {
+			for _, frame_text := range tag.GetFrames(tag.CommonID("Track number/Position in set")) {
+				text, ok := frame_text.(id3v2.TextFrame)
+				if ok {
+					return text.Text
+				}
 			}
 		}
-	} else if frame == ID3FrameGenre {
-		return tag.Genre()
-	} else if frame == ID3FrameYear {
-		return tag.Year()
-	} else if frame == ID3FrameArtwork &&
-		len(tag.GetFrames(tag.CommonID("Attached picture"))) > 0 {
-		for _, frame_picture := range tag.GetFrames(tag.CommonID("Attached picture")) {
-			picture, ok := frame_picture.(id3v2.PictureFrame)
-			if ok {
-				return string(picture.Picture)
+	case ID3FrameArtwork:
+		if len(tag.GetFrames(tag.CommonID("Attached picture"))) > 0 {
+			for _, frame_picture := range tag.GetFrames(tag.CommonID("Attached picture")) {
+				picture, ok := frame_picture.(id3v2.PictureFrame)
+				if ok {
+					return string(picture.Picture)
+				}
 			}
 		}
-	} else if frame == ID3FrameLyrics &&
-		len(tag.GetFrames(tag.CommonID("Unsynchronised lyrics/text transcription"))) > 0 {
-		for _, frame_lyrics := range tag.GetFrames(tag.CommonID("Unsynchronised lyrics/text transcription")) {
-			lyrics, ok := frame_lyrics.(id3v2.UnsynchronisedLyricsFrame)
-			if ok {
-				return lyrics.Lyrics
+	case ID3FrameLyrics:
+		if len(tag.GetFrames(tag.CommonID("Unsynchronised lyrics/text transcription"))) > 0 {
+			for _, frame_lyrics := range tag.GetFrames(tag.CommonID("Unsynchronised lyrics/text transcription")) {
+				lyrics, ok := frame_lyrics.(id3v2.UnsynchronisedLyricsFrame)
+				if ok {
+					return lyrics.Lyrics
+				}
 			}
 		}
-	} else if frame == ID3FrameYouTubeURL &&
-		len(tag.GetFrames(tag.CommonID("Comments"))) > 0 {
-		for _, frame_comment := range tag.GetFrames(tag.CommonID("Comments")) {
-			comment, ok := frame_comment.(id3v2.CommentFrame)
-			if ok && comment.Description == "youtube" {
-				return comment.Text
+	case ID3FrameYouTubeURL:
+		if len(tag.GetFrames(tag.CommonID("Comments"))) > 0 {
+			for _, frame_comment := range tag.GetFrames(tag.CommonID("Comments")) {
+				comment, ok := frame_comment.(id3v2.CommentFrame)
+				if ok && comment.Description == "youtube" {
+					return comment.Text
+				}
 			}
 		}
 	}

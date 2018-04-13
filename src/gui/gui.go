@@ -145,75 +145,17 @@ func (gui *Gui) Append(message string, options uint64) error {
 		err   error
 		panel uint64
 	)
-	if (options & PanelRight) != 0 {
-		panel = PanelRight
-	} else if (options & PanelLeftTop) != 0 {
-		panel = PanelLeftTop
-	} else if (options & PanelLeftBottom) != 0 {
-		panel = PanelLeftBottom
-	}
+	panel = CondPanelSelector(options)
 	view, err = gui.View(Panels[int(panel)])
 	if err != nil {
 		return err
 	} else {
 		gui.Update(func(gui *gocui.Gui) error {
-			if (options&ParagraphStyleStandard) != 0 ||
-				(options&ParagraphStyleAutoReturn) != 0 {
-				width, _ := view.Size()
-				if (options & ParagraphStyleStandard) != 0 {
-					message = MessageParagraphStyle(message, ParagraphStyleStandard, width)
-				} else if (options & ParagraphStyleAutoReturn) != 0 {
-					message = MessageParagraphStyle(message, ParagraphStyleAutoReturn, width)
-				}
-			}
-			if (options&FontStyleBold) != 0 ||
-				(options&FontStyleUnderline) != 0 ||
-				(options&FontStyleReverse) != 0 {
-				if (options & FontStyleBold) != 0 {
-					message = MessageStyle(message, FontStyleBold)
-				} else if (options & FontStyleUnderline) != 0 {
-					message = MessageStyle(message, FontStyleUnderline)
-				} else if (options & FontStyleReverse) != 0 {
-					message = MessageStyle(message, FontStyleReverse)
-				}
-			}
-			if (options&OrientationLeft) != 0 ||
-				(options&OrientationCenter) != 0 ||
-				(options&OrientationRight) != 0 {
-				if (options & OrientationLeft) != 0 {
-					message = MessageOrientate(message, view, OrientationLeft)
-				} else if (options & OrientationCenter) != 0 {
-					message = MessageOrientate(message, view, OrientationCenter)
-				} else if (options & OrientationRight) != 0 {
-					message = MessageOrientate(message, view, OrientationRight)
-				}
-			}
-			if (options&FontColorBlack) != 0 ||
-				(options&FontColorRed) != 0 ||
-				(options&FontColorGreen) != 0 ||
-				(options&FontColorYellow) != 0 ||
-				(options&FontColorBlue) != 0 ||
-				(options&FontColorMagenta) != 0 ||
-				(options&FontColorCyan) != 0 ||
-				(options&FontColorWhite) != 0 {
-				if (options & FontColorBlack) != 0 {
-					message = MessageColor(message, FontColorBlack)
-				} else if (options & FontColorRed) != 0 {
-					message = MessageColor(message, FontColorRed)
-				} else if (options & FontColorGreen) != 0 {
-					message = MessageColor(message, FontColorGreen)
-				} else if (options & FontColorYellow) != 0 {
-					message = MessageColor(message, FontColorYellow)
-				} else if (options & FontColorBlue) != 0 {
-					message = MessageColor(message, FontColorBlue)
-				} else if (options & FontColorMagenta) != 0 {
-					message = MessageColor(message, FontColorMagenta)
-				} else if (options & FontColorCyan) != 0 {
-					message = MessageColor(message, FontColorCyan)
-				} else if (options & FontColorWhite) != 0 {
-					message = MessageColor(message, FontColorWhite)
-				}
-			}
+			width, _ := view.Size()
+			message = CondParagraphStyle(message, options, width)
+			message = CondFontStyle(message, options)
+			message = CondOrientationStyle(message, options, view)
+			message = CondColorStyle(message, options)
 			fmt.Fprintln(view, " "+message)
 			return nil
 		})
@@ -437,6 +379,70 @@ func (gui *Gui) LoadingIncrease() error {
 		return nil
 	})
 	return nil
+}
+
+func CondPanelSelector(options uint64) uint64 {
+	var panel uint64
+	if (options & PanelLeftTop) != 0 {
+		panel = PanelLeftTop
+	} else if (options & PanelLeftBottom) != 0 {
+		panel = PanelLeftBottom
+	} else {
+		panel = PanelRight
+	}
+	return panel
+}
+
+func CondParagraphStyle(message string, options uint64, width int) string {
+	if (options & ParagraphStyleStandard) != 0 {
+		message = MessageParagraphStyle(message, ParagraphStyleStandard, width)
+	} else if (options & ParagraphStyleAutoReturn) != 0 {
+		message = MessageParagraphStyle(message, ParagraphStyleAutoReturn, width)
+	}
+	return message
+}
+
+func CondFontStyle(message string, options uint64) string {
+	if (options & FontStyleBold) != 0 {
+		message = MessageStyle(message, FontStyleBold)
+	} else if (options & FontStyleUnderline) != 0 {
+		message = MessageStyle(message, FontStyleUnderline)
+	} else if (options & FontStyleReverse) != 0 {
+		message = MessageStyle(message, FontStyleReverse)
+	}
+	return message
+}
+
+func CondOrientationStyle(message string, options uint64, view *gocui.View) string {
+	if (options & OrientationLeft) != 0 {
+		message = MessageOrientate(message, view, OrientationLeft)
+	} else if (options & OrientationCenter) != 0 {
+		message = MessageOrientate(message, view, OrientationCenter)
+	} else if (options & OrientationRight) != 0 {
+		message = MessageOrientate(message, view, OrientationRight)
+	}
+	return message
+}
+
+func CondColorStyle(message string, options uint64) string {
+	if (options & FontColorBlack) != 0 {
+		message = MessageColor(message, FontColorBlack)
+	} else if (options & FontColorRed) != 0 {
+		message = MessageColor(message, FontColorRed)
+	} else if (options & FontColorGreen) != 0 {
+		message = MessageColor(message, FontColorGreen)
+	} else if (options & FontColorYellow) != 0 {
+		message = MessageColor(message, FontColorYellow)
+	} else if (options & FontColorBlue) != 0 {
+		message = MessageColor(message, FontColorBlue)
+	} else if (options & FontColorMagenta) != 0 {
+		message = MessageColor(message, FontColorMagenta)
+	} else if (options & FontColorCyan) != 0 {
+		message = MessageColor(message, FontColorCyan)
+	} else if (options & FontColorWhite) != 0 {
+		message = MessageColor(message, FontColorWhite)
+	}
+	return message
 }
 
 func MessageOrientate(message string, view *gocui.View, orientation int) string {

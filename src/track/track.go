@@ -133,48 +133,8 @@ func ParseSpotifyTrack(spotify_track spotify.FullTrack, spotify_album spotify.Fu
 		Local:         false,
 	}
 
-	track.SongType = SongTypeAlbum
-	for _, song_type := range SongTypes {
-		if SeemsType(track.Title, song_type) {
-			track.SongType = song_type
-			break
-		}
-	}
-
-	track.Title = strings.Split(track.Title, " - ")[0]
-	if strings.Contains(track.Title, " live ") {
-		track.Title = strings.Split(track.Title, " live ")[0]
-	}
-	track.Title = strings.TrimSpace(track.Title)
-	if len(track.Featurings) > 0 {
-		if strings.Contains(strings.ToLower(track.Title), "feat. ") ||
-			strings.Contains(strings.ToLower(track.Title), "ft. ") ||
-			strings.Contains(strings.ToLower(track.Title), "featuring ") ||
-			strings.Contains(strings.ToLower(track.Title), "with ") {
-			for _, featuring_symbol := range []string{"featuring", "feat.", "with"} {
-				for _, featuring_symbol_case := range []string{featuring_symbol, strings.Title(featuring_symbol)} {
-					track.Title = strings.Replace(track.Title, featuring_symbol_case+" ", "ft. ", -1)
-				}
-			}
-		} else {
-			if strings.Contains(track.Title, "(") &&
-				(strings.Contains(track.Title, " vs. ") || strings.Contains(track.Title, " vs ")) &&
-				strings.Contains(track.Title, ")") {
-				track.Title = strings.Split(track.Title, " (")[0]
-			}
-			var track_featurings string
-			if len(track.Featurings) > 1 {
-				track_featurings = "(ft. " + strings.Join(track.Featurings[:len(track.Featurings)-1], ", ") +
-					" and " + track.Featurings[len(track.Featurings)-1] + ")"
-			} else {
-				track_featurings = "(ft. " + track.Featurings[0] + ")"
-			}
-			track.Title = track.Title + " " + track_featurings
-		}
-		track.Song = strings.Split(track.Title, " (ft. ")[0]
-	} else {
-		track.Song = track.Title
-	}
+	track.SongType = ParseSpotifyType(track.Title)
+	track.Title, track.Song = ParseSpotifyTitle(track.Title, track.Featurings)
 
 	track.Album = strings.Replace(track.Album, "[", "(", -1)
 	track.Album = strings.Replace(track.Album, "]", ")", -1)
@@ -202,6 +162,56 @@ func ParseSpotifyTrack(spotify_track spotify.FullTrack, spotify_album spotify.Fu
 	}
 
 	return track
+}
+
+func ParseSpotifyType(sequence string) int {
+	for _, song_type := range SongTypes {
+		if SeemsType(sequence, song_type) {
+			return song_type
+		}
+	}
+	return SongTypeAlbum
+}
+
+func ParseSpotifyTitle(track_title string, track_featurings []string) (string, string) {
+	var track_song string
+
+	track_title = strings.Split(track_title, " - ")[0]
+	if strings.Contains(track_title, " live ") {
+		track_title = strings.Split(track_title, " live ")[0]
+	}
+	track_title = strings.TrimSpace(track_title)
+	if len(track_featurings) > 0 {
+		if strings.Contains(strings.ToLower(track_title), "feat. ") ||
+			strings.Contains(strings.ToLower(track_title), "ft. ") ||
+			strings.Contains(strings.ToLower(track_title), "featuring ") ||
+			strings.Contains(strings.ToLower(track_title), "with ") {
+			for _, featuring_symbol := range []string{"featuring", "feat.", "with"} {
+				for _, featuring_symbol_case := range []string{featuring_symbol, strings.Title(featuring_symbol)} {
+					track_title = strings.Replace(track_title, featuring_symbol_case+" ", "ft. ", -1)
+				}
+			}
+		} else {
+			if strings.Contains(track_title, "(") &&
+				(strings.Contains(track_title, " vs. ") || strings.Contains(track_title, " vs ")) &&
+				strings.Contains(track_title, ")") {
+				track_title = strings.Split(track_title, " (")[0]
+			}
+			var track_featurings_inline string
+			if len(track_featurings) > 1 {
+				track_featurings_inline = "(ft. " + strings.Join(track_featurings[:len(track_featurings)-1], ", ") +
+					" and " + track_featurings[len(track_featurings)-1] + ")"
+			} else {
+				track_featurings_inline = "(ft. " + track_featurings[0] + ")"
+			}
+			track_title = track_title + " " + track_featurings_inline
+		}
+		track_song = strings.Split(track_title, " (ft. ")[0]
+	} else {
+		track_song = track_title
+	}
+
+	return track_title, track_song
 }
 
 func (track Track) FilenameFinal() string {
@@ -278,39 +288,59 @@ func TagGetFrame(tag *id3v2.Tag, frame int) string {
 	case ID3FrameYear:
 		return tag.Year()
 	case ID3FrameTrackNumber:
-		if len(tag.GetFrames(tag.CommonID("Track number/Position in set"))) > 0 {
-			for _, frame_text := range tag.GetFrames(tag.CommonID("Track number/Position in set")) {
-				text, ok := frame_text.(id3v2.TextFrame)
-				if ok {
-					return text.Text
-				}
-			}
-		}
+		return TagGetFrameTrackNumber(tag)
 	case ID3FrameArtwork:
-		if len(tag.GetFrames(tag.CommonID("Attached picture"))) > 0 {
-			for _, frame_picture := range tag.GetFrames(tag.CommonID("Attached picture")) {
-				picture, ok := frame_picture.(id3v2.PictureFrame)
-				if ok {
-					return string(picture.Picture)
-				}
-			}
-		}
+		return TagGetFrameArtwork(tag)
 	case ID3FrameLyrics:
-		if len(tag.GetFrames(tag.CommonID("Unsynchronised lyrics/text transcription"))) > 0 {
-			for _, frame_lyrics := range tag.GetFrames(tag.CommonID("Unsynchronised lyrics/text transcription")) {
-				lyrics, ok := frame_lyrics.(id3v2.UnsynchronisedLyricsFrame)
-				if ok {
-					return lyrics.Lyrics
-				}
+		return TagGetFrameLyrics(tag)
+	case ID3FrameYouTubeURL:
+		return TagGetFrameYouTubeURL(tag)
+	}
+	return ""
+}
+
+func TagGetFrameTrackNumber(tag *id3v2.Tag) string {
+	if len(tag.GetFrames(tag.CommonID("Track number/Position in set"))) > 0 {
+		for _, frame_text := range tag.GetFrames(tag.CommonID("Track number/Position in set")) {
+			text, ok := frame_text.(id3v2.TextFrame)
+			if ok {
+				return text.Text
 			}
 		}
-	case ID3FrameYouTubeURL:
-		if len(tag.GetFrames(tag.CommonID("Comments"))) > 0 {
-			for _, frame_comment := range tag.GetFrames(tag.CommonID("Comments")) {
-				comment, ok := frame_comment.(id3v2.CommentFrame)
-				if ok && comment.Description == "youtube" {
-					return comment.Text
-				}
+	}
+	return ""
+}
+
+func TagGetFrameArtwork(tag *id3v2.Tag) string {
+	if len(tag.GetFrames(tag.CommonID("Attached picture"))) > 0 {
+		for _, frame_picture := range tag.GetFrames(tag.CommonID("Attached picture")) {
+			picture, ok := frame_picture.(id3v2.PictureFrame)
+			if ok {
+				return string(picture.Picture)
+			}
+		}
+	}
+	return ""
+}
+
+func TagGetFrameLyrics(tag *id3v2.Tag) string {
+	if len(tag.GetFrames(tag.CommonID("Unsynchronised lyrics/text transcription"))) > 0 {
+		for _, frame_lyrics := range tag.GetFrames(tag.CommonID("Unsynchronised lyrics/text transcription")) {
+			lyrics, ok := frame_lyrics.(id3v2.UnsynchronisedLyricsFrame)
+			if ok {
+				return lyrics.Lyrics
+			}
+		}
+	}
+	return ""
+}
+
+func TagGetFrameYouTubeURL(tag *id3v2.Tag) string {
+	if len(tag.GetFrames(tag.CommonID("Comments"))) > 0 {
+		for _, frame_comment := range tag.GetFrames(tag.CommonID("Comments")) {
+			comment, ok := frame_comment.(id3v2.CommentFrame)
+			if ok && comment.Description == "youtube" {
+				return comment.Text
 			}
 		}
 	}

@@ -44,7 +44,7 @@ const (
 	SPOTIFY_HTML_AUTOCLOSE_TIMEOUT    = "5"                                    // s
 	SPOTIFY_HTML_AUTOCLOSE_TIMEOUT_MS = SPOTIFY_HTML_AUTOCLOSE_TIMEOUT + "000" // ms
 	SPOTIFY_HTML_SIG_AUTHOR           = "streambinder"
-	SPOTIFY_HTML_SIG_ICON             = "https://www.davidepucci.it/assets/img/profile.png"
+	SPOTIFY_HTML_SIG_ICON             = "https://davidepucci.it/images/avatar.jpg"
 	SPOTIFY_HTML_TEMPLATE             = `<!DOCTYPE html>
 <html>
 <head>

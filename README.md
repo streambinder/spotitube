@@ -1,4 +1,6 @@
-# SPOTITUBE ![](https://img.shields.io/github/downloads/streambinder/spotitube/total.svg)
+# SPOTITUBE
+
+[![](https://img.shields.io/github/downloads/streambinder/spotitube/total.svg)](http://www.somsubhra.com/github-release-stats/?username=streambinder&repository=spotitube) [![](https://goreportcard.com/badge/github.com/streambinder/spotitube)](https://goreportcard.com/report/github.com/streambinder/spotitube)
 
 [![](https://raw.githubusercontent.com/streambinder/spotitube/master/assets/images/sample.gif)](#spotitube) [![](https://raw.githubusercontent.com/streambinder/spotitube/master/assets/images/sample_result.png)](#spotitube)
 

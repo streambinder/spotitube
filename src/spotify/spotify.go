@@ -2,6 +2,7 @@ package spotify
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os/exec"
@@ -30,7 +31,18 @@ type Spotify struct {
 // AuthURL : generate new authentication URL
 func AuthURL() string {
 	clientAuthenticator.SetAuthInfo(spttb_system.SpotifyClientID, spttb_system.SpotifyClientSecret)
-	return clientAuthenticator.AuthURL(clientState)
+	spotifyURL := clientAuthenticator.AuthURL(clientState)
+	tinyURL := fmt.Sprintf("http://tinyurl.com/api-create.php?url=%s", spotifyURL)
+	tinyResponse, tinyErr := http.Get(tinyURL)
+	if tinyErr != nil {
+		return spotifyURL
+	}
+	defer tinyResponse.Body.Close()
+	tinyContent, tinyErr := ioutil.ReadAll(tinyResponse.Body)
+	if tinyErr != nil {
+		return spotifyURL
+	}
+	return string(tinyContent)
 }
 
 // NewClient : return a new Spotify instance

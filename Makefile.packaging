@@ -1,5 +1,6 @@
 CUR_DIR = $(shell pwd)
 
+.PHONY: pkg_rpm
 pkg_rpm: bin
 	@ ( \
 		cp assets/packaging/rpm/spotitube.spec{,.orig}; \
@@ -12,6 +13,7 @@ pkg_rpm: bin
 		mv assets/packaging/rpm/spotitube.spec{.orig,}; \
 	);
 
+.PHONY: pkg_deb
 pkg_deb: bin
 	@ ( \
 		cp assets/packaging/deb/DEBIAN/control{,.orig}; \
@@ -28,6 +30,7 @@ pkg_deb: bin
 		mv assets/packaging/deb/DEBIAN/control{.orig,}; \
 	);
 
+.PHONY: pkg_eopkg
 pkg_eopkg: bin
 	@ ( \
 		sudo solbuild update; \
@@ -42,11 +45,14 @@ pkg_eopkg: bin
 		rm -f assets/packaging/eopkg/files/spotitube; \
 	);
 
+.PHONY: pkg_snap
 pkg_snap: bin
 
+.PHONY: pkg_bin
 pkg_bin: bin
 	@ ( \
 		cp $(BINARY) $(PKG_NAME).bin; \
 	);
 
+.PHONY: pkg_release
 release: pkg_rpm pkg_deb pkg_eopkg pkg_snap pkg_bin

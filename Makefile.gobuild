@@ -1,5 +1,6 @@
 CUR_DIR = $(shell pwd)
 
+.PHONY: bin
 bin:
 	@ ( \
 		if [ -z "$(SPOTIFY_ID)" -o -z "$(SPOTIFY_KEY)" ]; then \
@@ -13,6 +14,7 @@ bin:
 		(rm -f $(CUR_DIR)/src/system/constants.go && mv $(CUR_DIR)/src/system/constants.go{.orig,}); \
 	);
 
+.PHONY: deps
 deps:
 	@ ( \
 		regex_domain='(([a-zA-Z](-?[a-zA-Z0-9])*)\.)*[a-zA-Z](-?[a-zA-Z0-9])+\.[a-zA-Z]{2,}'; \

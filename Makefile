@@ -13,6 +13,7 @@ GOARCH := amd64
 include Makefile.gobuild
 include Makefile.packaging
 
+.PHONY: install
 install: bin
 	@ ( \
 		echo -en "Installing...\r"; \
@@ -21,6 +22,7 @@ install: bin
 		echo -e "\rInstalled at: $(BINARY_INSTALL)"; \
 	);
 
+.PHONY: clean
 clean:
 	@ ( \
 		echo -en "Cleaning...\r"; \
@@ -30,5 +32,5 @@ clean:
 		echo -e "\rCleaned workspace."; \
 	);
 
-
+.PHONY: all
 all: deps bin

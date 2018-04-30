@@ -6,51 +6,81 @@ import (
 )
 
 var (
-	DEFAULT_LOG_PATH = fmt.Sprintf("spotitube_%s.log", time.Now().Format("2006-01-02_15.04.05"))
+	// DefaultLogFname : default log filename
+	DefaultLogFname = fmt.Sprintf("spotitube_%s.log", time.Now().Format("2006-01-02_15.04.05"))
 )
 
 const (
-	VERSION            = 14
-	VERSION_REPOSITORY = "https://github.com/streambinder/spotitube"
-	VERSION_ORIGIN     = "https://api.github.com/repos/streambinder/spotitube/releases/latest"
-	VERSION_URL        = VERSION_REPOSITORY + "/releases/latest"
+	// Version : current version
+	Version = 14
+	// VersionRepository : repositoy container
+	VersionRepository = "https://github.com/streambinder/spotitube"
+	// VersionOrigin : API repository latest version URL
+	VersionOrigin = "https://api.github.com/repos/streambinder/spotitube/releases/latest"
+	// VersionURL : latest version for download
+	VersionURL = VersionRepository + "/releases/latest"
 
-	CONCURRENCY_LIMIT = 100
+	// ConcurrencyLimit : max concurrent jobs
+	ConcurrencyLimit = 100
 
-	DEFAULT_EXTENSION    = ".mp3"
-	DEFAULT_TCP_CHECK    = "github.com:443"
-	DEFAULT_HTTP_TIMEOUT = 3 // second(s)
+	// SongExtension : default downloaded songs extension
+	SongExtension = ".mp3"
+	// TCPCheckOrigin : default internet connection check origin
+	TCPCheckOrigin = "github.com:443"
+	// HTTPTimeout : default timeout for HTTP calls
+	HTTPTimeout = 3 // second(s)
 
-	SYSTEM_LETTER_BYTES    = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	SYSTEM_LETTER_IDX_BITS = 6
-	SYSTEM_LETTER_IDX_MASK = 1<<SYSTEM_LETTER_IDX_BITS - 1
-	SYSTEM_LETTER_IDX_MAX  = 63 / SYSTEM_LETTER_IDX_BITS
+	// SystemLetterBytes : random string generator characters
+	SystemLetterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	// SystemLetterIdxBits : random string generator bits
+	SystemLetterIdxBits = 6
+	// SystemLetterIdxMask : random string generator mask
+	SystemLetterIdxMask = 1<<SystemLetterIdxBits - 1
+	// SystemLetterIdxMax : random string generator max
+	SystemLetterIdxMax = 63 / SystemLetterIdxBits
 
-	LYRICS_API_URL = "https://api.lyrics.ovh/v1/%s/%s"
+	// LyricsAPIURL : lyrics API URL
+	LyricsAPIURL = "https://api.lyrics.ovh/v1/%s/%s"
 
-	YOUTUBE_QUERY_URL          = "https://www.youtube.com/results"
-	YOUTUBE_QUERY_PATTERN      = YOUTUBE_QUERY_URL + "?q=%s"
-	YOUTUBE_VIDEO_SELECTOR     = ".yt-uix-tile-link"
-	YOUTUBE_DESC_SELECTOR      = ".yt-lockup-byline"
-	YOUTUBE_DURATION_SELECTOR  = ".accessible-description"
-	YOUTUBE_DURATION_TOLERANCE = 20 // second(s)
-	YOUTUBE_VIDEO_PREFIX       = "https://www.youtube.com"
+	// YouTubeVideoPrefix : YouTube video prefix
+	YouTubeVideoPrefix = "https://www.youtube.com"
+	// YouTubeQueryURL : YouTube query URL
+	YouTubeQueryURL = YouTubeVideoPrefix + "/results"
+	// YouTubeQueryPattern : YouTube query URL parseable with *printf functions
+	YouTubeQueryPattern = YouTubeQueryURL + "?q=%s"
+	// YouTubeHTMLVideoSelector : YouTube entry video selector
+	YouTubeHTMLVideoSelector = ".yt-uix-tile-link"
+	// YouTubeHTMLDescSelector : YouTube entry description selector
+	YouTubeHTMLDescSelector = ".yt-lockup-byline"
+	// YouTubeHTMLDurationSelector : YouTube entry duration selector
+	YouTubeHTMLDurationSelector = ".accessible-description"
+	// YouTubeDurationTolerance : max video duration difference tolerance
+	YouTubeDurationTolerance = 20 // second(s)
 
-	SPOTIFY_CLIENT_ID     = ":SPOTIFY_CLIENT_ID:"
-	SPOTIFY_CLIENT_SECRET = ":SPOTIFY_CLIENT_SECRET:"
+	// SpotifyClientID : Spotify app client ID
+	SpotifyClientID = ":SPOTIFY_CLIENT_ID:"
+	// SpotifyClientSecret : Spotify app client secret key
+	SpotifyClientSecret = ":SPOTIFY_CLIENT_SECRET:"
 
-	SPOTIFY_REDIRECT_URI              = "http://localhost:8080/callback"
-	SPOTIFY_FAVICON_URL               = "https://raw.githubusercontent.com/streambinder/spotitube/master/assets/images/spotify.ico"
-	SPOTIFY_HTML_AUTOCLOSE_TIMEOUT    = "5"                                    // s
-	SPOTIFY_HTML_AUTOCLOSE_TIMEOUT_MS = SPOTIFY_HTML_AUTOCLOSE_TIMEOUT + "000" // ms
-	SPOTIFY_HTML_SIG_AUTHOR           = "streambinder"
-	SPOTIFY_HTML_SIG_ICON             = "https://davidepucci.it/images/avatar.jpg"
-	SPOTIFY_HTML_TEMPLATE             = `<!DOCTYPE html>
+	// SpotifyRedirectURL : Spotify app redirect URL
+	SpotifyRedirectURL = "http://localhost:8080/callback"
+	// SpotifyFaviconURL : Spotify app redirect URL's favicon
+	SpotifyFaviconURL = "https://raw.githubusercontent.com/streambinder/spotitube/master/assets/images/spotify.ico"
+	// SpotifyHTMLAutoCloseTimeout : Spotify app redirect URL's autoclose timeout
+	SpotifyHTMLAutoCloseTimeout = "5" // s
+	// SpotifyHTMLAutoCloseTimeoutMs : Spotify app redirect URL's autoclose timeout in ms (automatically parsed from SpotifyHTMLAutoCloseTimeout)
+	SpotifyHTMLAutoCloseTimeoutMs = SpotifyHTMLAutoCloseTimeout + "000" // ms
+	// SpotifyHTMLSigAuthor : Spotify app redirect URL's footer quoted author
+	SpotifyHTMLSigAuthor = "streambinder"
+	// SpotifyHTMLSigIcon : Spotify app redirect URL's footer quoted author icon
+	SpotifyHTMLSigIcon = "https://davidepucci.it/images/avatar.jpg"
+	// SpotifyHTMLTemplate : Spotify app redirect URLS's template
+	SpotifyHTMLTemplate = `<!DOCTYPE html>
 <html>
 <head>
 	<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">
 	<title>SpotiTube</title>
-	<link rel="icon" href="` + SPOTIFY_FAVICON_URL + `" type="image/x-icon" />
+	<link rel="icon" href="` + SpotifyFaviconURL + `" type="image/x-icon" />
 	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" />
 	<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto+Condensed" />
 	<style>
@@ -67,14 +97,14 @@ const (
 		div.signature>span { font-size: 15px; color: #505050; }
 	</style>
 	<script type="text/javascript">
-		var timeleft = ` + SPOTIFY_HTML_AUTOCLOSE_TIMEOUT + `;
+		var timeleft = ` + SpotifyHTMLAutoCloseTimeout + `;
 		var downloadTimer = setInterval(function() {
 			timeleft--;
 			document.getElementById("timer").textContent = timeleft;
 			if(timeleft <= 0)
 				clearInterval(downloadTimer);
 		}, 1000);
-		function setAutoClose() { window.setTimeout(autoClose, ` + SPOTIFY_HTML_AUTOCLOSE_TIMEOUT_MS + `); }
+		function setAutoClose() { window.setTimeout(autoClose, ` + SpotifyHTMLAutoCloseTimeoutMs + `); }
 		function autoClose() { window.close(); }
 	</script>
 </head>
@@ -84,11 +114,11 @@ const (
 		<div>
 			<h3>%s</h3>
 			<br><br><br>
-			<p class="timer">Window will attempt to close in <span id="timer">` + SPOTIFY_HTML_AUTOCLOSE_TIMEOUT + `</span> seconds.</p>
+			<p class="timer">Window will attempt to close in <span id="timer">` + SpotifyHTMLAutoCloseTimeout + `</span> seconds.</p>
 			<br>
 			<div class="signature">
-				<img src="` + SPOTIFY_HTML_SIG_ICON + `"/>
-				<span>` + SPOTIFY_HTML_SIG_AUTHOR + `</span>
+				<img src="` + SpotifyHTMLSigIcon + `"/>
+				<span>` + SpotifyHTMLSigAuthor + `</span>
 			</div>
 		</div>
 	</article>

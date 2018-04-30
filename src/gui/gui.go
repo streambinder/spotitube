@@ -14,49 +14,74 @@ import (
 )
 
 const (
+	// OptionNil : identifier for no option
 	OptionNil = 1 << iota
 	_
-	// PromptNotDismissable =  1 << iota
+	// PromptDismissable : identifier dismissable prompt
 	PromptDismissable
+	// PromptDismissableWithExit : identifier dismissable with exiting prompt
 	PromptDismissableWithExit
 	_
-
+	// PanelLeftTop : identifier for panel at left-top
 	PanelLeftTop
+	// PanelLeftBottom : identifier for panel at left-bottom
 	PanelLeftBottom
+	// PanelRight : identifier for panel at right
 	PanelRight
+	// PanelLoading : identifier for loading panel
 	PanelLoading
 	_
+	// OrientationLeft : identifier for text left orientation
 	OrientationLeft
+	// OrientationCenter : identifier for text center orientation
 	OrientationCenter
+	// OrientationRight : identifier for text right orientation
 	OrientationRight
 	_
+	// FontColorBlack : identifier for text black color
 	FontColorBlack
+	// FontColorRed : identifier for text red color
 	FontColorRed
+	// FontColorGreen : identifier for text green color
 	FontColorGreen
+	// FontColorYellow : identifier for text yellow color
 	FontColorYellow
+	// FontColorBlue : identifier for text blue color
 	FontColorBlue
+	// FontColorMagenta : identifier for text magenta color
 	FontColorMagenta
+	// FontColorCyan : identifier for text cyan color
 	FontColorCyan
+	// FontColorWhite : identifier for text white color
 	FontColorWhite
 	_
+	// FontStyleBold : identifier for text bold style
 	FontStyleBold
+	// FontStyleUnderline : identifier for text underline style
 	FontStyleUnderline
+	// FontStyleReverse : identifier for text reverse style
 	FontStyleReverse
 	_
+	// ParagraphStyleStandard : identifier for text standard paragraph format
 	ParagraphStyleStandard
+	// ParagraphStyleAutoReturn : identifier for text autoreturning paragraph format, to fit words in lines
 	ParagraphStyleAutoReturn
 	_
+	// LogWrite : identifier for log writing enable
 	LogWrite
+	// LogNoWrite : identifier for log writing disable
 	LogNoWrite
 )
 
 var (
+	// Panels : all panels identifiers to real names mapping
 	Panels = map[int]string{
 		PanelLeftTop:    "GuiPanelLeftTop",
 		PanelLeftBottom: "GuiPanelLeftBottom",
 		PanelRight:      "GuiPanelRight",
 		PanelLoading:    "GuiPanelLoading",
 	}
+	// FontColors : all text colors identifiers to auxiliary library values mapping
 	FontColors = map[int]color.Attribute{
 		FontColorBlack:   color.FgBlack,
 		FontColorRed:     color.FgRed,
@@ -67,22 +92,24 @@ var (
 		FontColorCyan:    color.FgCyan,
 		FontColorWhite:   color.FgWhite,
 	}
+	// FontStyles : all text styles identifiers to auxiliary library values mapping
 	FontStyles = map[int]color.Attribute{
 		FontStyleBold: color.Bold,
 	}
 
-	gui_ready          chan *gocui.Gui
-	gui_prompt_dismiss chan bool
-	gui_prompt_input   chan string
-	gui_prompt_mutex   sync.Mutex
-	gui_append_mutex   sync.Mutex
-	gui_loading_max    int = 100
-	gui_loading_ctr    int
-	gui_loading_sprint = color.New(color.BgWhite).SprintFunc()(" ")
+	guiReady         chan *gocui.Gui
+	guiPromptDismiss chan bool
+	guiPromptInput   chan string
+	guiPromptMutex   sync.Mutex
+	guiAppendMutex   sync.Mutex
+	guiLoadingCtr    int
+	guiLoadingMax    = 100
+	guiLoadingSprint = color.New(color.BgWhite).SprintFunc()(" ")
 
 	singleton *Gui
 )
 
+// Gui : struct object containing all the informations to handle GUI
 type Gui struct {
 	*gocui.Gui
 	Width   int
@@ -92,17 +119,18 @@ type Gui struct {
 	Logger  *spttb_logger.Logger
 }
 
+// Build : generate a Gui object
 func Build(verbose bool) *Gui {
 	var gui *gocui.Gui
-	gui_ready = make(chan *gocui.Gui)
-	go Run()
-	gui = <-gui_ready
-	gui_width, gui_height := gui.Size()
+	guiReady = make(chan *gocui.Gui)
+	go subGuiRun()
+	gui = <-guiReady
+	guiWidth, guiHeight := gui.Size()
 
 	singleton = &Gui{
 		gui,
-		gui_width,
-		gui_height,
+		guiWidth,
+		guiHeight,
 		verbose,
 		make(chan bool),
 		nil,
@@ -110,59 +138,39 @@ func Build(verbose bool) *Gui {
 	return singleton
 }
 
+// LinkLogger : link input Logger logger to Gui
 func (gui *Gui) LinkLogger(logger *spttb_logger.Logger) error {
 	gui.Logger = logger
 	return nil
 }
 
-func Run() {
-	gui, err := gocui.NewGui(gocui.OutputNormal)
-	if err != nil {
-		log.Panicln(err)
-	}
-	defer gui.Close()
-
-	gui.SetManagerFunc(GuiSTDLayout)
-
-	if err := gui.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, GuiClose); err != nil {
-		log.Panicln(err)
-	}
-
-	gui_ready <- gui
-
-	if err := gui.MainLoop(); err != nil {
-		if err != gocui.ErrQuit {
-			log.Panicln(err)
-		}
-	}
-}
-
+// Append : add input string message to input uint64 options driven space
 func (gui *Gui) Append(message string, options uint64) error {
-	gui_append_mutex.Lock()
-	defer gui_append_mutex.Unlock()
+	guiAppendMutex.Lock()
+	defer guiAppendMutex.Unlock()
 	var (
 		view  *gocui.View
 		err   error
 		panel uint64
 	)
-	panel = CondPanelSelector(options)
+	panel = subCondPanelSelector(options)
 	view, err = gui.View(Panels[int(panel)])
 	if err != nil {
 		return err
-	} else {
-		gui.Update(func(gui *gocui.Gui) error {
-			width, _ := view.Size()
-			message = CondParagraphStyle(message, options, width)
-			message = CondFontStyle(message, options)
-			message = CondOrientationStyle(message, options, view)
-			message = CondColorStyle(message, options)
-			fmt.Fprintln(view, " "+message)
-			return nil
-		})
 	}
+	gui.Update(func(gui *gocui.Gui) error {
+		width, _ := view.Size()
+		message = subCondParagraphStyle(message, options, width)
+		message = subCondFontStyle(message, options)
+		message = subCondOrientationStyle(message, options, view)
+		message = subCondColorStyle(message, options)
+		fmt.Fprintln(view, " "+message)
+		return nil
+	})
 	return nil
 }
 
+// ClearAppend : add input string message to input uint64 options driven space, after clearing its container
 func (gui *Gui) ClearAppend(message string, options uint64) error {
 	var (
 		view  *gocui.View
@@ -179,12 +187,12 @@ func (gui *Gui) ClearAppend(message string, options uint64) error {
 	view, err = gui.View(Panels[int(panel)])
 	if err != nil {
 		return err
-	} else {
-		view.Clear()
-		return gui.Append(message, options|panel)
 	}
+	view.Clear()
+	return gui.Append(message, options|panel)
 }
 
+// ErrAppend : add input string message, formatted as error, to input uint64 options driven space
 func (gui *Gui) ErrAppend(message string, options uint64) error {
 	if (options&LogWrite) != 0 && gui.Logger != nil {
 		gui.Logger.Append(fmt.Sprintf("[ERROR] %s", message))
@@ -192,6 +200,7 @@ func (gui *Gui) ErrAppend(message string, options uint64) error {
 	return gui.Append(message, options|FontColorRed|ParagraphStyleAutoReturn)
 }
 
+// WarnAppend : add input string message, formatted as warning, to input uint64 options driven space
 func (gui *Gui) WarnAppend(message string, options uint64) error {
 	if (options&LogWrite) != 0 && gui.Logger != nil {
 		gui.Logger.Append(fmt.Sprintf("[WARNING] %s", message))
@@ -199,21 +208,22 @@ func (gui *Gui) WarnAppend(message string, options uint64) error {
 	return gui.Append(message, options|FontColorYellow|ParagraphStyleAutoReturn)
 }
 
+// DebugAppend : add input string message, formatted as debug message, to input uint64 options driven space
 func (gui *Gui) DebugAppend(message string, options uint64) error {
 	if (options&LogWrite) != 0 && gui.Logger != nil {
 		gui.Logger.Append(fmt.Sprintf("[DEBUG] %s", message))
 	}
 	if !gui.Verbose {
 		return nil
-	} else {
-		return gui.Append(message, options|ParagraphStyleAutoReturn|FontColorMagenta)
 	}
+	return gui.Append(message, options|ParagraphStyleAutoReturn|FontColorMagenta)
 }
 
+// Prompt : show a prompt containing input string message, driven with input uint64 options
 func (gui *Gui) Prompt(message string, options uint64) error {
-	gui_prompt_mutex.Lock()
-	defer gui_prompt_mutex.Unlock()
-	gui_prompt_dismiss = make(chan bool)
+	guiPromptMutex.Lock()
+	defer guiPromptMutex.Unlock()
+	guiPromptDismiss = make(chan bool)
 	if (options&LogWrite) != 0 && gui.Logger != nil {
 		gui.Logger.Append(message)
 	}
@@ -222,166 +232,134 @@ func (gui *Gui) Prompt(message string, options uint64) error {
 			view *gocui.View
 			err  error
 		)
-		gui_width, gui_height := gui.Size()
+		guiWidth, guiHeight := gui.Size()
 		if view, err = gui.SetView("GuiPrompt",
-			gui_width/2-(len(message)/2)-2, gui_height/2,
-			gui_width/2+(len(message)/2), gui_height/2+2); err != nil {
+			guiWidth/2-(len(message)/2)-2, guiHeight/2,
+			guiWidth/2+(len(message)/2), guiHeight/2+2); err != nil {
 			if err != gocui.ErrUnknownView {
 				return err
 			}
 			fmt.Fprintln(view, message)
 			if (options & PromptDismissableWithExit) != 0 {
-				gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, GuiDismissPromptAndClose)
+				gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, subGuiDismissPromptAndClose)
 			} else {
-				gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, GuiDismissPrompt)
+				gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, subGuiDismissPrompt)
 			}
 		}
 		return nil
 	})
-	<-gui_prompt_dismiss
+	<-guiPromptDismiss
 	return nil
 }
 
+// PromptInput : show a confirmation/cancel prompt containing input string message, driven with input uint64 options
 func (gui *Gui) PromptInput(message string, options uint64) bool {
-	gui_prompt_mutex.Lock()
-	defer gui_prompt_mutex.Unlock()
-	gui_prompt_dismiss = make(chan bool)
+	guiPromptMutex.Lock()
+	defer guiPromptMutex.Unlock()
+	guiPromptDismiss = make(chan bool)
 	gui.Update(func(gui *gocui.Gui) error {
 		var (
 			view *gocui.View
 			err  error
 		)
 		message = fmt.Sprintf("%s\n\nPress TAB to cancel, ENTER to confirm.", message)
-		gui_width, gui_height := gui.Size()
-		needed_width, needed_height := 0, strings.Count(message, "\n")
+		guiWidth, guiHeight := gui.Size()
+		neededWidth, neededHeight := 0, strings.Count(message, "\n")
 		for _, line := range strings.Split(message, "\n") {
-			if len(line) > needed_width {
-				needed_width = len(line)
+			if len(line) > neededWidth {
+				neededWidth = len(line)
 			}
 		}
-		needed_width += 2
+		neededWidth += 2
 		if view, err = gui.SetView("GuiPrompt",
-			gui_width/2-(int(needed_width/2))-2, (gui_height/2)-int(math.Floor(float64(needed_height/2))),
-			gui_width/2+(int(needed_width/2)), (gui_height/2)+int(math.Ceil(float64(needed_height/2)))+3); err != nil {
+			guiWidth/2-(int(neededWidth/2))-2, (guiHeight/2)-int(math.Floor(float64(neededHeight/2))),
+			guiWidth/2+(int(neededWidth/2)), (guiHeight/2)+int(math.Ceil(float64(neededHeight/2)))+3); err != nil {
 			if err != gocui.ErrUnknownView {
 				return err
 			}
-			gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, GuiDismissPromptWithInputOk)
-			gui.SetKeybinding("", gocui.KeyTab, gocui.ModNone, GuiDismissPromptWithInputNok)
-			fmt.Fprintln(view, MessageOrientate(message, view, OrientationCenter))
+			gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, subGuiDismissPromptWithInputOk)
+			gui.SetKeybinding("", gocui.KeyTab, gocui.ModNone, subGuiDismissPromptWithInputNok)
+			fmt.Fprintln(view, subMessageOrientate(message, view, OrientationCenter))
 		}
 		return nil
 	})
-	return <-gui_prompt_dismiss
+	return <-guiPromptDismiss
 }
 
+// PromptInputMessage : show an input prompt containing input string message, driven with input uint64 options
 func (gui *Gui) PromptInputMessage(message string, options uint64) string {
-	gui_prompt_mutex.Lock()
-	defer gui_prompt_mutex.Unlock()
-	gui_prompt_input = make(chan string)
+	guiPromptMutex.Lock()
+	defer guiPromptMutex.Unlock()
+	guiPromptInput = make(chan string)
 	gui.Update(func(gui *gocui.Gui) error {
 		var (
 			view *gocui.View
 			err  error
 		)
-		gui_width, gui_height := gui.Size()
+		guiWidth, guiHeight := gui.Size()
 		if view, err = gui.SetView("GuiPrompt",
-			gui_width/2-50, (gui_height/2)-1,
-			gui_width/2+50, (gui_height/2)+1); err != nil {
+			guiWidth/2-50, (guiHeight/2)-1,
+			guiWidth/2+50, (guiHeight/2)+1); err != nil {
 			if err != gocui.ErrUnknownView {
 				return err
 			}
 			view.Editable = true
 			view.Title = fmt.Sprintf(" %s ", message)
 			_ = view.SetCursor(0, 0)
-			gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, GuiDismissPromptWithInputMessage)
+			gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, subGuiDismissPromptWithInputMessage)
 			_, _ = gui.SetCurrentView("GuiPrompt")
 		}
 		return nil
 	})
-	return strings.Replace(<-gui_prompt_input, "\n", "", -1)
+	return strings.Replace(<-guiPromptInput, "\n", "", -1)
 }
 
-/*
- * Auxiliary functions
- */
-func GuiSTDLayout(gui *gocui.Gui) error {
-	gui_max_width, gui_max_height := gui.Size()
-	if view, err := gui.SetView("GuiPanelLeftTop", 0, 0,
-		gui_max_width/3, gui_max_height/2); err != nil {
-		if err != gocui.ErrUnknownView {
-			return err
-		}
-		view.Autoscroll = true
-		view.Title = strings.ToUpper(" SpotiTube ")
-		fmt.Fprint(view, "\n")
-	}
-	if view, err := gui.SetView("GuiPanelLeftBottom", 0, gui_max_height/2+1,
-		gui_max_width/3, gui_max_height-4); err != nil {
-		if err != gocui.ErrUnknownView {
-			return err
-		}
-		view.Autoscroll = true
-		view.Title = strings.ToUpper(" Informations ")
-		fmt.Fprint(view, "\n")
-	}
-	if view, err := gui.SetView("GuiPanelRight", gui_max_width/3+1, 0,
-		gui_max_width-1, gui_max_height-4); err != nil {
-		if err != gocui.ErrUnknownView {
-			return err
-		}
-		view.Autoscroll = true
-		view.Title = strings.ToUpper(" Status ")
-		fmt.Fprint(view, "\n")
-	}
-	if _, err := gui.SetView("GuiPanelLoading", 0, gui_max_height-3,
-		gui_max_width-1, gui_max_height-1); err != nil {
-		if err != gocui.ErrUnknownView {
-			return err
-		}
-	}
-	return nil
-}
-
+// LoadingSetMax : set maximum value for bottom loading bar
 func (gui *Gui) LoadingSetMax(max int) error {
-	gui_loading_max = max
+	guiLoadingMax = max
 	return nil
 }
 
+// LoadingFill : fill up the bottom loading bar
 func (gui *Gui) LoadingFill() error {
 	gui.Update(func(gui *gocui.Gui) error {
 		view, err := gui.View(Panels[PanelLoading])
 		if err != nil {
 			return err
-		} else {
-			max_width, _ := view.Size()
-			view.Clear()
-			view.Title = fmt.Sprintf(" 100 %% ")
-			fmt.Fprint(view, strings.Repeat(gui_loading_sprint, max_width))
 		}
+		maxWidth, _ := view.Size()
+		view.Clear()
+		view.Title = fmt.Sprintf(" 100 %% ")
+		fmt.Fprint(view, strings.Repeat(guiLoadingSprint, maxWidth))
 		return nil
 	})
 	return nil
 }
 
+// LoadingIncrease : increase loading bar
 func (gui *Gui) LoadingIncrease() error {
 	gui.Update(func(gui *gocui.Gui) error {
 		view, err := gui.View(Panels[PanelLoading])
 		if err != nil {
 			return err
-		} else {
-			max_width, _ := view.Size()
-			view.Clear()
-			view.Title = fmt.Sprintf(" %d %% ", gui_loading_ctr*100/gui_loading_max)
-			fmt.Fprint(view, strings.Repeat(gui_loading_sprint, gui_loading_ctr*max_width/gui_loading_max))
-			gui_loading_ctr += 1
 		}
+		maxWidth, _ := view.Size()
+		view.Clear()
+		view.Title = fmt.Sprintf(" %d %% ", guiLoadingCtr*100/guiLoadingMax)
+		fmt.Fprint(view, strings.Repeat(guiLoadingSprint, guiLoadingCtr*maxWidth/guiLoadingMax))
+		guiLoadingCtr++
 		return nil
 	})
 	return nil
 }
 
-func CondPanelSelector(options uint64) uint64 {
+// MessageStyle : apply input int styleConst styling to input string message
+func MessageStyle(message string, styleConst int) string {
+	styleFunc := color.New(FontStyles[styleConst])
+	return styleFunc.Sprintf(message)
+}
+
+func subCondPanelSelector(options uint64) uint64 {
 	var panel uint64
 	if (options & PanelLeftTop) != 0 {
 		panel = PanelLeftTop
@@ -393,16 +371,16 @@ func CondPanelSelector(options uint64) uint64 {
 	return panel
 }
 
-func CondParagraphStyle(message string, options uint64, width int) string {
+func subCondParagraphStyle(message string, options uint64, width int) string {
 	if (options & ParagraphStyleStandard) != 0 {
-		message = MessageParagraphStyle(message, ParagraphStyleStandard, width)
+		message = subMessageParagraphStyle(message, ParagraphStyleStandard, width)
 	} else if (options & ParagraphStyleAutoReturn) != 0 {
-		message = MessageParagraphStyle(message, ParagraphStyleAutoReturn, width)
+		message = subMessageParagraphStyle(message, ParagraphStyleAutoReturn, width)
 	}
 	return message
 }
 
-func CondFontStyle(message string, options uint64) string {
+func subCondFontStyle(message string, options uint64) string {
 	if (options & FontStyleBold) != 0 {
 		message = MessageStyle(message, FontStyleBold)
 	} else if (options & FontStyleUnderline) != 0 {
@@ -413,99 +391,94 @@ func CondFontStyle(message string, options uint64) string {
 	return message
 }
 
-func CondOrientationStyle(message string, options uint64, view *gocui.View) string {
+func subCondOrientationStyle(message string, options uint64, view *gocui.View) string {
 	if (options & OrientationLeft) != 0 {
-		message = MessageOrientate(message, view, OrientationLeft)
+		message = subMessageOrientate(message, view, OrientationLeft)
 	} else if (options & OrientationCenter) != 0 {
-		message = MessageOrientate(message, view, OrientationCenter)
+		message = subMessageOrientate(message, view, OrientationCenter)
 	} else if (options & OrientationRight) != 0 {
-		message = MessageOrientate(message, view, OrientationRight)
+		message = subMessageOrientate(message, view, OrientationRight)
 	}
 	return message
 }
 
-func CondColorStyle(message string, options uint64) string {
+func subCondColorStyle(message string, options uint64) string {
 	if (options & FontColorBlack) != 0 {
-		message = MessageColor(message, FontColorBlack)
+		message = subMessageColor(message, FontColorBlack)
 	} else if (options & FontColorRed) != 0 {
-		message = MessageColor(message, FontColorRed)
+		message = subMessageColor(message, FontColorRed)
 	} else if (options & FontColorGreen) != 0 {
-		message = MessageColor(message, FontColorGreen)
+		message = subMessageColor(message, FontColorGreen)
 	} else if (options & FontColorYellow) != 0 {
-		message = MessageColor(message, FontColorYellow)
+		message = subMessageColor(message, FontColorYellow)
 	} else if (options & FontColorBlue) != 0 {
-		message = MessageColor(message, FontColorBlue)
+		message = subMessageColor(message, FontColorBlue)
 	} else if (options & FontColorMagenta) != 0 {
-		message = MessageColor(message, FontColorMagenta)
+		message = subMessageColor(message, FontColorMagenta)
 	} else if (options & FontColorCyan) != 0 {
-		message = MessageColor(message, FontColorCyan)
+		message = subMessageColor(message, FontColorCyan)
 	} else if (options & FontColorWhite) != 0 {
-		message = MessageColor(message, FontColorWhite)
+		message = subMessageColor(message, FontColorWhite)
 	}
 	return message
 }
 
-func MessageOrientate(message string, view *gocui.View, orientation int) string {
-	var message_lines []string
-	var line_length, _ = view.Size()
+func subMessageOrientate(message string, view *gocui.View, orientation int) string {
+	var messageLines []string
+	var lineLength, _ = view.Size()
 	for _, line := range strings.Split(message, "\n") {
-		if len(line) < line_length {
-			line_spacing := (line_length - len(line)) / 2
+		if len(line) < lineLength {
+			lineSpacing := (lineLength - len(line)) / 2
 			if orientation == OrientationCenter {
-				line = strings.Repeat(" ", line_spacing) +
-					line + strings.Repeat(" ", line_spacing)
+				line = strings.Repeat(" ", lineSpacing) +
+					line + strings.Repeat(" ", lineSpacing)
 			} else if orientation == OrientationRight {
-				line = strings.Repeat(" ", line_spacing*2-1) + line
+				line = strings.Repeat(" ", lineSpacing*2-1) + line
 			}
 		}
-		message_lines = append(message_lines, line)
+		messageLines = append(messageLines, line)
 	}
-	return strings.Join(message_lines, "\n")
+	return strings.Join(messageLines, "\n")
 }
 
-func MessageColor(message string, color_const int) string {
-	color_func := color.New(FontColors[color_const])
-	return color_func.Sprintf(message)
+func subMessageColor(message string, colorConst int) string {
+	colorFunc := color.New(FontColors[colorConst])
+	return colorFunc.Sprintf(message)
 }
 
-func MessageStyle(message string, style_const int) string {
-	style_func := color.New(FontStyles[style_const])
-	return style_func.Sprintf(message)
-}
-
-func MessageParagraphStyle(message string, style_const int, width int) string {
-	if style_const == ParagraphStyleAutoReturn {
-		var message_paragraph string
+func subMessageParagraphStyle(message string, styleConst int, width int) string {
+	if styleConst == ParagraphStyleAutoReturn {
+		var messageParagraph string
 		for len(message) > 0 {
 			if len(message) < width {
-				message_paragraph = message_paragraph + message
+				messageParagraph = messageParagraph + message
 				message = ""
 			} else {
-				message_paragraph = message_paragraph + message[:width] + "\n"
+				messageParagraph = messageParagraph + message[:width] + "\n"
 				message = message[width:]
 			}
 		}
-		return message_paragraph
+		return messageParagraph
 	}
 	return message
 }
 
-func GuiDismissPrompt(gui *gocui.Gui, view *gocui.View) error {
+func subGuiDismissPrompt(gui *gocui.Gui, view *gocui.View) error {
 	gui.Update(func(gui *gocui.Gui) error {
 		gui.DeleteView("GuiPrompt")
 		return nil
 	})
 	gui.DeleteKeybinding("", gocui.KeyEnter, gocui.ModNone)
-	gui_prompt_dismiss <- true
+	guiPromptDismiss <- true
 	return nil
 }
 
-func GuiDismissPromptAndClose(gui *gocui.Gui, view *gocui.View) error {
-	GuiDismissPrompt(gui, view)
-	return GuiClose(gui, view)
+func subGuiDismissPromptAndClose(gui *gocui.Gui, view *gocui.View) error {
+	subGuiDismissPrompt(gui, view)
+	return subGuiClose(gui, view)
 }
 
-func GuiDismissPromptWithInput(gui *gocui.Gui, view *gocui.View) error {
+func subGuiDismissPromptWithInput(gui *gocui.Gui, view *gocui.View) error {
 	gui.Update(func(gui *gocui.Gui) error {
 		gui.DeleteView("GuiPrompt")
 		return nil
@@ -515,34 +488,94 @@ func GuiDismissPromptWithInput(gui *gocui.Gui, view *gocui.View) error {
 	return nil
 }
 
-func GuiDismissPromptWithInputOk(gui *gocui.Gui, view *gocui.View) error {
-	if err := GuiDismissPromptWithInput(gui, view); err != nil {
+func subGuiDismissPromptWithInputOk(gui *gocui.Gui, view *gocui.View) error {
+	if err := subGuiDismissPromptWithInput(gui, view); err != nil {
 		return err
 	}
-	gui_prompt_dismiss <- true
+	guiPromptDismiss <- true
 	return nil
 }
 
-func GuiDismissPromptWithInputNok(gui *gocui.Gui, view *gocui.View) error {
-	if err := GuiDismissPromptWithInput(gui, view); err != nil {
+func subGuiDismissPromptWithInputNok(gui *gocui.Gui, view *gocui.View) error {
+	if err := subGuiDismissPromptWithInput(gui, view); err != nil {
 		return err
 	}
-	gui_prompt_dismiss <- false
+	guiPromptDismiss <- false
 	return nil
 }
 
-func GuiDismissPromptWithInputMessage(gui *gocui.Gui, view *gocui.View) error {
+func subGuiDismissPromptWithInputMessage(gui *gocui.Gui, view *gocui.View) error {
 	gui.Update(func(gui *gocui.Gui) error {
 		gui.DeleteView("GuiPrompt")
 		return nil
 	})
 	gui.DeleteKeybinding("", gocui.KeyEnter, gocui.ModNone)
 	view.Rewind()
-	gui_prompt_input <- view.Buffer()
+	guiPromptInput <- view.Buffer()
 	return nil
 }
 
-func GuiClose(gui *gocui.Gui, view *gocui.View) error {
+func subGuiRun() {
+	gui, err := gocui.NewGui(gocui.OutputNormal)
+	if err != nil {
+		log.Panicln(err)
+	}
+	defer gui.Close()
+
+	gui.SetManagerFunc(subGuiStandardLayout)
+
+	if err := gui.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, subGuiClose); err != nil {
+		log.Panicln(err)
+	}
+
+	guiReady <- gui
+
+	if err := gui.MainLoop(); err != nil {
+		if err != gocui.ErrQuit {
+			log.Panicln(err)
+		}
+	}
+}
+
+func subGuiStandardLayout(gui *gocui.Gui) error {
+	guiMaxWidth, guiMaxHeight := gui.Size()
+	if view, err := gui.SetView("GuiPanelLeftTop", 0, 0,
+		guiMaxWidth/3, guiMaxHeight/2); err != nil {
+		if err != gocui.ErrUnknownView {
+			return err
+		}
+		view.Autoscroll = true
+		view.Title = strings.ToUpper(" SpotiTube ")
+		fmt.Fprint(view, "\n")
+	}
+	if view, err := gui.SetView("GuiPanelLeftBottom", 0, guiMaxHeight/2+1,
+		guiMaxWidth/3, guiMaxHeight-4); err != nil {
+		if err != gocui.ErrUnknownView {
+			return err
+		}
+		view.Autoscroll = true
+		view.Title = strings.ToUpper(" Informations ")
+		fmt.Fprint(view, "\n")
+	}
+	if view, err := gui.SetView("GuiPanelRight", guiMaxWidth/3+1, 0,
+		guiMaxWidth-1, guiMaxHeight-4); err != nil {
+		if err != gocui.ErrUnknownView {
+			return err
+		}
+		view.Autoscroll = true
+		view.Title = strings.ToUpper(" Status ")
+		fmt.Fprint(view, "\n")
+	}
+	if _, err := gui.SetView("GuiPanelLoading", 0, guiMaxHeight-3,
+		guiMaxWidth-1, guiMaxHeight-1); err != nil {
+		if err != gocui.ErrUnknownView {
+			return err
+		}
+	}
+	return nil
+}
+
+func subGuiClose(gui *gocui.Gui, view *gocui.View) error {
 	singleton.Closing <- true
 	gui.DeleteKeybinding("", gocui.KeyCtrlC, gocui.ModNone)
 	return gocui.ErrQuit

@@ -19,32 +19,50 @@ import (
 )
 
 const (
+	// SongTypeAlbum : identifier for Song in its album variant
 	SongTypeAlbum = iota
+	// SongTypeLive : identifier for Song in its live variant
 	SongTypeLive
+	// SongTypeCover : identifier for Song in its cover variant
 	SongTypeCover
+	// SongTypeRemix : identifier for Song in its remix variant
 	SongTypeRemix
+	// SongTypeAcoustic : identifier for Song in its acoustic variant
 	SongTypeAcoustic
+	// SongTypeKaraoke : identifier for Song in its karaoke variant
 	SongTypeKaraoke
+	// SongTypeParody : identifier for Song in its parody variant
 	SongTypeParody
 	_
+	// ID3FrameTitle : ID3 title frame tag identifier
 	ID3FrameTitle = iota
+	// ID3FrameArtist : ID3 artist frame tag identifier
 	ID3FrameArtist
+	// ID3FrameAlbum : ID3 album frame tag identifier
 	ID3FrameAlbum
+	// ID3FrameGenre : ID3 genre frame tag identifier
 	ID3FrameGenre
+	// ID3FrameYear : ID3 year frame tag identifier
 	ID3FrameYear
+	// ID3FrameTrackNumber : ID3 track number frame tag identifier
 	ID3FrameTrackNumber
+	// ID3FrameArtwork : ID3 artwork frame tag identifier
 	ID3FrameArtwork
+	// ID3FrameLyrics : ID3 lyrics frame tag identifier
 	ID3FrameLyrics
+	// ID3FrameYouTubeURL : ID3 youtube URL frame tag identifier
 	ID3FrameYouTubeURL
 )
 
 var (
-	SongTypes []int = []int{SongTypeLive, SongTypeCover, SongTypeRemix,
+	// SongTypes : array containing every song variant identifier
+	SongTypes = []int{SongTypeLive, SongTypeCover, SongTypeRemix,
 		SongTypeAcoustic, SongTypeKaraoke, SongTypeParody}
-	JunkWildcards []string = []string{".*.ytdl", ".*.part", ".*.jpg", "*.jpg.tmp",
-		".*" + spttb_system.DEFAULT_EXTENSION, ".*" + spttb_system.DEFAULT_EXTENSION + "-id3v2"}
+	// JunkSuffixes : array containing every file suffix considered junk
+	JunkSuffixes = []string{".ytdl", ".part", ".jpg", ".tmp", "-id3v2"}
 )
 
+// Track : struct containing all the informations about a track
 type Track struct {
 	Title         string
 	Song          string
@@ -67,23 +85,27 @@ type Track struct {
 	Local         bool
 }
 
+// Tracks : Track array
 type Tracks []Track
 
+// Has : return True if Tracks contains input Track
 func (tracks Tracks) Has(track Track) bool {
-	for _, having_track := range tracks {
-		if strings.ToLower(having_track.Filename) == strings.ToLower(track.Filename) {
+	for _, havingTrack := range tracks {
+		if strings.ToLower(havingTrack.Filename) == strings.ToLower(track.Filename) {
 			return true
 		}
 	}
 	return false
 }
 
+// CountOffline : return offline (local) songs count from Tracks
 func (tracks Tracks) CountOffline() int {
 	return len(tracks) - tracks.CountOnline()
 }
 
+// CountOnline : return online songs count from Tracks
 func (tracks Tracks) CountOnline() int {
-	var counter int = 0
+	var counter int
 	for _, track := range tracks {
 		if !track.Local {
 			counter++
@@ -92,42 +114,43 @@ func (tracks Tracks) CountOnline() int {
 	return counter
 }
 
-func ParseSpotifyTrack(spotify_track spotify.FullTrack, spotify_album spotify.FullAlbum) Track {
+// ParseSpotifyTrack : parse Spotify track into a new Track object
+func ParseSpotifyTrack(spotifyTrack spotify.FullTrack, spotifyAlbum spotify.FullAlbum) Track {
 	track := Track{
-		Title:  spotify_track.SimpleTrack.Name,
-		Artist: (spotify_track.SimpleTrack.Artists[0]).Name,
-		Album:  spotify_track.Album.Name,
+		Title:  spotifyTrack.SimpleTrack.Name,
+		Artist: (spotifyTrack.SimpleTrack.Artists[0]).Name,
+		Album:  spotifyTrack.Album.Name,
 		Year: func() string {
-			if spotify_album.ReleaseDatePrecision == "year" {
-				return spotify_album.ReleaseDate
-			} else if strings.Contains(spotify_album.ReleaseDate, "-") {
-				return strings.Split(spotify_album.ReleaseDate, "-")[0]
+			if spotifyAlbum.ReleaseDatePrecision == "year" {
+				return spotifyAlbum.ReleaseDate
+			} else if strings.Contains(spotifyAlbum.ReleaseDate, "-") {
+				return strings.Split(spotifyAlbum.ReleaseDate, "-")[0]
 			}
 			return "0000"
 		}(),
 		Featurings: func() []string {
 			var featurings []string
-			if len(spotify_track.SimpleTrack.Artists) > 1 {
-				for _, artist_item := range spotify_track.SimpleTrack.Artists[1:] {
-					featurings = append(featurings, artist_item.Name)
+			if len(spotifyTrack.SimpleTrack.Artists) > 1 {
+				for _, artistItem := range spotifyTrack.SimpleTrack.Artists[1:] {
+					featurings = append(featurings, artistItem.Name)
 				}
 			}
 			return featurings
 		}(),
 		Genre: func() string {
-			if len(spotify_album.Genres) > 0 {
-				return spotify_album.Genres[0]
+			if len(spotifyAlbum.Genres) > 0 {
+				return spotifyAlbum.Genres[0]
 			}
 			return ""
 		}(),
-		TrackNumber:   spotify_track.SimpleTrack.TrackNumber,
-		TrackTotals:   len(spotify_album.Tracks.Tracks),
-		Duration:      spotify_track.SimpleTrack.Duration / 1000,
-		Image:         spotify_track.Album.Images[0].URL,
+		TrackNumber:   spotifyTrack.SimpleTrack.TrackNumber,
+		TrackTotals:   len(spotifyAlbum.Tracks.Tracks),
+		Duration:      spotifyTrack.SimpleTrack.Duration / 1000,
+		Image:         spotifyTrack.Album.Images[0].URL,
 		URL:           "",
 		Filename:      "",
 		FilenameTemp:  "",
-		FilenameExt:   spttb_system.DEFAULT_EXTENSION,
+		FilenameExt:   spttb_system.SongExtension,
 		SearchPattern: "",
 		Lyrics:        "",
 		Local:         false,
@@ -164,117 +187,134 @@ func ParseSpotifyTrack(spotify_track spotify.FullTrack, spotify_album spotify.Fu
 	return track
 }
 
+// ParseSpotifyType : return Song variant identifier from input sequence string
 func ParseSpotifyType(sequence string) int {
-	for _, song_type := range SongTypes {
-		if SeemsType(sequence, song_type) {
-			return song_type
+	for _, songType := range SongTypes {
+		if SeemsType(sequence, songType) {
+			return songType
 		}
 	}
 	return SongTypeAlbum
 }
 
-func ParseSpotifyTitle(track_title string, track_featurings []string) (string, string) {
-	var track_song string
+// ParseSpotifyTitle : return correctly formatted title (with featurings) and single song title
+func ParseSpotifyTitle(trackTitle string, trackFeaturings []string) (string, string) {
+	var trackSong string
 
-	track_title = strings.Split(track_title, " - ")[0]
-	if strings.Contains(track_title, " live ") {
-		track_title = strings.Split(track_title, " live ")[0]
+	trackTitle = strings.Split(trackTitle, " - ")[0]
+	if strings.Contains(trackTitle, " live ") {
+		trackTitle = strings.Split(trackTitle, " live ")[0]
 	}
-	track_title = strings.TrimSpace(track_title)
-	if len(track_featurings) > 0 {
-		if strings.Contains(strings.ToLower(track_title), "feat. ") ||
-			strings.Contains(strings.ToLower(track_title), "ft. ") ||
-			strings.Contains(strings.ToLower(track_title), "featuring ") ||
-			strings.Contains(strings.ToLower(track_title), "with ") {
-			for _, featuring_symbol := range []string{"featuring", "feat.", "with"} {
-				for _, featuring_symbol_case := range []string{featuring_symbol, strings.Title(featuring_symbol)} {
-					track_title = strings.Replace(track_title, featuring_symbol_case+" ", "ft. ", -1)
+	trackTitle = strings.TrimSpace(trackTitle)
+	if len(trackFeaturings) > 0 {
+		if strings.Contains(strings.ToLower(trackTitle), "feat. ") ||
+			strings.Contains(strings.ToLower(trackTitle), "ft. ") ||
+			strings.Contains(strings.ToLower(trackTitle), "featuring ") ||
+			strings.Contains(strings.ToLower(trackTitle), "with ") {
+			for _, featuringSymbol := range []string{"featuring", "feat.", "with"} {
+				for _, featuringSymbolCase := range []string{featuringSymbol, strings.Title(featuringSymbol)} {
+					trackTitle = strings.Replace(trackTitle, featuringSymbolCase+" ", "ft. ", -1)
 				}
 			}
 		} else {
-			if strings.Contains(track_title, "(") &&
-				(strings.Contains(track_title, " vs. ") || strings.Contains(track_title, " vs ")) &&
-				strings.Contains(track_title, ")") {
-				track_title = strings.Split(track_title, " (")[0]
+			if strings.Contains(trackTitle, "(") &&
+				(strings.Contains(trackTitle, " vs. ") || strings.Contains(trackTitle, " vs ")) &&
+				strings.Contains(trackTitle, ")") {
+				trackTitle = strings.Split(trackTitle, " (")[0]
 			}
-			var track_featurings_inline string
-			if len(track_featurings) > 1 {
-				track_featurings_inline = "(ft. " + strings.Join(track_featurings[:len(track_featurings)-1], ", ") +
-					" and " + track_featurings[len(track_featurings)-1] + ")"
+			var trackFeaturingsInline string
+			if len(trackFeaturings) > 1 {
+				trackFeaturingsInline = "(ft. " + strings.Join(trackFeaturings[:len(trackFeaturings)-1], ", ") +
+					" and " + trackFeaturings[len(trackFeaturings)-1] + ")"
 			} else {
-				track_featurings_inline = "(ft. " + track_featurings[0] + ")"
+				trackFeaturingsInline = "(ft. " + trackFeaturings[0] + ")"
 			}
-			track_title = track_title + " " + track_featurings_inline
+			trackTitle = trackTitle + " " + trackFeaturingsInline
 		}
-		track_song = strings.Split(track_title, " (ft. ")[0]
+		trackSong = strings.Split(trackTitle, " (ft. ")[0]
 	} else {
-		track_song = track_title
+		trackSong = trackTitle
 	}
 
-	return track_title, track_song
+	return trackTitle, trackSong
 }
 
+// FilenameFinal : return Track final filename
 func (track Track) FilenameFinal() string {
 	return track.Filename + track.FilenameExt
 }
 
+// FilenameTemporary : return Track temporary filename
 func (track Track) FilenameTemporary() string {
 	return track.FilenameTemp + track.FilenameExt
 }
 
+// FilenameArtwork : return Track artwork filename
 func (track Track) FilenameArtwork() string {
 	return "." + strings.Split(track.Image, "/")[len(strings.Split(track.Image, "/"))-1] + ".jpg"
 }
 
+// TempFiles : return strings array containing all possible junk file names
 func (track Track) TempFiles() []string {
-	return []string{track.FilenameTemp,
-		track.FilenameTemporary(),
-		track.FilenameTemporary() + "-id3v2",
-		track.FilenameTemp + ".part",
-		track.FilenameTemp + ".part*",
-		track.FilenameTemp + ".ytdl",
-		track.FilenameArtwork(),
-		track.FilenameArtwork() + ".tmp",
+	var tempFiles []string
+	for _, fnamePrefix := range []string{track.FilenameTemporary(), track.FilenameTemp, track.FilenameArtwork()} {
+		tempFiles = append(tempFiles, fnamePrefix)
+		for _, fnameJunkSuffix := range JunkSuffixes {
+			tempFiles = append(tempFiles, fnamePrefix+fnameJunkSuffix)
+		}
 	}
+	return tempFiles
 }
 
+// Seems : return nil error if sequence is input sequence string matches with Track
 func (track Track) Seems(sequence string) error {
 	if err := track.SeemsByWordMatch(sequence); err != nil {
 		return err
 	}
 	if strings.Contains(strings.ToLower(sequence), "full album") {
-		return errors.New("Item seems to be pointing to an album, not to a song.")
+		return errors.New("Item seems to be pointing to an album, not to a song")
 	}
-	for _, song_type := range SongTypes {
-		if SeemsType(sequence, song_type) && track.SongType != song_type {
-			return errors.New("Songs seem to be of different types.")
+	for _, songType := range SongTypes {
+		if SeemsType(sequence, songType) && track.SongType != songType {
+			return errors.New("Songs seem to be of different types")
 		}
 	}
 	return nil
 }
 
+// SeemsByWordMatch : return nil error if Track song name, artist and featurings are contained in sequence
 func (track Track) SeemsByWordMatch(sequence string) error {
 	sequence = sanitize.Name(strings.ToLower(sequence))
-	for _, track_item := range append([]string{track.Song, track.Artist}, track.Featurings...) {
-		track_item = strings.ToLower(track_item)
-		if len(track_item) > 7 && track_item[:7] == "cast of" {
-			track_item = strings.Replace(track_item, "cast of", "", -1)
-		} else if len(track_item) > 5 && track_item[len(track_item)-5:] == " cast" {
-			track_item = strings.Replace(track_item, "cast", "", -1)
+	for _, trackItem := range append([]string{track.Song, track.Artist}, track.Featurings...) {
+		trackItem = strings.ToLower(trackItem)
+		if len(trackItem) > 7 && trackItem[:7] == "cast of" {
+			trackItem = strings.Replace(trackItem, "cast of", "", -1)
+		} else if len(trackItem) > 5 && trackItem[len(trackItem)-5:] == " cast" {
+			trackItem = strings.Replace(trackItem, "cast", "", -1)
 		}
-		track_item = strings.Replace(track_item, " & ", " and ", -1)
-		if strings.Contains(track_item, " and ") {
-			track_item = strings.Split(track_item, " and ")[0]
+		trackItem = strings.Replace(trackItem, " & ", " and ", -1)
+		if strings.Contains(trackItem, " and ") {
+			trackItem = strings.Split(trackItem, " and ")[0]
 		}
-		track_item = strings.TrimSpace(track_item)
-		track_item = sanitize.Name(track_item)
-		if !strings.Contains(sequence, track_item) {
-			return errors.New("Songs seem to be mismatching by words comparison.")
+		trackItem = strings.TrimSpace(trackItem)
+		trackItem = sanitize.Name(trackItem)
+		if !strings.Contains(sequence, trackItem) {
+			return errors.New("Songs seem to be mismatching by words comparison")
 		}
 	}
 	return nil
 }
 
+// JunkWildcards : return strings array containing all possible junk filenames wilcards
+func JunkWildcards() []string {
+	var junkWildcards []string
+	for _, junkSuffix := range JunkSuffixes {
+		junkWildcards = append(junkWildcards, ".*"+junkSuffix)
+	}
+	return junkWildcards
+}
+
+// TagGetFrame : get input frame from open input Tag
 func TagGetFrame(tag *id3v2.Tag, frame int) string {
 	switch frame {
 	case ID3FrameTitle:
@@ -299,10 +339,11 @@ func TagGetFrame(tag *id3v2.Tag, frame int) string {
 	return ""
 }
 
+// TagGetFrameTrackNumber : get track number frame from input Tag
 func TagGetFrameTrackNumber(tag *id3v2.Tag) string {
 	if len(tag.GetFrames(tag.CommonID("Track number/Position in set"))) > 0 {
-		for _, frame_text := range tag.GetFrames(tag.CommonID("Track number/Position in set")) {
-			text, ok := frame_text.(id3v2.TextFrame)
+		for _, frameText := range tag.GetFrames(tag.CommonID("Track number/Position in set")) {
+			text, ok := frameText.(id3v2.TextFrame)
 			if ok {
 				return text.Text
 			}
@@ -311,10 +352,11 @@ func TagGetFrameTrackNumber(tag *id3v2.Tag) string {
 	return ""
 }
 
+// TagGetFrameArtwork : get artwork frame from input Tag
 func TagGetFrameArtwork(tag *id3v2.Tag) string {
 	if len(tag.GetFrames(tag.CommonID("Attached picture"))) > 0 {
-		for _, frame_picture := range tag.GetFrames(tag.CommonID("Attached picture")) {
-			picture, ok := frame_picture.(id3v2.PictureFrame)
+		for _, framePicture := range tag.GetFrames(tag.CommonID("Attached picture")) {
+			picture, ok := framePicture.(id3v2.PictureFrame)
 			if ok {
 				return string(picture.Picture)
 			}
@@ -323,10 +365,11 @@ func TagGetFrameArtwork(tag *id3v2.Tag) string {
 	return ""
 }
 
+// TagGetFrameLyrics : get lyrics frame from input Tag
 func TagGetFrameLyrics(tag *id3v2.Tag) string {
 	if len(tag.GetFrames(tag.CommonID("Unsynchronised lyrics/text transcription"))) > 0 {
-		for _, frame_lyrics := range tag.GetFrames(tag.CommonID("Unsynchronised lyrics/text transcription")) {
-			lyrics, ok := frame_lyrics.(id3v2.UnsynchronisedLyricsFrame)
+		for _, frameLyrics := range tag.GetFrames(tag.CommonID("Unsynchronised lyrics/text transcription")) {
+			lyrics, ok := frameLyrics.(id3v2.UnsynchronisedLyricsFrame)
 			if ok {
 				return lyrics.Lyrics
 			}
@@ -335,10 +378,11 @@ func TagGetFrameLyrics(tag *id3v2.Tag) string {
 	return ""
 }
 
+// TagGetFrameYouTubeURL : get youtube URL frame from input Tag
 func TagGetFrameYouTubeURL(tag *id3v2.Tag) string {
 	if len(tag.GetFrames(tag.CommonID("Comments"))) > 0 {
-		for _, frame_comment := range tag.GetFrames(tag.CommonID("Comments")) {
-			comment, ok := frame_comment.(id3v2.CommentFrame)
+		for _, frameComment := range tag.GetFrames(tag.CommonID("Comments")) {
+			comment, ok := frameComment.(id3v2.CommentFrame)
 			if ok && comment.Description == "youtube" {
 				return comment.Text
 			}
@@ -347,10 +391,12 @@ func TagGetFrameYouTubeURL(tag *id3v2.Tag) string {
 	return ""
 }
 
+// TagHasFrame : return True if open input Tag has valued input frame
 func TagHasFrame(tag *id3v2.Tag, frame int) bool {
 	return TagGetFrame(tag, frame) != ""
 }
 
+// GetID3Frame : get Track ID3 input frame string value
 func (track Track) GetID3Frame(frame int) string {
 	tag, err := id3v2.Open(track.FilenameFinal(), id3v2.Options{Parse: true})
 	if tag == nil || err != nil {
@@ -360,70 +406,73 @@ func (track Track) GetID3Frame(frame int) string {
 	return TagGetFrame(tag, frame)
 }
 
+// HasID3Frame : return True if Track has input ID3 frame
 func (track *Track) HasID3Frame(frame int) bool {
 	return track.GetID3Frame(frame) != ""
 }
 
+// SearchLyrics : search Track lyrics, eventually throwing returning error
 func (track *Track) SearchLyrics() error {
 	type LyricsAPIEntry struct {
 		Lyrics string `json:"lyrics"`
 	}
-	lyrics_client := http.Client{
-		Timeout: time.Second * spttb_system.DEFAULT_HTTP_TIMEOUT,
+	lyricsClient := http.Client{
+		Timeout: time.Second * spttb_system.HTTPTimeout,
 	}
-	lyrics_request, lyrics_error := http.NewRequest(http.MethodGet,
-		fmt.Sprintf(spttb_system.LYRICS_API_URL, url.QueryEscape(track.Artist), url.QueryEscape(track.Song)), nil)
-	if lyrics_error != nil {
-		return errors.New("Unable to compile lyrics request: " + lyrics_error.Error())
+	lyricsRequest, lyricsError := http.NewRequest(http.MethodGet,
+		fmt.Sprintf(spttb_system.LyricsAPIURL, url.QueryEscape(track.Artist), url.QueryEscape(track.Song)), nil)
+	if lyricsError != nil {
+		return errors.New("Unable to compile lyrics request: " + lyricsError.Error())
 	}
-	lyrics_response, lyrics_error := lyrics_client.Do(lyrics_request)
-	if lyrics_error != nil {
-		return errors.New("Unable to read response from lyrics request: " + lyrics_error.Error())
+	lyricsResponse, lyricsError := lyricsClient.Do(lyricsRequest)
+	if lyricsError != nil {
+		return errors.New("Unable to read response from lyrics request: " + lyricsError.Error())
 	}
-	lyrics_response_body, lyrics_error := ioutil.ReadAll(lyrics_response.Body)
-	if lyrics_error != nil {
-		return errors.New("Unable to get response body: " + lyrics_error.Error())
+	lyricsResponseBody, lyricsError := ioutil.ReadAll(lyricsResponse.Body)
+	if lyricsError != nil {
+		return errors.New("Unable to get response body: " + lyricsError.Error())
 	}
-	lyrics_data := LyricsAPIEntry{}
-	lyrics_error = json.Unmarshal(lyrics_response_body, &lyrics_data)
-	if lyrics_error != nil {
-		return errors.New("Unable to parse json from response body: " + lyrics_error.Error())
+	lyricsData := LyricsAPIEntry{}
+	lyricsError = json.Unmarshal(lyricsResponseBody, &lyricsData)
+	if lyricsError != nil {
+		return errors.New("Unable to parse json from response body: " + lyricsError.Error())
 	}
 
-	(*track).Lyrics = lyrics_data.Lyrics
+	(*track).Lyrics = lyricsData.Lyrics
 	return nil
 }
 
-func SeemsType(sequence string, song_type int) bool {
-	var song_type_aliases []string
-	if song_type == SongTypeLive {
-		song_type_aliases = []string{"@", "live", "perform", "tour"}
+// SeemsType : return True if input sequence matches with selected input songType variant
+func SeemsType(sequence string, songType int) bool {
+	var songTypeAliases []string
+	if songType == SongTypeLive {
+		songTypeAliases = []string{"@", "live", "perform", "tour"}
 		for _, year := range spttb_system.MakeRange(1950, 2050) {
-			song_type_aliases = append(song_type_aliases, []string{strconv.Itoa(year), "'" + strconv.Itoa(year)[2:]}...)
+			songTypeAliases = append(songTypeAliases, []string{strconv.Itoa(year), "'" + strconv.Itoa(year)[2:]}...)
 		}
-	} else if song_type == SongTypeCover {
-		song_type_aliases = []string{"cover", "vs"}
-	} else if song_type == SongTypeRemix {
-		song_type_aliases = []string{"remix", "radio edit"}
-	} else if song_type == SongTypeAcoustic {
-		song_type_aliases = []string{"acoustic"}
-	} else if song_type == SongTypeKaraoke {
-		song_type_aliases = []string{"karaoke", "instrumental"}
-	} else if song_type == SongTypeParody {
-		song_type_aliases = []string{"parody"}
+	} else if songType == SongTypeCover {
+		songTypeAliases = []string{"cover", "vs"}
+	} else if songType == SongTypeRemix {
+		songTypeAliases = []string{"remix", "radio edit"}
+	} else if songType == SongTypeAcoustic {
+		songTypeAliases = []string{"acoustic"}
+	} else if songType == SongTypeKaraoke {
+		songTypeAliases = []string{"karaoke", "instrumental"}
+	} else if songType == SongTypeParody {
+		songTypeAliases = []string{"parody"}
 	}
 
-	for _, song_type_alias := range song_type_aliases {
-		sequence_tmp := sequence
-		if len(song_type_alias) == 1 {
-			sequence_tmp = strings.ToLower(sequence)
+	for _, songTypeAlias := range songTypeAliases {
+		sequenceTmp := sequence
+		if len(songTypeAlias) == 1 {
+			sequenceTmp = strings.ToLower(sequence)
 		} else {
-			sequence_tmp = sanitize.Name(strings.ToLower(sequence))
+			sequenceTmp = sanitize.Name(strings.ToLower(sequence))
 		}
-		if len(sanitize.Name(strings.ToLower(song_type_alias))) == len(song_type_alias) {
-			song_type_alias = sanitize.Name(strings.ToLower(song_type_alias))
+		if len(sanitize.Name(strings.ToLower(songTypeAlias))) == len(songTypeAlias) {
+			songTypeAlias = sanitize.Name(strings.ToLower(songTypeAlias))
 		}
-		if strings.Contains(sequence_tmp, song_type_alias) {
+		if strings.Contains(sequenceTmp, songTypeAlias) {
 			return true
 		}
 	}

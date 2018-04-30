@@ -6,7 +6,7 @@ CUR_DIR = $(shell pwd)
 BINARY := $(CUR_DIR)/out/$(NAME)
 BINARY_INSTALL_PATH := /usr/local/sbin
 BINARY_INSTALL := $(BINARY_INSTALL_PATH)/$(NAME)
-VERSION := $(shell awk -F'= ' '/VERSION / {print $$2}' src/system/constants.go)
+VERSION := $(shell awk -F'= ' '/Version / {print $$2}' src/system/constants.go)
 PKG_NAME := $(BINARY)-v$(VERSION)
 GOARCH := amd64
 

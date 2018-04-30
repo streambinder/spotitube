@@ -134,10 +134,7 @@ func (youtube_track Track) Match(track spttb_track.Track) error {
 	if strings.Contains(youtube_track.URL, "&list=") || strings.Contains(youtube_track.URL, "/user/") {
 		return fmt.Errorf("Track is actually pointing to playlist or user")
 	}
-	if err := track.Seems(youtube_track.Title); err != nil {
-		return err
-	}
-	return nil
+	return track.Seems(youtube_track.Title)
 }
 
 // Download : delegate youtube-dl call to download YouTube Track result

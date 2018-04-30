@@ -137,16 +137,17 @@ adb reboot
 You may want to use some of the following input flags:
 
 1.  `-disable-normalization`: disable songs volume normalization. Although volume normalization is really useful, as lot of songs gets downloaded with several `max_volume` values, resulting into some of them with very low volume level, this option (enabled by default) make the process slow down.
-2.  `-disable-m3u`: disable automatic creation of `.m3u` file, used to keep track of playlists songs.
-3.  `-disable-lyrics`: disable download of songs lyrics and their application into `mp3`.
-4.  `-disable-timestamp-flush`: disable automatic songs files timestamps flush to keep library/playlist order.
-5.  `-disable-update-check`: disable automatic update check at startup.
-6.  `-interactive`: enable interactive mode. This allows to eventually override `spotitube` decisions about which _YouTube_ result to pick, prompting for user input on every - legal - song it encounters.
-7.  `-flush-metadata`: enable metadata informations flush also for songs that have been already synchronized.
-8.  `-flush-missing`: if `-flush-metadata` toggled, it will just populate empty id3 frames, instead of flushing any of those.
-9.  `-replace-local`: replace already downloaded (via `spotitube`) songs, if better ones get encountered.
-10. `-clean-junks`: forcely batch remove temporary files that kept existing for any unattended runtime error.
-11. `-version`: just print installed version.
+2.  `-disable-playlist-file`: disable automatic creation of playlist file, used to keep track of playlists songs.
+3.  `-pls-file`: swap playlist file format, from `.m3u` - which is the default - to `.pls`.
+4.  `-disable-lyrics`: disable download of songs lyrics and their application into `mp3`.
+5.  `-disable-timestamp-flush`: disable automatic songs files timestamps flush to keep library/playlist order.
+6.  `-disable-update-check`: disable automatic update check at startup.
+7.  `-interactive`: enable interactive mode. This allows to eventually override `spotitube` decisions about which _YouTube_ result to pick, prompting for user input on every - legal - song it encounters.
+8.  `-flush-metadata`: enable metadata informations flush also for songs that have been already synchronized.
+9.  `-flush-missing`: if `-flush-metadata` toggled, it will just populate empty id3 frames, instead of flushing any of those.
+10. `-replace-local`: replace already downloaded (via `spotitube`) songs, if better ones get encountered.
+11. `-clean-junks`: forcely batch remove temporary files that kept existing for any unattended runtime error.
+12. `-version`: just print installed version.
 
 #### Developers
 

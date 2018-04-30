@@ -37,7 +37,8 @@ var (
 	argFlushMetadata         *bool
 	argFlushMissing          *bool
 	argDisableNormalization  *bool
-	argDisableM3u            *bool
+	argDisablePlaylistFile   *bool
+	argPlsFile               *bool
 	argDisableLyrics         *bool
 	argDisableTimestampFlush *bool
 	argDisableUpdateCheck    *bool
@@ -65,7 +66,8 @@ func main() {
 	argFlushMetadata = flag.Bool("flush-metadata", false, "Flush metadata informations to already synchronized songs")
 	argFlushMissing = flag.Bool("flush-missing", false, "If -flush-metadata toggled, it will just populate empty id3 frames, instead of flushing any of those")
 	argDisableNormalization = flag.Bool("disable-normalization", false, "Disable songs volume normalization")
-	argDisableM3u = flag.Bool("disable-m3u", false, "Disable automatic creation of playlists .m3u file")
+	argDisablePlaylistFile = flag.Bool("disable-playlist-file", false, "Disable automatic creation of playlists file")
+	argPlsFile = flag.Bool("pls-file", false, "Generate playlist file with .pls instead of .m3u")
 	argDisableLyrics = flag.Bool("disable-lyrics", false, "Disable download of songs lyrics and their application into mp3.")
 	argDisableTimestampFlush = flag.Bool("disable-timestamp-flush", false, "Disable automatic songs files timestamps flush")
 	argDisableUpdateCheck = flag.Bool("disable-update-check", false, "Disable automatic update check at startup")
@@ -716,27 +718,55 @@ func subCondTimestampFlush() {
 }
 
 func subCondPlaylistFileWrite() {
-	if !*argSimulate && !*argDisableM3u && *argPlaylist != "none" {
-		if spttb_system.FileExists(playlistInfo.Name + ".m3u") {
-			os.Remove(playlistInfo.Name + ".m3u")
-		}
-		playlistM3u := "#EXTM3U\n"
-		for trackIndex := len(tracks) - 1; trackIndex >= 0; trackIndex-- {
-			track := tracks[trackIndex]
-			if spttb_system.FileExists(track.FilenameFinal()) {
-				playlistM3u = playlistM3u + "#EXTINF:" + strconv.Itoa(track.Duration) + "," + track.Filename + "\n" +
-					"./" + track.FilenameFinal() + "\n"
+	if !*argSimulate && !*argDisablePlaylistFile && *argPlaylist != "none" {
+		if !*argPlsFile {
+			if spttb_system.FileExists(playlistInfo.Name + ".m3u") {
+				os.Remove(playlistInfo.Name + ".m3u")
 			}
-		}
-		playlistM3uFile, playlistErr := os.Create(playlistInfo.Name + ".m3u")
-		if playlistErr != nil {
-			gui.WarnAppend(fmt.Sprintf("Unable to create M3U file: %s", playlistErr.Error()), spttb_gui.PanelRight)
-		} else {
-			defer playlistM3uFile.Close()
-			_, playlistErr := playlistM3uFile.WriteString(playlistM3u)
-			playlistM3uFile.Sync()
+			playlistM3u := "#EXTM3U\n"
+			for trackIndex := len(tracks) - 1; trackIndex >= 0; trackIndex-- {
+				track := tracks[trackIndex]
+				if spttb_system.FileExists(track.FilenameFinal()) {
+					playlistM3u += "#EXTINF:" + strconv.Itoa(track.Duration) + "," + track.Filename + "\n" +
+						"./" + track.FilenameFinal() + "\n"
+				}
+			}
+			playlistM3uFile, playlistErr := os.Create(playlistInfo.Name + ".m3u")
 			if playlistErr != nil {
-				gui.WarnAppend(fmt.Sprintf("Unable to write M3U file: %s", playlistErr.Error()), spttb_gui.PanelRight)
+				gui.WarnAppend(fmt.Sprintf("Unable to create M3U file: %s", playlistErr.Error()), spttb_gui.PanelRight)
+			} else {
+				defer playlistM3uFile.Close()
+				_, playlistErr := playlistM3uFile.WriteString(playlistM3u)
+				playlistM3uFile.Sync()
+				if playlistErr != nil {
+					gui.WarnAppend(fmt.Sprintf("Unable to write M3U file: %s", playlistErr.Error()), spttb_gui.PanelRight)
+				}
+			}
+		} else {
+			if spttb_system.FileExists(playlistInfo.Name + ".pls") {
+				os.Remove(playlistInfo.Name + ".pls")
+			}
+			playlistPls := "[" + playlistInfo.Name + "]\n"
+			for trackIndex := len(tracks) - 1; trackIndex >= 0; trackIndex-- {
+				track := tracks[trackIndex]
+				trackInvertedIndex := len(tracks) - trackIndex
+				if spttb_system.FileExists(track.FilenameFinal()) {
+					playlistPls += "File" + strconv.Itoa(trackInvertedIndex) + "=./" + track.FilenameFinal() + "\n" +
+						"Title" + strconv.Itoa(trackInvertedIndex) + "=" + track.Filename + "\n" +
+						"Length" + strconv.Itoa(trackInvertedIndex) + "=" + strconv.Itoa(track.Duration) + "\n\n"
+				}
+			}
+			playlistPls += "NumberOfEntries=" + strconv.Itoa(len(tracks)) + "\n"
+			playlistPlsFile, playlistErr := os.Create(playlistInfo.Name + ".pls")
+			if playlistErr != nil {
+				gui.WarnAppend(fmt.Sprintf("Unable to create PLS file: %s", playlistErr.Error()), spttb_gui.PanelRight)
+			} else {
+				defer playlistPlsFile.Close()
+				_, playlistErr := playlistPlsFile.WriteString(playlistPls)
+				playlistPlsFile.Sync()
+				if playlistErr != nil {
+					gui.WarnAppend(fmt.Sprintf("Unable to write PLS file: %s", playlistErr.Error()), spttb_gui.PanelRight)
+				}
 			}
 		}
 	}

@@ -2,7 +2,11 @@
 
 [![](https://goreportcard.com/badge/github.com/streambinder/spotitube)](https://goreportcard.com/report/github.com/streambinder/spotitube) [![](https://img.shields.io/github/downloads/streambinder/spotitube/total.svg)](http://www.somsubhra.com/github-release-stats/?username=streambinder&repository=spotitube)
 
-[![](https://raw.githubusercontent.com/streambinder/spotitube/master/assets/images/sample.gif)](#spotitube) [![](https://raw.githubusercontent.com/streambinder/spotitube/master/assets/images/sample_result.png)](#spotitube)
+Programmatically authenticate to your Spotify account and synchronize your music, keeping playlists files, metadata informations, album artworks, songs lyrics and maximizing _mp3_ files quality.
+
+* * *
+
+[![](https://raw.githubusercontent.com/streambinder/spotitube/master/assets/images/sample.gif)](#spotitube)
 
 ## What is
 
@@ -11,10 +15,10 @@ This project was born as per two needs:
 1.  I wanted to learn some _GO-lang_ basics.
 2.  I needed to automate the process of synchronize the songs I wanted to download. This process is composed by several phases:
 
--   Keep track of music I want to download
--   Find the best song file I can
--   Download it
--   Apply correct metadata
+	-   Keep track of music I want to download
+	-   Find the best song file I can
+	-   Download it
+	-   Apply correct metadata
 
 _spotitube_ basically solves these two major problems in a simple, elegant, but especially rapid way.
 
@@ -41,6 +45,8 @@ As already mentioned it heavily uses `youtube-dl` to download tracks from _YouTu
 | `golang`     |         1.7+         |   Compilation   |
 
 ## What about its reliability
+
+[![](https://raw.githubusercontent.com/streambinder/spotitube/master/assets/images/sample_result.png)](#spotitube)
 
 Several tests got made during the drawing up of the application and now I can say its pretty good at choosing the right song out of a list of keywords (such as the title and the user of any _YouTube_ video).
 
@@ -74,7 +80,7 @@ In other words, we could say `spotitube` behaved as it was expected to both for 
 | Debian-based distributions |  [`spotitube.deb`](https://github.com/streambinder/spotitube/releases/latest)  |
 | RedHat-based distributions |  [`spotitube.rpm`](https://github.com/streambinder/spotitube/releases/latest)  |
 | Solus-Project              | [`spotitube.eopkg`](https://github.com/streambinder/spotitube/releases/latest) |
-| Binary                     |  [`spotitube.bin`](https://github.com/streambinder/spotitube/releases/latest)  |
+| Generic binary             |  [`spotitube.bin`](https://github.com/streambinder/spotitube/releases/latest)  |
 
 #### Build it yourself
 

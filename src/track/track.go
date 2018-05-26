@@ -13,8 +13,10 @@ import (
 
 	spttb_system "system"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/bogem/id3v2"
 	"github.com/kennygrant/sanitize"
+	"github.com/mozillazg/go-unidecode"
 	"github.com/zmb3/spotify"
 )
 
@@ -413,6 +415,69 @@ func (track *Track) HasID3Frame(frame int) bool {
 
 // SearchLyrics : search Track lyrics, eventually throwing returning error
 func (track *Track) SearchLyrics() error {
+	geniusLyrics, geniusErr := subSearchLyricsGenius(track)
+	if geniusErr == nil {
+		track.Lyrics = geniusLyrics
+		return nil
+	}
+	ovhLyrics, ovhErr := subSearchLyricsOvh(track)
+	if ovhErr == nil {
+		track.Lyrics = ovhLyrics
+		return nil
+	}
+	return ovhErr
+}
+
+func subSearchLyricsGenius(track *Track) (string, error) {
+	lyricsClient := http.Client{
+		Timeout: time.Second * spttb_system.HTTPTimeout,
+	}
+	lyricsRequest, lyricsError := http.NewRequest(http.MethodGet,
+		fmt.Sprintf("https://api.genius.com/search?q=%s+%s", url.QueryEscape(track.Title), url.QueryEscape(track.Artist)), nil)
+	if lyricsError != nil {
+		return "", fmt.Errorf("Unable to compile Genius lyrics request: " + lyricsError.Error())
+	}
+	lyricsRequest.Header.Add("Authorization", fmt.Sprintf("Bearer %s", spttb_system.GeniusAccessToken))
+
+	lyricsResponse, lyricsError := lyricsClient.Do(lyricsRequest)
+	if lyricsError != nil {
+		return "", fmt.Errorf("Unable to read Genius lyrics response from lyrics request: " + lyricsError.Error())
+	}
+
+	lyricsResponseBody, lyricsError := ioutil.ReadAll(lyricsResponse.Body)
+	if lyricsError != nil {
+		return "", fmt.Errorf("Unable to get Genius lyrics response body: " + lyricsError.Error())
+	}
+
+	var result map[string]interface{}
+	hitsUnmarshalErr := json.Unmarshal([]byte(lyricsResponseBody), &result)
+	if hitsUnmarshalErr != nil {
+		return "", fmt.Errorf("Unable to unmarshal Genius lyrics content into interface: %s", hitsUnmarshalErr.Error())
+	}
+
+	hits := result["response"].(map[string]interface{})["hits"].([]interface{})
+	var lyricsURL string = ""
+	for _, value := range hits {
+		valueResult := value.(map[string]interface{})["result"].(map[string]interface{})
+		songTitle := strings.TrimSpace(valueResult["title"].(string))
+		songArtist := strings.TrimSpace(valueResult["primary_artist"].(map[string]interface{})["name"].(string))
+
+		songErr := track.Seems(fmt.Sprintf("%s %s", songTitle, songArtist))
+		if songErr == nil {
+			lyricsURL = strings.TrimSpace(valueResult["url"].(string))
+			break
+		}
+	}
+
+	if len(lyricsURL) == 0 {
+		return "", fmt.Errorf("Genius lyrics not found")
+	}
+
+	doc, _ := goquery.NewDocument(lyricsURL)
+	return strings.TrimSpace(unidecode.Unidecode(doc.Find(".lyrics").Eq(0).Text())), nil
+}
+
+func subSearchLyricsOvh(track *Track) (string, error) {
 	type LyricsAPIEntry struct {
 		Lyrics string `json:"lyrics"`
 	}
@@ -420,26 +485,25 @@ func (track *Track) SearchLyrics() error {
 		Timeout: time.Second * spttb_system.HTTPTimeout,
 	}
 	lyricsRequest, lyricsError := http.NewRequest(http.MethodGet,
-		fmt.Sprintf(spttb_system.LyricsAPIURL, url.QueryEscape(track.Artist), url.QueryEscape(track.Song)), nil)
+		fmt.Sprintf(spttb_system.LyricsOVHAPIURL, url.QueryEscape(track.Artist), url.QueryEscape(track.Song)), nil)
 	if lyricsError != nil {
-		return errors.New("Unable to compile lyrics request: " + lyricsError.Error())
+		return "", errors.New("Unable to compile lyrics request: " + lyricsError.Error())
 	}
 	lyricsResponse, lyricsError := lyricsClient.Do(lyricsRequest)
 	if lyricsError != nil {
-		return errors.New("Unable to read response from lyrics request: " + lyricsError.Error())
+		return "", errors.New("Unable to read response from lyrics request: " + lyricsError.Error())
 	}
 	lyricsResponseBody, lyricsError := ioutil.ReadAll(lyricsResponse.Body)
 	if lyricsError != nil {
-		return errors.New("Unable to get response body: " + lyricsError.Error())
+		return "", errors.New("Unable to get response body: " + lyricsError.Error())
 	}
 	lyricsData := LyricsAPIEntry{}
 	lyricsError = json.Unmarshal(lyricsResponseBody, &lyricsData)
 	if lyricsError != nil {
-		return errors.New("Unable to parse json from response body: " + lyricsError.Error())
+		return "", errors.New("Unable to parse json from response body: " + lyricsError.Error())
 	}
 
-	(*track).Lyrics = lyricsData.Lyrics
-	return nil
+	return strings.TrimSpace(unidecode.Unidecode(lyricsData.Lyrics)), nil
 }
 
 // SeemsType : return True if input sequence matches with selected input songType variant

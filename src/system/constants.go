@@ -39,9 +39,6 @@ const (
 	// SystemLetterIdxMax : random string generator max
 	SystemLetterIdxMax = 63 / SystemLetterIdxBits
 
-	// LyricsAPIURL : lyrics API URL
-	LyricsAPIURL = "https://api.lyrics.ovh/v1/%s/%s"
-
 	// YouTubeVideoPrefix : YouTube video prefix
 	YouTubeVideoPrefix = "https://www.youtube.com"
 	// YouTubeQueryURL : YouTube query URL
@@ -61,6 +58,13 @@ const (
 	SpotifyClientID = ":SPOTIFY_CLIENT_ID:"
 	// SpotifyClientSecret : Spotify app client secret key
 	SpotifyClientSecret = ":SPOTIFY_CLIENT_SECRET:"
+
+	// GeniusAccessToken : Genius app access token
+	GeniusAccessToken = ":GENIUS_TOKEN:"
+	// LyricsGeniusAPIURL : lyrics Genius API URL
+	LyricsGeniusAPIURL = "https://api.genius.com/"
+	// LyricsFallbackAPIURL : lyrics OVH API URL
+	LyricsOVHAPIURL = "https://api.lyrics.ovh/v1/%s/%s"
 
 	// SpotifyRedirectURL : Spotify app redirect URL
 	SpotifyRedirectURL = "http://localhost:8080/callback"

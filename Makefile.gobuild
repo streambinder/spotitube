@@ -10,6 +10,7 @@ bin:
 		cp $(CUR_DIR)/src/system/constants.go{,.orig} && \
 		sed -i 's|:SPOTIFY_CLIENT_ID:|${SPOTIFY_ID}|g' $(CUR_DIR)/src/system/constants.go && \
 		sed -i 's|:SPOTIFY_CLIENT_SECRET:|${SPOTIFY_KEY}|g' $(CUR_DIR)/src/system/constants.go && \
+		sed -i 's|:GENIUS_TOKEN:|${GENIUS_TOKEN}|g' $(CUR_DIR)/src/system/constants.go && \
 		(GOPATH=$(CUR_DIR) GOARCH=386 CGO_ENABLED=0 go build -o $(BINARY) $(CUR_DIR)/src/main/main.go && echo -e "\rBuilt at: $(BINARY)"); \
 		(rm -f $(CUR_DIR)/src/system/constants.go && mv $(CUR_DIR)/src/system/constants.go{.orig,}); \
 	);

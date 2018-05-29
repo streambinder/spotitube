@@ -67,9 +67,7 @@ const (
 	// ParagraphStyleAutoReturn : identifier for text autoreturning paragraph format, to fit words in lines
 	ParagraphStyleAutoReturn
 	_
-	// LogWrite : identifier for log writing enable
-	LogWrite
-	// LogNoWrite : identifier for log writing disable
+	// LogNoWrite : identifier for log writing temporarily disable (if Gui has a Logger)
 	LogNoWrite
 )
 
@@ -148,6 +146,11 @@ func (gui *Gui) LinkLogger(logger *spttb_logger.Logger) error {
 func (gui *Gui) Append(message string, options uint64) error {
 	guiAppendMutex.Lock()
 	defer guiAppendMutex.Unlock()
+
+	if (options&LogNoWrite) == 0 && gui.Logger != nil {
+		gui.Logger.Append(message)
+	}
+
 	var (
 		view  *gocui.View
 		err   error
@@ -194,25 +197,16 @@ func (gui *Gui) ClearAppend(message string, options uint64) error {
 
 // ErrAppend : add input string message, formatted as error, to input uint64 options driven space
 func (gui *Gui) ErrAppend(message string, options uint64) error {
-	if (options&LogWrite) != 0 && gui.Logger != nil {
-		gui.Logger.Append(fmt.Sprintf("[ERROR] %s", message))
-	}
 	return gui.Append(message, options|FontColorRed|ParagraphStyleAutoReturn)
 }
 
 // WarnAppend : add input string message, formatted as warning, to input uint64 options driven space
 func (gui *Gui) WarnAppend(message string, options uint64) error {
-	if (options&LogWrite) != 0 && gui.Logger != nil {
-		gui.Logger.Append(fmt.Sprintf("[WARNING] %s", message))
-	}
 	return gui.Append(message, options|FontColorYellow|ParagraphStyleAutoReturn)
 }
 
 // DebugAppend : add input string message, formatted as debug message, to input uint64 options driven space
 func (gui *Gui) DebugAppend(message string, options uint64) error {
-	if (options&LogWrite) != 0 && gui.Logger != nil {
-		gui.Logger.Append(fmt.Sprintf("[DEBUG] %s", message))
-	}
 	if !gui.Verbose {
 		return nil
 	}
@@ -224,7 +218,7 @@ func (gui *Gui) Prompt(message string, options uint64) error {
 	guiPromptMutex.Lock()
 	defer guiPromptMutex.Unlock()
 	guiPromptDismiss = make(chan bool)
-	if (options&LogWrite) != 0 && gui.Logger != nil {
+	if (options&LogNoWrite) == 0 && gui.Logger != nil {
 		gui.Logger.Append(message)
 	}
 	gui.Update(func(gui *gocui.Gui) error {

@@ -52,8 +52,10 @@ func QueryTracks(track *spttb_track.Track) (*Tracks, error) {
 	if err != nil {
 		return &Tracks{}, fmt.Errorf(fmt.Sprintf("Cannot retrieve doc from \"%s\": %s", queryString, err.Error()))
 	}
-	// html, _ := doc.Html()
-	// logger.Debug(html)
+	html, _ := doc.Html()
+	if strings.Contains(strings.ToLower(html), "unusual traffic") {
+		return &Tracks{}, fmt.Errorf("YouTube busted you: you'd better wait few minutes before retrying firing thousands video requests.")
+	}
 	return &Tracks{
 		Track:             track,
 		Selection:         doc.Find(spttb_system.YouTubeHTMLVideoSelector),
@@ -99,7 +101,7 @@ func (youtube_tracks *Tracks) Next() (*Track, error) {
 				}
 			}
 		}
-		if !(itemHrefOk && itemTitleOk && itemUserOk && itemLengthOk) {
+		if !(itemHrefOk && itemTitleOk && itemLengthOk) {
 			return &Track{}, fmt.Errorf(fmt.Sprintf("Non-standard YouTube video entry structure: "+
 				"url is %s, title is %s, user is %s, duration is %s.",
 				strconv.FormatBool(itemHrefOk), strconv.FormatBool(itemTitleOk),

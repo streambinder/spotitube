@@ -433,7 +433,7 @@ func subSearchLyricsGenius(track *Track) (string, error) {
 		Timeout: time.Second * spttb_system.HTTPTimeout,
 	}
 	lyricsRequest, lyricsError := http.NewRequest(http.MethodGet,
-		fmt.Sprintf("https://api.genius.com/search?q=%s+%s", url.QueryEscape(track.Title), url.QueryEscape(track.Artist)), nil)
+		fmt.Sprintf(spttb_system.LyricsGeniusAPIURL, url.QueryEscape(track.Title), url.QueryEscape(track.Artist)), nil)
 	if lyricsError != nil {
 		return "", fmt.Errorf("Unable to compile Genius lyrics request: " + lyricsError.Error())
 	}

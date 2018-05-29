@@ -5,6 +5,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/lunixbochs/vtclean"
 )
 
 // Logger : struct containing all the informations kept to handle logging
@@ -29,7 +31,8 @@ func (logger *Logger) Append(message string) error {
 		return err
 	}
 	defer loggerFile.Close()
-	if _, err = loggerFile.WriteString(fmt.Sprintf("[%s] %s\n", time.Now().Format("2006-01-02 15:04:05"), message)); err != nil {
+	if _, err = loggerFile.WriteString(fmt.Sprintf("[%s] %s\n",
+		time.Now().Format("2006-01-02 15:04:05"), vtclean.Clean(message, false))); err != nil {
 		return err
 	}
 	return nil

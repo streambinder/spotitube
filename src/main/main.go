@@ -156,7 +156,7 @@ func mainFetch() {
 		} else {
 			gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Playlist name:", spttb_gui.FontStyleBold), playlistInfo.Name), spttb_gui.PanelLeftTop)
 			gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Playlist owner:", spttb_gui.FontStyleBold), playlistInfo.Owner.DisplayName), spttb_gui.PanelLeftTop)
-			gui.Append(fmt.Sprintf("Getting songs from \"%s\" playlist, by \"%s\"...", playlistInfo.Name, playlistInfo.Owner.DisplayName), spttb_gui.PanelRight)
+			gui.Append(fmt.Sprintf("Getting songs from \"%s\" playlist, by \"%s\"...", playlistInfo.Name, playlistInfo.Owner.DisplayName), spttb_gui.PanelRight|spttb_gui.FontStyleBold)
 			if tracksOnline, tracksErr = spotifyClient.PlaylistTracks(*argPlaylist); tracksErr != nil {
 				gui.Prompt(fmt.Sprintf("Something went wrong while fetching playlist: %s.", tracksErr.Error()), spttb_gui.PromptDismissableWithExit)
 			}
@@ -209,11 +209,11 @@ func mainSearch() {
 
 	for trackIndex, track := range tracks {
 		gui.LoadingIncrease()
-		gui.Append(fmt.Sprintf("%d/%d: \"%s\"", trackIndex+1, len(tracks), track.Filename), spttb_gui.PanelRight)
+		gui.Append(fmt.Sprintf("%d/%d: \"%s\"", trackIndex+1, len(tracks), track.Filename), spttb_gui.PanelRight|spttb_gui.FontStyleBold)
 		if subIfSongSearch(&track) {
 			youTubeTracks, err := spttb_youtube.QueryTracks(&track)
 			if err != nil {
-				gui.WarnAppend(fmt.Sprintf("Something went wrong while searching for \"%s\" track:\n%s.", track.Filename, err.Error()), spttb_gui.PanelRight)
+				gui.WarnAppend(fmt.Sprintf("Something went wrong while searching for \"%s\" track: %s.", track.Filename, err.Error()), spttb_gui.PanelRight)
 				tracksFailed = append(tracksFailed, track)
 				continue
 			}
@@ -231,7 +231,7 @@ func mainSearch() {
 				gui.DebugAppend(fmt.Sprintf("Result met: ID: %s,\nTitle: %s,\nUser: %s,\nDuration: %d.",
 					youTubeTrack.ID, youTubeTrack.Title, youTubeTrack.User, youTubeTrack.Duration), spttb_gui.PanelRight)
 
-				ansAutomated, ansInput := subMatchResult(&track, youTubeTrack)
+				ansAutomated, ansInput := subMatchResult(track, youTubeTrack)
 				if subIfPickFromAns(ansAutomated, ansInput) {
 					gui.Append(fmt.Sprintf("Video \"%s\" is good to go for \"%s\".", youTubeTrack.Title, track.Filename), spttb_gui.PanelRight)
 					trackPicked = true
@@ -239,11 +239,9 @@ func mainSearch() {
 				}
 			}
 
-			trackPicked, youTubeTrack = subCondManualInputURL(&track, trackPicked, youTubeTrack)
+			trackPicked, youTubeTrack = subCondManualInputURL(track, trackPicked, youTubeTrack)
 
-			if trackPicked {
-				track.URL = youTubeTrack.URL
-			} else {
+			if !trackPicked {
 				gui.ErrAppend(fmt.Sprintf("Video for \"%s\" not found.", track.Filename), spttb_gui.PanelRight)
 				tracksFailed = append(tracksFailed, track)
 				continue
@@ -255,6 +253,7 @@ func mainSearch() {
 			} else if *argReplaceLocal {
 				if track.URL == youTubeTrack.URL {
 					gui.Append(fmt.Sprintf("Track \"%s\" is still the best result I can find.", track.Filename), spttb_gui.PanelRight)
+					gui.DebugAppend(fmt.Sprintf("Local track origin URL %s is the same as YouTube chosen one %s.", track.URL, youTubeTrack.URL), spttb_gui.PanelRight)
 					continue
 				} else {
 					track.URL = ""
@@ -274,14 +273,14 @@ func mainSearch() {
 			}
 		}
 
-		if subIfSongProcess(&track) {
+		if subIfSongProcess(track) {
 			continue
 		}
 
 		subCondSequentialDo(&track)
 
 		waitGroup.Add(1)
-		go subParallelSongProcess(&track, &waitGroup)
+		go subParallelSongProcess(track, &waitGroup)
 		if *argDebug {
 			waitGroup.Wait()
 		}
@@ -407,7 +406,7 @@ func subCheckUpdate() {
 	}
 }
 
-func subParallelSongProcess(track *spttb_track.Track, wg *sync.WaitGroup) {
+func subParallelSongProcess(track spttb_track.Track, wg *sync.WaitGroup) {
 	defer wg.Done()
 	<-waitGroupPool
 
@@ -435,7 +434,7 @@ func subParallelSongProcess(track *spttb_track.Track, wg *sync.WaitGroup) {
 	waitGroupPool <- true
 }
 
-func subSongNormalize(track *spttb_track.Track) {
+func subSongNormalize(track spttb_track.Track) {
 	var (
 		commandCmd         = "ffmpeg"
 		commandArgs        []string
@@ -478,7 +477,7 @@ func subSongNormalize(track *spttb_track.Track) {
 	os.Rename(normalizationFile, track.FilenameTemporary())
 }
 
-func subSongFlushMetadata(track *spttb_track.Track) {
+func subSongFlushMetadata(track spttb_track.Track) {
 	trackMp3, err := id3.Open(track.FilenameTemporary(), id3.Options{Parse: true})
 	if err != nil {
 		gui.WarnAppend(fmt.Sprintf("Something bad happened while opening: %s", err.Error()), spttb_gui.PanelRight)
@@ -553,47 +552,47 @@ func subSongFlushMetadata(track *spttb_track.Track) {
 	trackMp3.Close()
 }
 
-func subIfSongFlushID3FrameTitle(track *spttb_track.Track, trackMp3 *id3.Tag) bool {
+func subIfSongFlushID3FrameTitle(track spttb_track.Track, trackMp3 *id3.Tag) bool {
 	return len(track.Title) > 0 && (!*argFlushMissing ||
 		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameTitle)))
 }
 
-func subIfSongFlushID3FrameArtist(track *spttb_track.Track, trackMp3 *id3.Tag) bool {
+func subIfSongFlushID3FrameArtist(track spttb_track.Track, trackMp3 *id3.Tag) bool {
 	return len(track.Artist) > 0 && (!*argFlushMissing ||
 		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameArtist)))
 }
 
-func subIfSongFlushID3FrameAlbum(track *spttb_track.Track, trackMp3 *id3.Tag) bool {
+func subIfSongFlushID3FrameAlbum(track spttb_track.Track, trackMp3 *id3.Tag) bool {
 	return len(track.Album) > 0 && (!*argFlushMissing ||
 		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameAlbum)))
 }
 
-func subIfSongFlushID3FrameGenre(track *spttb_track.Track, trackMp3 *id3.Tag) bool {
+func subIfSongFlushID3FrameGenre(track spttb_track.Track, trackMp3 *id3.Tag) bool {
 	return len(track.Genre) > 0 && (!*argFlushMissing ||
 		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameGenre)))
 }
 
-func subIfSongFlushID3FrameYear(track *spttb_track.Track, trackMp3 *id3.Tag) bool {
+func subIfSongFlushID3FrameYear(track spttb_track.Track, trackMp3 *id3.Tag) bool {
 	return len(track.Year) > 0 && (!*argFlushMissing ||
 		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameYear)))
 }
 
-func subIfSongFlushID3FrameTrackNumber(track *spttb_track.Track, trackMp3 *id3.Tag) bool {
+func subIfSongFlushID3FrameTrackNumber(track spttb_track.Track, trackMp3 *id3.Tag) bool {
 	return track.TrackNumber > 0 && (!*argFlushMissing ||
 		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameTrackNumber)))
 }
 
-func subIfSongFlushID3FrameArtwork(track *spttb_track.Track, trackMp3 *id3.Tag) bool {
+func subIfSongFlushID3FrameArtwork(track spttb_track.Track, trackMp3 *id3.Tag) bool {
 	return spttb_system.FileExists(track.FilenameArtwork()) &&
 		(!*argFlushMissing || (*argFlushMissing && !track.HasID3Frame(spttb_track.ID3FrameArtwork)))
 }
 
-func subIfSongFlushID3FrameYouTubeURL(track *spttb_track.Track, trackMp3 *id3.Tag) bool {
+func subIfSongFlushID3FrameYouTubeURL(track spttb_track.Track, trackMp3 *id3.Tag) bool {
 	return len(track.URL) > 0 && (!*argFlushMissing ||
 		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameYouTubeURL)))
 }
 
-func subIfSongFlushID3FrameLyrics(track *spttb_track.Track, trackMp3 *id3.Tag) bool {
+func subIfSongFlushID3FrameLyrics(track spttb_track.Track, trackMp3 *id3.Tag) bool {
 	return len(track.Lyrics) > 0 && !*argDisableLyrics &&
 		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameLyrics)))
 }
@@ -622,13 +621,13 @@ func subCountSongs() (int, int, int) {
 	return songsFetch, songsFlush, songsIgnore
 }
 
-func subMatchResult(track *spttb_track.Track, youTubeTrack *spttb_youtube.Track) (bool, bool) {
+func subMatchResult(track spttb_track.Track, youTubeTrack *spttb_youtube.Track) (bool, bool) {
 	var (
 		ansInput     bool
 		ansAutomated bool
 		ansErr       error
 	)
-	ansErr = youTubeTrack.Match(*track)
+	ansErr = youTubeTrack.Match(track)
 	ansAutomated = bool(ansErr == nil)
 	if !*argInteractive && ansErr != nil {
 		gui.DebugAppend(fmt.Sprintf("\"%s\" seems not the one we're looking for: %s", youTubeTrack.Title, ansErr.Error()), spttb_gui.PanelRight)
@@ -651,7 +650,7 @@ func subIfPickFromAns(ansAutomated bool, ansInput bool) bool {
 	return (!*argInteractive && ansAutomated) || (*argInteractive && ansInput)
 }
 
-func subCondManualInputURL(track *spttb_track.Track, trackPicked bool, youTubeTrack *spttb_youtube.Track) (bool, *spttb_youtube.Track) {
+func subCondManualInputURL(track spttb_track.Track, trackPicked bool, youTubeTrack *spttb_youtube.Track) (bool, *spttb_youtube.Track) {
 	if *argInteractive && !trackPicked {
 		inputURL := gui.PromptInputMessage("Video not found. Please, enter URL manually", spttb_gui.PromptDismissable)
 		if len(inputURL) > 0 {
@@ -659,14 +658,14 @@ func subCondManualInputURL(track *spttb_track.Track, trackPicked bool, youTubeTr
 				gui.Prompt(fmt.Sprintf("Something went wrong: %s", err.Error()), spttb_gui.PromptDismissable)
 			} else {
 				trackPicked = true
-				youTubeTrack = &spttb_youtube.Track{Track: track, Title: "input video", URL: inputURL}
+				youTubeTrack = &spttb_youtube.Track{Track: &track, Title: "input video", URL: inputURL}
 			}
 		}
 	}
 	return trackPicked, youTubeTrack
 }
 
-func subIfSongProcess(track *spttb_track.Track) bool {
+func subIfSongProcess(track spttb_track.Track) bool {
 	return track.Local && !*argFlushMetadata && !*argReplaceLocal
 }
 

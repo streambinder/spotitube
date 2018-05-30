@@ -313,7 +313,7 @@ func JunkWildcards() []string {
 	for _, junkSuffix := range JunkSuffixes {
 		junkWildcards = append(junkWildcards, ".*"+junkSuffix)
 	}
-	return junkWildcards
+	return append(junkWildcards, ".*.mp3")
 }
 
 // TagGetFrame : get input frame from open input Tag

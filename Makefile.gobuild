@@ -3,12 +3,11 @@ CUR_DIR = $(shell pwd)
 .PHONY: bin
 bin:
 	@ ( \
-		if [ -z "$(SPOTIFY_ID)" -o -z "$(SPOTIFY_KEY)" ]; then \
-			echo "ERROR: SPOTIFY_ID and SPOTIFY_KEY environment variables need to be set."; exit 1; \
+		if [ -z "$(SPOTIFY_KEY)" ]; then \
+			echo "ERROR: SPOTIFY_KEY environment variable needs to be set."; exit 1; \
 		fi; \
 		echo -en "Building...\r"; \
 		cp $(CUR_DIR)/src/system/constants.go{,.orig} && \
-		sed -i 's|:SPOTIFY_CLIENT_ID:|${SPOTIFY_ID}|g' $(CUR_DIR)/src/system/constants.go && \
 		sed -i 's|:SPOTIFY_CLIENT_SECRET:|${SPOTIFY_KEY}|g' $(CUR_DIR)/src/system/constants.go && \
 		sed -i 's|:GENIUS_TOKEN:|${GENIUS_TOKEN}|g' $(CUR_DIR)/src/system/constants.go && \
 		(GOPATH=$(CUR_DIR) GOARCH=386 CGO_ENABLED=0 go build -ldflags="-s -w" -o $(BINARY) $(CUR_DIR)/src/main/main.go && echo -e "\rBuilt at: $(BINARY)"); \

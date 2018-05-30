@@ -55,7 +55,7 @@ const (
 	YouTubeDurationTolerance = 20 // second(s)
 
 	// SpotifyClientID : Spotify app client ID
-	SpotifyClientID = ":SPOTIFY_CLIENT_ID:"
+	SpotifyClientID = "d84f9faa18a84162ad6c73697990386c"
 	// SpotifyClientSecret : Spotify app client secret key
 	SpotifyClientSecret = ":SPOTIFY_CLIENT_SECRET:"
 

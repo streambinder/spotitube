@@ -76,7 +76,7 @@ In other words, we could say `spotitube` behaved as it was expected to both for 
 #### Download package
 
 | Platform                   |                                      File                                      |
-| -------------------------- | :----------------------------------------------------------------------------: |
+| -------------------------- | :----------------------------------------------------------------------------- |
 | Debian-based distributions |  [`spotitube.deb`](https://github.com/streambinder/spotitube/releases/latest)  |
 | RedHat-based distributions |  [`spotitube.rpm`](https://github.com/streambinder/spotitube/releases/latest)  |
 | Solus-Project              | [`spotitube.eopkg`](https://github.com/streambinder/spotitube/releases/latest) |

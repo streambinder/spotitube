@@ -49,6 +49,10 @@ android {
             assets.srcDirs = ['src/assets']
         }
     }
+    compileOptions {
+        targetCompatibility 1.8
+        sourceCompatibility 1.8
+    }
 }
 
 dependencies {
@@ -58,7 +62,8 @@ dependencies {
     compile 'com.android.support:design:25.1.1'
     compile 'com.squareup.okhttp3:okhttp:3.4.1'
     compile 'com.spotify.android:auth:1.0.0-alpha'
+    compile 'com.jakewharton:butterknife:8.8.1'
 
-
+    annotationProcessor 'com.jakewharton:butterknife-compiler:8.8.1'
 }
 

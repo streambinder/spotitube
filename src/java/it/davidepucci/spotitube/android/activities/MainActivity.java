@@ -5,13 +5,18 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.support.design.widget.Snackbar;
 import android.support.design.widget.TabLayout;
+import android.support.v4.app.Fragment;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.TextView;
+import android.view.View;
+import android.widget.ArrayAdapter;
+import android.widget.ListAdapter;
+import android.widget.ListView;
 
 import com.spotify.sdk.android.authentication.AuthenticationClient;
 import com.spotify.sdk.android.authentication.AuthenticationRequest;
@@ -21,9 +26,14 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.Locale;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import butterknife.BindView;
+import butterknife.ButterKnife;
 import it.davidepucci.spotitube.R;
 import it.davidepucci.spotitube.android.callbacks.ReturningCallback;
 import it.davidepucci.spotitube.android.pagers.PagerAdapter;
@@ -37,37 +47,42 @@ import okhttp3.Response;
 
 public class MainActivity extends AppCompatActivity {
 
+    // spotify
     public static final String CLIENT_ID = "d84f9faa18a84162ad6c73697990386c";
     public static final int AUTH_TOKEN_REQUEST_CODE = 0x10;
-    private final OkHttpClient mOkHttpClient = new OkHttpClient();
-
     private Locale locale;
     private String mAccessToken;
     private Call mCall;
 
+    private final OkHttpClient mOkHttpClient = new OkHttpClient();
     private LinkedList<Track> library = new LinkedList<>();
+    private PagerAdapter pagerAdapter;
 
-    // Choose your own preferred column width
+    @BindView(R.id.activity_main)
+    protected View relativeLayoutActivityMain;
+    @BindView(R.id.toolbar)
+    protected Toolbar toolbar;
+    @BindView(R.id.tab_layout)
+    protected TabLayout tabLayout;
+    @BindView(R.id.pager)
+    protected ViewPager viewPager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        ButterKnife.bind(this);
 
         locale = getResources().getConfiguration().locale;
 
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        TabLayout tabLayout = (TabLayout) findViewById(R.id.tab_layout);
         tabLayout.addTab(tabLayout.newTab().setText("Libreria"));
         tabLayout.addTab(tabLayout.newTab().setText("Playlist"));
         tabLayout.setTabGravity(TabLayout.GRAVITY_FILL);
 
-        final ViewPager viewPager = (ViewPager) findViewById(R.id.pager);
-        final PagerAdapter adapter = new PagerAdapter
-                (getSupportFragmentManager(), tabLayout.getTabCount());
-        viewPager.setAdapter(adapter);
+        pagerAdapter = new PagerAdapter(getSupportFragmentManager(), tabLayout.getTabCount());
+        viewPager.setAdapter(pagerAdapter);
         viewPager.addOnPageChangeListener(new TabLayout.TabLayoutOnPageChangeListener(tabLayout));
         tabLayout.setOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
             @Override
@@ -77,12 +92,10 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onTabUnselected(TabLayout.Tab tab) {
-
             }
 
             @Override
             public void onTabReselected(TabLayout.Tab tab) {
-
             }
         });
 
@@ -114,8 +127,7 @@ public class MainActivity extends AppCompatActivity {
                 mCall.enqueue(new Callback() {
                     @Override
                     public void onFailure(Call call, IOException e) {
-                        final Snackbar snackbar = Snackbar.make(findViewById(R.id.activity_main),
-                                "Failed to fetch data: " + e, Snackbar.LENGTH_SHORT);
+                        final Snackbar snackbar = Snackbar.make(relativeLayoutActivityMain, "Failed to fetch data: " + e, Snackbar.LENGTH_SHORT);
                         snackbar.getView().setBackgroundColor(ContextCompat.getColor(getApplicationContext(), R.color.colorSnackbar));
                         snackbar.show();
                     }
@@ -124,8 +136,7 @@ public class MainActivity extends AppCompatActivity {
                     public void onResponse(Call call, Response response) throws IOException {
                         try {
                             final JSONObject jsonObject = new JSONObject(response.body().string());
-                            final Snackbar snackbar = Snackbar.make(findViewById(R.id.activity_main),
-                                    "Connesso come: " + jsonObject.getString("display_name"), Snackbar.LENGTH_SHORT);
+                            final Snackbar snackbar = Snackbar.make(relativeLayoutActivityMain, "Connesso come: " + jsonObject.getString("display_name"), Snackbar.LENGTH_SHORT);
                             snackbar.getView().setBackgroundColor(ContextCompat.getColor(getApplicationContext(), R.color.colorSnackbar));
                             snackbar.show();
 
@@ -139,8 +150,7 @@ public class MainActivity extends AppCompatActivity {
                             ReturningCallback<Integer> mCallBack = new ReturningCallback<Integer>() {
                                 @Override
                                 public void onFailure(Call call, IOException e) {
-                                    final Snackbar snackbar = Snackbar.make(findViewById(R.id.activity_main),
-                                            "Failed to fetch data: " + e, Snackbar.LENGTH_SHORT);
+                                    final Snackbar snackbar = Snackbar.make(relativeLayoutActivityMain, "Failed to fetch data: " + e, Snackbar.LENGTH_SHORT);
                                     snackbar.getView().setBackgroundColor(ContextCompat.getColor(getApplicationContext(), R.color.colorSnackbar));
                                     snackbar.show();
                                 }
@@ -151,8 +161,7 @@ public class MainActivity extends AppCompatActivity {
                                         final JSONObject jsonObject = new JSONObject(response.body().string());
                                         setResult(jsonObject.getInt("total"));
                                     } catch (JSONException e) {
-                                        final Snackbar snackbar = Snackbar.make(findViewById(R.id.activity_main),
-                                                "Failed to parse data: " + e, Snackbar.LENGTH_SHORT);
+                                        final Snackbar snackbar = Snackbar.make(relativeLayoutActivityMain, "Failed to parse data: " + e, Snackbar.LENGTH_SHORT);
                                         snackbar.getView().setBackgroundColor(ContextCompat.getColor(getApplicationContext(), R.color.colorSnackbar));
                                         snackbar.show();
                                     }
@@ -177,8 +186,7 @@ public class MainActivity extends AppCompatActivity {
                                 mCall.enqueue(new Callback() {
                                     @Override
                                     public void onFailure(Call call, IOException e) {
-                                        final Snackbar snackbar = Snackbar.make(findViewById(R.id.activity_main),
-                                                "Failed to fetch data: " + e, Snackbar.LENGTH_SHORT);
+                                        final Snackbar snackbar = Snackbar.make(relativeLayoutActivityMain, "Failed to fetch data: " + e, Snackbar.LENGTH_SHORT);
                                         snackbar.getView().setBackgroundColor(ContextCompat.getColor(getApplicationContext(), R.color.colorSnackbar));
                                         snackbar.show();
                                     }
@@ -192,20 +200,32 @@ public class MainActivity extends AppCompatActivity {
                                                 synchronized (library) {
                                                     library.add(track);
                                                 }
-                                                addToLibrary(track.getArtist() + " - " + track.getTitle());
                                             }
                                         } catch (JSONException e) {
-                                            final Snackbar snackbar = Snackbar.make(findViewById(R.id.activity_main),
-                                                    "Failed to parse data: " + e, Snackbar.LENGTH_SHORT);
+                                            final Snackbar snackbar = Snackbar.make(relativeLayoutActivityMain, "Failed to parse data: " + e, Snackbar.LENGTH_SHORT);
                                             snackbar.getView().setBackgroundColor(ContextCompat.getColor(getApplicationContext(), R.color.colorSnackbar));
                                             snackbar.show();
                                         }
+                                        runOnUiThread(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                synchronized (library) {
+                                                    ArrayAdapter listAdapter = new ArrayAdapter<String>(getApplicationContext(), R.layout.list_row, library.stream()
+                                                            .flatMap(t -> Stream.of(t.getTitle() + " - " + t.getArtist()))
+                                                            .collect(Collectors.toList()));
+                                                    final Fragment libraryFragment = pagerAdapter.getFragment(0);
+                                                    if (libraryFragment.getView() != null) {
+                                                        ListView listView = ButterKnife.findById(libraryFragment.getView(), R.id.mainListView);
+                                                        listView.setAdapter(listAdapter);
+                                                    }
+                                                }
+                                            }
+                                        });
                                     }
                                 });
                             }
                         } catch (JSONException e) {
-                            final Snackbar snackbar = Snackbar.make(findViewById(R.id.activity_main),
-                                    "Failed to parse data: " + e, Snackbar.LENGTH_SHORT);
+                            final Snackbar snackbar = Snackbar.make(relativeLayoutActivityMain, "Failed to parse data: " + e, Snackbar.LENGTH_SHORT);
                             snackbar.getView().setBackgroundColor(ContextCompat.getColor(getApplicationContext(), R.color.colorSnackbar));
                             snackbar.show();
                         }
@@ -239,13 +259,13 @@ public class MainActivity extends AppCompatActivity {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                final TextView responseView = (TextView) findViewById(R.id.response_text_view);
-                responseView.append("> " + text + "\n");
-
+                final Fragment libraryFragment = pagerAdapter.getFragment(0);
+                if (libraryFragment.getView() != null) {
+                    ListView listView = ButterKnife.findById(libraryFragment.getView(), R.id.mainListView);
+                }
             }
         });
     }
-
 
     private void cancelCall() {
         if (mCall != null) {

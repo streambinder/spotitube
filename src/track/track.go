@@ -429,7 +429,7 @@ func (track *Track) SearchLyrics() error {
 }
 
 func subSearchLyricsGenius(track *Track) (string, error) {
-	if spttb_system.GeniusAccessToken == ":GENIUS_TOKEN:" {
+	if len(spttb_system.GeniusAccessToken) == 0 {
 		return "", fmt.Errorf("Cannot fetch lyrics from Genius without a valid token")
 	}
 

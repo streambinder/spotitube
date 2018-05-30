@@ -13,6 +13,9 @@ bin:
 		if [ -z "$(SPOTIFY_KEY)" ]; then \
 			echo "ERROR: SPOTIFY_KEY environment variable needs to be set."; exit 1; \
 		fi; \
+		if [ -z "$(GENIUS_TOKEN)" ]; then \
+			echo "WARNING: GENIUS_TOKEN environment variable is not set. You won't be able to fetch Genius lyrics."; \
+		fi; \
 		if [ -z "$(LDFLAGS)" ]; then \
 			echo -en "Building in debug mode...\r"; \
 		else \

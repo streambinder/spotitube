@@ -14,9 +14,9 @@ bin:
 			echo "ERROR: SPOTIFY_KEY environment variable needs to be set."; exit 1; \
 		fi; \
 		if [ -z "$(LDFLAGS)" ]; then \
-			echo -en "Building in debug mode... "; \
+			echo -en "Building in debug mode...\r"; \
 		else \
-			echo -en "Building... "; \
+			echo -en "Building...\r"; \
 		fi; \
 		cp $(CUR_DIR)/src/system/constants.go{,.orig} && \
 		sed -i 's|:SPOTIFY_CLIENT_SECRET:|${SPOTIFY_KEY}|g' $(CUR_DIR)/src/system/constants.go && \

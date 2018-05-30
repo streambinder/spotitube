@@ -17,7 +17,7 @@ include Makefile.packaging
 .PHONY: install
 install: bin
 	@ ( \
-		echo -en "Installing... "; \
+		echo -en "Installing...\r"; \
 		(test -d $(BINARY_INSTALL_PATH) || install -D -d -m 00755 $(BINARY_INSTALL_PATH)) && \
 		install -m 00755 $(BINARY) $(BINARY_INSTALL_PATH)/ && \
 		echo -e "\rInstalled at: $(BINARY_INSTALL)"; \
@@ -26,7 +26,7 @@ install: bin
 .PHONY: clean
 clean:
 	@ ( \
-		echo -en "Cleaning... "; \
+		echo -en "Cleaning...\r"; \
 		(test ! -d $(CUR_DIR)/pkg || rm -rf $(CUR_DIR)/pkg) && \
 		(test ! -d $(CUR_DIR)/out || rm -rf $(CUR_DIR)/out) && \
 		rm -rf $(BINARY)* && \

@@ -230,7 +230,6 @@ func mainSearch() {
 	gui.Append(fmt.Sprintf("%d will be downloaded, %d flushed and %d ignored", songsFetch, songsFlush, songsIgnore), spttb_gui.PanelRight)
 
 	for trackIndex, track := range tracks {
-		gui.LoadingIncrease()
 		gui.Append(fmt.Sprintf("%d/%d: \"%s\"", trackIndex+1, len(tracks), track.Filename), spttb_gui.PanelRight|spttb_gui.FontStyleBold)
 		if subIfSongSearch(&track) {
 			youTubeTracks, err := spttb_youtube.QueryTracks(&track)
@@ -301,6 +300,7 @@ func mainSearch() {
 
 		subCondSequentialDo(&track)
 
+		gui.Append(fmt.Sprintf("Firing \"%s\" post-download processing for song", track.Filename), spttb_gui.PanelRight)
 		waitGroup.Add(1)
 		go subParallelSongProcess(track, &waitGroup)
 		if *argDebug {
@@ -330,9 +330,6 @@ func mainExit(delay ...time.Duration) {
 	if len(delay) > 0 {
 		time.Sleep(delay[0])
 	}
-	cmd := exec.Command("clear")
-	cmd.Stdout = os.Stdout
-	cmd.Run()
 	os.Exit(0)
 }
 
@@ -429,6 +426,7 @@ func subCheckUpdate() {
 }
 
 func subParallelSongProcess(track spttb_track.Track, wg *sync.WaitGroup) {
+	defer gui.LoadingIncrease()
 	defer wg.Done()
 	<-waitGroupPool
 
@@ -783,6 +781,7 @@ func subCondArtworkDownload(track *spttb_track.Track) {
 
 func subCondTimestampFlush() {
 	if !*argDisableTimestampFlush {
+		gui.Append("Flusing files timestamps...", spttb_gui.PanelRight)
 		now := time.Now().Local().Add(time.Duration(-1*len(tracks)) * time.Minute)
 		for _, track := range tracks {
 			if !spttb_system.FileExists(track.FilenameFinal()) {
@@ -799,6 +798,7 @@ func subCondTimestampFlush() {
 func subCondPlaylistFileWrite() {
 	if !*argSimulate && !*argDisablePlaylistFile && *argPlaylist != "none" {
 		if !*argPlsFile {
+			gui.Append("Creating playlist M3U file...", spttb_gui.PanelRight)
 			if spttb_system.FileExists(playlistInfo.Name + ".m3u") {
 				os.Remove(playlistInfo.Name + ".m3u")
 			}
@@ -822,6 +822,7 @@ func subCondPlaylistFileWrite() {
 				}
 			}
 		} else {
+			gui.Append("Creating playlist PLS file...", spttb_gui.PanelRight)
 			if spttb_system.FileExists(playlistInfo.Name + ".pls") {
 				os.Remove(playlistInfo.Name + ".pls")
 			}

@@ -63,7 +63,7 @@ const (
 	GeniusAccessToken = ":GENIUS_TOKEN:"
 	// LyricsGeniusAPIURL : lyrics Genius API URL
 	LyricsGeniusAPIURL = "https://api.genius.com/search?q=%s+%s"
-	// LyricsFallbackAPIURL : lyrics OVH API URL
+	// LyricsOVHAPIURL : lyrics OVH API URL
 	LyricsOVHAPIURL = "https://api.lyrics.ovh/v1/%s/%s"
 
 	// SpotifyRedirectURL : Spotify app redirect URL

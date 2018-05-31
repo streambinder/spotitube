@@ -104,7 +104,7 @@ func main() {
 	}
 	gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Folder:", spttb_gui.FontStyleBold), *argFolder), spttb_gui.PanelLeftTop)
 	if *argLog {
-		gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Log:", spttb_gui.FontStyleBold), spttb_system.DefaultLogFname), spttb_gui.PanelLeftTop)
+		gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Log:", spttb_gui.FontStyleBold), spttb_logger.DefaultLogFname), spttb_gui.PanelLeftTop)
 	}
 	gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Version:", spttb_gui.FontStyleBold), spttb_system.Version), spttb_gui.PanelLeftBottom)
 	gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Date:", spttb_gui.FontStyleBold), time.Now().Format("2006-01-02 15:04:05")), spttb_gui.PanelLeftBottom)
@@ -351,9 +351,9 @@ func subCheckInternet() {
 
 func subLinkLog() {
 	if *argLog {
-		err := gui.LinkLogger(spttb_logger.Build(spttb_system.DefaultLogFname))
+		err := gui.LinkLogger(spttb_logger.Build(spttb_logger.DefaultLogFname))
 		if err != nil {
-			gui.Prompt(fmt.Sprintf("Something went wrong while linking logger to %s", spttb_system.DefaultLogFname), spttb_gui.PromptDismissableWithExit)
+			gui.Prompt(fmt.Sprintf("Something went wrong while linking logger to %s", spttb_logger.DefaultLogFname), spttb_gui.PromptDismissableWithExit)
 		}
 	}
 }

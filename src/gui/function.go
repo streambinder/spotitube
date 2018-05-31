@@ -9,7 +9,7 @@ import (
 	"github.com/jroimartin/gocui"
 )
 
-func CondPanelSelector(options uint64) uint64 {
+func condPanelSelector(options uint64) uint64 {
 	var panel uint64
 	if (options & PanelLeftTop) != 0 {
 		panel = PanelLeftTop
@@ -21,7 +21,7 @@ func CondPanelSelector(options uint64) uint64 {
 	return panel
 }
 
-func CondParagraphStyle(message string, options uint64, width int) string {
+func condParagraphStyle(message string, options uint64, width int) string {
 	if (options & ParagraphStyleStandard) != 0 {
 		message = subMessageParagraphStyle(message, ParagraphStyleStandard, width)
 	} else if (options & ParagraphStyleAutoReturn) != 0 {
@@ -30,7 +30,7 @@ func CondParagraphStyle(message string, options uint64, width int) string {
 	return message
 }
 
-func CondFontStyle(message string, options uint64) string {
+func condFontStyle(message string, options uint64) string {
 	if (options & FontStyleBold) != 0 {
 		message = MessageStyle(message, FontStyleBold)
 	} else if (options & FontStyleUnderline) != 0 {
@@ -41,7 +41,7 @@ func CondFontStyle(message string, options uint64) string {
 	return message
 }
 
-func CondOrientationStyle(message string, options uint64, view *gocui.View) string {
+func condOrientationStyle(message string, options uint64, view *gocui.View) string {
 	if (options & OrientationLeft) != 0 {
 		message = subMessageOrientate(message, view, OrientationLeft)
 	} else if (options & OrientationCenter) != 0 {
@@ -52,7 +52,7 @@ func CondOrientationStyle(message string, options uint64, view *gocui.View) stri
 	return message
 }
 
-func CondColorStyle(message string, options uint64) string {
+func condColorStyle(message string, options uint64) string {
 	if (options & FontColorBlack) != 0 {
 		message = subMessageColor(message, FontColorBlack)
 	} else if (options & FontColorRed) != 0 {
@@ -73,7 +73,7 @@ func CondColorStyle(message string, options uint64) string {
 	return message
 }
 
-func MessageOrientate(message string, view *gocui.View, orientation int) string {
+func messageOrientate(message string, view *gocui.View, orientation int) string {
 	var messageLines []string
 	var lineLength, _ = view.Size()
 	for _, line := range strings.Split(message, "\n") {
@@ -91,12 +91,12 @@ func MessageOrientate(message string, view *gocui.View, orientation int) string 
 	return strings.Join(messageLines, "\n")
 }
 
-func MessageColor(message string, colorConst int) string {
+func messageColor(message string, colorConst int) string {
 	colorFunc := color.New(FontColors[colorConst])
 	return colorFunc.Sprintf(message)
 }
 
-func MessageParagraphStyle(message string, styleConst int, width int) string {
+func messageParagraphStyle(message string, styleConst int, width int) string {
 	if styleConst == ParagraphStyleAutoReturn {
 		var messageParagraph string
 		for len(message) > 0 {

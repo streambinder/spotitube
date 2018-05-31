@@ -508,171 +508,171 @@ func subSongFlushMetadata(track spttb_track.Track) {
 		if !*argFlushMissing {
 			trackMp3.DeleteAllFrames()
 		}
-		if subIfSongFlushID3FrameTitle(track, trackMp3) {
-			gui.DebugAppend("Inflating title metadata...", spttb_gui.PanelRight)
-			trackMp3.SetTitle(track.Title)
-		}
-		if subIfSongFlushID3FrameSong(track, trackMp3) {
-			gui.DebugAppend("Inflating song metadata...", spttb_gui.PanelRight)
-			trackMp3.AddCommentFrame(id3.CommentFrame{
-				Encoding:    id3.EncodingUTF8,
-				Language:    "eng",
-				Description: "song",
-				Text:        track.Song,
-			})
-		}
-		if subIfSongFlushID3FrameArtist(track, trackMp3) {
-			gui.DebugAppend("Inflating artist metadata...", spttb_gui.PanelRight)
-			trackMp3.SetArtist(track.Artist)
-		}
-		if subIfSongFlushID3FrameAlbum(track, trackMp3) {
-			gui.DebugAppend("Inflating album metadata...", spttb_gui.PanelRight)
-			trackMp3.SetAlbum(track.Album)
-		}
-		if subIfSongFlushID3FrameGenre(track, trackMp3) {
-			gui.DebugAppend("Inflating genre metadata...", spttb_gui.PanelRight)
-			trackMp3.SetGenre(track.Genre)
-		}
-		if subIfSongFlushID3FrameYear(track, trackMp3) {
-			gui.DebugAppend("Inflating year metadata...", spttb_gui.PanelRight)
-			trackMp3.SetYear(track.Year)
-		}
-		if subIfSongFlushID3FrameFeaturings(track, trackMp3) {
-			gui.DebugAppend("Inflating featurings metadata...", spttb_gui.PanelRight)
-			trackMp3.AddCommentFrame(id3.CommentFrame{
-				Encoding:    id3.EncodingUTF8,
-				Language:    "eng",
-				Description: "featurings",
-				Text:        strings.Join(track.Featurings, "|"),
-			})
-		}
-		if subIfSongFlushID3FrameTrackNumber(track, trackMp3) {
-			gui.DebugAppend("Inflating track number metadata...", spttb_gui.PanelRight)
-			trackMp3.AddFrame(trackMp3.CommonID("Track number/Position in set"),
-				id3.TextFrame{
-					Encoding: id3.EncodingUTF8,
-					Text:     strconv.Itoa(track.TrackNumber),
-				})
-		}
-		if subIfSongFlushID3FrameTrackTotals(track, trackMp3) {
-			gui.DebugAppend("Inflating total tracks number metadata...", spttb_gui.PanelRight)
-			trackMp3.AddCommentFrame(id3.CommentFrame{
-				Encoding:    id3.EncodingUTF8,
-				Language:    "eng",
-				Description: "trackTotals",
-				Text:        fmt.Sprintf("%d", track.TrackTotals),
-			})
-		}
-		if subIfSongFlushID3FrameArtwork(track, trackMp3) {
-			trackArtworkReader, trackArtworkErr := ioutil.ReadFile(track.FilenameArtwork())
-			if trackArtworkErr != nil {
-				gui.WarnAppend(fmt.Sprintf("Unable to read artwork file: %s", trackArtworkErr.Error()), spttb_gui.PanelRight)
-			} else {
-				gui.DebugAppend("Inflating artwork metadata...", spttb_gui.PanelRight)
-				trackMp3.AddAttachedPicture(id3.PictureFrame{
-					Encoding:    id3.EncodingUTF8,
-					MimeType:    "image/jpeg",
-					PictureType: id3.PTFrontCover,
-					Description: "Front cover",
-					Picture:     trackArtworkReader,
-				})
-			}
-		}
-		if subIfSongFlushID3FrameYouTubeURL(track, trackMp3) {
-			gui.DebugAppend("Inflating youtube origin url metadata...", spttb_gui.PanelRight)
-			trackMp3.AddCommentFrame(id3.CommentFrame{
-				Encoding:    id3.EncodingUTF8,
-				Language:    "eng",
-				Description: "youtube",
-				Text:        track.URL,
-			})
-		}
-		if subIfSongFlushID3FrameDuration(track, trackMp3) {
-			gui.DebugAppend("Inflating duration metadata...", spttb_gui.PanelRight)
-			trackMp3.AddCommentFrame(id3.CommentFrame{
-				Encoding:    id3.EncodingUTF8,
-				Language:    "eng",
-				Description: "duration",
-				Text:        fmt.Sprintf("%d", track.Duration),
-			})
-		}
-		if subIfSongFlushID3FrameLyrics(track, trackMp3) {
-			gui.DebugAppend("Inflating lyrics metadata...", spttb_gui.PanelRight)
-			trackMp3.AddUnsynchronisedLyricsFrame(id3.UnsynchronisedLyricsFrame{
-				Encoding:          id3.EncodingUTF8,
-				Language:          "eng",
-				ContentDescriptor: track.Title,
-				Lyrics:            track.Lyrics,
-			})
-		}
+		subCondFlushID3FrameTitle(track, trackMp3)
+		subCondFlushID3FrameSong(track, trackMp3)
+		subCondFlushID3FrameArtist(track, trackMp3)
+		subCondFlushID3FrameAlbum(track, trackMp3)
+		subCondFlushID3FrameGenre(track, trackMp3)
+		subCondFlushID3FrameYear(track, trackMp3)
+		subCondFlushID3FrameFeaturings(track, trackMp3)
+		subCondFlushID3FrameTrackNumber(track, trackMp3)
+		subCondFlushID3FrameTrackTotals(track, trackMp3)
+		subCondFlushID3FrameArtwork(track, trackMp3)
+		subCondFlushID3FrameYouTubeURL(track, trackMp3)
+		subCondFlushID3FrameDuration(track, trackMp3)
+		subCondFlushID3FrameLyrics(track, trackMp3)
 		trackMp3.Save()
 	}
 	trackMp3.Close()
 }
 
-func subIfSongFlushID3FrameTitle(track spttb_track.Track, trackMp3 *id3.Tag) bool {
-	return len(track.Title) > 0 && (!*argFlushMissing ||
-		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameTitle)))
+func subCondFlushID3FrameTitle(track spttb_track.Track, trackMp3 *id3.Tag) {
+	if len(track.Title) > 0 && (!*argFlushMissing ||
+		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameTitle))) {
+		gui.DebugAppend("Inflating title metadata...", spttb_gui.PanelRight)
+		trackMp3.SetTitle(track.Title)
+	}
 }
 
-func subIfSongFlushID3FrameSong(track spttb_track.Track, trackMp3 *id3.Tag) bool {
-	return len(track.Song) > 0 && (!*argFlushMissing ||
-		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameSong)))
+func subCondFlushID3FrameSong(track spttb_track.Track, trackMp3 *id3.Tag) {
+	if len(track.Song) > 0 && (!*argFlushMissing ||
+		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameSong))) {
+		gui.DebugAppend("Inflating song metadata...", spttb_gui.PanelRight)
+		trackMp3.AddCommentFrame(id3.CommentFrame{
+			Encoding:    id3.EncodingUTF8,
+			Language:    "eng",
+			Description: "song",
+			Text:        track.Song,
+		})
+	}
 }
 
-func subIfSongFlushID3FrameArtist(track spttb_track.Track, trackMp3 *id3.Tag) bool {
-	return len(track.Artist) > 0 && (!*argFlushMissing ||
-		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameArtist)))
+func subCondFlushID3FrameArtist(track spttb_track.Track, trackMp3 *id3.Tag) {
+	if len(track.Artist) > 0 && (!*argFlushMissing ||
+		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameArtist))) {
+		gui.DebugAppend("Inflating artist metadata...", spttb_gui.PanelRight)
+		trackMp3.SetArtist(track.Artist)
+	}
 }
 
-func subIfSongFlushID3FrameAlbum(track spttb_track.Track, trackMp3 *id3.Tag) bool {
-	return len(track.Album) > 0 && (!*argFlushMissing ||
-		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameAlbum)))
+func subCondFlushID3FrameAlbum(track spttb_track.Track, trackMp3 *id3.Tag) {
+	if len(track.Album) > 0 && (!*argFlushMissing ||
+		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameAlbum))) {
+		gui.DebugAppend("Inflating album metadata...", spttb_gui.PanelRight)
+		trackMp3.SetAlbum(track.Album)
+	}
 }
 
-func subIfSongFlushID3FrameGenre(track spttb_track.Track, trackMp3 *id3.Tag) bool {
-	return len(track.Genre) > 0 && (!*argFlushMissing ||
-		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameGenre)))
+func subCondFlushID3FrameGenre(track spttb_track.Track, trackMp3 *id3.Tag) {
+	if len(track.Genre) > 0 && (!*argFlushMissing ||
+		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameGenre))) {
+		gui.DebugAppend("Inflating genre metadata...", spttb_gui.PanelRight)
+		trackMp3.SetGenre(track.Genre)
+	}
 }
 
-func subIfSongFlushID3FrameYear(track spttb_track.Track, trackMp3 *id3.Tag) bool {
-	return len(track.Year) > 0 && (!*argFlushMissing ||
-		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameYear)))
+func subCondFlushID3FrameYear(track spttb_track.Track, trackMp3 *id3.Tag) {
+	if len(track.Year) > 0 && (!*argFlushMissing ||
+		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameYear))) {
+		gui.DebugAppend("Inflating year metadata...", spttb_gui.PanelRight)
+		trackMp3.SetYear(track.Year)
+	}
 }
 
-func subIfSongFlushID3FrameFeaturings(track spttb_track.Track, trackMp3 *id3.Tag) bool {
-	return len(track.Featurings) > 0 && (!*argFlushMissing ||
-		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameFeaturings)))
+func subCondFlushID3FrameFeaturings(track spttb_track.Track, trackMp3 *id3.Tag) {
+	if len(track.Featurings) > 0 && (!*argFlushMissing ||
+		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameFeaturings))) {
+		gui.DebugAppend("Inflating featurings metadata...", spttb_gui.PanelRight)
+		trackMp3.AddCommentFrame(id3.CommentFrame{
+			Encoding:    id3.EncodingUTF8,
+			Language:    "eng",
+			Description: "featurings",
+			Text:        strings.Join(track.Featurings, "|"),
+		})
+	}
 }
 
-func subIfSongFlushID3FrameTrackNumber(track spttb_track.Track, trackMp3 *id3.Tag) bool {
-	return track.TrackNumber > 0 && (!*argFlushMissing ||
-		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameTrackNumber)))
+func subCondFlushID3FrameTrackNumber(track spttb_track.Track, trackMp3 *id3.Tag) {
+	if track.TrackNumber > 0 && (!*argFlushMissing ||
+		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameTrackNumber))) {
+		gui.DebugAppend("Inflating track number metadata...", spttb_gui.PanelRight)
+		trackMp3.AddFrame(trackMp3.CommonID("Track number/Position in set"),
+			id3.TextFrame{
+				Encoding: id3.EncodingUTF8,
+				Text:     strconv.Itoa(track.TrackNumber),
+			})
+	}
 }
 
-func subIfSongFlushID3FrameTrackTotals(track spttb_track.Track, trackMp3 *id3.Tag) bool {
-	return track.TrackTotals > 0 && (!*argFlushMissing ||
-		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameTrackTotals)))
+func subCondFlushID3FrameTrackTotals(track spttb_track.Track, trackMp3 *id3.Tag) {
+	if track.TrackTotals > 0 && (!*argFlushMissing ||
+		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameTrackTotals))) {
+		gui.DebugAppend("Inflating total tracks number metadata...", spttb_gui.PanelRight)
+		trackMp3.AddCommentFrame(id3.CommentFrame{
+			Encoding:    id3.EncodingUTF8,
+			Language:    "eng",
+			Description: "trackTotals",
+			Text:        fmt.Sprintf("%d", track.TrackTotals),
+		})
+	}
 }
 
-func subIfSongFlushID3FrameArtwork(track spttb_track.Track, trackMp3 *id3.Tag) bool {
-	return spttb_system.FileExists(track.FilenameArtwork()) &&
-		(!*argFlushMissing || (*argFlushMissing && !track.HasID3Frame(spttb_track.ID3FrameArtwork)))
+func subCondFlushID3FrameArtwork(track spttb_track.Track, trackMp3 *id3.Tag) {
+	if spttb_system.FileExists(track.FilenameArtwork()) &&
+		(!*argFlushMissing || (*argFlushMissing && !track.HasID3Frame(spttb_track.ID3FrameArtwork))) {
+		trackArtworkReader, trackArtworkErr := ioutil.ReadFile(track.FilenameArtwork())
+		if trackArtworkErr != nil {
+			gui.WarnAppend(fmt.Sprintf("Unable to read artwork file: %s", trackArtworkErr.Error()), spttb_gui.PanelRight)
+		} else {
+			gui.DebugAppend("Inflating artwork metadata...", spttb_gui.PanelRight)
+			trackMp3.AddAttachedPicture(id3.PictureFrame{
+				Encoding:    id3.EncodingUTF8,
+				MimeType:    "image/jpeg",
+				PictureType: id3.PTFrontCover,
+				Description: "Front cover",
+				Picture:     trackArtworkReader,
+			})
+		}
+	}
 }
 
-func subIfSongFlushID3FrameYouTubeURL(track spttb_track.Track, trackMp3 *id3.Tag) bool {
-	return len(track.URL) > 0 && (!*argFlushMissing ||
-		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameYouTubeURL)))
+func subCondFlushID3FrameYouTubeURL(track spttb_track.Track, trackMp3 *id3.Tag) {
+	if len(track.URL) > 0 && (!*argFlushMissing ||
+		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameYouTubeURL))) {
+		gui.DebugAppend("Inflating youtube origin url metadata...", spttb_gui.PanelRight)
+		trackMp3.AddCommentFrame(id3.CommentFrame{
+			Encoding:    id3.EncodingUTF8,
+			Language:    "eng",
+			Description: "youtube",
+			Text:        track.URL,
+		})
+	}
 }
 
-func subIfSongFlushID3FrameDuration(track spttb_track.Track, trackMp3 *id3.Tag) bool {
-	return track.Duration > 0 && (!*argFlushMissing ||
-		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameDuration)))
+func subCondFlushID3FrameDuration(track spttb_track.Track, trackMp3 *id3.Tag) {
+	if track.Duration > 0 && (!*argFlushMissing ||
+		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameDuration))) {
+		gui.DebugAppend("Inflating duration metadata...", spttb_gui.PanelRight)
+		trackMp3.AddCommentFrame(id3.CommentFrame{
+			Encoding:    id3.EncodingUTF8,
+			Language:    "eng",
+			Description: "duration",
+			Text:        fmt.Sprintf("%d", track.Duration),
+		})
+	}
 }
 
-func subIfSongFlushID3FrameLyrics(track spttb_track.Track, trackMp3 *id3.Tag) bool {
-	return len(track.Lyrics) > 0 && !*argDisableLyrics &&
-		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameLyrics)))
+func subCondFlushID3FrameLyrics(track spttb_track.Track, trackMp3 *id3.Tag) {
+	if len(track.Lyrics) > 0 && !*argDisableLyrics &&
+		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameLyrics))) {
+		gui.DebugAppend("Inflating lyrics metadata...", spttb_gui.PanelRight)
+		trackMp3.AddUnsynchronisedLyricsFrame(id3.UnsynchronisedLyricsFrame{
+			Encoding:          id3.EncodingUTF8,
+			Language:          "eng",
+			ContentDescriptor: track.Title,
+			Lyrics:            track.Lyrics,
+		})
+	}
 }
 
 func subIfSongSearch(track *spttb_track.Track) bool {

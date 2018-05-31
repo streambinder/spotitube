@@ -275,7 +275,7 @@ func TagGetFrameSong(tag *id3v2.Tag) string {
 	return ""
 }
 
-// TagGetFrameSong : get track song title frame from input Tag
+// TagGetFrameFeaturings : get track featurings frame from input Tag
 func TagGetFrameFeaturings(tag *id3v2.Tag) string {
 	if len(tag.GetFrames(tag.CommonID("Comments"))) > 0 {
 		for _, frameComment := range tag.GetFrames(tag.CommonID("Comments")) {
@@ -301,7 +301,7 @@ func TagGetFrameTrackNumber(tag *id3v2.Tag) string {
 	return ""
 }
 
-// TagGetFrameYouTubeURL : get youtube URL frame from input Tag
+// TagGetFrameTrackTotals : get total tracks number frame from input Tag
 func TagGetFrameTrackTotals(tag *id3v2.Tag) string {
 	if len(tag.GetFrames(tag.CommonID("Comments"))) > 0 {
 		for _, frameComment := range tag.GetFrames(tag.CommonID("Comments")) {

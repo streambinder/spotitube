@@ -13,8 +13,76 @@ import (
 	spttb_system "system"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/kennygrant/sanitize"
 	"github.com/mozillazg/go-unidecode"
 )
+
+func parseType(sequence string) int {
+	for _, songType := range SongTypes {
+		if SeemsType(sequence, songType) {
+			return songType
+		}
+	}
+	return SongTypeAlbum
+}
+
+func parseTitle(trackTitle string, trackFeaturings []string) (string, string) {
+	var trackSong string
+
+	trackTitle = strings.Split(trackTitle, " - ")[0]
+	if strings.Contains(trackTitle, " live ") {
+		trackTitle = strings.Split(trackTitle, " live ")[0]
+	}
+	trackTitle = strings.TrimSpace(trackTitle)
+	if len(trackFeaturings) > 0 {
+		if strings.Contains(strings.ToLower(trackTitle), "feat. ") ||
+			strings.Contains(strings.ToLower(trackTitle), "ft. ") ||
+			strings.Contains(strings.ToLower(trackTitle), "featuring ") ||
+			strings.Contains(strings.ToLower(trackTitle), "with ") {
+			for _, featuringSymbol := range []string{"featuring", "feat.", "with"} {
+				for _, featuringSymbolCase := range []string{featuringSymbol, strings.Title(featuringSymbol)} {
+					trackTitle = strings.Replace(trackTitle, featuringSymbolCase+" ", "ft. ", -1)
+				}
+			}
+		} else {
+			if strings.Contains(trackTitle, "(") &&
+				(strings.Contains(trackTitle, " vs. ") || strings.Contains(trackTitle, " vs ")) &&
+				strings.Contains(trackTitle, ")") {
+				trackTitle = strings.Split(trackTitle, " (")[0]
+			}
+			var trackFeaturingsInline string
+			if len(trackFeaturings) > 1 {
+				trackFeaturingsInline = "(ft. " + strings.Join(trackFeaturings[:len(trackFeaturings)-1], ", ") +
+					" and " + trackFeaturings[len(trackFeaturings)-1] + ")"
+			} else {
+				trackFeaturingsInline = "(ft. " + trackFeaturings[0] + ")"
+			}
+			trackTitle = trackTitle + " " + trackFeaturingsInline
+		}
+		trackSong = strings.Split(trackTitle, " (ft. ")[0]
+	} else {
+		trackSong = trackTitle
+	}
+
+	return trackTitle, trackSong
+}
+
+func parseFilename(track Track) (string, string) {
+	var (
+		trackFilename     string
+		trackFilenameTemp string
+	)
+	trackFilename = track.Artist + " - " + track.Title
+	for _, symbol := range []string{"/", "\\", ".", "?", "<", ">", ":", "*"} {
+		trackFilename = strings.Replace(trackFilename, symbol, "", -1)
+	}
+	trackFilename = strings.Replace(trackFilename, "  ", " ", -1)
+	trackFilename = sanitize.Accents(trackFilename)
+	trackFilename = strings.TrimSpace(trackFilename)
+	trackFilenameTemp = sanitize.Name("." + trackFilename)
+
+	return trackFilename, trackFilenameTemp
+}
 
 func searchLyricsGenius(track *Track) (string, error) {
 	if len(GeniusAccessToken) == 0 {

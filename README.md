@@ -24,7 +24,7 @@ _spotitube_ basically solves these two major problems in a simple, elegant, but 
 
 ### How does it work
 
-The solution I wrote to automate the process is covered by two major components:
+The solution I wrote to automate the process is covered by three major components:
 
 1.  _Spotify_
 
@@ -33,6 +33,10 @@ The solution I wrote to automate the process is covered by two major components:
 2.  _YouTube_:
 
 	This one is our free music shop, used to be queried to give us the best video it owns about the songs we're looking for. Once found, that one gets downloaded using a combination of `youtube-dl` and `ffmpeg` commands.
+
+3.  Lyrics provider (_Genius_ or _lyrics.ovh_):
+
+	You will go through this component if you'll enable automatic songs lyrics fetch: _Spotify_ informations about song will be used to find lyrics provided by two entities: _Genius_ and, eventually, if the first one doesn't own it, _lyrics.ovh_.
 
 ## What does it need
 

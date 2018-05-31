@@ -460,7 +460,7 @@ func subSearchLyricsGenius(track *Track) (string, error) {
 	}
 
 	hits := result["response"].(map[string]interface{})["hits"].([]interface{})
-	var lyricsURL string = ""
+	var lyricsURL string
 	for _, value := range hits {
 		valueResult := value.(map[string]interface{})["result"].(map[string]interface{})
 		songTitle := strings.TrimSpace(valueResult["title"].(string))

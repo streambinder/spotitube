@@ -9,36 +9,16 @@ import (
 	"strconv"
 	"strings"
 
-	spttb_system "system"
 	spttb_track "track"
 
 	"github.com/PuerkitoBio/goquery"
 )
 
-// Tracks : simple iterator-like struct to easily loop over YouTube search results
-type Tracks struct {
-	Track             *spttb_track.Track
-	Selection         *goquery.Selection
-	SelectionDesc     *goquery.Selection
-	SelectionDuration *goquery.Selection
-	SelectionPointer  int
-}
-
-// Track : single YouTube search result struct
-type Track struct {
-	Track    *spttb_track.Track
-	ID       string
-	URL      string
-	Title    string
-	User     string
-	Duration int
-}
-
 // QueryTracks : initialize a Tracks object by searching for Track results
 func QueryTracks(track *spttb_track.Track) (*Tracks, error) {
 	var (
 		doc         *goquery.Document
-		queryString = fmt.Sprintf(spttb_system.YouTubeQueryPattern,
+		queryString = fmt.Sprintf(YouTubeQueryPattern,
 			strings.Replace(track.SearchPattern, " ", "+", -1))
 	)
 	request, _ := http.NewRequest("GET", queryString, nil)
@@ -58,9 +38,9 @@ func QueryTracks(track *spttb_track.Track) (*Tracks, error) {
 	}
 	return &Tracks{
 		Track:             track,
-		Selection:         doc.Find(spttb_system.YouTubeHTMLVideoSelector),
-		SelectionDesc:     doc.Find(spttb_system.YouTubeHTMLDescSelector),
-		SelectionDuration: doc.Find(spttb_system.YouTubeHTMLDurationSelector),
+		Selection:         doc.Find(YouTubeHTMLVideoSelector),
+		SelectionDesc:     doc.Find(YouTubeHTMLDescSelector),
+		SelectionDuration: doc.Find(YouTubeHTMLDurationSelector),
 		SelectionPointer:  0,
 	}, nil
 }
@@ -116,8 +96,8 @@ func (youtube_tracks *Tracks) Next() (*Track, error) {
 
 		return &Track{
 			Track:    youtube_tracks.Track,
-			ID:       IDFromURL(spttb_system.YouTubeVideoPrefix + itemHref),
-			URL:      spttb_system.YouTubeVideoPrefix + itemHref,
+			ID:       IDFromURL(YouTubeVideoPrefix + itemHref),
+			URL:      YouTubeVideoPrefix + itemHref,
 			Title:    itemTitle,
 			User:     itemUser,
 			Duration: itemLength,
@@ -129,9 +109,9 @@ func (youtube_tracks *Tracks) Next() (*Track, error) {
 
 // Match : return nil error if YouTube Track result object is matching with input Track object
 func (youtube_track Track) Match(track spttb_track.Track) error {
-	if int(math.Abs(float64(track.Duration-youtube_track.Duration))) > spttb_system.YouTubeDurationTolerance {
+	if int(math.Abs(float64(track.Duration-youtube_track.Duration))) > YouTubeDurationTolerance {
 		return fmt.Errorf(fmt.Sprintf("The duration difference is excessive: | %d - %d | = %d (max tolerated: %d)",
-			track.Duration, youtube_track.Duration, int(math.Abs(float64(track.Duration-youtube_track.Duration))), spttb_system.YouTubeDurationTolerance))
+			track.Duration, youtube_track.Duration, int(math.Abs(float64(track.Duration-youtube_track.Duration))), YouTubeDurationTolerance))
 	}
 	if strings.Contains(youtube_track.URL, "&list=") || strings.Contains(youtube_track.URL, "/user/") {
 		return fmt.Errorf("Track is actually pointing to playlist or user")

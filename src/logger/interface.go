@@ -4,17 +4,10 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/lunixbochs/vtclean"
 )
-
-// Logger : struct containing all the informations kept to handle logging
-type Logger struct {
-	File  string
-	Mutex sync.Mutex
-}
 
 // Build : Logger struct object constructor
 func Build(filename string) *Logger {

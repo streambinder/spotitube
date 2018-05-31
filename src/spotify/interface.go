@@ -6,31 +6,13 @@ import (
 	"log"
 	"net/http"
 	"os/exec"
-	"strings"
-
-	spttb_system "system"
 
 	api "github.com/zmb3/spotify"
 )
 
-var (
-	clientChannel       = make(chan *api.Client)
-	clientState         = spttb_system.RandString(20)
-	clientAuthenticator = api.NewAuthenticator(
-		spttb_system.SpotifyRedirectURL,
-		api.ScopeUserLibraryRead,
-		api.ScopePlaylistReadPrivate,
-		api.ScopePlaylistReadCollaborative)
-)
-
-// Spotify : struct object containing all the informations needed to authenticate and fetch from Spotify
-type Spotify struct {
-	Client *api.Client
-}
-
 // AuthURL : generate new authentication URL
 func AuthURL() string {
-	clientAuthenticator.SetAuthInfo(spttb_system.SpotifyClientID, spttb_system.SpotifyClientSecret)
+	clientAuthenticator.SetAuthInfo(SpotifyClientID, SpotifyClientSecret)
 	spotifyURL := clientAuthenticator.AuthURL(clientState)
 	tinyURL := fmt.Sprintf("http://tinyurl.com/api-create.php?url=%s", spotifyURL)
 	tinyResponse, tinyErr := http.Get(tinyURL)
@@ -52,8 +34,8 @@ func NewClient() *Spotify {
 
 // Auth : start local callback server to handle xdg-preferred browser authentication redirection
 func (spotify *Spotify) Auth(url string) bool {
-	http.HandleFunc("/favicon.ico", subHTTPFaviconHandler)
-	http.HandleFunc("/callback", subHTTPCompleteAuthHandler)
+	http.HandleFunc("/favicon.ico", webHTTPFaviconHandler)
+	http.HandleFunc("/callback", webHTTPCompleteAuthHandler)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		log.Println("Got request for:", r.URL.String())
 	})
@@ -76,7 +58,7 @@ func (spotify *Spotify) LibraryTracks() ([]api.FullTrack, error) {
 	var (
 		tracks     []api.FullTrack
 		iterations int
-		options    = subDefaultOptions()
+		options    = defaultOptions()
 	)
 	for true {
 		*options.Offset = *options.Limit * iterations
@@ -97,7 +79,7 @@ func (spotify *Spotify) LibraryTracks() ([]api.FullTrack, error) {
 
 // Playlist : return Spotify FullPlaylist from input string playlistURI
 func (spotify *Spotify) Playlist(playlistURI string) (*api.FullPlaylist, error) {
-	playlistOwner, playlistID, playlistErr := subParsePlaylistURI(playlistURI)
+	playlistOwner, playlistID, playlistErr := parsePlaylistURI(playlistURI)
 	if playlistErr != nil {
 		return &api.FullPlaylist{}, playlistErr
 	}
@@ -109,9 +91,9 @@ func (spotify *Spotify) PlaylistTracks(playlistURI string) ([]api.FullTrack, err
 	var (
 		tracks     []api.FullTrack
 		iterations int
-		options    = subDefaultOptions()
+		options    = defaultOptions()
 	)
-	playlistOwner, playlistID, playlistErr := subParsePlaylistURI(playlistURI)
+	playlistOwner, playlistID, playlistErr := parsePlaylistURI(playlistURI)
 	if playlistErr != nil {
 		return tracks, playlistErr
 	}
@@ -166,46 +148,4 @@ func (spotify *Spotify) Albums(ids []api.ID) ([]api.FullAlbum, error) {
 		iterations++
 	}
 	return albums, nil
-}
-
-func subDefaultOptions() api.Options {
-	var (
-		optLimit  = 50
-		optOffset = 0
-	)
-	return api.Options{
-		Limit:  &optLimit,
-		Offset: &optOffset,
-	}
-}
-
-func subParsePlaylistURI(playlistURI string) (string, api.ID, error) {
-	if strings.Count(playlistURI, ":") == 4 {
-		return strings.Split(playlistURI, ":")[2], api.ID(strings.Split(playlistURI, ":")[4]), nil
-	}
-	return "", "", fmt.Errorf(fmt.Sprintf("Malformed playlist URI: expected 5 columns, given %d.", strings.Count(playlistURI, ":")))
-}
-
-func subHTTPFaviconHandler(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, spttb_system.SpotifyFaviconURL, 301)
-}
-
-func subHTTPCompleteAuthHandler(w http.ResponseWriter, r *http.Request) {
-	tok, err := clientAuthenticator.Token(clientState, r)
-	if err != nil {
-		http.Error(w, subHTTPMessage("Couldn't get token", "none"), http.StatusForbidden)
-		// logger.Fatal("Couldn't get token.")
-	}
-	if st := r.FormValue("state"); st != clientState {
-		http.NotFound(w, r)
-		// logger.Fatal("\"state\" value not found.")
-	}
-	client := clientAuthenticator.NewClient(tok)
-	fmt.Fprintf(w, subHTTPMessage("Login completed", "Come back to the shell and enjoy the magic!"))
-	// logger.Log("Login process completed.")
-	clientChannel <- &client
-}
-
-func subHTTPMessage(contentTitle string, contentSubtitle string) string {
-	return fmt.Sprintf(spttb_system.SpotifyHTMLTemplate, contentTitle, contentSubtitle)
 }

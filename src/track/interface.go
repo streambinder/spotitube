@@ -2,6 +2,7 @@ package track
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -36,6 +37,55 @@ func (tracks Tracks) CountOnline() int {
 		}
 	}
 	return counter
+}
+
+// OpenLocalTrack : parse local filename track informations into a new Track object
+func OpenLocalTrack(filename string) (Track, error) {
+	if !spttb_system.FileExists(filename) {
+		return Track{}, fmt.Errorf(fmt.Sprintf("%s does not exist", filename))
+	}
+	trackMp3, err := id3v2.Open(filename, id3v2.Options{Parse: true})
+	if err != nil {
+		return Track{}, fmt.Errorf(fmt.Sprintf("Cannot read id3 tags from \"%s\": %s", filename, err.Error()))
+	}
+	track := Track{
+		Title:         TagGetFrame(trackMp3, ID3FrameTitle),
+		Song:          TagGetFrame(trackMp3, ID3FrameSong),
+		Artist:        TagGetFrame(trackMp3, ID3FrameArtist),
+		Album:         TagGetFrame(trackMp3, ID3FrameAlbum),
+		Year:          TagGetFrame(trackMp3, ID3FrameYear),
+		Featurings:    strings.Split(TagGetFrame(trackMp3, ID3FrameTrackNumber), "|"),
+		Genre:         TagGetFrame(trackMp3, ID3FrameGenre),
+		TrackNumber:   0,
+		TrackTotals:   0,
+		Duration:      0,
+		SongType:      parseType(TagGetFrame(trackMp3, ID3FrameTitle)),
+		Image:         "",
+		URL:           TagGetFrame(trackMp3, ID3FrameYouTubeURL),
+		Filename:      "",
+		FilenameTemp:  "",
+		FilenameExt:   spttb_system.SongExtension,
+		SearchPattern: "",
+		Lyrics:        TagGetFrame(trackMp3, ID3FrameLyrics),
+		Local:         true,
+	}
+
+	if trackNumber, trackNumberErr := strconv.Atoi(TagGetFrame(trackMp3, ID3FrameTrackNumber)); trackNumberErr == nil {
+		track.TrackNumber = trackNumber
+	}
+	if trackTotals, trackTotalsErr := strconv.Atoi(TagGetFrame(trackMp3, ID3FrameTrackTotals)); trackTotalsErr == nil {
+		track.TrackTotals = trackTotals
+	}
+	if duration, durationErr := strconv.Atoi(TagGetFrame(trackMp3, ID3FrameDuration)); durationErr == nil {
+		track.Duration = duration
+	}
+
+	track.Filename, track.FilenameTemp = parseFilename(track)
+
+	track.SearchPattern = strings.Replace(track.FilenameTemp[1:], "-", " ", -1)
+
+	trackMp3.Close()
+	return track, nil
 }
 
 // ParseSpotifyTrack : parse Spotify track into a new Track object
@@ -80,22 +130,15 @@ func ParseSpotifyTrack(spotifyTrack spotify.FullTrack, spotifyAlbum spotify.Full
 		Local:         false,
 	}
 
-	track.SongType = ParseSpotifyType(track.Title)
-	track.Title, track.Song = ParseSpotifyTitle(track.Title, track.Featurings)
+	track.SongType = parseType(track.Title)
+	track.Title, track.Song = parseTitle(track.Title, track.Featurings)
 
 	track.Album = strings.Replace(track.Album, "[", "(", -1)
 	track.Album = strings.Replace(track.Album, "]", ")", -1)
 	track.Album = strings.Replace(track.Album, "{", "(", -1)
 	track.Album = strings.Replace(track.Album, "}", ")", -1)
 
-	track.Filename = track.Artist + " - " + track.Title
-	for _, symbol := range []string{"/", "\\", ".", "?", "<", ">", ":", "*"} {
-		track.Filename = strings.Replace(track.Filename, symbol, "", -1)
-	}
-	track.Filename = strings.Replace(track.Filename, "  ", " ", -1)
-	track.Filename = sanitize.Accents(track.Filename)
-	track.Filename = strings.TrimSpace(track.Filename)
-	track.FilenameTemp = sanitize.Name("." + track.Filename)
+	track.Filename, track.FilenameTemp = parseFilename(track)
 
 	track.SearchPattern = strings.Replace(track.FilenameTemp[1:], "-", " ", -1)
 
@@ -109,58 +152,6 @@ func ParseSpotifyTrack(spotifyTrack spotify.FullTrack, spotifyAlbum spotify.Full
 	}
 
 	return track
-}
-
-// ParseSpotifyType : return Song variant identifier from input sequence string
-func ParseSpotifyType(sequence string) int {
-	for _, songType := range SongTypes {
-		if SeemsType(sequence, songType) {
-			return songType
-		}
-	}
-	return SongTypeAlbum
-}
-
-// ParseSpotifyTitle : return correctly formatted title (with featurings) and single song title
-func ParseSpotifyTitle(trackTitle string, trackFeaturings []string) (string, string) {
-	var trackSong string
-
-	trackTitle = strings.Split(trackTitle, " - ")[0]
-	if strings.Contains(trackTitle, " live ") {
-		trackTitle = strings.Split(trackTitle, " live ")[0]
-	}
-	trackTitle = strings.TrimSpace(trackTitle)
-	if len(trackFeaturings) > 0 {
-		if strings.Contains(strings.ToLower(trackTitle), "feat. ") ||
-			strings.Contains(strings.ToLower(trackTitle), "ft. ") ||
-			strings.Contains(strings.ToLower(trackTitle), "featuring ") ||
-			strings.Contains(strings.ToLower(trackTitle), "with ") {
-			for _, featuringSymbol := range []string{"featuring", "feat.", "with"} {
-				for _, featuringSymbolCase := range []string{featuringSymbol, strings.Title(featuringSymbol)} {
-					trackTitle = strings.Replace(trackTitle, featuringSymbolCase+" ", "ft. ", -1)
-				}
-			}
-		} else {
-			if strings.Contains(trackTitle, "(") &&
-				(strings.Contains(trackTitle, " vs. ") || strings.Contains(trackTitle, " vs ")) &&
-				strings.Contains(trackTitle, ")") {
-				trackTitle = strings.Split(trackTitle, " (")[0]
-			}
-			var trackFeaturingsInline string
-			if len(trackFeaturings) > 1 {
-				trackFeaturingsInline = "(ft. " + strings.Join(trackFeaturings[:len(trackFeaturings)-1], ", ") +
-					" and " + trackFeaturings[len(trackFeaturings)-1] + ")"
-			} else {
-				trackFeaturingsInline = "(ft. " + trackFeaturings[0] + ")"
-			}
-			trackTitle = trackTitle + " " + trackFeaturingsInline
-		}
-		trackSong = strings.Split(trackTitle, " (ft. ")[0]
-	} else {
-		trackSong = trackTitle
-	}
-
-	return trackTitle, trackSong
 }
 
 // FilenameFinal : return Track final filename
@@ -243,6 +234,8 @@ func TagGetFrame(tag *id3v2.Tag, frame int) string {
 	switch frame {
 	case ID3FrameTitle:
 		return tag.Title()
+	case ID3FrameSong:
+		return TagGetFrameSong(tag)
 	case ID3FrameArtist:
 		return tag.Artist()
 	case ID3FrameAlbum:
@@ -251,14 +244,46 @@ func TagGetFrame(tag *id3v2.Tag, frame int) string {
 		return tag.Genre()
 	case ID3FrameYear:
 		return tag.Year()
+	case ID3FrameFeaturings:
+		return TagGetFrameFeaturings(tag)
 	case ID3FrameTrackNumber:
 		return TagGetFrameTrackNumber(tag)
+	case ID3FrameTrackTotals:
+		return TagGetFrameTrackTotals(tag)
 	case ID3FrameArtwork:
 		return TagGetFrameArtwork(tag)
 	case ID3FrameLyrics:
 		return TagGetFrameLyrics(tag)
 	case ID3FrameYouTubeURL:
 		return TagGetFrameYouTubeURL(tag)
+	case ID3FrameDuration:
+		return TagGetFrameDuration(tag)
+	}
+	return ""
+}
+
+// TagGetFrameSong : get track song title frame from input Tag
+func TagGetFrameSong(tag *id3v2.Tag) string {
+	if len(tag.GetFrames(tag.CommonID("Comments"))) > 0 {
+		for _, frameComment := range tag.GetFrames(tag.CommonID("Comments")) {
+			comment, ok := frameComment.(id3v2.CommentFrame)
+			if ok && comment.Description == "song" {
+				return comment.Text
+			}
+		}
+	}
+	return ""
+}
+
+// TagGetFrameSong : get track song title frame from input Tag
+func TagGetFrameFeaturings(tag *id3v2.Tag) string {
+	if len(tag.GetFrames(tag.CommonID("Comments"))) > 0 {
+		for _, frameComment := range tag.GetFrames(tag.CommonID("Comments")) {
+			comment, ok := frameComment.(id3v2.CommentFrame)
+			if ok && comment.Description == "featurings" {
+				return comment.Text
+			}
+		}
 	}
 	return ""
 }
@@ -270,6 +295,19 @@ func TagGetFrameTrackNumber(tag *id3v2.Tag) string {
 			text, ok := frameText.(id3v2.TextFrame)
 			if ok {
 				return text.Text
+			}
+		}
+	}
+	return ""
+}
+
+// TagGetFrameYouTubeURL : get youtube URL frame from input Tag
+func TagGetFrameTrackTotals(tag *id3v2.Tag) string {
+	if len(tag.GetFrames(tag.CommonID("Comments"))) > 0 {
+		for _, frameComment := range tag.GetFrames(tag.CommonID("Comments")) {
+			comment, ok := frameComment.(id3v2.CommentFrame)
+			if ok && comment.Description == "trackTotals" {
+				return comment.Text
 			}
 		}
 	}
@@ -308,6 +346,19 @@ func TagGetFrameYouTubeURL(tag *id3v2.Tag) string {
 		for _, frameComment := range tag.GetFrames(tag.CommonID("Comments")) {
 			comment, ok := frameComment.(id3v2.CommentFrame)
 			if ok && comment.Description == "youtube" {
+				return comment.Text
+			}
+		}
+	}
+	return ""
+}
+
+// TagGetFrameDuration : get duration frame from input Tag
+func TagGetFrameDuration(tag *id3v2.Tag) string {
+	if len(tag.GetFrames(tag.CommonID("Comments"))) > 0 {
+		for _, frameComment := range tag.GetFrames(tag.CommonID("Comments")) {
+			comment, ok := frameComment.(id3v2.CommentFrame)
+			if ok && comment.Description == "duration" {
 				return comment.Text
 			}
 		}

@@ -25,6 +25,8 @@ const (
 	_
 	// ID3FrameTitle : ID3 title frame tag identifier
 	ID3FrameTitle = iota
+	// ID3FrameSong : ID3 song frame tag identifier
+	ID3FrameSong
 	// ID3FrameArtist : ID3 artist frame tag identifier
 	ID3FrameArtist
 	// ID3FrameAlbum : ID3 album frame tag identifier
@@ -33,12 +35,18 @@ const (
 	ID3FrameGenre
 	// ID3FrameYear : ID3 year frame tag identifier
 	ID3FrameYear
+	// ID3FrameFeaturings : ID3 featurings frame tag identifier
+	ID3FrameFeaturings
 	// ID3FrameTrackNumber : ID3 track number frame tag identifier
 	ID3FrameTrackNumber
+	// ID3FrameTrackTotals : ID3 total tracks number frame tag identifier
+	ID3FrameTrackTotals
 	// ID3FrameArtwork : ID3 artwork frame tag identifier
 	ID3FrameArtwork
 	// ID3FrameLyrics : ID3 lyrics frame tag identifier
 	ID3FrameLyrics
 	// ID3FrameYouTubeURL : ID3 youtube URL frame tag identifier
 	ID3FrameYouTubeURL
+	// ID3FrameDuration : ID3 duration frame tag identifier
+	ID3FrameDuration
 )

@@ -32,6 +32,7 @@ import (
 
 var (
 	argFolder                *string
+	argFixSong               *string
 	argPlaylist              *string
 	argReplaceLocal          *bool
 	argFlushMetadata         *bool
@@ -60,15 +61,16 @@ var (
 )
 
 func main() {
-	argFolder = flag.String("folder", ".", "Folder to sync with music.")
-	argPlaylist = flag.String("playlist", "none", "Playlist URI to synchronize.")
+	argFolder = flag.String("folder", ".", "Folder to sync with music")
+	argFixSong = flag.String("fix", "none", "Offline song filename which straighten the shot to")
+	argPlaylist = flag.String("playlist", "none", "Playlist URI to synchronize")
 	argReplaceLocal = flag.Bool("replace-local", false, "Replace local library songs if better results get encountered")
 	argFlushMetadata = flag.Bool("flush-metadata", false, "Flush metadata informations to already synchronized songs")
 	argFlushMissing = flag.Bool("flush-missing", false, "If -flush-metadata toggled, it will just populate empty id3 frames, instead of flushing any of those")
 	argDisableNormalization = flag.Bool("disable-normalization", false, "Disable songs volume normalization")
 	argDisablePlaylistFile = flag.Bool("disable-playlist-file", false, "Disable automatic creation of playlists file")
 	argPlsFile = flag.Bool("pls-file", false, "Generate playlist file with .pls instead of .m3u")
-	argDisableLyrics = flag.Bool("disable-lyrics", false, "Disable download of songs lyrics and their application into mp3.")
+	argDisableLyrics = flag.Bool("disable-lyrics", false, "Disable download of songs lyrics and their application into mp3")
 	argDisableTimestampFlush = flag.Bool("disable-timestamp-flush", false, "Disable automatic songs files timestamps flush")
 	argDisableUpdateCheck = flag.Bool("disable-update-check", false, "Disable automatic update check at startup")
 	argInteractive = flag.Bool("interactive", false, "Enable interactive mode")
@@ -84,12 +86,24 @@ func main() {
 		os.Exit(0)
 	}
 
+	if *argFixSong != "none" {
+		if !spttb_system.FileExists(*argFixSong) {
+			fmt.Println(fmt.Sprintf("Chosen song to be fixed \"%s\" does not exist.", *argFixSong))
+			os.Exit(1)
+		}
+		*argFixSong, _ = filepath.Abs(*argFixSong)
+		*argReplaceLocal = true
+	}
+
 	if !(spttb_system.Dir(*argFolder)) {
 		fmt.Println(fmt.Sprintf("Chosen music folder does not exist: %s", *argFolder))
 		os.Exit(1)
 	} else {
 		*argFolder, _ = filepath.Abs(*argFolder)
 		os.Chdir(*argFolder)
+		if user, err := user.Current(); err == nil {
+			*argFolder = strings.Replace(*argFolder, user.HomeDir, "~", -1)
+		}
 	}
 
 	if *argCleanJunks {
@@ -99,9 +113,6 @@ func main() {
 	}
 
 	gui = spttb_gui.Build(*argDebug)
-	if user, err := user.Current(); err == nil {
-		*argFolder = strings.Replace(*argFolder, user.HomeDir, "~", -1)
-	}
 	gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Folder:", spttb_gui.FontStyleBold), *argFolder), spttb_gui.PanelLeftTop)
 	if *argLog {
 		gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Log:", spttb_gui.FontStyleBold), spttb_logger.DefaultLogFname), spttb_gui.PanelLeftTop)
@@ -128,63 +139,74 @@ func main() {
 }
 
 func mainFetch() {
-	spotifyAuthURL := spttb_spotify.AuthURL()
-	gui.Append(fmt.Sprintf("Authentication URL: %s", spotifyAuthURL), spttb_gui.PanelRight|spttb_gui.ParagraphStyleAutoReturn)
-	gui.DebugAppend("Waiting for automatic login process. If wait is too long, manually open that URL.", spttb_gui.PanelRight)
-	if !spotifyClient.Auth(spotifyAuthURL) {
-		gui.Prompt("Unable to authenticate to spotify.", spttb_gui.PromptDismissableWithExit)
-	}
-	gui.Append("Authentication completed.", spttb_gui.PanelRight)
-
-	var (
-		tracksOnline          []api.FullTrack
-		tracksOnlineAlbums    []api.FullAlbum
-		tracksOnlineAlbumsIds []api.ID
-		tracksErr             error
-	)
-	if *argPlaylist == "none" {
-		gui.Append("Fetching music library...", spttb_gui.PanelRight)
-		if tracksOnline, tracksErr = spotifyClient.LibraryTracks(); tracksErr != nil {
-			gui.Prompt(fmt.Sprintf("Something went wrong while fetching playlist: %s.", tracksErr.Error()), spttb_gui.PromptDismissableWithExit)
+	if *argFixSong == "none" {
+		spotifyAuthURL := spttb_spotify.AuthURL()
+		gui.Append(fmt.Sprintf("Authentication URL: %s", spotifyAuthURL), spttb_gui.PanelRight|spttb_gui.ParagraphStyleAutoReturn)
+		gui.DebugAppend("Waiting for automatic login process. If wait is too long, manually open that URL.", spttb_gui.PanelRight)
+		if !spotifyClient.Auth(spotifyAuthURL) {
+			gui.Prompt("Unable to authenticate to spotify.", spttb_gui.PromptDismissableWithExit)
 		}
-	} else {
-		gui.Append("Fetching playlist...", spttb_gui.PanelRight)
-		var playlistErr error
-		playlistInfo, playlistErr = spotifyClient.Playlist(*argPlaylist)
-		if playlistErr != nil {
-			gui.Prompt("Something went wrong while fetching playlist info.", spttb_gui.PromptDismissableWithExit)
-		} else {
-			gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Playlist name:", spttb_gui.FontStyleBold), playlistInfo.Name), spttb_gui.PanelLeftTop)
-			gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Playlist owner:", spttb_gui.FontStyleBold), playlistInfo.Owner.DisplayName), spttb_gui.PanelLeftTop)
-			gui.Append(fmt.Sprintf("Getting songs from \"%s\" playlist, by \"%s\"...", playlistInfo.Name, playlistInfo.Owner.DisplayName), spttb_gui.PanelRight|spttb_gui.FontStyleBold)
-			if tracksOnline, tracksErr = spotifyClient.PlaylistTracks(*argPlaylist); tracksErr != nil {
+		gui.Append("Authentication completed.", spttb_gui.PanelRight)
+
+		var (
+			tracksOnline          []api.FullTrack
+			tracksOnlineAlbums    []api.FullAlbum
+			tracksOnlineAlbumsIds []api.ID
+			tracksErr             error
+		)
+		if *argPlaylist == "none" {
+			gui.Append("Fetching music library...", spttb_gui.PanelRight)
+			if tracksOnline, tracksErr = spotifyClient.LibraryTracks(); tracksErr != nil {
 				gui.Prompt(fmt.Sprintf("Something went wrong while fetching playlist: %s.", tracksErr.Error()), spttb_gui.PromptDismissableWithExit)
 			}
-		}
-	}
-	for _, track := range tracksOnline {
-		tracksOnlineAlbumsIds = append(tracksOnlineAlbumsIds, track.Album.ID)
-	}
-	if tracksOnlineAlbums, tracksErr = spotifyClient.Albums(tracksOnlineAlbumsIds); tracksErr != nil {
-		gui.Prompt(fmt.Sprintf("Something went wrong while fetching album info: %s.", tracksErr.Error()), spttb_gui.PromptDismissableWithExit)
-	}
-
-	gui.Append("Checking which songs need to be downloaded...", spttb_gui.PanelRight)
-	var tracksDuplicates = 0
-	for trackIndex := len(tracksOnline) - 1; trackIndex >= 0; trackIndex-- {
-		track := spttb_track.ParseSpotifyTrack(tracksOnline[trackIndex], tracksOnlineAlbums[trackIndex])
-		if !tracks.Has(track) {
-			tracks = append(tracks, track)
 		} else {
-			gui.WarnAppend(fmt.Sprintf("Ignored song duplicate \"%s\".", track.Filename), spttb_gui.PanelRight)
-			tracksDuplicates++
+			gui.Append("Fetching playlist...", spttb_gui.PanelRight)
+			var playlistErr error
+			playlistInfo, playlistErr = spotifyClient.Playlist(*argPlaylist)
+			if playlistErr != nil {
+				gui.Prompt("Something went wrong while fetching playlist info.", spttb_gui.PromptDismissableWithExit)
+			} else {
+				gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Playlist name:", spttb_gui.FontStyleBold), playlistInfo.Name), spttb_gui.PanelLeftTop)
+				gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Playlist owner:", spttb_gui.FontStyleBold), playlistInfo.Owner.DisplayName), spttb_gui.PanelLeftTop)
+				gui.Append(fmt.Sprintf("Getting songs from \"%s\" playlist, by \"%s\"...", playlistInfo.Name, playlistInfo.Owner.DisplayName), spttb_gui.PanelRight|spttb_gui.FontStyleBold)
+				if tracksOnline, tracksErr = spotifyClient.PlaylistTracks(*argPlaylist); tracksErr != nil {
+					gui.Prompt(fmt.Sprintf("Something went wrong while fetching playlist: %s.", tracksErr.Error()), spttb_gui.PromptDismissableWithExit)
+				}
+			}
+		}
+		for _, track := range tracksOnline {
+			tracksOnlineAlbumsIds = append(tracksOnlineAlbumsIds, track.Album.ID)
+		}
+		if tracksOnlineAlbums, tracksErr = spotifyClient.Albums(tracksOnlineAlbumsIds); tracksErr != nil {
+			gui.Prompt(fmt.Sprintf("Something went wrong while fetching album info: %s.", tracksErr.Error()), spttb_gui.PromptDismissableWithExit)
+		}
+
+		gui.Append("Checking which songs need to be downloaded...", spttb_gui.PanelRight)
+		var tracksDuplicates = 0
+		for trackIndex := len(tracksOnline) - 1; trackIndex >= 0; trackIndex-- {
+			track := spttb_track.ParseSpotifyTrack(tracksOnline[trackIndex], tracksOnlineAlbums[trackIndex])
+			if !tracks.Has(track) {
+				tracks = append(tracks, track)
+			} else {
+				gui.WarnAppend(fmt.Sprintf("Ignored song duplicate \"%s\".", track.Filename), spttb_gui.PanelRight)
+				tracksDuplicates++
+			}
+		}
+
+		gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Songs online:", spttb_gui.FontStyleBold), len(tracks)), spttb_gui.PanelLeftTop)
+		gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Songs offline:", spttb_gui.FontStyleBold), tracks.CountOffline()), spttb_gui.PanelLeftTop)
+		gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Songs missing:", spttb_gui.FontStyleBold), tracks.CountOnline()), spttb_gui.PanelLeftTop)
+		gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Songs duplicates:", spttb_gui.FontStyleBold), tracksDuplicates), spttb_gui.PanelLeftTop)
+	} else {
+		if track, trackErr := spttb_track.OpenLocalTrack(*argFixSong); trackErr != nil {
+			gui.Prompt(fmt.Sprintf("Something went wrong: %s.", trackErr.Error()), spttb_gui.PromptDismissableWithExit)
+			mainExit()
+		} else {
+			gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Song:", spttb_gui.FontStyleBold), track.Song), spttb_gui.PanelLeftTop)
+			gui.DebugAppend(fmt.Sprintf("%+v\n", track), spttb_gui.PanelRight)
+			tracks = append(tracks, track)
 		}
 	}
-
-	gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Songs online:", spttb_gui.FontStyleBold), len(tracks)), spttb_gui.PanelLeftTop)
-	gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Songs offline:", spttb_gui.FontStyleBold), tracks.CountOffline()), spttb_gui.PanelLeftTop)
-	gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Songs missing:", spttb_gui.FontStyleBold), tracks.CountOnline()), spttb_gui.PanelLeftTop)
-	gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Songs duplicates:", spttb_gui.FontStyleBold), tracksDuplicates), spttb_gui.PanelLeftTop)
 
 	for range [spttb_system.ConcurrencyLimit]int{} {
 		waitGroupPool <- true
@@ -490,6 +512,15 @@ func subSongFlushMetadata(track spttb_track.Track) {
 			gui.DebugAppend("Inflating title metadata...", spttb_gui.PanelRight)
 			trackMp3.SetTitle(track.Title)
 		}
+		if subIfSongFlushID3FrameSong(track, trackMp3) {
+			gui.DebugAppend("Inflating song metadata...", spttb_gui.PanelRight)
+			trackMp3.AddCommentFrame(id3.CommentFrame{
+				Encoding:    id3.EncodingUTF8,
+				Language:    "eng",
+				Description: "song",
+				Text:        track.Song,
+			})
+		}
 		if subIfSongFlushID3FrameArtist(track, trackMp3) {
 			gui.DebugAppend("Inflating artist metadata...", spttb_gui.PanelRight)
 			trackMp3.SetArtist(track.Artist)
@@ -506,6 +537,15 @@ func subSongFlushMetadata(track spttb_track.Track) {
 			gui.DebugAppend("Inflating year metadata...", spttb_gui.PanelRight)
 			trackMp3.SetYear(track.Year)
 		}
+		if subIfSongFlushID3FrameFeaturings(track, trackMp3) {
+			gui.DebugAppend("Inflating featurings metadata...", spttb_gui.PanelRight)
+			trackMp3.AddCommentFrame(id3.CommentFrame{
+				Encoding:    id3.EncodingUTF8,
+				Language:    "eng",
+				Description: "featurings",
+				Text:        strings.Join(track.Featurings, "|"),
+			})
+		}
 		if subIfSongFlushID3FrameTrackNumber(track, trackMp3) {
 			gui.DebugAppend("Inflating track number metadata...", spttb_gui.PanelRight)
 			trackMp3.AddFrame(trackMp3.CommonID("Track number/Position in set"),
@@ -513,6 +553,15 @@ func subSongFlushMetadata(track spttb_track.Track) {
 					Encoding: id3.EncodingUTF8,
 					Text:     strconv.Itoa(track.TrackNumber),
 				})
+		}
+		if subIfSongFlushID3FrameTrackTotals(track, trackMp3) {
+			gui.DebugAppend("Inflating total tracks number metadata...", spttb_gui.PanelRight)
+			trackMp3.AddCommentFrame(id3.CommentFrame{
+				Encoding:    id3.EncodingUTF8,
+				Language:    "eng",
+				Description: "trackTotals",
+				Text:        fmt.Sprintf("%d", track.TrackTotals),
+			})
 		}
 		if subIfSongFlushID3FrameArtwork(track, trackMp3) {
 			trackArtworkReader, trackArtworkErr := ioutil.ReadFile(track.FilenameArtwork())
@@ -538,6 +587,15 @@ func subSongFlushMetadata(track spttb_track.Track) {
 				Text:        track.URL,
 			})
 		}
+		if subIfSongFlushID3FrameDuration(track, trackMp3) {
+			gui.DebugAppend("Inflating duration metadata...", spttb_gui.PanelRight)
+			trackMp3.AddCommentFrame(id3.CommentFrame{
+				Encoding:    id3.EncodingUTF8,
+				Language:    "eng",
+				Description: "duration",
+				Text:        fmt.Sprintf("%d", track.Duration),
+			})
+		}
 		if subIfSongFlushID3FrameLyrics(track, trackMp3) {
 			gui.DebugAppend("Inflating lyrics metadata...", spttb_gui.PanelRight)
 			trackMp3.AddUnsynchronisedLyricsFrame(id3.UnsynchronisedLyricsFrame{
@@ -555,6 +613,11 @@ func subSongFlushMetadata(track spttb_track.Track) {
 func subIfSongFlushID3FrameTitle(track spttb_track.Track, trackMp3 *id3.Tag) bool {
 	return len(track.Title) > 0 && (!*argFlushMissing ||
 		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameTitle)))
+}
+
+func subIfSongFlushID3FrameSong(track spttb_track.Track, trackMp3 *id3.Tag) bool {
+	return len(track.Song) > 0 && (!*argFlushMissing ||
+		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameSong)))
 }
 
 func subIfSongFlushID3FrameArtist(track spttb_track.Track, trackMp3 *id3.Tag) bool {
@@ -577,9 +640,19 @@ func subIfSongFlushID3FrameYear(track spttb_track.Track, trackMp3 *id3.Tag) bool
 		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameYear)))
 }
 
+func subIfSongFlushID3FrameFeaturings(track spttb_track.Track, trackMp3 *id3.Tag) bool {
+	return len(track.Featurings) > 0 && (!*argFlushMissing ||
+		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameFeaturings)))
+}
+
 func subIfSongFlushID3FrameTrackNumber(track spttb_track.Track, trackMp3 *id3.Tag) bool {
 	return track.TrackNumber > 0 && (!*argFlushMissing ||
 		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameTrackNumber)))
+}
+
+func subIfSongFlushID3FrameTrackTotals(track spttb_track.Track, trackMp3 *id3.Tag) bool {
+	return track.TrackTotals > 0 && (!*argFlushMissing ||
+		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameTrackTotals)))
 }
 
 func subIfSongFlushID3FrameArtwork(track spttb_track.Track, trackMp3 *id3.Tag) bool {
@@ -590,6 +663,11 @@ func subIfSongFlushID3FrameArtwork(track spttb_track.Track, trackMp3 *id3.Tag) b
 func subIfSongFlushID3FrameYouTubeURL(track spttb_track.Track, trackMp3 *id3.Tag) bool {
 	return len(track.URL) > 0 && (!*argFlushMissing ||
 		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameYouTubeURL)))
+}
+
+func subIfSongFlushID3FrameDuration(track spttb_track.Track, trackMp3 *id3.Tag) bool {
+	return track.Duration > 0 && (!*argFlushMissing ||
+		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameDuration)))
 }
 
 func subIfSongFlushID3FrameLyrics(track spttb_track.Track, trackMp3 *id3.Tag) bool {

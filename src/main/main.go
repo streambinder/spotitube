@@ -300,7 +300,7 @@ func mainSearch() {
 
 		subCondSequentialDo(&track)
 
-		gui.Append(fmt.Sprintf("Firing \"%s\" post-download processing for song", track.Filename), spttb_gui.PanelRight)
+		gui.Append(fmt.Sprintf("Firing \"%s\" post-download processing...", track.Filename), spttb_gui.PanelRight)
 		waitGroup.Add(1)
 		go subParallelSongProcess(track, &waitGroup)
 		if *argDebug {
@@ -781,7 +781,7 @@ func subCondArtworkDownload(track *spttb_track.Track) {
 
 func subCondTimestampFlush() {
 	if !*argDisableTimestampFlush {
-		gui.Append("Flusing files timestamps...", spttb_gui.PanelRight)
+		gui.Append("Flushing files timestamps...", spttb_gui.PanelRight)
 		now := time.Now().Local().Add(time.Duration(-1*len(tracks)) * time.Minute)
 		for _, track := range tracks {
 			if !spttb_system.FileExists(track.FilenameFinal()) {

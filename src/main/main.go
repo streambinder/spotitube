@@ -325,6 +325,11 @@ func mainSearch() {
 	for _, track := range tracksFailed {
 		gui.Append(fmt.Sprintf(" - \"%s\"", track.Filename), spttb_gui.PanelRight)
 	}
+
+	notificator.New(notificator.Options{
+		DefaultIcon: "icon/default.png",
+		AppName:     "SpotiTube",
+	}).Push("SpotiTube", "Synchronization completed.", "", notificator.UR_NORMAL)
 	gui.Prompt("Synchronization completed.", spttb_gui.PromptDismissableWithExit)
 }
 
@@ -332,12 +337,6 @@ func mainExit(delay ...time.Duration) {
 	if len(delay) > 0 {
 		time.Sleep(delay[0])
 	}
-
-	notify = notificator.New(notificator.Options{
-		DefaultIcon: "icon/default.png",
-		AppName:     "SpotiTube",
-	})
-	notify.Push("SpotiTube", "Synchronization job exited.", "", notificator.UR_NORMAL)
 
 	os.Exit(0)
 }

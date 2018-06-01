@@ -26,6 +26,7 @@ import (
 	spttb_track "track"
 	spttb_youtube "youtube"
 
+	"github.com/0xAX/notificator"
 	id3 "github.com/bogem/id3v2"
 	api "github.com/zmb3/spotify"
 )
@@ -57,7 +58,8 @@ var (
 	waitGroup     sync.WaitGroup
 	waitGroupPool = make(chan bool, spttb_system.ConcurrencyLimit)
 
-	gui *spttb_gui.Gui
+	gui    *spttb_gui.Gui
+	notify *notificator.Notificator
 )
 
 func main() {
@@ -330,6 +332,13 @@ func mainExit(delay ...time.Duration) {
 	if len(delay) > 0 {
 		time.Sleep(delay[0])
 	}
+
+	notify = notificator.New(notificator.Options{
+		DefaultIcon: "icon/default.png",
+		AppName:     "SpotiTube",
+	})
+	notify.Push("SpotiTube", "Synchronization job exited.", "", notificator.UR_NORMAL)
+
 	os.Exit(0)
 }
 

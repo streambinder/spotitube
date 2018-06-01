@@ -300,7 +300,7 @@ func mainSearch() {
 
 		subCondSequentialDo(&track)
 
-		gui.Append(fmt.Sprintf("Firing \"%s\" post-download processing...", track.Filename), spttb_gui.PanelRight)
+		gui.Append(fmt.Sprintf("Launching song processing jobs..."), spttb_gui.PanelRight)
 		waitGroup.Add(1)
 		go subParallelSongProcess(track, &waitGroup)
 		if *argDebug {
@@ -488,7 +488,7 @@ func subSongNormalize(track spttb_track.Track) {
 	}
 	commandArgs = []string{"-i", track.FilenameTemporary(), "-af", "volume=+" + normalizationDelta + "dB", "-b:a", "320k", "-y", normalizationFile}
 	gui.DebugAppend(fmt.Sprintf("Compensating volume by %sdB...", normalizationDelta), spttb_gui.PanelRight)
-	gui.Append(fmt.Sprintf("Increasing audio quality for: %s...", track.Filename), spttb_gui.PanelRight)
+	gui.DebugAppend(fmt.Sprintf("Increasing audio quality for: %s...", track.Filename), spttb_gui.PanelRight)
 	gui.DebugAppend(fmt.Sprintf("Firing command: \"%s %s\"...", commandCmd, strings.Join(commandArgs, " ")), spttb_gui.PanelRight)
 	if _, commandErr = exec.Command(commandCmd, commandArgs...).Output(); commandErr != nil {
 		gui.WarnAppend(fmt.Sprintf("Something went wrong while normalizing song \"%s\" volume: %s", track.Filename, commandErr.Error()), spttb_gui.PanelRight)
@@ -502,7 +502,7 @@ func subSongFlushMetadata(track spttb_track.Track) {
 	if err != nil {
 		gui.WarnAppend(fmt.Sprintf("Something bad happened while opening: %s", err.Error()), spttb_gui.PanelRight)
 	} else {
-		gui.Append(fmt.Sprintf("Fixing metadata for \"%s\"...", track.Filename), spttb_gui.PanelRight)
+		gui.DebugAppend(fmt.Sprintf("Fixing metadata for \"%s\"...", track.Filename), spttb_gui.PanelRight)
 		if !*argFlushMissing {
 			trackMp3.DeleteAllFrames()
 		}
@@ -755,14 +755,13 @@ func subCondSequentialDo(track *spttb_track.Track) {
 func subCondLyricsFetch(track *spttb_track.Track) {
 	if !*argDisableLyrics && (!*argFlushMissing || (*argFlushMissing && !track.HasID3Frame(spttb_track.ID3FrameLyrics))) {
 		gui.DebugAppend(fmt.Sprintf("Fetching song \"%s\" lyrics...", track.Filename), spttb_gui.PanelRight)
-		err := track.SearchLyrics()
-		if err != nil {
-			gui.WarnAppend(fmt.Sprintf("Something went wrong while searching for song \"%s\" lyrics: %s", track.Filename, err.Error()), spttb_gui.PanelRight)
+		lyricsErr := track.SearchLyrics()
+		if lyricsErr != nil {
+			gui.WarnAppend(fmt.Sprintf("Something went wrong while searching for song lyrics: %s", lyricsErr.Error()), spttb_gui.PanelRight)
 		} else {
-			gui.DebugAppend(fmt.Sprintf("Song lyrics found: %s [...]", track.Lyrics[:30]), spttb_gui.PanelRight)
+			gui.DebugAppend(fmt.Sprintf("Song lyrics found."), spttb_gui.PanelRight)
 		}
 	}
-
 }
 
 func subCondArtworkDownload(track *spttb_track.Track) {

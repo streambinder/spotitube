@@ -2,7 +2,6 @@ package track
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -147,20 +146,20 @@ func searchLyricsOvh(track *Track) (string, error) {
 	lyricsRequest, lyricsError := http.NewRequest(http.MethodGet,
 		fmt.Sprintf(LyricsOVHAPIURL, url.QueryEscape(track.Artist), url.QueryEscape(track.Song)), nil)
 	if lyricsError != nil {
-		return "", errors.New("Unable to compile lyrics request: " + lyricsError.Error())
+		return "", fmt.Errorf("Unable to compile lyrics request: " + lyricsError.Error())
 	}
 	lyricsResponse, lyricsError := lyricsClient.Do(lyricsRequest)
 	if lyricsError != nil {
-		return "", errors.New("Unable to read response from lyrics request: " + lyricsError.Error())
+		return "", fmt.Errorf("Unable to read response from lyrics request: " + lyricsError.Error())
 	}
 	lyricsResponseBody, lyricsError := ioutil.ReadAll(lyricsResponse.Body)
 	if lyricsError != nil {
-		return "", errors.New("Unable to get response body: " + lyricsError.Error())
+		return "", fmt.Errorf("Unable to get response body: " + lyricsError.Error())
 	}
 	lyricsData := LyricsAPIEntry{}
 	lyricsError = json.Unmarshal(lyricsResponseBody, &lyricsData)
 	if lyricsError != nil {
-		return "", errors.New("Unable to parse json from response body: " + lyricsError.Error())
+		return "", fmt.Errorf("Unable to parse json from response body: " + lyricsError.Error())
 	}
 
 	return strings.TrimSpace(unidecode.Unidecode(lyricsData.Lyrics)), nil

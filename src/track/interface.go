@@ -1,7 +1,6 @@
 package track
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -187,11 +186,11 @@ func (track Track) Seems(sequence string) error {
 		return err
 	}
 	if strings.Contains(strings.ToLower(sequence), "full album") {
-		return errors.New("Item seems to be pointing to an album, not to a song")
+		return fmt.Errorf("Item seems to be pointing to an album, not to a song")
 	}
 	for _, songType := range SongTypes {
 		if SeemsType(sequence, songType) && track.SongType != songType {
-			return errors.New("Songs seem to be of different types")
+			return fmt.Errorf("Songs seem to be of different types")
 		}
 	}
 	return nil
@@ -214,7 +213,7 @@ func (track Track) SeemsByWordMatch(sequence string) error {
 		trackItem = strings.TrimSpace(trackItem)
 		trackItem = sanitize.Name(trackItem)
 		if !strings.Contains(sequence, trackItem) {
-			return errors.New("Songs seem to be mismatching by words comparison")
+			return fmt.Errorf("Songs seem to be mismatching by words comparison")
 		}
 	}
 	return nil
@@ -388,17 +387,21 @@ func (track *Track) HasID3Frame(frame int) bool {
 
 // SearchLyrics : search Track lyrics, eventually throwing returning error
 func (track *Track) SearchLyrics() error {
-	geniusLyrics, geniusErr := searchLyricsGenius(track)
-	if geniusErr == nil {
-		track.Lyrics = geniusLyrics
+	var (
+		lyrics    string
+		lyricsErr error
+	)
+	lyrics, lyricsErr = searchLyricsGenius(track)
+	if lyricsErr == nil {
+		track.Lyrics = lyrics
 		return nil
 	}
-	ovhLyrics, ovhErr := searchLyricsOvh(track)
-	if ovhErr == nil {
-		track.Lyrics = ovhLyrics
+	lyrics, lyricsErr = searchLyricsOvh(track)
+	if lyricsErr == nil {
+		track.Lyrics = lyrics
 		return nil
 	}
-	return ovhErr
+	return lyricsErr
 }
 
 // SeemsType : return True if input sequence matches with selected input songType variant

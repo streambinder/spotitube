@@ -26,12 +26,12 @@ func pullTracksFromDoc(track spttb_track.Track, document *goquery.Document) (Tra
 		item := selection.Eq(selectionPointer)
 		itemHref, itemHrefOk := item.Attr("href")
 		itemTitle, itemTitleOk := item.Attr("title")
-		itemUser, itemUserOk := "UNKNOWN", false
+		itemUser, _ := "UNKNOWN", false
 		itemLength, itemLengthOk := 0, false
 		if selectionPointer < len(selectionDesc.Nodes) {
 			itemDesc := selectionDesc.Eq(selectionPointer)
 			itemUser = strings.TrimSpace(itemDesc.Find("a").Text())
-			itemUserOk = true
+			// itemUserOk = true
 		}
 		if selectionPointer < len(selectionDuration.Nodes) {
 			var itemLengthMin, itemLengthSec int
@@ -49,7 +49,7 @@ func pullTracksFromDoc(track spttb_track.Track, document *goquery.Document) (Tra
 				}
 			}
 		}
-		if itemHrefOk && itemTitleOk && itemLengthOk && (itemUserOk || true) &&
+		if itemHrefOk && itemTitleOk && itemLengthOk &&
 			(strings.Contains(strings.ToLower(itemHref), "youtu.be") || !strings.Contains(strings.ToLower(itemHref), "&list=")) &&
 			(strings.Contains(strings.ToLower(itemHref), "youtu.be") || strings.Contains(strings.ToLower(itemHref), "watch?v=")) {
 			tracks = append(tracks, Track{

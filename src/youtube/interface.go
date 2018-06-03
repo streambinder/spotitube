@@ -6,7 +6,6 @@ import (
 	"math"
 	"net/http"
 	"os/exec"
-	"strconv"
 	"strings"
 
 	spttb_track "track"
@@ -15,7 +14,7 @@ import (
 )
 
 // QueryTracks : initialize a Tracks object by searching for Track results
-func QueryTracks(track *spttb_track.Track) (*Tracks, error) {
+func QueryTracks(track *spttb_track.Track) (Tracks, error) {
 	var (
 		doc         *goquery.Document
 		queryString = fmt.Sprintf(YouTubeQueryPattern,
@@ -30,81 +29,14 @@ func QueryTracks(track *spttb_track.Track) (*Tracks, error) {
 		doc, err = goquery.NewDocument(queryString)
 	}
 	if err != nil {
-		return &Tracks{}, fmt.Errorf(fmt.Sprintf("Cannot retrieve doc from \"%s\": %s", queryString, err.Error()))
+		return Tracks{}, fmt.Errorf(fmt.Sprintf("Cannot retrieve doc from \"%s\": %s", queryString, err.Error()))
 	}
 	html, _ := doc.Html()
 	if strings.Contains(strings.ToLower(html), "unusual traffic") {
-		return &Tracks{}, fmt.Errorf("YouTube busted you: you'd better wait few minutes before retrying firing thousands video requests.")
-	}
-	return &Tracks{
-		Track:             track,
-		Selection:         doc.Find(YouTubeHTMLVideoSelector),
-		SelectionDesc:     doc.Find(YouTubeHTMLDescSelector),
-		SelectionDuration: doc.Find(YouTubeHTMLDurationSelector),
-		SelectionPointer:  0,
-	}, nil
-}
-
-// HasNext : return True if current Tracks object still contains results
-func (youtube_tracks *Tracks) HasNext() bool {
-	return youtube_tracks.SelectionPointer+1 < len(youtube_tracks.Selection.Nodes)
-}
-
-// Next : get next Track object from Tracks
-func (youtube_tracks *Tracks) Next() (*Track, error) {
-	var err error
-	if youtube_tracks.HasNext() {
-		youtube_tracks.SelectionPointer++
-		item := youtube_tracks.Selection.Eq(youtube_tracks.SelectionPointer)
-		itemHref, itemHrefOk := item.Attr("href")
-		itemTitle, itemTitleOk := item.Attr("title")
-		itemUser, itemUserOk := "UNKNOWN", false
-		itemLength, itemLengthOk := 0, false
-		if youtube_tracks.SelectionPointer < len(youtube_tracks.SelectionDesc.Nodes) {
-			itemDesc := youtube_tracks.SelectionDesc.Eq(youtube_tracks.SelectionPointer)
-			itemUser = strings.TrimSpace(itemDesc.Find("a").Text())
-			itemUserOk = true
-		}
-		if youtube_tracks.SelectionPointer < len(youtube_tracks.SelectionDuration.Nodes) {
-			var itemLengthMin, itemLengthSec int
-			itemDuration := youtube_tracks.SelectionDuration.Eq(youtube_tracks.SelectionPointer)
-			itemLengthSectr := strings.TrimSpace(itemDuration.Text())
-			if strings.Contains(itemLengthSectr, ": ") {
-				itemLengthSectr = strings.Split(itemLengthSectr, ": ")[1]
-				itemLengthMin, err = strconv.Atoi(strings.Split(itemLengthSectr, ":")[0])
-				if err == nil {
-					itemLengthSec, err = strconv.Atoi(strings.Split(itemLengthSectr, ":")[1][:2])
-					if err == nil {
-						itemLength = itemLengthMin*60 + itemLengthSec
-						itemLengthOk = true
-					}
-				}
-			}
-		}
-		if !(itemHrefOk && itemTitleOk && itemLengthOk) {
-			return &Track{}, fmt.Errorf(fmt.Sprintf("Non-standard YouTube video entry structure: "+
-				"url is %s, title is %s, user is %s, duration is %s.",
-				strconv.FormatBool(itemHrefOk), strconv.FormatBool(itemTitleOk),
-				strconv.FormatBool(itemUserOk), strconv.FormatBool(itemLengthOk)))
-		} else if !strings.Contains(strings.ToLower(itemHref), "youtu.be") &&
-			strings.Contains(strings.ToLower(itemHref), "&list=") {
-			return &Track{}, fmt.Errorf(fmt.Sprintf("Playlist URL found: %s", itemHref))
-		} else if !strings.Contains(strings.ToLower(itemHref), "youtu.be") &&
-			!strings.Contains(strings.ToLower(itemHref), "watch?v=") {
-			return &Track{}, fmt.Errorf(fmt.Sprintf("Advertising URL found: %s", itemHref))
-		}
-
-		return &Track{
-			Track:    youtube_tracks.Track,
-			ID:       IDFromURL(YouTubeVideoPrefix + itemHref),
-			URL:      YouTubeVideoPrefix + itemHref,
-			Title:    itemTitle,
-			User:     itemUser,
-			Duration: itemLength,
-		}, nil
+		return Tracks{}, fmt.Errorf("YouTube busted you: you'd better wait few minutes before retrying firing thousands video requests.")
 	}
 
-	return &Track{}, fmt.Errorf("No more results left on page")
+	return pullTracksFromDoc(*track, doc)
 }
 
 // Match : return nil error if YouTube Track result object is matching with input Track object
@@ -113,8 +45,11 @@ func (youtube_track Track) Match(track spttb_track.Track) error {
 		return fmt.Errorf(fmt.Sprintf("The duration difference is excessive: | %d - %d | = %d (max tolerated: %d)",
 			track.Duration, youtube_track.Duration, int(math.Abs(float64(track.Duration-youtube_track.Duration))), YouTubeDurationTolerance))
 	}
-	if strings.Contains(youtube_track.URL, "&list=") || strings.Contains(youtube_track.URL, "/user/") {
-		return fmt.Errorf("Track is actually pointing to playlist or user")
+	if strings.Contains(youtube_track.URL, "&list=") {
+		return fmt.Errorf("Track is actually pointing to playlist")
+	}
+	if strings.Contains(youtube_track.URL, "/user/") {
+		return fmt.Errorf("Track is actually pointing to user")
 	}
 	return track.Seems(youtube_track.Title)
 }

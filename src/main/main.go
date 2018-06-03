@@ -245,11 +245,8 @@ func mainSearch() {
 				youTubeTrack *spttb_youtube.Track
 				trackPicked  bool
 			)
-			for youTubeTracks.HasNext() {
-				if youTubeTrack, err = youTubeTracks.Next(); err != nil {
-					gui.DebugAppend(fmt.Sprintf("Faulty result: %s.", err.Error()), spttb_gui.PanelRight)
-					continue
-				}
+			for _, youTubeTrackLoopEl := range youTubeTracks {
+				youTubeTrack = &youTubeTrackLoopEl
 
 				gui.DebugAppend(fmt.Sprintf("Result met: ID: %s,\nTitle: %s,\nUser: %s,\nDuration: %d.",
 					youTubeTrack.ID, youTubeTrack.Title, youTubeTrack.User, youTubeTrack.Duration), spttb_gui.PanelRight)

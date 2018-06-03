@@ -1,11 +1,32 @@
 package system
 
 import (
+	"fmt"
 	"io"
 	"math/rand"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 )
+
+// String : string representation for PathsArrayFlag object
+func (flag *PathsArrayFlag) String() string {
+	return fmt.Sprint(flag.Paths)
+}
+
+// Set : set value of a PathsArrayFlag object
+func (flag *PathsArrayFlag) Set(value string) error {
+	paths := strings.Split(value, ",")
+	for _, path := range paths {
+		if pathAbs, err := filepath.Abs(path); err != nil {
+			return err
+		} else {
+			flag.Paths = append(flag.Paths, pathAbs)
+		}
+	}
+	return nil
+}
 
 // Dir : return True if input string path is a directory
 func Dir(path string) bool {

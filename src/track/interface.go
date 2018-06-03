@@ -53,7 +53,7 @@ func OpenLocalTrack(filename string) (Track, error) {
 		Artist:        TagGetFrame(trackMp3, ID3FrameArtist),
 		Album:         TagGetFrame(trackMp3, ID3FrameAlbum),
 		Year:          TagGetFrame(trackMp3, ID3FrameYear),
-		Featurings:    strings.Split(TagGetFrame(trackMp3, ID3FrameTrackNumber), "|"),
+		Featurings:    strings.Split(TagGetFrame(trackMp3, ID3FrameFeaturings), "|"),
 		Genre:         TagGetFrame(trackMp3, ID3FrameGenre),
 		TrackNumber:   0,
 		TrackTotals:   0,
@@ -212,8 +212,9 @@ func (track Track) SeemsByWordMatch(sequence string) error {
 		}
 		trackItem = strings.TrimSpace(trackItem)
 		trackItem = sanitize.Name(trackItem)
-		if !strings.Contains(sequence, trackItem) {
-			return fmt.Errorf("Songs seem to be mismatching by words comparison")
+		if len(trackItem) > 3 && !strings.Contains(sequence, trackItem) {
+			return fmt.Errorf("Songs seem to be mismatching by words comparison: \"%v+\" in \"%s\", due to \"%s\"",
+				append([]string{track.Song, track.Artist}, track.Featurings...), sequence, trackItem)
 		}
 	}
 	return nil

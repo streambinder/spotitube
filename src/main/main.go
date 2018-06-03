@@ -33,7 +33,6 @@ import (
 
 var (
 	argFolder                *string
-	argFixSong               *string
 	argPlaylist              *string
 	argReplaceLocal          *bool
 	argFlushMetadata         *bool
@@ -50,6 +49,7 @@ var (
 	argDebug                 *bool
 	argSimulate              *bool
 	argVersion               *bool
+	argFix                   spttb_system.PathsArrayFlag
 
 	tracks        spttb_track.Tracks
 	tracksFailed  spttb_track.Tracks
@@ -64,8 +64,8 @@ var (
 
 func main() {
 	argFolder = flag.String("folder", ".", "Folder to sync with music")
-	argFixSong = flag.String("fix", "none", "Offline song filename which straighten the shot to")
 	argPlaylist = flag.String("playlist", "none", "Playlist URI to synchronize")
+	flag.Var(&argFix, "fix", "Offline song filename(s) which straighten the shot to")
 	argReplaceLocal = flag.Bool("replace-local", false, "Replace local library songs if better results get encountered")
 	argFlushMetadata = flag.Bool("flush-metadata", false, "Flush metadata informations to already synchronized songs")
 	argFlushMissing = flag.Bool("flush-missing", false, "If -flush-metadata toggled, it will just populate empty id3 frames, instead of flushing any of those")
@@ -88,12 +88,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	if *argFixSong != "none" {
-		if !spttb_system.FileExists(*argFixSong) {
-			fmt.Println(fmt.Sprintf("Chosen song to be fixed \"%s\" does not exist.", *argFixSong))
-			os.Exit(1)
-		}
-		*argFixSong, _ = filepath.Abs(*argFixSong)
+	if len(argFix.Paths) > 0 {
 		*argReplaceLocal = true
 	}
 
@@ -141,7 +136,7 @@ func main() {
 }
 
 func mainFetch() {
-	if *argFixSong == "none" {
+	if len(argFix.Paths) == 0 {
 		spotifyAuthURL := spttb_spotify.AuthURL()
 		gui.Append(fmt.Sprintf("Authentication URL: %s", spotifyAuthURL), spttb_gui.PanelRight|spttb_gui.ParagraphStyleAutoReturn)
 		gui.DebugAppend("Waiting for automatic login process. If wait is too long, manually open that URL.", spttb_gui.PanelRight)
@@ -200,13 +195,15 @@ func mainFetch() {
 		gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Songs missing:", spttb_gui.FontStyleBold), tracks.CountOnline()), spttb_gui.PanelLeftTop)
 		gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Songs duplicates:", spttb_gui.FontStyleBold), tracksDuplicates), spttb_gui.PanelLeftTop)
 	} else {
-		if track, trackErr := spttb_track.OpenLocalTrack(*argFixSong); trackErr != nil {
-			gui.Prompt(fmt.Sprintf("Something went wrong: %s.", trackErr.Error()), spttb_gui.PromptDismissableWithExit)
-			mainExit()
-		} else {
-			gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Song:", spttb_gui.FontStyleBold), track.Song), spttb_gui.PanelLeftTop)
-			gui.DebugAppend(fmt.Sprintf("%+v\n", track), spttb_gui.PanelRight)
-			tracks = append(tracks, track)
+		gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Fix song(s):", spttb_gui.FontStyleBold), len(argFix.Paths)), spttb_gui.PanelLeftTop)
+		for _, fixTrack := range argFix.Paths {
+			if track, trackErr := spttb_track.OpenLocalTrack(fixTrack); trackErr != nil {
+				gui.Prompt(fmt.Sprintf("Something went wrong: %s.", trackErr.Error()), spttb_gui.PromptDismissableWithExit)
+				mainExit()
+			} else {
+				gui.DebugAppend(fmt.Sprintf("%+v\n", track), spttb_gui.PanelRight)
+				tracks = append(tracks, track)
+			}
 		}
 	}
 

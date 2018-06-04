@@ -19,11 +19,11 @@ func (flag *PathsArrayFlag) String() string {
 func (flag *PathsArrayFlag) Set(value string) error {
 	paths := strings.Split(value, ",")
 	for _, path := range paths {
-		if pathAbs, err := filepath.Abs(path); err != nil {
-			return err
-		} else {
-			flag.Paths = append(flag.Paths, pathAbs)
+		pathAbs, pathErr := filepath.Abs(path)
+		if pathErr != nil {
+			return pathErr
 		}
+		flag.Paths = append(flag.Paths, pathAbs)
 	}
 	return nil
 }

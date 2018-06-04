@@ -636,6 +636,19 @@ func subCondFlushID3FrameArtwork(track spttb_track.Track, trackMp3 *id3.Tag) {
 	}
 }
 
+func subCondFlushID3FrameArtworkURL(track spttb_track.Track, trackMp3 *id3.Tag) {
+	if len(track.Image) > 0 && (!*argFlushMissing ||
+		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameArtworkURL))) {
+		gui.DebugAppend("Inflating artwork url metadata...", spttb_gui.PanelRight)
+		trackMp3.AddCommentFrame(id3.CommentFrame{
+			Encoding:    id3.EncodingUTF8,
+			Language:    "eng",
+			Description: "artwork",
+			Text:        track.Image,
+		})
+	}
+}
+
 func subCondFlushID3FrameYouTubeURL(track spttb_track.Track, trackMp3 *id3.Tag) {
 	if len(track.URL) > 0 && (!*argFlushMissing ||
 		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameYouTubeURL))) {

@@ -43,6 +43,8 @@ const (
 	ID3FrameTrackTotals
 	// ID3FrameArtwork : ID3 artwork frame tag identifier
 	ID3FrameArtwork
+	// ID3FrameArtworkURL : ID3 artwork URL frame tag identifier
+	ID3FrameArtworkURL
 	// ID3FrameLyrics : ID3 lyrics frame tag identifier
 	ID3FrameLyrics
 	// ID3FrameYouTubeURL : ID3 youtube URL frame tag identifier

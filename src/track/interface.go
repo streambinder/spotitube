@@ -59,7 +59,7 @@ func OpenLocalTrack(filename string) (Track, error) {
 		TrackTotals:   0,
 		Duration:      0,
 		SongType:      parseType(TagGetFrame(trackMp3, ID3FrameTitle)),
-		Image:         "",
+		Image:         TagGetFrame(trackMp3, ID3FrameArtworkURL),
 		URL:           TagGetFrame(trackMp3, ID3FrameYouTubeURL),
 		Filename:      "",
 		FilenameTemp:  "",
@@ -252,6 +252,8 @@ func TagGetFrame(tag *id3v2.Tag, frame int) string {
 		return TagGetFrameTrackTotals(tag)
 	case ID3FrameArtwork:
 		return TagGetFrameArtwork(tag)
+	case ID3FrameArtworkURL:
+		return TagGetFrameArtworkURL(tag)
 	case ID3FrameLyrics:
 		return TagGetFrameLyrics(tag)
 	case ID3FrameYouTubeURL:
@@ -321,6 +323,19 @@ func TagGetFrameArtwork(tag *id3v2.Tag) string {
 			picture, ok := framePicture.(id3v2.PictureFrame)
 			if ok {
 				return string(picture.Picture)
+			}
+		}
+	}
+	return ""
+}
+
+// TagGetFrameArtworkURL : get artwork URL frame from input Tag
+func TagGetFrameArtworkURL(tag *id3v2.Tag) string {
+	if len(tag.GetFrames(tag.CommonID("Comments"))) > 0 {
+		for _, frameComment := range tag.GetFrames(tag.CommonID("Comments")) {
+			comment, ok := frameComment.(id3v2.CommentFrame)
+			if ok && comment.Description == "artwork" {
+				return comment.Text
 			}
 		}
 	}

@@ -90,6 +90,7 @@ func main() {
 
 	if len(argFix.Paths) > 0 {
 		*argReplaceLocal = true
+		*argFlushMetadata = true
 	}
 
 	if !(spttb_system.Dir(*argFolder)) {
@@ -518,6 +519,7 @@ func subSongFlushMetadata(track spttb_track.Track) {
 		subCondFlushID3FrameTrackNumber(track, trackMp3)
 		subCondFlushID3FrameTrackTotals(track, trackMp3)
 		subCondFlushID3FrameArtwork(track, trackMp3)
+		subCondFlushID3FrameArtworkURL(track, trackMp3)
 		subCondFlushID3FrameYouTubeURL(track, trackMp3)
 		subCondFlushID3FrameDuration(track, trackMp3)
 		subCondFlushID3FrameLyrics(track, trackMp3)

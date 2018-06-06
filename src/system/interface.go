@@ -17,7 +17,7 @@ func (flag *PathsArrayFlag) String() string {
 
 // Set : set value of a PathsArrayFlag object
 func (flag *PathsArrayFlag) Set(value string) error {
-	paths := strings.Split(value, ",")
+	paths := strings.Split(value, ";")
 	for _, path := range paths {
 		pathAbs, pathErr := filepath.Abs(path)
 		if pathErr != nil {

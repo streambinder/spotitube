@@ -230,12 +230,14 @@ func mainSearch() {
 	gui.Append(fmt.Sprintf("%d will be downloaded, %d flushed and %d ignored", songsFetch, songsFlush, songsIgnore), spttb_gui.PanelRight)
 
 	for trackIndex, track := range tracks {
+		gui.LoadingHalfIncrease()
 		gui.Append(fmt.Sprintf("%d/%d: \"%s\"", trackIndex+1, len(tracks), track.Filename), spttb_gui.PanelRight|spttb_gui.FontStyleBold)
 		if subIfSongSearch(&track) {
 			youTubeTracks, err := spttb_youtube.QueryTracks(&track)
 			if err != nil {
 				gui.WarnAppend(fmt.Sprintf("Something went wrong while searching for \"%s\" track: %s.", track.Filename, err.Error()), spttb_gui.PanelRight)
 				tracksFailed = append(tracksFailed, track)
+				gui.LoadingHalfIncrease()
 				continue
 			}
 
@@ -264,16 +266,19 @@ func mainSearch() {
 			if !trackPicked {
 				gui.ErrAppend(fmt.Sprintf("Video for \"%s\" not found.", track.Filename), spttb_gui.PanelRight)
 				tracksFailed = append(tracksFailed, track)
+				gui.LoadingHalfIncrease()
 				continue
 			}
 
 			if *argSimulate {
 				gui.Append(fmt.Sprintf("I would like to download \"%s\" for \"%s\" track, but I'm just simulating.", youTubeTrack.URL, track.Filename), spttb_gui.PanelRight)
+				gui.LoadingHalfIncrease()
 				continue
 			} else if *argReplaceLocal {
 				if track.URL == youTubeTrack.URL && !ansInput {
 					gui.Append(fmt.Sprintf("Track \"%s\" is still the best result I can find.", track.Filename), spttb_gui.PanelRight)
 					gui.DebugAppend(fmt.Sprintf("Local track origin URL %s is the same as YouTube chosen one %s.", track.URL, youTubeTrack.URL), spttb_gui.PanelRight)
+					gui.LoadingHalfIncrease()
 					continue
 				} else {
 					track.URL = ""
@@ -286,13 +291,15 @@ func mainSearch() {
 			if err != nil {
 				gui.WarnAppend(fmt.Sprintf("Something went wrong downloading \"%s\": %s.", track.Filename, err.Error()), spttb_gui.PanelRight)
 				tracksFailed = append(tracksFailed, track)
+				gui.LoadingHalfIncrease()
 				continue
 			} else {
 				track.URL = youTubeTrack.URL
 			}
 		}
 
-		if subIfSongProcess(track) {
+		if !subIfSongProcess(track) {
+			gui.LoadingHalfIncrease()
 			continue
 		}
 
@@ -430,7 +437,7 @@ func subCheckUpdate() {
 }
 
 func subParallelSongProcess(track spttb_track.Track, wg *sync.WaitGroup) {
-	defer gui.LoadingIncrease()
+	defer gui.LoadingHalfIncrease()
 	defer wg.Done()
 	<-waitGroupPool
 
@@ -760,7 +767,7 @@ func subCondManualInputURL(track spttb_track.Track, trackPicked bool, youTubeTra
 }
 
 func subIfSongProcess(track spttb_track.Track) bool {
-	return track.Local && !*argFlushMetadata && !*argReplaceLocal
+	return !track.Local || *argFlushMetadata || *argReplaceLocal
 }
 
 func subCondSequentialDo(track *spttb_track.Track) {

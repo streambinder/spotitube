@@ -234,9 +234,26 @@ func (gui *Gui) LoadingIncrease() error {
 		}
 		maxWidth, _ := view.Size()
 		view.Clear()
-		view.Title = fmt.Sprintf(" %d %% ", guiLoadingCtr*100/guiLoadingMax)
-		fmt.Fprint(view, strings.Repeat(guiLoadingSprint, guiLoadingCtr*maxWidth/guiLoadingMax))
+		view.Title = fmt.Sprintf(" %d %% ", int(math.Floor(guiLoadingCtr))*100/guiLoadingMax)
+		fmt.Fprint(view, strings.Repeat(guiLoadingSprint, int(math.Floor(guiLoadingCtr))*maxWidth/guiLoadingMax))
 		guiLoadingCtr++
+		return nil
+	})
+	return nil
+}
+
+// LoadingHalfIncrease : increase loading bar by half-step
+func (gui *Gui) LoadingHalfIncrease() error {
+	gui.Update(func(gui *gocui.Gui) error {
+		view, err := gui.View(Panels[PanelLoading])
+		if err != nil {
+			return err
+		}
+		maxWidth, _ := view.Size()
+		view.Clear()
+		view.Title = fmt.Sprintf(" %d %% ", int(math.Floor(guiLoadingCtr))*100/guiLoadingMax)
+		fmt.Fprint(view, strings.Repeat(guiLoadingSprint, int(math.Floor(guiLoadingCtr))*maxWidth/guiLoadingMax))
+		guiLoadingCtr += 0.5
 		return nil
 	})
 	return nil

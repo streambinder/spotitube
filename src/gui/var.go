@@ -36,7 +36,7 @@ var (
 	guiPromptInput   chan string
 	guiPromptMutex   sync.Mutex
 	guiAppendMutex   sync.Mutex
-	guiLoadingCtr    int
+	guiLoadingCtr    float64
 	guiLoadingMax    = 100
 	guiLoadingSprint = color.New(color.BgWhite).SprintFunc()(" ")
 

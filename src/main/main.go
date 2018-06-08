@@ -278,7 +278,6 @@ func mainSearch() {
 				} else {
 					track.URL = ""
 					track.Local = false
-					os.Remove(track.FilenameFinal())
 				}
 			}
 

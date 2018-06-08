@@ -130,7 +130,7 @@ func main() {
 		fmt.Println("Signal captured: cleaning up temporary files...")
 		junks := subCleanJunks()
 		fmt.Println(fmt.Sprintf("Cleaned up %d files. Exiting.", junks))
-		mainExit(1 * time.Second)
+		mainExit()
 	}()
 
 	mainFetch()

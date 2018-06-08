@@ -242,6 +242,8 @@ func mainSearch() {
 			var (
 				youTubeTrack *spttb_youtube.Track
 				trackPicked  bool
+				ansAutomated bool
+				ansInput     bool
 			)
 			for _, youTubeTrackLoopEl := range youTubeTracks {
 				youTubeTrack = &youTubeTrackLoopEl
@@ -249,7 +251,7 @@ func mainSearch() {
 				gui.DebugAppend(fmt.Sprintf("Result met: ID: %s,\nTitle: %s,\nUser: %s,\nDuration: %d.",
 					youTubeTrack.ID, youTubeTrack.Title, youTubeTrack.User, youTubeTrack.Duration), spttb_gui.PanelRight)
 
-				ansAutomated, ansInput := subMatchResult(track, youTubeTrack)
+				ansAutomated, ansInput = subMatchResult(track, youTubeTrack)
 				if subIfPickFromAns(ansAutomated, ansInput) {
 					gui.Append(fmt.Sprintf("Video \"%s\" is good to go for \"%s\".", youTubeTrack.Title, track.Filename), spttb_gui.PanelRight)
 					trackPicked = true
@@ -269,7 +271,7 @@ func mainSearch() {
 				gui.Append(fmt.Sprintf("I would like to download \"%s\" for \"%s\" track, but I'm just simulating.", youTubeTrack.URL, track.Filename), spttb_gui.PanelRight)
 				continue
 			} else if *argReplaceLocal {
-				if track.URL == youTubeTrack.URL {
+				if track.URL == youTubeTrack.URL && !ansInput {
 					gui.Append(fmt.Sprintf("Track \"%s\" is still the best result I can find.", track.Filename), spttb_gui.PanelRight)
 					gui.DebugAppend(fmt.Sprintf("Local track origin URL %s is the same as YouTube chosen one %s.", track.URL, youTubeTrack.URL), spttb_gui.PanelRight)
 					continue

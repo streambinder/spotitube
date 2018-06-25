@@ -111,6 +111,11 @@ It's not a good deal to hardcode these application credentials into the source c
 This is the reason behind the choice to hide those credentials from the source code, and applying - expliciting as environment variables - them during the compilation phase.
 On the other hand, this unfortunately means that no one can compile the tool but me (or anyone else which the keys are granted to): if you want, you can easily create an application to the Spotify [developer area](https://beta.developer.spotify.com/dashboard/applications) and use your own credentials.
 
+For the ones moving this way, keep in mind:
+
+1.  `SPOTIFY_KEY` is associated to `SPOTIFY_ID`: if you create your own app, remember to override both values provided to you by Spotify developers dashboard;
+2.  If you do not want to manually alter the code to make SpotiTube listen on different URI for Spotify authentication flow completion, you'd better set up `http://localhost:8080/callback` as callback URI of your Spotify app.
+
 ### How to use
 
 ```bash

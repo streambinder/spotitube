@@ -119,9 +119,8 @@ func InputConfirm(message string) bool {
 		response = string(strings.ToLower(strings.TrimSpace(response))[0])
 		if response == "y" {
 			return true
-		} else {
-			return false
 		}
+		return false
 	}
 }
 

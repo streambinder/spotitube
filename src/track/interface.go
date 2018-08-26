@@ -441,16 +441,14 @@ func SeemsType(sequence string, songType int) bool {
 	}
 
 	for _, songTypeAlias := range songTypeAliases {
-		sequenceTmp := sequence
-		if len(songTypeAlias) == 1 {
-			sequenceTmp = strings.ToLower(sequence)
-		} else {
-			sequenceTmp = sanitize.Name(strings.ToLower(sequence))
+		sequence = strings.ToLower(sequence)
+		if len(songTypeAlias) != 1 {
+			sequence = sanitize.Name(sequence)
 		}
 		if len(sanitize.Name(strings.ToLower(songTypeAlias))) == len(songTypeAlias) {
 			songTypeAlias = sanitize.Name(strings.ToLower(songTypeAlias))
 		}
-		if strings.Contains(sequenceTmp, songTypeAlias) {
+		if strings.Contains(sequence, songTypeAlias) {
 			return true
 		}
 	}

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"os/user"
 	"path/filepath"
 	"regexp"
@@ -46,6 +47,7 @@ var (
 	argInteractive           *bool
 	argCleanJunks            *bool
 	argLog                   *bool
+	argDisableGui            *bool
 	argDebug                 *bool
 	argSimulate              *bool
 	argVersion               *bool
@@ -78,6 +80,7 @@ func main() {
 	argInteractive = flag.Bool("interactive", false, "Enable interactive mode")
 	argCleanJunks = flag.Bool("clean-junks", false, "Scan for junks file and clean them")
 	argLog = flag.Bool("log", false, "Enable logging into file ./spotitube.log")
+	argDisableGui = flag.Bool("disable-gui", false, "Disable GUI to reduce noise and increase readability of program flow")
 	argDebug = flag.Bool("debug", false, "Enable debug messages")
 	argSimulate = flag.Bool("simulate", false, "Simulate process flow, without really altering filesystem")
 	argVersion = flag.Bool("version", false, "Print version")
@@ -110,7 +113,15 @@ func main() {
 		os.Exit(0)
 	}
 
-	gui = spttb_gui.Build(*argDebug)
+	var guiOptions uint64
+	if *argDebug {
+		guiOptions = guiOptions | spttb_gui.GuiDebugMode
+	}
+	if *argDisableGui {
+		guiOptions = guiOptions | spttb_gui.GuiSilentMode
+	}
+	gui = spttb_gui.Build(guiOptions)
+
 	gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Folder:", spttb_gui.FontStyleBold), *argFolder), spttb_gui.PanelLeftTop)
 	if *argLog {
 		gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Log:", spttb_gui.FontStyleBold), spttb_logger.DefaultLogFname), spttb_gui.PanelLeftTop)
@@ -125,13 +136,20 @@ func main() {
 	subCheckInternet()
 	subCheckUpdate()
 
-	go func() {
-		<-gui.Closing
-		fmt.Println("Signal captured: cleaning up temporary files...")
-		junks := subCleanJunks()
-		fmt.Println(fmt.Sprintf("Cleaned up %d files. Exiting.", junks))
-		mainExit()
-	}()
+	if *argDisableGui {
+		channel := make(chan os.Signal, 1)
+		signal.Notify(channel, os.Interrupt)
+		go func() {
+			for _ = range channel {
+				subSafeExit()
+			}
+		}()
+	} else {
+		go func() {
+			<-gui.Closing
+			subSafeExit()
+		}()
+	}
 
 	mainFetch()
 }
@@ -232,7 +250,7 @@ func mainSearch() {
 	for trackIndex, track := range tracks {
 		gui.LoadingHalfIncrease()
 		gui.Append(fmt.Sprintf("%d/%d: \"%s\"", trackIndex+1, len(tracks), track.Filename), spttb_gui.PanelRight|spttb_gui.FontStyleBold)
-		if subIfSongSearch(&track) {
+		if subIfSongSearch(track) {
 			youTubeTracks, err := spttb_youtube.QueryTracks(&track)
 			if err != nil {
 				gui.WarnAppend(fmt.Sprintf("Something went wrong while searching for \"%s\" track: %s.", track.Filename, err.Error()), spttb_gui.PanelRight)
@@ -242,28 +260,25 @@ func mainSearch() {
 			}
 
 			var (
-				youTubeTrack *spttb_youtube.Track
-				trackPicked  bool
+				youTubeTrack = spttb_youtube.Track{}
 				ansAutomated bool
 				ansInput     bool
 			)
 			for _, youTubeTrackLoopEl := range youTubeTracks {
-				youTubeTrack = &youTubeTrackLoopEl
-
 				gui.DebugAppend(fmt.Sprintf("Result met: ID: %s,\nTitle: %s,\nUser: %s,\nDuration: %d.",
-					youTubeTrack.ID, youTubeTrack.Title, youTubeTrack.User, youTubeTrack.Duration), spttb_gui.PanelRight)
+					youTubeTrackLoopEl.ID, youTubeTrackLoopEl.Title, youTubeTrackLoopEl.User, youTubeTrackLoopEl.Duration), spttb_gui.PanelRight)
 
-				ansAutomated, ansInput = subMatchResult(track, youTubeTrack)
+				ansAutomated, ansInput = subMatchResult(track, youTubeTrackLoopEl)
 				if subIfPickFromAns(ansAutomated, ansInput) {
-					gui.Append(fmt.Sprintf("Video \"%s\" is good to go for \"%s\".", youTubeTrack.Title, track.Filename), spttb_gui.PanelRight)
-					trackPicked = true
+					gui.Append(fmt.Sprintf("Video \"%s\" is good to go for \"%s\".", youTubeTrackLoopEl.Title, track.Filename), spttb_gui.PanelRight)
+					youTubeTrack = youTubeTrackLoopEl
 					break
 				}
 			}
 
-			trackPicked, youTubeTrack = subCondManualInputURL(track, trackPicked, youTubeTrack)
+			subCondManualInputURL(&youTubeTrack)
 
-			if !trackPicked {
+			if youTubeTrack == (spttb_youtube.Track{}) {
 				gui.ErrAppend(fmt.Sprintf("Video for \"%s\" not found.", track.Filename), spttb_gui.PanelRight)
 				tracksFailed = append(tracksFailed, track)
 				gui.LoadingHalfIncrease()
@@ -698,7 +713,7 @@ func subCondFlushID3FrameLyrics(track spttb_track.Track, trackMp3 *id3.Tag) {
 	}
 }
 
-func subIfSongSearch(track *spttb_track.Track) bool {
+func subIfSongSearch(track spttb_track.Track) bool {
 	return !track.Local || *argReplaceLocal || *argSimulate
 }
 
@@ -722,7 +737,7 @@ func subCountSongs() (int, int, int) {
 	return songsFetch, songsFlush, songsIgnore
 }
 
-func subMatchResult(track spttb_track.Track, youTubeTrack *spttb_youtube.Track) (bool, bool) {
+func subMatchResult(track spttb_track.Track, youTubeTrack spttb_youtube.Track) (bool, bool) {
 	var (
 		ansInput     bool
 		ansAutomated bool
@@ -751,19 +766,18 @@ func subIfPickFromAns(ansAutomated bool, ansInput bool) bool {
 	return (!*argInteractive && ansAutomated) || (*argInteractive && ansInput)
 }
 
-func subCondManualInputURL(track spttb_track.Track, trackPicked bool, youTubeTrack *spttb_youtube.Track) (bool, *spttb_youtube.Track) {
-	if *argInteractive && !trackPicked {
+func subCondManualInputURL(youTubeTrack *spttb_youtube.Track) {
+	if *argInteractive && *youTubeTrack == (spttb_youtube.Track{}) {
 		inputURL := gui.PromptInputMessage("Video not found. Please, enter URL manually", spttb_gui.PromptDismissable)
 		if len(inputURL) > 0 {
-			if err := spttb_youtube.ValidateURL(inputURL); err != nil {
-				gui.Prompt(fmt.Sprintf("Something went wrong: %s", err.Error()), spttb_gui.PromptDismissable)
+			if err := spttb_youtube.ValidateURL(inputURL); err == nil {
+				youTubeTrack.Title = "input video"
+				youTubeTrack.URL = inputURL
 			} else {
-				trackPicked = true
-				youTubeTrack = &spttb_youtube.Track{Track: &track, Title: "input video", URL: inputURL}
+				gui.Prompt(fmt.Sprintf("Something went wrong: %s", err.Error()), spttb_gui.PromptDismissable)
 			}
 		}
 	}
-	return trackPicked, youTubeTrack
 }
 
 func subIfSongProcess(track spttb_track.Track) bool {
@@ -889,4 +903,11 @@ func subCleanJunks() int {
 		}
 	}
 	return removedJunks
+}
+
+func subSafeExit() {
+	fmt.Println("Signal captured: cleaning up temporary files...")
+	junks := subCleanJunks()
+	fmt.Println(fmt.Sprintf("Cleaned up %d files. Exiting.", junks))
+	mainExit()
 }

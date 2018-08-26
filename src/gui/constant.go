@@ -56,4 +56,9 @@ const (
 	_
 	// LogNoWrite : identifier for log writing temporarily disable (if Gui has a Logger)
 	LogNoWrite
+	_
+	// GuiSilentMode : identifier for make gui as silent as possible
+	GuiSilentMode
+	// GuiDebugMode : identifier for enabling debug mode
+	GuiDebugMode
 )

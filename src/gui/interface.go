@@ -7,28 +7,40 @@ import (
 	"strings"
 
 	spttb_logger "logger"
+	spttb_system "system"
 
 	"github.com/fatih/color"
 	"github.com/jroimartin/gocui"
 )
 
 // Build : generate a Gui object
-func Build(verbose bool) *Gui {
-	var gui *gocui.Gui
-	guiReady = make(chan *gocui.Gui)
-	go subGuiRun()
-	gui = <-guiReady
-	guiWidth, guiHeight := gui.Size()
+func Build(options uint64) *Gui {
+	if (options & GuiSilentMode) == 0 {
+		var gui *gocui.Gui
+		guiReady = make(chan *gocui.Gui)
+		go subGuiRun()
+		gui = <-guiReady
+		guiWidth, guiHeight := gui.Size()
 
-	singleton = &Gui{
-		gui,
-		guiWidth,
-		guiHeight,
-		verbose,
-		make(chan bool),
-		nil,
+		singleton = &Gui{
+			gui,
+			guiWidth,
+			guiHeight,
+			options,
+			make(chan bool),
+			nil,
+		}
+		return singleton
+	} else {
+		return &Gui{
+			&gocui.Gui{},
+			0,
+			0,
+			options,
+			make(chan bool),
+			nil,
+		}
 	}
-	return singleton
 }
 
 // LinkLogger : link input Logger logger to Gui
@@ -39,6 +51,11 @@ func (gui *Gui) LinkLogger(logger *spttb_logger.Logger) error {
 
 // Append : add input string message to input uint64 options driven space
 func (gui *Gui) Append(message string, options uint64) error {
+	if (gui.Options & GuiSilentMode) != 0 {
+		fmt.Println(message)
+		return nil
+	}
+
 	guiAppendMutex.Lock()
 	defer guiAppendMutex.Unlock()
 
@@ -70,6 +87,11 @@ func (gui *Gui) Append(message string, options uint64) error {
 
 // ClearAppend : add input string message to input uint64 options driven space, after clearing its container
 func (gui *Gui) ClearAppend(message string, options uint64) error {
+	if (gui.Options & GuiSilentMode) != 0 {
+		fmt.Println(message)
+		return nil
+	}
+
 	var (
 		view  *gocui.View
 		err   error
@@ -102,7 +124,7 @@ func (gui *Gui) WarnAppend(message string, options uint64) error {
 
 // DebugAppend : add input string message, formatted as debug message, to input uint64 options driven space
 func (gui *Gui) DebugAppend(message string, options uint64) error {
-	if !gui.Verbose {
+	if (gui.Options & GuiDebugMode) == 0 {
 		return nil
 	}
 	return gui.Append(message, options|ParagraphStyleAutoReturn|FontColorMagenta)
@@ -110,8 +132,14 @@ func (gui *Gui) DebugAppend(message string, options uint64) error {
 
 // Prompt : show a prompt containing input string message, driven with input uint64 options
 func (gui *Gui) Prompt(message string, options uint64) error {
+	if (gui.Options & GuiSilentMode) != 0 {
+		fmt.Println(message)
+		return nil
+	}
+
 	guiPromptMutex.Lock()
 	defer guiPromptMutex.Unlock()
+
 	guiPromptDismiss = make(chan bool)
 	if (options&LogNoWrite) == 0 && gui.Logger != nil {
 		gui.Logger.Append(message)
@@ -143,8 +171,13 @@ func (gui *Gui) Prompt(message string, options uint64) error {
 
 // PromptInput : show a confirmation/cancel prompt containing input string message, driven with input uint64 options
 func (gui *Gui) PromptInput(message string, options uint64) bool {
+	if (gui.Options & GuiSilentMode) != 0 {
+		return spttb_system.InputConfirm(message)
+	}
+
 	guiPromptMutex.Lock()
 	defer guiPromptMutex.Unlock()
+
 	guiPromptDismiss = make(chan bool)
 	gui.Update(func(gui *gocui.Gui) error {
 		var (
@@ -177,8 +210,13 @@ func (gui *Gui) PromptInput(message string, options uint64) bool {
 
 // PromptInputMessage : show an input prompt containing input string message, driven with input uint64 options
 func (gui *Gui) PromptInputMessage(message string, options uint64) string {
+	if (gui.Options & GuiSilentMode) != 0 {
+		return spttb_system.InputString(message)
+	}
+
 	guiPromptMutex.Lock()
 	defer guiPromptMutex.Unlock()
+
 	guiPromptInput = make(chan string)
 	gui.Update(func(gui *gocui.Gui) error {
 		var (
@@ -211,6 +249,10 @@ func (gui *Gui) LoadingSetMax(max int) error {
 
 // LoadingFill : fill up the bottom loading bar
 func (gui *Gui) LoadingFill() error {
+	if (gui.Options & GuiSilentMode) != 0 {
+		return nil
+	}
+
 	gui.Update(func(gui *gocui.Gui) error {
 		view, err := gui.View(Panels[PanelLoading])
 		if err != nil {
@@ -227,6 +269,10 @@ func (gui *Gui) LoadingFill() error {
 
 // LoadingIncrease : increase loading bar
 func (gui *Gui) LoadingIncrease() error {
+	if (gui.Options & GuiSilentMode) != 0 {
+		return nil
+	}
+
 	gui.Update(func(gui *gocui.Gui) error {
 		view, err := gui.View(Panels[PanelLoading])
 		if err != nil {
@@ -244,6 +290,10 @@ func (gui *Gui) LoadingIncrease() error {
 
 // LoadingHalfIncrease : increase loading bar by half-step
 func (gui *Gui) LoadingHalfIncrease() error {
+	if (gui.Options & GuiSilentMode) != 0 {
+		return nil
+	}
+
 	gui.Update(func(gui *gocui.Gui) error {
 		view, err := gui.View(Panels[PanelLoading])
 		if err != nil {

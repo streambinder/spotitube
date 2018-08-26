@@ -11,7 +11,7 @@ type Gui struct {
 	*gocui.Gui
 	Width   int
 	Height  int
-	Verbose bool
+	Options uint64
 	Closing chan bool
 	Logger  *spttb_logger.Logger
 }

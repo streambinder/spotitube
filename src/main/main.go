@@ -140,7 +140,7 @@ func main() {
 		channel := make(chan os.Signal, 1)
 		signal.Notify(channel, os.Interrupt)
 		go func() {
-			for _ = range channel {
+			for range channel {
 				subSafeExit()
 			}
 		}()

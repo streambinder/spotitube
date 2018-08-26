@@ -31,15 +31,15 @@ func Build(options uint64) *Gui {
 			nil,
 		}
 		return singleton
-	} else {
-		return &Gui{
-			&gocui.Gui{},
-			0,
-			0,
-			options,
-			make(chan bool),
-			nil,
-		}
+	}
+
+	return &Gui{
+		&gocui.Gui{},
+		0,
+		0,
+		options,
+		make(chan bool),
+		nil,
 	}
 }
 

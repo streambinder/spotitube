@@ -277,6 +277,7 @@ func mainSearch() {
 			}
 
 			subCondManualInputURL(&youTubeTrack)
+			youTubeTrack.Track = &track
 
 			if youTubeTrack == (spttb_youtube.Track{}) {
 				gui.ErrAppend(fmt.Sprintf("Video for \"%s\" not found.", track.Filename), spttb_gui.PanelRight)

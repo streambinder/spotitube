@@ -11,20 +11,22 @@ import (
 )
 
 // AuthURL : generate new authentication URL
-func AuthURL() string {
+func AuthURL() *SpotifyAuthURL {
 	clientAuthenticator.SetAuthInfo(SpotifyClientID, SpotifyClientSecret)
 	spotifyURL := clientAuthenticator.AuthURL(clientState)
 	tinyURL := fmt.Sprintf("http://tinyurl.com/api-create.php?url=%s", spotifyURL)
 	tinyResponse, tinyErr := http.Get(tinyURL)
 	if tinyErr != nil {
-		return spotifyURL
+		return &SpotifyAuthURL{Full: spotifyURL, Short: ""}
 	}
 	defer tinyResponse.Body.Close()
 	tinyContent, tinyErr := ioutil.ReadAll(tinyResponse.Body)
 	if tinyErr != nil {
-		return spotifyURL
+		return &SpotifyAuthURL{Full: spotifyURL, Short: ""}
+
 	}
-	return string(tinyContent)
+	return &SpotifyAuthURL{Full: spotifyURL, Short: string(tinyContent)}
+
 }
 
 // NewClient : return a new Spotify instance

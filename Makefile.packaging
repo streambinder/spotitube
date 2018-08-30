@@ -18,10 +18,10 @@ pkg_deb: bin
 	@ ( \
 		cp assets/packaging/deb/DEBIAN/control{,.orig}; \
 		sed -i 's|:VERSION:|$(VERSION)|g' assets/packaging/deb/DEBIAN/control; \
-		sed -i 's|:BINARY:|$(BINARY)|g' assets/packaging/deb/DEBIAN/control; \
 		cd assets/packaging/deb; \
 		mkdir -p usr/sbin; \
 		cp $(BINARY) usr/sbin/; \
+		echo $(PKG_NAME); \
 		dpkg-deb --build . $(PKG_NAME).deb; \
 		rm -f usr/sbin/*; \
 		cd ../../..; \
@@ -36,7 +36,6 @@ pkg_eopkg: bin
 		sudo solbuild update; \
 		cp assets/packaging/eopkg/pspec.xml{,.orig}; \
 		sed -i 's|:VERSION:|$(VERSION)|g' assets/packaging/eopkg/pspec.xml; \
-		sed -i 's|:BINARY:|$(BINARY)|g' assets/packaging/eopkg/pspec.xml; \
 		cp $(BINARY) assets/packaging/eopkg/files/; \
 		sudo solbuild build assets/packaging/eopkg/pspec.xml; \
 		mv spotitube-*.eopkg $(PKG_NAME).eopkg; \

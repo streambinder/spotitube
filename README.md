@@ -157,7 +157,7 @@ You may want to use some of the following input flags:
 4.  `-pls-file`: swap playlist file format, from `.m3u` - which is the default - to `.pls`.
 5.  `-disable-lyrics`: disable download of songs lyrics and their application into `mp3`.
 6.  `-disable-timestamp-flush`: disable automatic songs files timestamps flush to keep library/playlist order.
-7.  `-disable-update-check`: disable automatic update check at startup.
+7.  `-disable-update-check`: disable automatic update check at startup (and eventually consequent self-updating procedure).
 8.  `-interactive`: enable interactive mode. This allows to eventually override `spotitube` decisions about which _YouTube_ result to pick, prompting for user input on every - legal - song it encounters.
 9.  `-flush-metadata`: enable metadata informations flush also for songs that have been already synchronized.
 10. `-flush-missing`: if `-flush-metadata` toggled, it will just populate empty id3 frames, instead of flushing any of those.

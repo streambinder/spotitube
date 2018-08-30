@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -18,6 +19,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	spttb_gui "gui"
@@ -66,6 +68,16 @@ var (
 )
 
 func main() {
+	var (
+		currentUser, _ = user.Current()
+		currentBin, _  = filepath.Abs(os.Args[0])
+		userLocalBin   = fmt.Sprintf("%s/.spotitube/spotitube", currentUser.HomeDir)
+	)
+	if currentBin != userLocalBin && spttb_system.FileExists(userLocalBin) && os.Getenv("FORKED") != "1" {
+		syscall.Exec(userLocalBin, os.Args, append(os.Environ(), []string{"FORKED=1"}...))
+		mainExit()
+	}
+
 	argFolder = flag.String("folder", ".", "Folder to sync with music")
 	argPlaylist = flag.String("playlist", "none", "Playlist URI to synchronize")
 	flag.Var(&argFix, "fix", "Offline song filename(s) which straighten the shot to")
@@ -128,6 +140,11 @@ func main() {
 		gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Log:", spttb_gui.FontStyleBold), spttb_logger.DefaultLogFname), spttb_gui.PanelLeftTop)
 	}
 	gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Version:", spttb_gui.FontStyleBold), spttb_system.Version), spttb_gui.PanelLeftBottom)
+	if os.Getenv("FORKED") == "1" {
+		gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Caller:", spttb_gui.FontStyleBold), "automatically updated"), spttb_gui.PanelLeftBottom)
+	} else {
+		gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Caller:", spttb_gui.FontStyleBold), "installed"), spttb_gui.PanelLeftBottom)
+	}
 	gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Date:", spttb_gui.FontStyleBold), time.Now().Format("2006-01-02 15:04:05")), spttb_gui.PanelLeftBottom)
 	gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("URL:", spttb_gui.FontStyleBold), spttb_system.VersionRepository), spttb_gui.PanelLeftBottom)
 	gui.Append(fmt.Sprintf("%s GPLv2", spttb_gui.MessageStyle("License:", spttb_gui.FontStyleBold)), spttb_gui.PanelLeftBottom)
@@ -439,10 +456,8 @@ func subCheckUpdate() {
 							if versionError != nil {
 								gui.WarnAppend(fmt.Sprintf("Unable to fetch latest version value: %s", versionError.Error()), spttb_gui.PanelRight)
 							} else if versionValue != spttb_system.Version {
-								gui.WarnAppend(fmt.Sprintf("You're not aligned to the latest available version.\n"+
-									"Although you're not forced to update, new updates mean more solid and better performing software.\n"+
-									"You can find the updated version at: %s", spttb_system.VersionURL), spttb_gui.PanelRight)
-								gui.Prompt("Press enter to continue or CTRL+C to exit.", spttb_gui.PromptDismissable)
+								gui.Append(fmt.Sprintf("Going to update from %d to %d version.", spttb_system.Version, versionValue), spttb_gui.PanelRight)
+								subUpdateSoftware(versionResponseBody)
 							}
 							gui.DebugAppend(fmt.Sprintf("Actual version %d, online version %d.", spttb_system.Version, versionValue), spttb_gui.PanelRight)
 						}
@@ -450,6 +465,83 @@ func subCheckUpdate() {
 				}
 			}
 		}
+	}
+}
+
+func subUpdateSoftware(latestRelease []byte) {
+	var (
+		api             map[string]interface{}
+		binaryName      string
+		binaryURL       string
+		binaryTempFname string
+	)
+	unmarshalErr := json.Unmarshal([]byte(latestRelease), &api)
+	if unmarshalErr != nil {
+		gui.WarnAppend(fmt.Sprintf("Unable to unmarshal Github latest relase data: %s", unmarshalErr.Error()), spttb_gui.PanelRight)
+		return
+	}
+	for _, asset := range api["assets"].([]interface{}) {
+		binaryName = asset.(map[string]interface{})["name"].(string)
+		if filepath.Ext(binaryName) == ".bin" {
+			binaryURL = asset.(map[string]interface{})["browser_download_url"].(string)
+			break
+		}
+	}
+
+	binaryTempFname = fmt.Sprintf("/tmp/.%s", binaryName)
+	binaryOutput, err := os.Create(binaryTempFname)
+	if err != nil {
+		gui.WarnAppend(fmt.Sprintf("Unable to create temporary updated binary file: %s", err.Error()), spttb_gui.PanelRight)
+		return
+	}
+	defer binaryOutput.Close()
+
+	gui.Append(fmt.Sprintf("Downloading update from %s...", binaryURL), spttb_gui.PanelRight)
+	binaryPayload, err := http.Get(binaryURL)
+	if err != nil {
+		gui.WarnAppend(fmt.Sprintf("Unable to download from %s: %s", binaryURL, err.Error()), spttb_gui.PanelRight)
+		return
+	}
+	defer binaryPayload.Body.Close()
+
+	_, err = io.Copy(binaryOutput, binaryPayload.Body)
+	if err != nil {
+		gui.WarnAppend(fmt.Sprintf("Error while downloading from %s: %s", binaryURL, err.Error()), spttb_gui.PanelRight)
+		return
+	}
+
+	if user, err := user.Current(); err == nil {
+		var (
+			binaryFolder string = fmt.Sprintf("%s/.spotitube", user.HomeDir)
+			binaryFname  string = fmt.Sprintf("%s/spotitube", binaryFolder)
+		)
+		err = spttb_system.Mkdir(binaryFolder)
+		if err != nil {
+			gui.WarnAppend(fmt.Sprintf("Unable to create binary container folder at %s: %s", binaryFolder, err.Error()), spttb_gui.PanelRight)
+			return
+		}
+		os.Remove(binaryFname)
+		err = spttb_system.FileCopy(binaryTempFname, binaryFname)
+		if err != nil {
+			gui.WarnAppend(fmt.Sprintf("Unable to persist new binary to %s: %s", binaryFname, err.Error()), spttb_gui.PanelRight)
+			return
+		} else {
+			os.Remove(binaryTempFname)
+		}
+
+		err = os.Chmod(binaryFname, 0755)
+		if err != nil {
+			gui.WarnAppend(fmt.Sprintf("Unable to make %s executable: %s", binaryFname, err.Error()), spttb_gui.PanelRight)
+			return
+		}
+
+		err = syscall.Exec(binaryFname, os.Args, os.Environ())
+		if err != nil {
+			gui.ErrAppend(fmt.Sprintf("Unable to exec updated instance: %s", err.Error()), spttb_gui.PanelRight)
+		}
+		mainExit()
+	} else {
+		return
 	}
 }
 

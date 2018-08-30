@@ -42,6 +42,17 @@ func Dir(path string) bool {
 	return fileStat.IsDir()
 }
 
+// Mkdir : create directory dir if not already existing
+func Mkdir(dir string) error {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		err = os.MkdirAll(dir, 0755)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // MakeRange : return a range array between input int(s) min and max
 func MakeRange(min, max int) []int {
 	a := make([]int, max-min+1)

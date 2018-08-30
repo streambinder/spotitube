@@ -8,3 +8,9 @@ import (
 type Spotify struct {
 	Client *api.Client
 }
+
+// SpotifyAuthURL : struct object containing both the full authentication URL provided by Spotify and the shortened one using TinyURL
+type SpotifyAuthURL struct {
+	Full  string
+	Short string
+}

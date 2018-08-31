@@ -278,16 +278,16 @@ func mainSearch() {
 			}
 
 			var (
-				youTubeTrack = spttb_youtube.Track{}
-				ansAutomated bool
-				ansInput     bool
+				youTubeTrack         = spttb_youtube.Track{}
+				youTubeTrackPickAuto bool
+				youTubeTrackPick     bool
 			)
 			for _, youTubeTrackLoopEl := range youTubeTracks {
 				gui.DebugAppend(fmt.Sprintf("Result met: ID: %s,\nTitle: %s,\nUser: %s,\nDuration: %d.",
 					youTubeTrackLoopEl.ID, youTubeTrackLoopEl.Title, youTubeTrackLoopEl.User, youTubeTrackLoopEl.Duration), spttb_gui.PanelRight)
 
-				ansAutomated, ansInput = subMatchResult(track, youTubeTrackLoopEl)
-				if subIfPickFromAns(ansAutomated, ansInput) {
+				youTubeTrackPickAuto, youTubeTrackPick = subMatchResult(track, youTubeTrackLoopEl)
+				if subIfPickFromAns(youTubeTrackPickAuto, youTubeTrackPick) {
 					gui.Append(fmt.Sprintf("Video \"%s\" is good to go for \"%s\".", youTubeTrackLoopEl.Title, track.Filename), spttb_gui.PanelRight)
 					youTubeTrack = youTubeTrackLoopEl
 					break
@@ -313,7 +313,7 @@ func mainSearch() {
 				gui.LoadingHalfIncrease()
 				continue
 			} else if *argReplaceLocal {
-				if track.URL == youTubeTrack.URL && !ansInput {
+				if track.URL == youTubeTrack.URL && !youTubeTrackPick {
 					gui.Append(fmt.Sprintf("Track \"%s\" is still the best result I can find.", track.Filename), spttb_gui.PanelRight)
 					gui.DebugAppend(fmt.Sprintf("Local track origin URL %s is the same as YouTube chosen one %s.", track.URL, youTubeTrack.URL), spttb_gui.PanelRight)
 					gui.LoadingHalfIncrease()
@@ -843,19 +843,11 @@ func subMatchResult(track spttb_track.Track, youTubeTrack spttb_youtube.Track) (
 	)
 	ansErr = youTubeTrack.Match(track)
 	ansAutomated = bool(ansErr == nil)
-	if !*argInteractive && ansErr != nil {
-		gui.DebugAppend(fmt.Sprintf("\"%s\" seems not the one we're looking for: %s", youTubeTrack.Title, ansErr.Error()), spttb_gui.PanelRight)
-	} else if *argInteractive {
-		var ansAutomatedMsg string
-		if ansAutomated {
-			ansAutomatedMsg = "I would download it."
-		} else {
-			ansAutomatedMsg = "I wouldn't download it."
-		}
+	if *argInteractive && ansErr == nil {
 		ansInput = gui.PromptInput(fmt.Sprintf("Do you want to download the following video for \"%s\"?\n"+
-			"ID: %s\nTitle: %s\nUser: %s\nDuration: %d\nURL: %s\n\n%s",
+			"ID: %s\nTitle: %s\nUser: %s\nDuration: %d\nURL: %s\nResult is matching: %s",
 			track.Filename, youTubeTrack.ID, youTubeTrack.Title, youTubeTrack.User,
-			youTubeTrack.Duration, youTubeTrack.URL, ansAutomatedMsg), spttb_gui.OptionNil)
+			youTubeTrack.Duration, youTubeTrack.URL, strconv.FormatBool(ansAutomated)), spttb_gui.OptionNil)
 	}
 	return ansAutomated, ansInput
 }

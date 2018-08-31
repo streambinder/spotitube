@@ -2,7 +2,7 @@ package spotify
 
 const (
 	// SpotifyClientID : Spotify app client ID
-	SpotifyClientID = "d84f9faa18a84162ad6c73697990386c"
+	SpotifyClientID = ":SPOTIFY_CLIENT_ID:"
 	// SpotifyClientSecret : Spotify app client secret key
 	SpotifyClientSecret = ":SPOTIFY_CLIENT_SECRET:"
 

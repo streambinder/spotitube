@@ -10,6 +10,9 @@ debug:
 .PHONY: bin
 bin:
 	@ ( \
+		if [ -z "$(SPOTIFY_ID)" ]; then \
+			echo "ERROR: SPOTIFY_ID environment variable needs to be set."; exit 1; \
+		fi; \
 		if [ -z "$(SPOTIFY_KEY)" ]; then \
 			echo "ERROR: SPOTIFY_KEY environment variable needs to be set."; exit 1; \
 		fi; \
@@ -22,6 +25,7 @@ bin:
 			echo -en "Building...\r"; \
 		fi; \
 		cp $(CUR_DIR)/src/spotify/constant.go{,.orig} && \
+		sed -i 's|:SPOTIFY_CLIENT_ID:|${SPOTIFY_ID}|g' $(CUR_DIR)/src/spotify/constant.go && \
 		sed -i 's|:SPOTIFY_CLIENT_SECRET:|${SPOTIFY_KEY}|g' $(CUR_DIR)/src/spotify/constant.go && \
 		cp $(CUR_DIR)/src/track/constant.go{,.orig} && \
 		sed -i 's|:GENIUS_TOKEN:|${GENIUS_TOKEN}|g' $(CUR_DIR)/src/track/constant.go && \

@@ -10,6 +10,7 @@ VERSION := $(shell awk -F'= ' '/Version / {print $$2}' src/system/constant.go | 
 PKG_NAME := $(BINARY)-v$(VERSION)
 GOARCH := amd64
 LDFLAGS := -s -w
+OS := $(shell uname)
 
 include Makefile.gobuild
 include Makefile.packaging

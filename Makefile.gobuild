@@ -25,10 +25,18 @@ bin:
 			echo -en "Building...\r"; \
 		fi; \
 		cp $(CUR_DIR)/src/spotify/constant.go{,.orig} && \
-		sed -i 's|:SPOTIFY_CLIENT_ID:|${SPOTIFY_ID}|g' $(CUR_DIR)/src/spotify/constant.go && \
-		sed -i 's|:SPOTIFY_CLIENT_SECRET:|${SPOTIFY_KEY}|g' $(CUR_DIR)/src/spotify/constant.go && \
 		cp $(CUR_DIR)/src/track/constant.go{,.orig} && \
-		sed -i 's|:GENIUS_TOKEN:|${GENIUS_TOKEN}|g' $(CUR_DIR)/src/track/constant.go && \
+		( \
+			if [ "$(OS)" == "Darwin" ]; then \
+				sed -i '' 's|:SPOTIFY_CLIENT_ID:|${SPOTIFY_ID}|g' $(CUR_DIR)/src/spotify/constant.go && \
+				sed -i '' 's|:SPOTIFY_CLIENT_SECRET:|${SPOTIFY_KEY}|g' $(CUR_DIR)/src/spotify/constant.go && \
+				sed -i '' 's|:GENIUS_TOKEN:|${GENIUS_TOKEN}|g' $(CUR_DIR)/src/track/constant.go; \
+			else \
+				sed -i 's|:SPOTIFY_CLIENT_ID:|${SPOTIFY_ID}|g' $(CUR_DIR)/src/spotify/constant.go && \
+				sed -i 's|:SPOTIFY_CLIENT_SECRET:|${SPOTIFY_KEY}|g' $(CUR_DIR)/src/spotify/constant.go && \
+				sed -i 's|:GENIUS_TOKEN:|${GENIUS_TOKEN}|g' $(CUR_DIR)/src/track/constant.go; \
+			fi; \
+		); \
 		(GOPATH=$(CUR_DIR) GOARCH=386 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BINARY) $(CUR_DIR)/src/main/main.go && echo -e "\rBuilt at: $(BINARY)"); \
 		(mv -f $(CUR_DIR)/src/spotify/constant.go{.orig,} && mv -f $(CUR_DIR)/src/track/constant.go{.orig,}); \
 	);

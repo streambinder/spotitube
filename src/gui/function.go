@@ -23,9 +23,9 @@ func condPanelSelector(options uint64) uint64 {
 
 func condParagraphStyle(message string, options uint64, width int) string {
 	if (options & ParagraphStyleStandard) != 0 {
-		message = subMessageParagraphStyle(message, ParagraphStyleStandard, width)
+		message = messageParagraphStyle(message, ParagraphStyleStandard, width)
 	} else if (options & ParagraphStyleAutoReturn) != 0 {
-		message = subMessageParagraphStyle(message, ParagraphStyleAutoReturn, width)
+		message = messageParagraphStyle(message, ParagraphStyleAutoReturn, width)
 	}
 	return message
 }
@@ -43,32 +43,32 @@ func condFontStyle(message string, options uint64) string {
 
 func condOrientationStyle(message string, options uint64, view *gocui.View) string {
 	if (options & OrientationLeft) != 0 {
-		message = subMessageOrientate(message, view, OrientationLeft)
+		message = messageOrientate(message, view, OrientationLeft)
 	} else if (options & OrientationCenter) != 0 {
-		message = subMessageOrientate(message, view, OrientationCenter)
+		message = messageOrientate(message, view, OrientationCenter)
 	} else if (options & OrientationRight) != 0 {
-		message = subMessageOrientate(message, view, OrientationRight)
+		message = messageOrientate(message, view, OrientationRight)
 	}
 	return message
 }
 
 func condColorStyle(message string, options uint64) string {
 	if (options & FontColorBlack) != 0 {
-		message = subMessageColor(message, FontColorBlack)
+		message = messageColor(message, FontColorBlack)
 	} else if (options & FontColorRed) != 0 {
-		message = subMessageColor(message, FontColorRed)
+		message = messageColor(message, FontColorRed)
 	} else if (options & FontColorGreen) != 0 {
-		message = subMessageColor(message, FontColorGreen)
+		message = messageColor(message, FontColorGreen)
 	} else if (options & FontColorYellow) != 0 {
-		message = subMessageColor(message, FontColorYellow)
+		message = messageColor(message, FontColorYellow)
 	} else if (options & FontColorBlue) != 0 {
-		message = subMessageColor(message, FontColorBlue)
+		message = messageColor(message, FontColorBlue)
 	} else if (options & FontColorMagenta) != 0 {
-		message = subMessageColor(message, FontColorMagenta)
+		message = messageColor(message, FontColorMagenta)
 	} else if (options & FontColorCyan) != 0 {
-		message = subMessageColor(message, FontColorCyan)
+		message = messageColor(message, FontColorCyan)
 	} else if (options & FontColorWhite) != 0 {
-		message = subMessageColor(message, FontColorWhite)
+		message = messageColor(message, FontColorWhite)
 	}
 	return message
 }
@@ -124,8 +124,8 @@ func guiDismissPrompt(gui *gocui.Gui, view *gocui.View) error {
 }
 
 func guiDismissPromptAndClose(gui *gocui.Gui, view *gocui.View) error {
-	subGuiDismissPrompt(gui, view)
-	return subGuiClose(gui, view)
+	guiDismissPrompt(gui, view)
+	return guiClose(gui, view)
 }
 
 func guiDismissPromptWithInput(gui *gocui.Gui, view *gocui.View) error {
@@ -139,7 +139,7 @@ func guiDismissPromptWithInput(gui *gocui.Gui, view *gocui.View) error {
 }
 
 func guiDismissPromptWithInputOk(gui *gocui.Gui, view *gocui.View) error {
-	if err := subGuiDismissPromptWithInput(gui, view); err != nil {
+	if err := guiDismissPromptWithInput(gui, view); err != nil {
 		return err
 	}
 	guiPromptDismiss <- true
@@ -147,7 +147,7 @@ func guiDismissPromptWithInputOk(gui *gocui.Gui, view *gocui.View) error {
 }
 
 func guiDismissPromptWithInputNok(gui *gocui.Gui, view *gocui.View) error {
-	if err := subGuiDismissPromptWithInput(gui, view); err != nil {
+	if err := guiDismissPromptWithInput(gui, view); err != nil {
 		return err
 	}
 	guiPromptDismiss <- false
@@ -172,9 +172,9 @@ func guiRun() {
 	}
 	defer gui.Close()
 
-	gui.SetManagerFunc(subGuiStandardLayout)
+	gui.SetManagerFunc(guiStandardLayout)
 
-	if err := gui.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, subGuiClose); err != nil {
+	if err := gui.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, guiClose); err != nil {
 		log.Panicln(err)
 	}
 

@@ -2,7 +2,6 @@ package gui
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"strings"
 
@@ -18,7 +17,7 @@ func Build(options uint64) *Gui {
 	if (options & GuiSilentMode) == 0 {
 		var gui *gocui.Gui
 		guiReady = make(chan *gocui.Gui)
-		go subGuiRun()
+		go guiRun()
 		gui = <-guiReady
 		guiWidth, guiHeight := gui.Size()
 
@@ -68,17 +67,17 @@ func (gui *Gui) Append(message string, options uint64) error {
 		err   error
 		panel uint64
 	)
-	panel = subCondPanelSelector(options)
+	panel = condPanelSelector(options)
 	view, err = gui.View(Panels[int(panel)])
 	if err != nil {
 		return err
 	}
 	gui.Update(func(gui *gocui.Gui) error {
 		width, _ := view.Size()
-		message = subCondParagraphStyle(message, options, width)
-		message = subCondFontStyle(message, options)
-		message = subCondOrientationStyle(message, options, view)
-		message = subCondColorStyle(message, options)
+		message = condParagraphStyle(message, options, width)
+		message = condFontStyle(message, options)
+		message = condOrientationStyle(message, options, view)
+		message = condColorStyle(message, options)
 		fmt.Fprintln(view, " "+message)
 		return nil
 	})
@@ -158,9 +157,9 @@ func (gui *Gui) Prompt(message string, options uint64) error {
 			}
 			fmt.Fprintln(view, message)
 			if (options & PromptDismissableWithExit) != 0 {
-				gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, subGuiDismissPromptAndClose)
+				gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, guiDismissPromptAndClose)
 			} else {
-				gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, subGuiDismissPrompt)
+				gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, guiDismissPrompt)
 			}
 		}
 		return nil
@@ -199,9 +198,9 @@ func (gui *Gui) PromptInput(message string, options uint64) bool {
 			if err != gocui.ErrUnknownView {
 				return err
 			}
-			gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, subGuiDismissPromptWithInputOk)
-			gui.SetKeybinding("", gocui.KeyTab, gocui.ModNone, subGuiDismissPromptWithInputNok)
-			fmt.Fprintln(view, subMessageOrientate(message, view, OrientationCenter))
+			gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, guiDismissPromptWithInputOk)
+			gui.SetKeybinding("", gocui.KeyTab, gocui.ModNone, guiDismissPromptWithInputNok)
+			fmt.Fprintln(view, messageOrientate(message, view, OrientationCenter))
 		}
 		return nil
 	})
@@ -233,7 +232,7 @@ func (gui *Gui) PromptInputMessage(message string, options uint64) string {
 			view.Editable = true
 			view.Title = fmt.Sprintf(" %s ", message)
 			_ = view.SetCursor(0, 0)
-			gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, subGuiDismissPromptWithInputMessage)
+			gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, guiDismissPromptWithInputMessage)
 			_, _ = gui.SetCurrentView("GuiPrompt")
 		}
 		return nil
@@ -313,226 +312,4 @@ func (gui *Gui) LoadingHalfIncrease() error {
 func MessageStyle(message string, styleConst int) string {
 	styleFunc := color.New(FontStyles[styleConst])
 	return styleFunc.Sprintf(message)
-}
-
-func subCondPanelSelector(options uint64) uint64 {
-	var panel uint64
-	if (options & PanelLeftTop) != 0 {
-		panel = PanelLeftTop
-	} else if (options & PanelLeftBottom) != 0 {
-		panel = PanelLeftBottom
-	} else {
-		panel = PanelRight
-	}
-	return panel
-}
-
-func subCondParagraphStyle(message string, options uint64, width int) string {
-	if (options & ParagraphStyleStandard) != 0 {
-		message = subMessageParagraphStyle(message, ParagraphStyleStandard, width)
-	} else if (options & ParagraphStyleAutoReturn) != 0 {
-		message = subMessageParagraphStyle(message, ParagraphStyleAutoReturn, width)
-	}
-	return message
-}
-
-func subCondFontStyle(message string, options uint64) string {
-	if (options & FontStyleBold) != 0 {
-		message = MessageStyle(message, FontStyleBold)
-	} else if (options & FontStyleUnderline) != 0 {
-		message = MessageStyle(message, FontStyleUnderline)
-	} else if (options & FontStyleReverse) != 0 {
-		message = MessageStyle(message, FontStyleReverse)
-	}
-	return message
-}
-
-func subCondOrientationStyle(message string, options uint64, view *gocui.View) string {
-	if (options & OrientationLeft) != 0 {
-		message = subMessageOrientate(message, view, OrientationLeft)
-	} else if (options & OrientationCenter) != 0 {
-		message = subMessageOrientate(message, view, OrientationCenter)
-	} else if (options & OrientationRight) != 0 {
-		message = subMessageOrientate(message, view, OrientationRight)
-	}
-	return message
-}
-
-func subCondColorStyle(message string, options uint64) string {
-	if (options & FontColorBlack) != 0 {
-		message = subMessageColor(message, FontColorBlack)
-	} else if (options & FontColorRed) != 0 {
-		message = subMessageColor(message, FontColorRed)
-	} else if (options & FontColorGreen) != 0 {
-		message = subMessageColor(message, FontColorGreen)
-	} else if (options & FontColorYellow) != 0 {
-		message = subMessageColor(message, FontColorYellow)
-	} else if (options & FontColorBlue) != 0 {
-		message = subMessageColor(message, FontColorBlue)
-	} else if (options & FontColorMagenta) != 0 {
-		message = subMessageColor(message, FontColorMagenta)
-	} else if (options & FontColorCyan) != 0 {
-		message = subMessageColor(message, FontColorCyan)
-	} else if (options & FontColorWhite) != 0 {
-		message = subMessageColor(message, FontColorWhite)
-	}
-	return message
-}
-
-func subMessageOrientate(message string, view *gocui.View, orientation int) string {
-	var messageLines []string
-	var lineLength, _ = view.Size()
-	for _, line := range strings.Split(message, "\n") {
-		if len(line) < lineLength {
-			lineSpacing := (lineLength - len(line)) / 2
-			if orientation == OrientationCenter {
-				line = strings.Repeat(" ", lineSpacing) +
-					line + strings.Repeat(" ", lineSpacing)
-			} else if orientation == OrientationRight {
-				line = strings.Repeat(" ", lineSpacing*2-1) + line
-			}
-		}
-		messageLines = append(messageLines, line)
-	}
-	return strings.Join(messageLines, "\n")
-}
-
-func subMessageColor(message string, colorConst int) string {
-	colorFunc := color.New(FontColors[colorConst])
-	return colorFunc.Sprintf(message)
-}
-
-func subMessageParagraphStyle(message string, styleConst int, width int) string {
-	if styleConst == ParagraphStyleAutoReturn {
-		var messageParagraph string
-		for len(message) > 0 {
-			if len(message) < width {
-				messageParagraph = messageParagraph + message
-				message = ""
-			} else {
-				messageParagraph = messageParagraph + message[:width] + "\n"
-				message = message[width:]
-			}
-		}
-		return messageParagraph
-	}
-	return message
-}
-
-func subGuiDismissPrompt(gui *gocui.Gui, view *gocui.View) error {
-	gui.Update(func(gui *gocui.Gui) error {
-		gui.DeleteView("GuiPrompt")
-		return nil
-	})
-	gui.DeleteKeybinding("", gocui.KeyEnter, gocui.ModNone)
-	guiPromptDismiss <- true
-	return nil
-}
-
-func subGuiDismissPromptAndClose(gui *gocui.Gui, view *gocui.View) error {
-	subGuiDismissPrompt(gui, view)
-	return subGuiClose(gui, view)
-}
-
-func subGuiDismissPromptWithInput(gui *gocui.Gui, view *gocui.View) error {
-	gui.Update(func(gui *gocui.Gui) error {
-		gui.DeleteView("GuiPrompt")
-		return nil
-	})
-	gui.DeleteKeybinding("", gocui.KeyEnter, gocui.ModNone)
-	gui.DeleteKeybinding("", gocui.KeyTab, gocui.ModNone)
-	return nil
-}
-
-func subGuiDismissPromptWithInputOk(gui *gocui.Gui, view *gocui.View) error {
-	if err := subGuiDismissPromptWithInput(gui, view); err != nil {
-		return err
-	}
-	guiPromptDismiss <- true
-	return nil
-}
-
-func subGuiDismissPromptWithInputNok(gui *gocui.Gui, view *gocui.View) error {
-	if err := subGuiDismissPromptWithInput(gui, view); err != nil {
-		return err
-	}
-	guiPromptDismiss <- false
-	return nil
-}
-
-func subGuiDismissPromptWithInputMessage(gui *gocui.Gui, view *gocui.View) error {
-	gui.Update(func(gui *gocui.Gui) error {
-		gui.DeleteView("GuiPrompt")
-		return nil
-	})
-	gui.DeleteKeybinding("", gocui.KeyEnter, gocui.ModNone)
-	view.Rewind()
-	guiPromptInput <- view.Buffer()
-	return nil
-}
-
-func subGuiRun() {
-	gui, err := gocui.NewGui(gocui.OutputNormal)
-	if err != nil {
-		log.Panicln(err)
-	}
-	defer gui.Close()
-
-	gui.SetManagerFunc(subGuiStandardLayout)
-
-	if err := gui.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, subGuiClose); err != nil {
-		log.Panicln(err)
-	}
-
-	guiReady <- gui
-
-	if err := gui.MainLoop(); err != nil {
-		if err != gocui.ErrQuit {
-			log.Panicln(err)
-		}
-	}
-}
-
-func subGuiStandardLayout(gui *gocui.Gui) error {
-	guiMaxWidth, guiMaxHeight := gui.Size()
-	if view, err := gui.SetView("GuiPanelLeftTop", 0, 0,
-		guiMaxWidth/3, guiMaxHeight/2); err != nil {
-		if err != gocui.ErrUnknownView {
-			return err
-		}
-		view.Autoscroll = true
-		view.Title = strings.ToUpper(" SpotiTube ")
-		fmt.Fprint(view, "\n")
-	}
-	if view, err := gui.SetView("GuiPanelLeftBottom", 0, guiMaxHeight/2+1,
-		guiMaxWidth/3, guiMaxHeight-4); err != nil {
-		if err != gocui.ErrUnknownView {
-			return err
-		}
-		view.Autoscroll = true
-		view.Title = strings.ToUpper(" Informations ")
-		fmt.Fprint(view, "\n")
-	}
-	if view, err := gui.SetView("GuiPanelRight", guiMaxWidth/3+1, 0,
-		guiMaxWidth-1, guiMaxHeight-4); err != nil {
-		if err != gocui.ErrUnknownView {
-			return err
-		}
-		view.Autoscroll = true
-		view.Title = strings.ToUpper(" Status ")
-		fmt.Fprint(view, "\n")
-	}
-	if _, err := gui.SetView("GuiPanelLoading", 0, guiMaxHeight-3,
-		guiMaxWidth-1, guiMaxHeight-1); err != nil {
-		if err != gocui.ErrUnknownView {
-			return err
-		}
-	}
-	return nil
-}
-
-func subGuiClose(gui *gocui.Gui, view *gocui.View) error {
-	singleton.Closing <- true
-	gui.DeleteKeybinding("", gocui.KeyCtrlC, gocui.ModNone)
-	return gocui.ErrQuit
 }

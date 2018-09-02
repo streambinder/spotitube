@@ -429,7 +429,7 @@ func SeemsType(sequence string, songType int) bool {
 			songTypeAliases = append(songTypeAliases, []string{strconv.Itoa(year), "'" + strconv.Itoa(year)[2:]}...)
 		}
 	} else if songType == SongTypeCover {
-		songTypeAliases = []string{"cover", "vs"}
+		songTypeAliases = []string{"cover", "vs", "amateur"}
 	} else if songType == SongTypeRemix {
 		songTypeAliases = []string{"remix", "radio edit"}
 	} else if songType == SongTypeAcoustic {

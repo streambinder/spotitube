@@ -367,10 +367,26 @@ func mainSearch() {
 		gui.Append(fmt.Sprintf(" - \"%s\"", track.Filename), spttb_gui.PanelRight)
 	}
 
-	notificator.New(notificator.Options{
-		DefaultIcon: "icon/default.png",
-		AppName:     "SpotiTube",
-	}).Push("SpotiTube", "Synchronization completed.", "", notificator.UR_NORMAL)
+	var (
+		notify = notificator.New(notificator.Options{
+			DefaultIcon: "emblem-downloads",
+			AppName:     "SpotiTube",
+		})
+		notifyTitle   string
+		notifyContent string
+	)
+	if *argPlaylist == "none" {
+		notifyTitle = "Library synchronization"
+	} else {
+		notifyTitle = fmt.Sprintf("%s playlist synchronization", playlistInfo.Name)
+	}
+	if len(tracksFailed) > 0 {
+		notifyContent = fmt.Sprintf("%d track(s) synced, %d failed.", len(tracks)-len(tracksFailed), len(tracksFailed))
+	} else {
+		notifyContent = fmt.Sprintf("%d track(s) correctly synced.")
+	}
+	notify.Push(notifyTitle, notifyContent, "", notificator.UR_NORMAL)
+
 	gui.Prompt("Synchronization completed.", spttb_gui.PromptDismissableWithExit)
 }
 

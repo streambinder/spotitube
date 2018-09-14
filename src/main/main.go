@@ -383,7 +383,7 @@ func mainSearch() {
 	if len(tracksFailed) > 0 {
 		notifyContent = fmt.Sprintf("%d track(s) synced, %d failed.", len(tracks)-len(tracksFailed), len(tracksFailed))
 	} else {
-		notifyContent = fmt.Sprintf("%d track(s) correctly synced.")
+		notifyContent = fmt.Sprintf("%d track(s) correctly synced.", len(tracks))
 	}
 	notify.Push(notifyTitle, notifyContent, "", notificator.UR_NORMAL)
 

@@ -75,6 +75,20 @@ func parseFilename(track Track) (string, string) {
 	for _, symbol := range []string{"/", "\\", ".", "?", "<", ">", ":", "*"} {
 		trackFilename = strings.Replace(trackFilename, symbol, "", -1)
 	}
+
+	// due to recent sanitize library changes, some umlauts changes
+	// get performed instead of simple accents removal: while waiting for
+	// https://github.com/kennygrant/sanitize/pull/23 request to be
+	// merged (if ever), let's remove those symbols manually
+	for _, umlaut := range [][]string{
+		[]string{"Ö", "O"},
+		[]string{"Ü", "U"},
+		[]string{"ä", "a"},
+		[]string{"ö", "o"},
+		[]string{"ü", "u"}} {
+		trackFilename = strings.Replace(trackFilename, umlaut[0], umlaut[1], -1)
+	}
+
 	trackFilename = strings.Replace(trackFilename, "  ", " ", -1)
 	trackFilename = sanitize.Accents(trackFilename)
 	trackFilename = strings.TrimSpace(trackFilename)

@@ -12,7 +12,7 @@ pkg_rpm: bin
 				sed -i 's|:VERSION:|$(VERSION)|g' assets/packaging/rpm/spotitube.spec; \
 				sed -i 's|:BINARY:|$(BINARY)|g' assets/packaging/rpm/spotitube.spec; \
 			fi; \
-		) \
+		); \
 		rpmbuild -ba --target=i386 assets/packaging/rpm/spotitube.spec; \
 		mv ~/rpmbuild/RPMS/i386/*.rpm $(PKG_NAME).rpm; \
 		rm -rf ~/rpmbuild; \
@@ -30,7 +30,7 @@ pkg_deb: bin
 			else \
 				sed -i 's|:VERSION:|$(VERSION)|g' assets/packaging/deb/DEBIAN/control; \
 			fi; \
-		) \
+		); \
 		cd assets/packaging/deb; \
 		mkdir -p usr/sbin; \
 		cp $(BINARY) usr/sbin/; \
@@ -51,10 +51,10 @@ pkg_eopkg: bin
 		( \
 			if [ "$(OS)" == "Darwin" ]; then \
 				sed -i '' 's|:VERSION:|$(VERSION)|g' assets/packaging/eopkg/pspec.xml; \
-			else
+			else \
 				sed -i 's|:VERSION:|$(VERSION)|g' assets/packaging/eopkg/pspec.xml; \
 			fi; \
-		) \
+		); \
 		cp $(BINARY) assets/packaging/eopkg/files/; \
 		sudo solbuild build assets/packaging/eopkg/pspec.xml; \
 		mv spotitube-*.eopkg $(PKG_NAME).eopkg; \

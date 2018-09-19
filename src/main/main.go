@@ -41,6 +41,7 @@ var (
 	argReplaceLocal          *bool
 	argFlushMetadata         *bool
 	argFlushMissing          *bool
+	argFlushDifferent        *bool
 	argDisableNormalization  *bool
 	argDisablePlaylistFile   *bool
 	argPlsFile               *bool
@@ -84,6 +85,7 @@ func main() {
 	argReplaceLocal = flag.Bool("replace-local", false, "Replace local library songs if better results get encountered")
 	argFlushMetadata = flag.Bool("flush-metadata", false, "Flush metadata informations to already synchronized songs")
 	argFlushMissing = flag.Bool("flush-missing", false, "If -flush-metadata toggled, it will just populate empty id3 frames, instead of flushing any of those")
+	argFlushDifferent = flag.Bool("flush-different", false, "If -flush-metadata toggled, it will just populate id3 frames different from the ones calculated by the application, instead of flushing any of those")
 	argDisableNormalization = flag.Bool("disable-normalization", false, "Disable songs volume normalization")
 	argDisablePlaylistFile = flag.Bool("disable-playlist-file", false, "Disable automatic creation of playlists file")
 	argPlsFile = flag.Bool("pls-file", false, "Generate playlist file with .pls instead of .m3u")
@@ -643,7 +645,7 @@ func subSongFlushMetadata(track spttb_track.Track) {
 		gui.WarnAppend(fmt.Sprintf("Something bad happened while opening: %s", err.Error()), spttb_gui.PanelRight)
 	} else {
 		gui.DebugAppend(fmt.Sprintf("Fixing metadata for \"%s\"...", track.Filename), spttb_gui.PanelRight)
-		if !*argFlushMissing {
+		if !*argFlushMissing && !*argFlushDifferent {
 			trackMp3.DeleteAllFrames()
 		}
 		subCondFlushID3FrameTitle(track, trackMp3)
@@ -666,16 +668,18 @@ func subSongFlushMetadata(track spttb_track.Track) {
 }
 
 func subCondFlushID3FrameTitle(track spttb_track.Track, trackMp3 *id3.Tag) {
-	if len(track.Title) > 0 && (!*argFlushMissing ||
-		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameTitle))) {
+	if len(track.Title) > 0 &&
+		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameTitle))) &&
+		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameTitle) != track.Title)) {
 		gui.DebugAppend("Inflating title metadata...", spttb_gui.PanelRight)
 		trackMp3.SetTitle(track.Title)
 	}
 }
 
 func subCondFlushID3FrameSong(track spttb_track.Track, trackMp3 *id3.Tag) {
-	if len(track.Song) > 0 && (!*argFlushMissing ||
-		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameSong))) {
+	if len(track.Song) > 0 &&
+		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameSong))) &&
+		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameSong) != track.Song)) {
 		gui.DebugAppend("Inflating song metadata...", spttb_gui.PanelRight)
 		trackMp3.AddCommentFrame(id3.CommentFrame{
 			Encoding:    id3.EncodingUTF8,
@@ -687,40 +691,45 @@ func subCondFlushID3FrameSong(track spttb_track.Track, trackMp3 *id3.Tag) {
 }
 
 func subCondFlushID3FrameArtist(track spttb_track.Track, trackMp3 *id3.Tag) {
-	if len(track.Artist) > 0 && (!*argFlushMissing ||
-		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameArtist))) {
+	if len(track.Artist) > 0 &&
+		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameArtist))) &&
+		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameArtist) != track.Artist)) {
 		gui.DebugAppend("Inflating artist metadata...", spttb_gui.PanelRight)
 		trackMp3.SetArtist(track.Artist)
 	}
 }
 
 func subCondFlushID3FrameAlbum(track spttb_track.Track, trackMp3 *id3.Tag) {
-	if len(track.Album) > 0 && (!*argFlushMissing ||
-		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameAlbum))) {
+	if len(track.Album) > 0 &&
+		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameAlbum))) &&
+		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameAlbum) != track.Album)) {
 		gui.DebugAppend("Inflating album metadata...", spttb_gui.PanelRight)
 		trackMp3.SetAlbum(track.Album)
 	}
 }
 
 func subCondFlushID3FrameGenre(track spttb_track.Track, trackMp3 *id3.Tag) {
-	if len(track.Genre) > 0 && (!*argFlushMissing ||
-		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameGenre))) {
+	if len(track.Genre) > 0 &&
+		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameGenre))) &&
+		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameGenre) != track.Genre)) {
 		gui.DebugAppend("Inflating genre metadata...", spttb_gui.PanelRight)
 		trackMp3.SetGenre(track.Genre)
 	}
 }
 
 func subCondFlushID3FrameYear(track spttb_track.Track, trackMp3 *id3.Tag) {
-	if len(track.Year) > 0 && (!*argFlushMissing ||
-		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameYear))) {
+	if len(track.Year) > 0 &&
+		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameYear))) &&
+		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameYear) != track.Year)) {
 		gui.DebugAppend("Inflating year metadata...", spttb_gui.PanelRight)
 		trackMp3.SetYear(track.Year)
 	}
 }
 
 func subCondFlushID3FrameFeaturings(track spttb_track.Track, trackMp3 *id3.Tag) {
-	if len(track.Featurings) > 0 && (!*argFlushMissing ||
-		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameFeaturings))) {
+	if len(track.Featurings) > 0 &&
+		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameFeaturings))) &&
+		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameFeaturings) != strings.Join(track.Featurings, "|"))) {
 		gui.DebugAppend("Inflating featurings metadata...", spttb_gui.PanelRight)
 		trackMp3.AddCommentFrame(id3.CommentFrame{
 			Encoding:    id3.EncodingUTF8,
@@ -732,8 +741,9 @@ func subCondFlushID3FrameFeaturings(track spttb_track.Track, trackMp3 *id3.Tag) 
 }
 
 func subCondFlushID3FrameTrackNumber(track spttb_track.Track, trackMp3 *id3.Tag) {
-	if track.TrackNumber > 0 && (!*argFlushMissing ||
-		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameTrackNumber))) {
+	if track.TrackNumber > 0 &&
+		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameTrackNumber))) &&
+		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameTrackNumber) != fmt.Sprintf("%d", track.TrackNumber))) {
 		gui.DebugAppend("Inflating track number metadata...", spttb_gui.PanelRight)
 		trackMp3.AddFrame(trackMp3.CommonID("Track number/Position in set"),
 			id3.TextFrame{
@@ -744,8 +754,9 @@ func subCondFlushID3FrameTrackNumber(track spttb_track.Track, trackMp3 *id3.Tag)
 }
 
 func subCondFlushID3FrameTrackTotals(track spttb_track.Track, trackMp3 *id3.Tag) {
-	if track.TrackTotals > 0 && (!*argFlushMissing ||
-		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameTrackTotals))) {
+	if track.TrackTotals > 0 &&
+		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameTrackTotals))) &&
+		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameTrackTotals) != fmt.Sprintf("%d", track.TrackTotals))) {
 		gui.DebugAppend("Inflating total tracks number metadata...", spttb_gui.PanelRight)
 		trackMp3.AddCommentFrame(id3.CommentFrame{
 			Encoding:    id3.EncodingUTF8,
@@ -758,7 +769,8 @@ func subCondFlushID3FrameTrackTotals(track spttb_track.Track, trackMp3 *id3.Tag)
 
 func subCondFlushID3FrameArtwork(track spttb_track.Track, trackMp3 *id3.Tag) {
 	if spttb_system.FileExists(track.FilenameArtwork()) &&
-		(!*argFlushMissing || (*argFlushMissing && !track.HasID3Frame(spttb_track.ID3FrameArtwork))) {
+		(!*argFlushMissing || (*argFlushMissing && !track.HasID3Frame(spttb_track.ID3FrameArtwork))) &&
+		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameArtworkURL) != track.Image)) {
 		trackArtworkReader, trackArtworkErr := ioutil.ReadFile(track.FilenameArtwork())
 		if trackArtworkErr != nil {
 			gui.WarnAppend(fmt.Sprintf("Unable to read artwork file: %s", trackArtworkErr.Error()), spttb_gui.PanelRight)
@@ -776,8 +788,9 @@ func subCondFlushID3FrameArtwork(track spttb_track.Track, trackMp3 *id3.Tag) {
 }
 
 func subCondFlushID3FrameArtworkURL(track spttb_track.Track, trackMp3 *id3.Tag) {
-	if len(track.Image) > 0 && (!*argFlushMissing ||
-		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameArtworkURL))) {
+	if len(track.Image) > 0 &&
+		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameArtworkURL))) &&
+		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameArtworkURL) != track.Image)) {
 		gui.DebugAppend("Inflating artwork url metadata...", spttb_gui.PanelRight)
 		trackMp3.AddCommentFrame(id3.CommentFrame{
 			Encoding:    id3.EncodingUTF8,
@@ -789,8 +802,9 @@ func subCondFlushID3FrameArtworkURL(track spttb_track.Track, trackMp3 *id3.Tag) 
 }
 
 func subCondFlushID3FrameYouTubeURL(track spttb_track.Track, trackMp3 *id3.Tag) {
-	if len(track.URL) > 0 && (!*argFlushMissing ||
-		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameYouTubeURL))) {
+	if len(track.URL) > 0 &&
+		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameYouTubeURL))) &&
+		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameYouTubeURL) != track.URL)) {
 		gui.DebugAppend("Inflating youtube origin url metadata...", spttb_gui.PanelRight)
 		trackMp3.AddCommentFrame(id3.CommentFrame{
 			Encoding:    id3.EncodingUTF8,
@@ -802,8 +816,9 @@ func subCondFlushID3FrameYouTubeURL(track spttb_track.Track, trackMp3 *id3.Tag) 
 }
 
 func subCondFlushID3FrameDuration(track spttb_track.Track, trackMp3 *id3.Tag) {
-	if track.Duration > 0 && (!*argFlushMissing ||
-		(*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameDuration))) {
+	if track.Duration > 0 &&
+		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameDuration))) &&
+		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameDuration) != fmt.Sprintf("%d", track.Duration))) {
 		gui.DebugAppend("Inflating duration metadata...", spttb_gui.PanelRight)
 		trackMp3.AddCommentFrame(id3.CommentFrame{
 			Encoding:    id3.EncodingUTF8,
@@ -816,7 +831,8 @@ func subCondFlushID3FrameDuration(track spttb_track.Track, trackMp3 *id3.Tag) {
 
 func subCondFlushID3FrameLyrics(track spttb_track.Track, trackMp3 *id3.Tag) {
 	if len(track.Lyrics) > 0 && !*argDisableLyrics &&
-		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameLyrics))) {
+		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameLyrics))) &&
+		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameLyrics) != track.Lyrics)) {
 		gui.DebugAppend("Inflating lyrics metadata...", spttb_gui.PanelRight)
 		trackMp3.AddUnsynchronisedLyricsFrame(id3.UnsynchronisedLyricsFrame{
 			Encoding:          id3.EncodingUTF8,
@@ -898,7 +914,8 @@ func subCondSequentialDo(track *spttb_track.Track) {
 }
 
 func subCondLyricsFetch(track *spttb_track.Track) {
-	if !*argDisableLyrics && (!*argFlushMissing || (*argFlushMissing && !track.HasID3Frame(spttb_track.ID3FrameLyrics))) {
+	if !*argDisableLyrics &&
+		(!*argFlushMissing || (*argFlushMissing && !track.HasID3Frame(spttb_track.ID3FrameLyrics))) {
 		gui.DebugAppend(fmt.Sprintf("Fetching song \"%s\" lyrics...", track.Filename), spttb_gui.PanelRight)
 		lyricsErr := track.SearchLyrics()
 		if lyricsErr != nil {
@@ -910,7 +927,8 @@ func subCondLyricsFetch(track *spttb_track.Track) {
 }
 
 func subCondArtworkDownload(track *spttb_track.Track) {
-	if !spttb_system.FileExists(track.FilenameArtwork()) && (!*argFlushMissing || (*argFlushMissing && !track.HasID3Frame(spttb_track.ID3FrameArtwork))) {
+	if !spttb_system.FileExists(track.FilenameArtwork()) &&
+		(!*argFlushMissing || (*argFlushMissing && !track.HasID3Frame(spttb_track.ID3FrameArtwork))) {
 		gui.DebugAppend(fmt.Sprintf("Downloading song \"%s\" artwork at %s...", track.Filename, track.Image), spttb_gui.PanelRight)
 		var commandOut bytes.Buffer
 		commandCmd := "ffmpeg"

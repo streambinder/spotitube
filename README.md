@@ -161,9 +161,10 @@ You may want to use some of the following input flags:
 8.  `-interactive`: enable interactive mode. This allows to eventually override `spotitube` decisions about which _YouTube_ result to pick, prompting for user input on every - legal - song it encounters.
 9.  `-flush-metadata`: enable metadata informations flush also for songs that have been already synchronized.
 10. `-flush-missing`: if `-flush-metadata` toggled, it will just populate empty id3 frames, instead of flushing any of those.
-11. `-replace-local`: replace already downloaded (via `spotitube`) songs, if better ones get encountered.
-12. `-clean-junks`: forcely batch remove temporary files that kept existing for any unattended runtime error.
-13. `-version`: just print installed version.
+11. `-flush-missing`: if -flush-metadata toggled, it will just populate id3 frames different from the ones calculated by the application, instead of flushing any of those (keep in mind that, in order to compare the respective tags, it needs to redownload both artworks and lyrics).
+12. `-replace-local`: replace already downloaded (via `spotitube`) songs, if better ones get encountered.
+13. `-clean-junks`: forcely batch remove temporary files that kept existing for any unattended runtime error.
+14. `-version`: just print installed version.
 
 #### Developers
 

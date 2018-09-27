@@ -11,6 +11,7 @@ import (
 	spttb_track "track"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/bradfitz/slice"
 )
 
 // QueryTracks : initialize a Tracks object by searching for Track results
@@ -36,7 +37,25 @@ func QueryTracks(track *spttb_track.Track) (Tracks, error) {
 		return Tracks{}, fmt.Errorf("YouTube busted you: you'd better wait few minutes before retrying firing thousands video requests.")
 	}
 
-	return pullTracksFromDoc(*track, doc)
+	tracks, err := pullTracksFromDoc(*track, doc)
+	if err != nil {
+		return Tracks{}, err
+	} else {
+		tracks = tracks.evaluateScores()
+		slice.Sort(tracks[:], func(i, j int) bool {
+			var iPlus, jPlus int
+			if tracks[i].AffinityScore == tracks[j].AffinityScore {
+				if err := tracks[i].Track.Seems(fmt.Sprintf("%s %s", tracks[i].User, tracks[i].Title)); err == nil {
+					iPlus = 1
+				}
+				if err := tracks[j].Track.Seems(fmt.Sprintf("%s %s", tracks[j].User, tracks[j].Title)); err == nil {
+					jPlus = 1
+				}
+			}
+			return tracks[i].AffinityScore+iPlus > tracks[j].AffinityScore+jPlus
+		})
+		return tracks, nil
+	}
 }
 
 // Match : return nil error if YouTube Track result object is matching with input Track object
@@ -51,7 +70,7 @@ func (youtube_track Track) Match(track spttb_track.Track) error {
 	if strings.Contains(youtube_track.URL, "/user/") {
 		return fmt.Errorf("Track is actually pointing to user")
 	}
-	return track.Seems(youtube_track.Title)
+	return track.Seems(fmt.Sprintf("%s %s", youtube_track.User, youtube_track.Title))
 }
 
 // Download : delegate youtube-dl call to download YouTube Track result

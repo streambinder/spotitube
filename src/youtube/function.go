@@ -1,6 +1,7 @@
 package youtube
 
 import (
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -8,7 +9,7 @@ import (
 	spttb_track "track"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/bradfitz/slice"
+	"github.com/kennygrant/sanitize"
 )
 
 func pullTracksFromDoc(track spttb_track.Track, document *goquery.Document) (Tracks, error) {
@@ -63,9 +64,27 @@ func pullTracksFromDoc(track spttb_track.Track, document *goquery.Document) (Tra
 		}
 	}
 
-	slice.Sort(tracks[:], func(i, j int) bool {
-		return int(math.Abs(float64(tracks[i].Duration-track.Duration))) < int(math.Abs(float64(tracks[j].Duration-track.Duration)))
-	})
-
 	return tracks, nil
+}
+
+func (tracks Tracks) evaluateScores() Tracks {
+	var evaluatedTracks Tracks
+	for _, track := range tracks {
+		if math.Abs(float64(track.Track.Duration-track.Duration)) <= float64(YouTubeDurationTolerance/2) {
+			track.AffinityScore += 2
+		} else if math.Abs(float64(track.Track.Duration-track.Duration)) <= float64(YouTubeDurationTolerance) {
+			track.AffinityScore += 1
+		}
+		if err := track.Track.SeemsByWordMatch(fmt.Sprintf("%s %s", track.User, track.Title)); err == nil {
+			track.AffinityScore += 1
+		}
+		if strings.Contains(sanitize.Name(track.User), sanitize.Name(track.Track.Artist)) {
+			track.AffinityScore += 1
+		}
+		if spttb_track.SeemsType(track.Title, track.Track.SongType) {
+			track.AffinityScore += 1
+		}
+		evaluatedTracks = append(evaluatedTracks, track)
+	}
+	return evaluatedTracks
 }

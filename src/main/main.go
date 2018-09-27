@@ -881,9 +881,10 @@ func subMatchResult(track spttb_track.Track, youTubeTrack spttb_youtube.Track) (
 	ansAutomated = bool(ansErr == nil)
 	if *argInteractive {
 		ansInput = gui.PromptInput(fmt.Sprintf("Do you want to download the following video for \"%s\"?\n"+
-			"ID: %s\nTitle: %s\nUser: %s\nDuration: %d\nURL: %s\nResult is matching: %s",
+			"ID: %s\nTitle: %s\nUser: %s\nDuration: %d\nURL: %s\nScore: %d/6\nResult is matching: %s",
 			track.Filename, youTubeTrack.ID, youTubeTrack.Title, youTubeTrack.User,
-			youTubeTrack.Duration, youTubeTrack.URL, strconv.FormatBool(ansAutomated)), spttb_gui.OptionNil)
+			youTubeTrack.Duration, youTubeTrack.URL, youTubeTrack.AffinityScore,
+			strconv.FormatBool(ansAutomated)), spttb_gui.OptionNil)
 	}
 	return ansAutomated, ansInput
 }

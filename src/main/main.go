@@ -94,7 +94,7 @@ func main() {
 	argDisableTimestampFlush = flag.Bool("disable-timestamp-flush", false, "Disable automatic songs files timestamps flush")
 	argDisableUpdateCheck = flag.Bool("disable-update-check", false, "Disable automatic update check at startup")
 	argInteractive = flag.Bool("interactive", false, "Enable interactive mode")
-	argManualInput = flag.Bool("manual-input", false, "Always manually insert YouTube URL for songs")
+	argManualInput = flag.Bool("manual-input", false, "Always manually insert YouTube URL used for songs download")
 	argCleanJunks = flag.Bool("clean-junks", false, "Scan for junks file and clean them")
 	argLog = flag.Bool("log", false, "Enable logging into file ./spotitube.log")
 	argDisableGui = flag.Bool("disable-gui", false, "Disable GUI to reduce noise and increase readability of program flow")

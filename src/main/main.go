@@ -49,6 +49,7 @@ var (
 	argDisableTimestampFlush *bool
 	argDisableUpdateCheck    *bool
 	argInteractive           *bool
+	argManualInput           *bool
 	argCleanJunks            *bool
 	argLog                   *bool
 	argDisableGui            *bool
@@ -93,6 +94,7 @@ func main() {
 	argDisableTimestampFlush = flag.Bool("disable-timestamp-flush", false, "Disable automatic songs files timestamps flush")
 	argDisableUpdateCheck = flag.Bool("disable-update-check", false, "Disable automatic update check at startup")
 	argInteractive = flag.Bool("interactive", false, "Enable interactive mode")
+	argManualInput = flag.Bool("manual-input", false, "Always manually insert YouTube URL for songs")
 	argCleanJunks = flag.Bool("clean-junks", false, "Scan for junks file and clean them")
 	argLog = flag.Bool("log", false, "Enable logging into file ./spotitube.log")
 	argDisableGui = flag.Bool("disable-gui", false, "Disable GUI to reduce noise and increase readability of program flow")
@@ -109,6 +111,10 @@ func main() {
 	if len(argFix.Paths) > 0 {
 		*argReplaceLocal = true
 		*argFlushMetadata = true
+	}
+
+	if *argManualInput {
+		*argInteractive = true
 	}
 
 	if !(spttb_system.Dir(*argFolder)) {
@@ -275,28 +281,31 @@ func mainSearch() {
 		gui.LoadingHalfIncrease()
 		gui.Append(fmt.Sprintf("%d/%d: \"%s\"", trackIndex+1, len(tracks), track.Filename), spttb_gui.PanelRight|spttb_gui.FontStyleBold)
 		if subIfSongSearch(track) {
-			youTubeTracks, err := spttb_youtube.QueryTracks(&track)
-			if err != nil {
-				gui.WarnAppend(fmt.Sprintf("Something went wrong while searching for \"%s\" track: %s.", track.Filename, err.Error()), spttb_gui.PanelRight)
-				tracksFailed = append(tracksFailed, track)
-				gui.LoadingHalfIncrease()
-				continue
-			}
-
 			var (
-				youTubeTrack         = spttb_youtube.Track{}
+				youTubeTrack         = spttb_youtube.Track{Track: &track}
+				youTubeTracks        = spttb_youtube.Tracks{}
+				youTubeTracksErr     error
 				youTubeTrackPickAuto bool
 				youTubeTrackPick     bool
 			)
-			for _, youTubeTrackLoopEl := range youTubeTracks {
-				gui.DebugAppend(fmt.Sprintf("Result met: ID: %s,\nTitle: %s,\nUser: %s,\nDuration: %d.",
-					youTubeTrackLoopEl.ID, youTubeTrackLoopEl.Title, youTubeTrackLoopEl.User, youTubeTrackLoopEl.Duration), spttb_gui.PanelRight)
+			if !*argManualInput {
+				youTubeTracks, youTubeTracksErr = spttb_youtube.QueryTracks(&track)
+				if youTubeTracksErr != nil {
+					gui.WarnAppend(fmt.Sprintf("Something went wrong while searching for \"%s\" track: %s.", track.Filename, youTubeTracksErr.Error()), spttb_gui.PanelRight)
+					tracksFailed = append(tracksFailed, track)
+					gui.LoadingHalfIncrease()
+					continue
+				}
+				for _, youTubeTrackLoopEl := range youTubeTracks {
+					gui.DebugAppend(fmt.Sprintf("Result met: ID: %s,\nTitle: %s,\nUser: %s,\nDuration: %d.",
+						youTubeTrackLoopEl.ID, youTubeTrackLoopEl.Title, youTubeTrackLoopEl.User, youTubeTrackLoopEl.Duration), spttb_gui.PanelRight)
 
-				youTubeTrackPickAuto, youTubeTrackPick = subMatchResult(track, youTubeTrackLoopEl)
-				if subIfPickFromAns(youTubeTrackPickAuto, youTubeTrackPick) {
-					gui.Append(fmt.Sprintf("Video \"%s\" is good to go for \"%s\".", youTubeTrackLoopEl.Title, track.Filename), spttb_gui.PanelRight)
-					youTubeTrack = youTubeTrackLoopEl
-					break
+					youTubeTrackPickAuto, youTubeTrackPick = subMatchResult(track, youTubeTrackLoopEl)
+					if subIfPickFromAns(youTubeTrackPickAuto, youTubeTrackPick) {
+						gui.Append(fmt.Sprintf("Video \"%s\" is good to go for \"%s\".", youTubeTrackLoopEl.Title, track.Filename), spttb_gui.PanelRight)
+						youTubeTrack = youTubeTrackLoopEl
+						break
+					}
 				}
 			}
 
@@ -331,7 +340,7 @@ func mainSearch() {
 			}
 
 			gui.Append(fmt.Sprintf("Going to download \"%s\" from %s...", youTubeTrack.Title, youTubeTrack.URL), spttb_gui.PanelRight)
-			err = youTubeTrack.Download()
+			err := youTubeTrack.Download()
 			if err != nil {
 				gui.WarnAppend(fmt.Sprintf("Something went wrong downloading \"%s\": %s.", track.Filename, err.Error()), spttb_gui.PanelRight)
 				tracksFailed = append(tracksFailed, track)
@@ -894,8 +903,8 @@ func subIfPickFromAns(ansAutomated bool, ansInput bool) bool {
 }
 
 func subCondManualInputURL(youTubeTrack *spttb_youtube.Track) {
-	if *argInteractive && *youTubeTrack == (spttb_youtube.Track{}) {
-		inputURL := gui.PromptInputMessage("Video not found. Please, enter URL manually", spttb_gui.PromptDismissable)
+	if *argInteractive && youTubeTrack.URL == "" {
+		inputURL := gui.PromptInputMessage(fmt.Sprintf("Please, manually enter URL for \"%s\"", youTubeTrack.Track.Filename), spttb_gui.PromptDismissable)
 		if len(inputURL) > 0 {
 			if err := spttb_youtube.ValidateURL(inputURL); err == nil {
 				youTubeTrack.Title = "input video"

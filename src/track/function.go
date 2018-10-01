@@ -34,12 +34,22 @@ func parseTitle(trackTitle string, trackFeaturings []string) (string, string) {
 	}
 	trackTitle = strings.TrimSpace(trackTitle)
 	if len(trackFeaturings) > 0 {
-		if strings.Contains(strings.ToLower(trackTitle), "feat. ") ||
-			strings.Contains(strings.ToLower(trackTitle), "ft. ") ||
-			strings.Contains(strings.ToLower(trackTitle), "featuring ") ||
-			strings.Contains(strings.ToLower(trackTitle), "with ") {
-			for _, featuringSymbol := range []string{"featuring", "feat.", "with"} {
+		var (
+			featuringsAlreadyParsed bool
+			featuringSymbols        = []string{"featuring", "feat", "ft", "with"}
+		)
+		for _, featuringValue := range trackFeaturings {
+			for _, featuringSymbol := range featuringSymbols {
+				if len(strings.Split(trackTitle, featuringSymbol)) > 1 &&
+					strings.Contains(strings.ToLower(strings.Split(trackTitle, featuringSymbol)[1]), strings.ToLower(featuringValue)) {
+					featuringsAlreadyParsed = true
+				}
+			}
+		}
+		if featuringsAlreadyParsed {
+			for _, featuringSymbol := range featuringSymbols {
 				for _, featuringSymbolCase := range []string{featuringSymbol, strings.Title(featuringSymbol)} {
+					trackTitle = strings.Replace(trackTitle, featuringSymbolCase+". ", "ft. ", -1)
 					trackTitle = strings.Replace(trackTitle, featuringSymbolCase+" ", "ft. ", -1)
 				}
 			}

@@ -228,13 +228,16 @@ func mainFetch() {
 		}
 
 		gui.Append("Checking which songs need to be downloaded...", spttb_gui.PanelRight)
-		var tracksDuplicates = 0
+		var (
+			tracksDuplicates = 0
+			tracksMap        = make(map[string]float64)
+		)
 		for trackIndex := len(tracksOnline) - 1; trackIndex >= 0; trackIndex-- {
-			track := spttb_track.ParseSpotifyTrack(tracksOnline[trackIndex], tracksOnlineAlbums[trackIndex])
-			if !tracks.Has(track) {
-				tracks = append(tracks, track)
+			if _, alreadyParsed := tracksMap[spttb_track.IDString(tracksOnline[trackIndex])]; !alreadyParsed {
+				tracks = append(tracks, spttb_track.ParseSpotifyTrack(tracksOnline[trackIndex], tracksOnlineAlbums[trackIndex]))
+				tracksMap[spttb_track.IDString(tracksOnline[trackIndex])] = 1
 			} else {
-				gui.WarnAppend(fmt.Sprintf("Ignored song duplicate \"%s\".", track.Filename), spttb_gui.PanelRight)
+				gui.WarnAppend(fmt.Sprintf("Ignored song duplicate \"%s\" by \"%s\".", tracksOnline[trackIndex].SimpleTrack.Name, tracksOnline[trackIndex].SimpleTrack.Artists[0].Name), spttb_gui.PanelRight)
 				tracksDuplicates++
 			}
 		}

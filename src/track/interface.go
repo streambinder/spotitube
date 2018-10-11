@@ -12,14 +12,13 @@ import (
 	"github.com/zmb3/spotify"
 )
 
-// Has : return True if Tracks contains input Track
-func (tracks Tracks) Has(track Track) bool {
-	for _, havingTrack := range tracks {
-		if strings.ToLower(havingTrack.Filename) == strings.ToLower(track.Filename) {
-			return true
-		}
+// IDString : return identity string for given spotify track
+func IDString(spotifyTrack spotify.FullTrack) string {
+	var id string
+	for _, artistItem := range spotifyTrack.SimpleTrack.Artists {
+		id += artistItem.Name
 	}
-	return false
+	return id + spotifyTrack.SimpleTrack.Name
 }
 
 // CountOffline : return offline (local) songs count from Tracks

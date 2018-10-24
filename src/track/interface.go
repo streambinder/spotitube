@@ -152,6 +152,14 @@ func ParseSpotifyTrack(spotifyTrack spotify.FullTrack, spotifyAlbum spotify.Full
 	return track
 }
 
+// FlushLocal : recheck - and eventually update it - if track is local
+func (track Track) FlushLocal() Track {
+	if spttb_system.FileExists(track.FilenameFinal()) {
+		track.Local = true
+	}
+	return track
+}
+
 // FilenameFinal : return Track final filename
 func (track Track) FilenameFinal() string {
 	return track.Filename + track.FilenameExt

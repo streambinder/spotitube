@@ -152,20 +152,21 @@ adb reboot
 You may want to use some of the following input flags:
 
 1.  `-fix <filename>`: try to find a better result for `<filename>`, which is an already downloaded (via SpotiTube) song
-2.  `-disable-normalization`: disable songs volume normalization. Although volume normalization is really useful, as lot of songs gets downloaded with several `max_volume` values, resulting into some of them with very low volume level, this option (enabled by default) make the process slow down.
-3.  `-disable-playlist-file`: disable automatic creation of playlist file, used to keep track of playlists songs.
-4.  `-pls-file`: swap playlist file format, from `.m3u` - which is the default - to `.pls`.
-5.  `-disable-lyrics`: disable download of songs lyrics and their application into `mp3`.
-6.  `-disable-timestamp-flush`: disable automatic songs files timestamps flush to keep library/playlist order.
-7.  `-disable-update-check`: disable automatic update check at startup (and eventually consequent self-updating procedure).
-8.  `-interactive`: enable interactive mode. This allows to eventually override `spotitube` decisions about which _YouTube_ result to pick, prompting for user input on every - legal - song it encounters.
-9.  `-manual-input`: always manually insert YouTube URL used for songs download.
-10. `-flush-metadata`: enable metadata informations flush also for songs that have been already synchronized.
-11. `-flush-missing`: if `-flush-metadata` toggled, it will just populate empty id3 frames, instead of flushing any of those.
-12. `-flush-missing`: if -flush-metadata toggled, it will just populate id3 frames different from the ones calculated by the application, instead of flushing any of those (keep in mind that, in order to compare the respective tags, it needs to redownload both artworks and lyrics).
-13. `-replace-local`: replace already downloaded (via `spotitube`) songs, if better ones get encountered.
-14. `-clean-junks`: forcely batch remove temporary files that kept existing for any unattended runtime error.
-15. `-version`: just print installed version.
+2.  `-invalidate-library-cache`: manually invalidate library cache, retriggering its fetch from Spotify
+3.  `-disable-normalization`: disable songs volume normalization. Although volume normalization is really useful, as lot of songs gets downloaded with several `max_volume` values, resulting into some of them with very low volume level, this option (enabled by default) make the process slow down.
+4.  `-disable-playlist-file`: disable automatic creation of playlist file, used to keep track of playlists songs.
+5.  `-pls-file`: swap playlist file format, from `.m3u` - which is the default - to `.pls`.
+6.  `-disable-lyrics`: disable download of songs lyrics and their application into `mp3`.
+7.  `-disable-timestamp-flush`: disable automatic songs files timestamps flush to keep library/playlist order.
+8.  `-disable-update-check`: disable automatic update check at startup (and eventually consequent self-updating procedure).
+9.  `-interactive`: enable interactive mode. This allows to eventually override `spotitube` decisions about which _YouTube_ result to pick, prompting for user input on every - legal - song it encounters.
+10. `-manual-input`: always manually insert YouTube URL used for songs download.
+11. `-flush-metadata`: enable metadata informations flush also for songs that have been already synchronized.
+12. `-flush-missing`: if `-flush-metadata` toggled, it will just populate empty id3 frames, instead of flushing any of those.
+13. `-flush-missing`: if -flush-metadata toggled, it will just populate id3 frames different from the ones calculated by the application, instead of flushing any of those (keep in mind that, in order to compare the respective tags, it needs to redownload both artworks and lyrics).
+14. `-replace-local`: replace already downloaded (via `spotitube`) songs, if better ones get encountered.
+15. `-clean-junks`: forcely batch remove temporary files that kept existing for any unattended runtime error.
+16. `-version`: just print installed version.
 
 #### Developers
 

@@ -1,5 +1,9 @@
 package track
 
+import (
+	"time"
+)
+
 // Track : struct containing all the informations about a track
 type Track struct {
 	Title         string
@@ -25,3 +29,9 @@ type Track struct {
 
 // Tracks : Track array
 type Tracks []Track
+
+// TracksDump : Tracks dumpable object
+type TracksDump struct {
+	Tracks Tracks
+	Time   time.Time
+}

@@ -49,6 +49,7 @@ var (
 	argDisableLyrics          *bool
 	argDisableTimestampFlush  *bool
 	argDisableUpdateCheck     *bool
+	argDisableBrowserOpening  *bool
 	argInteractive            *bool
 	argManualInput            *bool
 	argCleanJunks             *bool
@@ -103,6 +104,7 @@ func main() {
 	argDisableLyrics = flag.Bool("disable-lyrics", false, "Disable download of songs lyrics and their application into mp3")
 	argDisableTimestampFlush = flag.Bool("disable-timestamp-flush", false, "Disable automatic songs files timestamps flush")
 	argDisableUpdateCheck = flag.Bool("disable-update-check", false, "Disable automatic update check at startup")
+	argDisableBrowserOpening = flag.Bool("disable-browser-opening", false, "Disable automatic browser opening for authentication")
 	argInteractive = flag.Bool("interactive", false, "Enable interactive mode")
 	argManualInput = flag.Bool("manual-input", false, "Always manually insert YouTube URL used for songs download")
 	argCleanJunks = flag.Bool("clean-junks", false, "Scan for junks file and clean them")
@@ -215,8 +217,10 @@ func mainFetch() {
 		if *argInvalidateLibraryCache {
 			spotifyAuthURL := spttb_spotify.AuthURL()
 			gui.Append(fmt.Sprintf("Authentication URL: %s", spotifyAuthURL.Short), spttb_gui.PanelRight|spttb_gui.ParagraphStyleAutoReturn)
-			gui.DebugAppend("Waiting for automatic login process. If wait is too long, manually open that URL.", spttb_gui.PanelRight)
-			if !spotifyClient.Auth(spotifyAuthURL.Full) {
+			if !*argDisableBrowserOpening {
+				gui.DebugAppend("Waiting for automatic login process. If wait is too long, manually open that URL.", spttb_gui.PanelRight)
+			}
+			if !spotifyClient.Auth(spotifyAuthURL.Full, !*argDisableBrowserOpening) {
 				gui.Prompt("Unable to authenticate to spotify.", spttb_gui.PromptDismissableWithExit)
 			}
 			gui.Append("Authentication completed.", spttb_gui.PanelRight)

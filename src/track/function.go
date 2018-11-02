@@ -36,7 +36,7 @@ func parseTitle(trackTitle string, trackFeaturings []string) (string, string) {
 	if len(trackFeaturings) > 0 {
 		var (
 			featuringsAlreadyParsed bool
-			featuringSymbols        = []string{"featuring", "feat", "ft", "with"}
+			featuringSymbols        = []string{"featuring", "feat", "ft", "with", "prod"}
 		)
 		for _, featuringValue := range trackFeaturings {
 			for _, featuringSymbol := range featuringSymbols {

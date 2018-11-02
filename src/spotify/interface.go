@@ -35,7 +35,7 @@ func NewClient() *Spotify {
 }
 
 // Auth : start local callback server to handle xdg-preferred browser authentication redirection
-func (spotify *Spotify) Auth(url string) bool {
+func (spotify *Spotify) Auth(url string, xdgOpen bool) bool {
 	http.HandleFunc("/favicon.ico", webHTTPFaviconHandler)
 	http.HandleFunc("/callback", webHTTPCompleteAuthHandler)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -43,11 +43,13 @@ func (spotify *Spotify) Auth(url string) bool {
 	})
 	go http.ListenAndServe(":8080", nil)
 
-	commandCmd := "xdg-open"
-	commandArgs := []string{url}
-	_, err := exec.Command(commandCmd, commandArgs...).Output()
-	if err != nil {
-		return false
+	if xdgOpen {
+		commandCmd := "xdg-open"
+		commandArgs := []string{url}
+		_, err := exec.Command(commandCmd, commandArgs...).Output()
+		if err != nil {
+			return false
+		}
 	}
 
 	spotify.Client = <-clientChannel

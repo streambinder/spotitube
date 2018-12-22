@@ -2,7 +2,7 @@ package system
 
 const (
 	// Version : current version
-	Version = 20
+	Version = 21
 	// VersionRepository : repositoy container
 	VersionRepository = "https://github.com/streambinder/spotitube"
 	// VersionOrigin : API repository latest version URL

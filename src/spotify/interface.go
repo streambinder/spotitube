@@ -83,11 +83,11 @@ func (spotify *Spotify) LibraryTracks() ([]api.FullTrack, error) {
 
 // Playlist : return Spotify FullPlaylist from input string playlistURI
 func (spotify *Spotify) Playlist(playlistURI string) (*api.FullPlaylist, error) {
-	playlistOwner, playlistID, playlistErr := parsePlaylistURI(playlistURI)
+	_, playlistID, playlistErr := parsePlaylistURI(playlistURI)
 	if playlistErr != nil {
 		return &api.FullPlaylist{}, playlistErr
 	}
-	return spotify.Client.GetPlaylist(playlistOwner, playlistID)
+	return spotify.Client.GetPlaylist(playlistID)
 }
 
 // PlaylistTracks : return array of Spotify FullTrack of all input string playlistURI identified playlist
@@ -97,13 +97,13 @@ func (spotify *Spotify) PlaylistTracks(playlistURI string) ([]api.FullTrack, err
 		iterations int
 		options    = defaultOptions()
 	)
-	playlistOwner, playlistID, playlistErr := parsePlaylistURI(playlistURI)
+	_, playlistID, playlistErr := parsePlaylistURI(playlistURI)
 	if playlistErr != nil {
 		return tracks, playlistErr
 	}
 	for true {
 		*options.Offset = *options.Limit * iterations
-		chunk, err := spotify.Client.GetPlaylistTracksOpt(playlistOwner, playlistID, &options, "")
+		chunk, err := spotify.Client.GetPlaylistTracksOpt(playlistID, &options, "")
 		if err != nil {
 			return []api.FullTrack{}, fmt.Errorf(fmt.Sprintf("Something gone wrong while reading %dth chunk of tracks: %s.", iterations, err.Error()))
 		}

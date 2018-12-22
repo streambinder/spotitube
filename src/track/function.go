@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -108,6 +109,10 @@ func parseFilename(track Track) (string, string) {
 }
 
 func searchLyricsGenius(track *Track) (string, error) {
+	var geniusToken = os.Getenv("GENIUS_TOKEN")
+	if len(geniusToken) == 0 {
+		geniusToken = GeniusAccessToken
+	}
 	if len(GeniusAccessToken) == 0 {
 		return "", fmt.Errorf("Cannot fetch lyrics from Genius without a valid token")
 	}

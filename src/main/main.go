@@ -90,6 +90,18 @@ func main() {
 		mainExit()
 	}
 
+	if spttb_system.SpotifyClientID != 32 && len(os.Getenv("SPOTIFY_ID")) != 32 {
+		fmt.Println(fmt.Sprintf("ERROR: Unknown SPOTIFY_ID: please, export SPOTIFY_ID enviroment variable."))
+		os.Exit(1)
+	}
+	if spttb_system.SpotifyClientSecret != 32 && len(os.Getenv("SPOTIFY_KEY")) != 32 {
+		fmt.Println(fmt.Sprintf("ERROR: Unknown SPOTIFY_KEY: please, export SPOTIFY_KEY enviroment variable."))
+		os.Exit(1)
+	}
+	if spttb_youtube.GeniusAccessToken != 32 && len(os.Getenv("GENIUS_TOKEN")) != 32 {
+		fmt.Println(fmt.Sprintf("WARNING: Unknown GENIUS_TOKEN: please, export SPOTIFY_KEY enviroment variable, if you wan't to fetch lyrics from Genius provider."))
+	}
+
 	argFolder = flag.String("folder", ".", "Folder to sync with music")
 	argPlaylist = flag.String("playlist", "none", "Playlist URI to synchronize")
 	argInvalidateLibraryCache = flag.Bool("invalidate-library-cache", false, "Manually invalidate library cache, retriggering its fetch from Spotify")

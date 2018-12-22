@@ -11,13 +11,13 @@ debug:
 bin:
 	@ ( \
 		if [ -z "$(SPOTIFY_ID)" ]; then \
-			echo "ERROR: SPOTIFY_ID environment variable needs to be set."; exit 1; \
+			echo "WARNING: SPOTIFY_ID environment variable needs to be set. Not statically inflating into code."; \
 		fi; \
 		if [ -z "$(SPOTIFY_KEY)" ]; then \
-			echo "ERROR: SPOTIFY_KEY environment variable needs to be set."; exit 1; \
+			echo "WARNING: SPOTIFY_KEY environment variable needs to be set. Not statically inflating into code."; \
 		fi; \
 		if [ -z "$(GENIUS_TOKEN)" ]; then \
-			echo "WARNING: GENIUS_TOKEN environment variable is not set. You won't be able to fetch Genius lyrics."; \
+			echo "WARNING: GENIUS_TOKEN environment variable is not set. Not statically inflating into code."; \
 		fi; \
 		if [ -z "$(LDFLAGS)" ]; then \
 			echo -en "Building in debug mode...\r"; \

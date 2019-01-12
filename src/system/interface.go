@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/rand"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
 	"time"
@@ -147,6 +148,12 @@ func InputString(message string) string {
 		}
 		return response
 	}
+}
+
+// LocalConfigPath : get local configuration and cache path
+func LocalConfigPath() string {
+	currentUser, _ := user.Current()
+	return fmt.Sprintf("%s/.spotitube", currentUser.HomeDir)
 }
 
 // DumpGob : serialize and dump to disk given object to give filePath path

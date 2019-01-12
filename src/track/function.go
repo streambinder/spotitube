@@ -29,7 +29,9 @@ func parseType(sequence string) int {
 func parseTitle(trackTitle string, trackFeaturings []string) (string, string) {
 	var trackSong string
 
-	trackTitle = strings.Split(trackTitle, " - ")[0]
+	if !(strings.Contains(trackTitle, " (") && strings.Contains(strings.Split(strings.Split(trackTitle, ")")[0], "(")[1], " - ")) {
+		trackTitle = strings.Split(trackTitle, " - ")[0]
+	}
 	if strings.Contains(trackTitle, " live ") {
 		trackTitle = strings.Split(trackTitle, " live ")[0]
 	}

@@ -36,56 +36,52 @@ import (
 )
 
 var (
-	argFolder                 *string
-	argPlaylist               *string
-	argInvalidateLibraryCache *bool
-	argReplaceLocal           *bool
-	argFlushMetadata          *bool
-	argFlushMissing           *bool
-	argFlushDifferent         *bool
-	argDisableNormalization   *bool
-	argDisablePlaylistFile    *bool
-	argPlsFile                *bool
-	argDisableLyrics          *bool
-	argDisableTimestampFlush  *bool
-	argDisableUpdateCheck     *bool
-	argDisableBrowserOpening  *bool
-	argInteractive            *bool
-	argManualInput            *bool
-	argCleanJunks             *bool
-	argLog                    *bool
-	argDisableGui             *bool
-	argDebug                  *bool
-	argSimulate               *bool
-	argVersion                *bool
-	argFix                    spttb_system.PathsArrayFlag
+	argFolder                *string
+	argPlaylist              *string
+	argInvalidateCache       *bool
+	argReplaceLocal          *bool
+	argFlushMetadata         *bool
+	argFlushMissing          *bool
+	argFlushDifferent        *bool
+	argDisableNormalization  *bool
+	argDisablePlaylistFile   *bool
+	argPlsFile               *bool
+	argDisableLyrics         *bool
+	argDisableTimestampFlush *bool
+	argDisableUpdateCheck    *bool
+	argDisableBrowserOpening *bool
+	argInteractive           *bool
+	argManualInput           *bool
+	argCleanJunks            *bool
+	argLog                   *bool
+	argDisableGui            *bool
+	argDebug                 *bool
+	argSimulate              *bool
+	argVersion               *bool
+	argFix                   spttb_system.PathsArrayFlag
 
 	tracks        spttb_track.Tracks
 	tracksFailed  spttb_track.Tracks
 	playlistInfo  *api.FullPlaylist
 	spotifyClient *spttb_spotify.Spotify = spttb_spotify.NewClient()
+	spotifyUser   string
+	spotifyUserID string
 	waitGroup     sync.WaitGroup
 	waitGroupPool = make(chan bool, spttb_system.ConcurrencyLimit)
 
 	gui    *spttb_gui.Gui
 	notify *notificator.Notificator
 
-	userLocalConfigPath string
-	userLocalBin        string
-	userLocalGob        string
+	userLocalConfigPath string = spttb_system.LocalConfigPath()
+	userLocalBin        string = fmt.Sprintf("%s/spotitube", userLocalConfigPath)
+	userLocalGob        string = fmt.Sprintf("%s/%s_%s.gob", userLocalConfigPath, "%s", "%s")
+	procCurrentBin      string
 )
 
 func main() {
-	var (
-		currentUser, _ = user.Current()
-		currentBin, _  = filepath.Abs(os.Args[0])
-	)
+	procCurrentBin, _ = filepath.Abs(os.Args[0])
 
-	userLocalConfigPath = fmt.Sprintf("%s/.spotitube", currentUser.HomeDir)
-	userLocalBin = fmt.Sprintf("%s/spotitube", userLocalConfigPath)
-	userLocalGob = fmt.Sprintf("%s/library.gob", userLocalConfigPath)
-
-	if currentBin != userLocalBin && spttb_system.FileExists(userLocalBin) && os.Getenv("FORKED") != "1" {
+	if procCurrentBin != userLocalBin && spttb_system.FileExists(userLocalBin) && os.Getenv("FORKED") != "1" {
 		syscall.Exec(userLocalBin, os.Args, append(os.Environ(), []string{"FORKED=1"}...))
 		mainExit()
 	}
@@ -106,7 +102,7 @@ func main() {
 
 	argFolder = flag.String("folder", ".", "Folder to sync with music")
 	argPlaylist = flag.String("playlist", "none", "Playlist URI to synchronize")
-	argInvalidateLibraryCache = flag.Bool("invalidate-library-cache", false, "Manually invalidate library cache, retriggering its fetch from Spotify")
+	argInvalidateCache = flag.Bool("invalidate-library-cache", false, "Manually invalidate library cache, retriggering its fetch from Spotify")
 	flag.Var(&argFix, "fix", "Offline song filename(s) which straighten the shot to")
 	argReplaceLocal = flag.Bool("replace-local", false, "Replace local library songs if better results get encountered")
 	argFlushMetadata = flag.Bool("flush-metadata", false, "Flush metadata informations to already synchronized songs")
@@ -160,6 +156,8 @@ func main() {
 		os.Exit(0)
 	}
 
+	spttb_system.Mkdir(userLocalConfigPath)
+
 	var guiOptions uint64
 	if *argDebug {
 		guiOptions = guiOptions | spttb_gui.GuiDebugMode
@@ -208,97 +206,105 @@ func main() {
 
 func mainFetch() {
 	if len(argFix.Paths) == 0 {
-		if !*argInvalidateLibraryCache {
-			var tracksDump = new(spttb_track.TracksDump)
-			if fetchErr := spttb_system.FetchGob(userLocalGob, tracksDump); fetchErr != nil {
-				gui.ErrAppend(fmt.Sprintf("Unable to load library cache: %s", fetchErr.Error()), spttb_gui.PanelRight)
-				*argInvalidateLibraryCache = true
+		spotifyAuthURL := spttb_spotify.AuthURL()
+		gui.Append(fmt.Sprintf("Authentication URL: %s", spotifyAuthURL.Short), spttb_gui.PanelRight|spttb_gui.ParagraphStyleAutoReturn)
+		if !*argDisableBrowserOpening {
+			gui.DebugAppend("Waiting for automatic login process. If wait is too long, manually open that URL.", spttb_gui.PanelRight)
+		}
+		if !spotifyClient.Auth(spotifyAuthURL.Full, !*argDisableBrowserOpening) {
+			gui.Prompt("Unable to authenticate to spotify.", spttb_gui.PromptDismissableWithExit)
+		}
+		gui.Append("Authentication completed.", spttb_gui.PanelRight)
+		spotifyUser, spotifyUserID = spotifyClient.User()
+		gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Session user:", spttb_gui.FontStyleBold), spotifyUser), spttb_gui.PanelLeftTop)
+
+		var (
+			tracksOnline          []api.FullTrack
+			tracksOnlineAlbums    []api.FullAlbum
+			tracksOnlineAlbumsIds []api.ID
+			tracksErr             error
+		)
+
+		if *argPlaylist == "none" {
+			userLocalGob = fmt.Sprintf(userLocalGob, spotifyUserID, "library")
+			if *argInvalidateCache {
+				os.Remove(userLocalGob)
+			}
+			tracksDump, tracksDumpErr := subFetchGob(userLocalGob)
+			if tracksDumpErr != nil {
+				gui.WarnAppend(tracksDumpErr.Error(), spttb_gui.PanelRight)
+				gui.Append("Fetching music library...", spttb_gui.PanelRight)
+				if tracksOnline, tracksErr = spotifyClient.LibraryTracks(); tracksErr != nil {
+					gui.Prompt(fmt.Sprintf("Something went wrong while fetching tracks from library: %s.", tracksErr.Error()), spttb_gui.PromptDismissableWithExit)
+				}
 			} else {
-				if time.Since(tracksDump.Time).Minutes() > 30 {
-					gui.Append(fmt.Sprintf("Library cache declared obsolete: flushing it from Spotify..."), spttb_gui.PanelRight)
-					*argInvalidateLibraryCache = true
+				gui.Append(fmt.Sprintf("Tracks loaded from cache."), spttb_gui.PanelRight)
+				gui.Append(fmt.Sprintf("%s %d/%d (min)", spttb_gui.MessageStyle("Tracks cache lifetime:", spttb_gui.FontStyleBold), int(time.Since(tracksDump.Time).Minutes()), 30), spttb_gui.PanelLeftTop)
+				for _, track := range tracksDump.Tracks {
+					tracks = append(tracks, track.FlushLocal())
+				}
+			}
+		} else {
+			gui.Append("Fetching playlist data...", spttb_gui.PanelRight)
+			var playlistErr error
+			playlistInfo, playlistErr = spotifyClient.Playlist(*argPlaylist)
+			if playlistErr != nil {
+				gui.Prompt("Something went wrong while fetching playlist info.", spttb_gui.PromptDismissableWithExit)
+			} else {
+				gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Playlist name:", spttb_gui.FontStyleBold), playlistInfo.Name), spttb_gui.PanelLeftTop)
+				if len(playlistInfo.Owner.DisplayName) == 0 && len(strings.Split(*argPlaylist, ":")) >= 3 {
+					gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Playlist owner:", spttb_gui.FontStyleBold), strings.Split(*argPlaylist, ":")[2]), spttb_gui.PanelLeftTop)
 				} else {
-					gui.Append(fmt.Sprintf("Library loaded from cache."), spttb_gui.PanelRight)
-					gui.Append(fmt.Sprintf("%s %d/%d (min)", spttb_gui.MessageStyle("Library cache lifetime:", spttb_gui.FontStyleBold), int(time.Since(tracksDump.Time).Minutes()), 30), spttb_gui.PanelLeftTop)
+					gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Playlist owner:", spttb_gui.FontStyleBold), playlistInfo.Owner.DisplayName), spttb_gui.PanelLeftTop)
+				}
+
+				userLocalGob = fmt.Sprintf(userLocalGob, playlistInfo.Owner.ID, playlistInfo.Name)
+				if *argInvalidateCache {
+					os.Remove(userLocalGob)
+				}
+				tracksDump, tracksDumpErr := subFetchGob(userLocalGob)
+				if tracksDumpErr != nil {
+					gui.WarnAppend(tracksDumpErr.Error(), spttb_gui.PanelRight)
+					gui.Append(fmt.Sprintf("Getting songs from \"%s\" playlist, by \"%s\"...", playlistInfo.Name, playlistInfo.Owner.DisplayName), spttb_gui.PanelRight|spttb_gui.FontStyleBold)
+					if tracksOnline, tracksErr = spotifyClient.PlaylistTracks(*argPlaylist); tracksErr != nil {
+						gui.Prompt(fmt.Sprintf("Something went wrong while fetching playlist: %s.", tracksErr.Error()), spttb_gui.PromptDismissableWithExit)
+					}
+				} else {
+					gui.Append(fmt.Sprintf("Tracks loaded from cache."), spttb_gui.PanelRight)
+					gui.Append(fmt.Sprintf("%s %d/%d (min)", spttb_gui.MessageStyle("Tracks cache lifetime:", spttb_gui.FontStyleBold), int(time.Since(tracksDump.Time).Minutes()), 30), spttb_gui.PanelLeftTop)
 					for _, track := range tracksDump.Tracks {
 						tracks = append(tracks, track.FlushLocal())
 					}
 				}
 			}
-
+		}
+		for _, track := range tracksOnline {
+			tracksOnlineAlbumsIds = append(tracksOnlineAlbumsIds, track.Album.ID)
+		}
+		if tracksOnlineAlbums, tracksErr = spotifyClient.Albums(tracksOnlineAlbumsIds); tracksErr != nil {
+			gui.Prompt(fmt.Sprintf("Something went wrong while fetching album info: %s.", tracksErr.Error()), spttb_gui.PromptDismissableWithExit)
 		}
 
-		if *argInvalidateLibraryCache {
-			spotifyAuthURL := spttb_spotify.AuthURL()
-			gui.Append(fmt.Sprintf("Authentication URL: %s", spotifyAuthURL.Short), spttb_gui.PanelRight|spttb_gui.ParagraphStyleAutoReturn)
-			if !*argDisableBrowserOpening {
-				gui.DebugAppend("Waiting for automatic login process. If wait is too long, manually open that URL.", spttb_gui.PanelRight)
-			}
-			if !spotifyClient.Auth(spotifyAuthURL.Full, !*argDisableBrowserOpening) {
-				gui.Prompt("Unable to authenticate to spotify.", spttb_gui.PromptDismissableWithExit)
-			}
-			gui.Append("Authentication completed.", spttb_gui.PanelRight)
-
-			var (
-				tracksOnline          []api.FullTrack
-				tracksOnlineAlbums    []api.FullAlbum
-				tracksOnlineAlbumsIds []api.ID
-				tracksErr             error
-			)
-
-			if *argPlaylist == "none" {
-				gui.Append("Fetching music library...", spttb_gui.PanelRight)
-				if tracksOnline, tracksErr = spotifyClient.LibraryTracks(); tracksErr != nil {
-					gui.Prompt(fmt.Sprintf("Something went wrong while fetching playlist: %s.", tracksErr.Error()), spttb_gui.PromptDismissableWithExit)
-				}
+		gui.Append("Checking which songs need to be downloaded...", spttb_gui.PanelRight)
+		var (
+			tracksDuplicates = 0
+			tracksMap        = make(map[string]float64)
+		)
+		for trackIndex := len(tracksOnline) - 1; trackIndex >= 0; trackIndex-- {
+			if _, alreadyParsed := tracksMap[spttb_track.IDString(tracksOnline[trackIndex])]; !alreadyParsed {
+				tracks = append(tracks, spttb_track.ParseSpotifyTrack(tracksOnline[trackIndex], tracksOnlineAlbums[trackIndex]))
+				tracksMap[spttb_track.IDString(tracksOnline[trackIndex])] = 1
 			} else {
-				gui.Append("Fetching playlist...", spttb_gui.PanelRight)
-				var playlistErr error
-				playlistInfo, playlistErr = spotifyClient.Playlist(*argPlaylist)
-				if playlistErr != nil {
-					gui.Prompt("Something went wrong while fetching playlist info.", spttb_gui.PromptDismissableWithExit)
-				} else {
-					gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Playlist name:", spttb_gui.FontStyleBold), playlistInfo.Name), spttb_gui.PanelLeftTop)
-					if len(playlistInfo.Owner.DisplayName) == 0 && len(strings.Split(*argPlaylist, ":")) >= 3 {
-						gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Playlist owner:", spttb_gui.FontStyleBold), strings.Split(*argPlaylist, ":")[2]), spttb_gui.PanelLeftTop)
-					} else {
-						gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Playlist owner:", spttb_gui.FontStyleBold), playlistInfo.Owner.DisplayName), spttb_gui.PanelLeftTop)
-					}
-					gui.Append(fmt.Sprintf("Getting songs from \"%s\" playlist, by \"%s\"...", playlistInfo.Name, playlistInfo.Owner.DisplayName), spttb_gui.PanelRight|spttb_gui.FontStyleBold)
-					if tracksOnline, tracksErr = spotifyClient.PlaylistTracks(*argPlaylist); tracksErr != nil {
-						gui.Prompt(fmt.Sprintf("Something went wrong while fetching playlist: %s.", tracksErr.Error()), spttb_gui.PromptDismissableWithExit)
-					}
-				}
+				gui.WarnAppend(fmt.Sprintf("Ignored song duplicate \"%s\" by \"%s\".", tracksOnline[trackIndex].SimpleTrack.Name, tracksOnline[trackIndex].SimpleTrack.Artists[0].Name), spttb_gui.PanelRight)
+				tracksDuplicates++
 			}
-			for _, track := range tracksOnline {
-				tracksOnlineAlbumsIds = append(tracksOnlineAlbumsIds, track.Album.ID)
-			}
-			if tracksOnlineAlbums, tracksErr = spotifyClient.Albums(tracksOnlineAlbumsIds); tracksErr != nil {
-				gui.Prompt(fmt.Sprintf("Something went wrong while fetching album info: %s.", tracksErr.Error()), spttb_gui.PromptDismissableWithExit)
-			}
-
-			gui.Append("Checking which songs need to be downloaded...", spttb_gui.PanelRight)
-			var (
-				tracksDuplicates = 0
-				tracksMap        = make(map[string]float64)
-			)
-			for trackIndex := len(tracksOnline) - 1; trackIndex >= 0; trackIndex-- {
-				if _, alreadyParsed := tracksMap[spttb_track.IDString(tracksOnline[trackIndex])]; !alreadyParsed {
-					tracks = append(tracks, spttb_track.ParseSpotifyTrack(tracksOnline[trackIndex], tracksOnlineAlbums[trackIndex]))
-					tracksMap[spttb_track.IDString(tracksOnline[trackIndex])] = 1
-				} else {
-					gui.WarnAppend(fmt.Sprintf("Ignored song duplicate \"%s\" by \"%s\".", tracksOnline[trackIndex].SimpleTrack.Name, tracksOnline[trackIndex].SimpleTrack.Artists[0].Name), spttb_gui.PanelRight)
-					tracksDuplicates++
-				}
-			}
-
-			if dumpErr := spttb_system.DumpGob(userLocalGob, spttb_track.TracksDump{Tracks: tracks, Time: time.Now()}); dumpErr != nil {
-				gui.WarnAppend(fmt.Sprintf("Unable to cache library tracks: %s", dumpErr.Error()), spttb_gui.PanelRight)
-			}
-
-			gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Songs duplicates:", spttb_gui.FontStyleBold), tracksDuplicates), spttb_gui.PanelLeftTop)
 		}
 
+		if dumpErr := spttb_system.DumpGob(userLocalGob, spttb_track.TracksDump{Tracks: tracks, Time: time.Now()}); dumpErr != nil {
+			gui.WarnAppend(fmt.Sprintf("Unable to cache tracks: %s", dumpErr.Error()), spttb_gui.PanelRight)
+		}
+
+		gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Songs duplicates:", spttb_gui.FontStyleBold), tracksDuplicates), spttb_gui.PanelLeftTop)
 		gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Songs online:", spttb_gui.FontStyleBold), len(tracks)), spttb_gui.PanelLeftTop)
 		gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Songs offline:", spttb_gui.FontStyleBold), tracks.CountOffline()), spttb_gui.PanelLeftTop)
 		gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Songs missing:", spttb_gui.FontStyleBold), tracks.CountOnline()), spttb_gui.PanelLeftTop)
@@ -917,6 +923,19 @@ func subCondFlushID3FrameLyrics(track spttb_track.Track, trackMp3 *id3.Tag) {
 
 func subIfSongSearch(track spttb_track.Track) bool {
 	return !track.Local || *argReplaceLocal || *argSimulate
+}
+
+func subFetchGob(path string) (spttb_track.TracksDump, error) {
+	var tracksDump = new(spttb_track.TracksDump)
+	if fetchErr := spttb_system.FetchGob(path, tracksDump); fetchErr != nil {
+		return spttb_track.TracksDump{}, fmt.Errorf(fmt.Sprintf("Unable to load tracks cache: %s", fetchErr.Error()))
+	}
+
+	if time.Since(tracksDump.Time).Minutes() > 30 {
+		return spttb_track.TracksDump{}, fmt.Errorf("Tracks cache declared obsolete: flushing it from Spotify...")
+	}
+
+	return *tracksDump, nil
 }
 
 func subCountSongs() (int, int, int) {

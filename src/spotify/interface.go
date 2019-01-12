@@ -37,7 +37,6 @@ func AuthURL() *SpotifyAuthURL {
 
 	}
 	return &SpotifyAuthURL{Full: spotifyURL, Short: string(tinyContent)}
-
 }
 
 // NewClient : return a new Spotify instance
@@ -47,12 +46,15 @@ func NewClient() *Spotify {
 
 // Auth : start local callback server to handle xdg-preferred browser authentication redirection
 func (spotify *Spotify) Auth(url string, xdgOpen bool) bool {
+	authServer := &http.Server{Addr: "127.0.0.1:8080"}
 	http.HandleFunc("/favicon.ico", webHTTPFaviconHandler)
 	http.HandleFunc("/callback", webHTTPCompleteAuthHandler)
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("Got request for:", r.URL.String())
-	})
-	go http.ListenAndServe(":8080", nil)
+
+	go func() {
+		if err := authServer.ListenAndServe(); err != http.ErrServerClosed {
+			log.Fatalf("ListenAndServe(): %s", err)
+		}
+	}()
 
 	if xdgOpen {
 		commandCmd := "xdg-open"
@@ -64,8 +66,21 @@ func (spotify *Spotify) Auth(url string, xdgOpen bool) bool {
 	}
 
 	spotify.Client = <-clientChannel
+	if authServer != nil {
+		authServer.Shutdown(nil)
+	}
 
 	return true
+}
+
+// User : get authenticated username from authenticated client
+func (spotify *Spotify) User() (string, string) {
+	if user, err := spotify.Client.CurrentUser(); err != nil {
+		return "unknown", "unknown"
+	} else {
+		return user.DisplayName, user.ID
+	}
+
 }
 
 // LibraryTracks : return array of Spotify FullTrack of all authenticated user library songs

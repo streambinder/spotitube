@@ -152,7 +152,7 @@ adb reboot
 You may want to use some of the following input flags:
 
 1.  `-fix <filename>`: try to find a better result for `<filename>`, which is an already downloaded (via SpotiTube) song
-2.  `-invalidate-library-cache`: manually invalidate library cache, retriggering its fetch from Spotify
+2.  `-invalidate-cache`: manually invalidate tracks cache, retriggering its fetch from Spotify
 3.  `-disable-normalization`: disable songs volume normalization. Although volume normalization is really useful, as lot of songs gets downloaded with several `max_volume` values, resulting into some of them with very low volume level, this option (enabled by default) make the process slow down.
 4.  `-disable-playlist-file`: disable automatic creation of playlist file, used to keep track of playlists songs.
 5.  `-pls-file`: swap playlist file format, from `.m3u` - which is the default - to `.pls`.

@@ -102,7 +102,7 @@ func main() {
 
 	argFolder = flag.String("folder", ".", "Folder to sync with music")
 	argPlaylist = flag.String("playlist", "none", "Playlist URI to synchronize")
-	argInvalidateCache = flag.Bool("invalidate-library-cache", false, "Manually invalidate library cache, retriggering its fetch from Spotify")
+	argInvalidateCache = flag.Bool("invalidate-cache", false, "Manually invalidate library cache, retriggering its fetch from Spotify")
 	flag.Var(&argFix, "fix", "Offline song filename(s) which straighten the shot to")
 	argReplaceLocal = flag.Bool("replace-local", false, "Replace local library songs if better results get encountered")
 	argFlushMetadata = flag.Bool("flush-metadata", false, "Flush metadata informations to already synchronized songs")

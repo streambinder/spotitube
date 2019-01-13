@@ -77,7 +77,7 @@ func (youtube_track Track) Match(track spttb_track.Track) error {
 func (youtube_track Track) Download() error {
 	var commandOut bytes.Buffer
 	commandCmd := "youtube-dl"
-	commandArgs := []string{"--output", youtube_track.Track.FilenameTemp + ".%(ext)s", "--format", "bestaudio", "--extract-audio", "--audio-format", youtube_track.Track.FilenameExt[1:], "--audio-quality", "0", youtube_track.URL}
+	commandArgs := []string{"--output", fmt.Sprintf("%s.%s", youtube_track.Track.FilenameTemp, youtube_track.Track.FilenameExt[1:]), "--format", "bestaudio", "--extract-audio", "--audio-format", youtube_track.Track.FilenameExt[1:], "--audio-quality", "0", youtube_track.URL}
 	commandObj := exec.Command(commandCmd, commandArgs...)
 	commandObj.Stderr = &commandOut
 	if commandErr := commandObj.Run(); commandErr != nil {

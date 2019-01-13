@@ -64,12 +64,12 @@ func parseTitle(trackTitle string, trackFeaturings []string) (string, string) {
 			}
 			var trackFeaturingsInline string
 			if len(trackFeaturings) > 1 {
-				trackFeaturingsInline = "(ft. " + strings.Join(trackFeaturings[:len(trackFeaturings)-1], ", ") +
-					" and " + trackFeaturings[len(trackFeaturings)-1] + ")"
+				trackFeaturingsInline = "(ft. " + strings.TrimSpace(strings.Join(trackFeaturings[:len(trackFeaturings)-1], ", ")) +
+					" and " + strings.TrimSpace(trackFeaturings[len(trackFeaturings)-1]) + ")"
 			} else {
-				trackFeaturingsInline = "(ft. " + trackFeaturings[0] + ")"
+				trackFeaturingsInline = "(ft. " + strings.TrimSpace(trackFeaturings[0]) + ")"
 			}
-			trackTitle = trackTitle + " " + trackFeaturingsInline
+			trackTitle = fmt.Sprintf("%s %s", trackTitle, trackFeaturingsInline)
 		}
 		trackSong = strings.Split(trackTitle, " (ft. ")[0]
 	} else {

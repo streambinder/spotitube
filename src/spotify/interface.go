@@ -1,6 +1,7 @@
 package spotify
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -67,7 +68,7 @@ func (spotify *Spotify) Auth(url string, xdgOpen bool) bool {
 
 	spotify.Client = <-clientChannel
 	if authServer != nil {
-		authServer.Shutdown(nil)
+		authServer.Shutdown(context.Background())
 	}
 
 	return true

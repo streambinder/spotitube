@@ -9,6 +9,7 @@ import (
 	spttb_track "track"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/agnivade/levenshtein"
 	"github.com/kennygrant/sanitize"
 )
 
@@ -71,19 +72,21 @@ func (tracks Tracks) evaluateScores() Tracks {
 	var evaluatedTracks Tracks
 	for _, track := range tracks {
 		if math.Abs(float64(track.Track.Duration-track.Duration)) <= float64(YouTubeDurationTolerance/2) {
-			track.AffinityScore += 2
+			track.AffinityScore += 20
 		} else if math.Abs(float64(track.Track.Duration-track.Duration)) <= float64(YouTubeDurationTolerance) {
-			track.AffinityScore += 1
+			track.AffinityScore += 10
 		}
 		if err := track.Track.SeemsByWordMatch(fmt.Sprintf("%s %s", track.User, track.Title)); err == nil {
-			track.AffinityScore += 1
+			track.AffinityScore += 10
 		}
 		if strings.Contains(sanitize.Name(track.User), sanitize.Name(track.Track.Artist)) {
-			track.AffinityScore += 1
+			track.AffinityScore += 10
 		}
 		if spttb_track.SeemsType(track.Title, track.Track.SongType) {
-			track.AffinityScore += 1
+			track.AffinityScore += 10
 		}
+		levenshteinDistance := levenshtein.ComputeDistance(track.Track.SearchPattern, fmt.Sprintf("%s %s", track.User, track.Title))
+		track.AffinityScore -= levenshteinDistance
 		evaluatedTracks = append(evaluatedTracks, track)
 	}
 	return evaluatedTracks

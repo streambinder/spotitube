@@ -52,6 +52,7 @@ var (
 	argDisableBrowserOpening *bool
 	argInteractive           *bool
 	argManualInput           *bool
+	argRemoveDuplicates      *bool
 	argCleanJunks            *bool
 	argLog                   *bool
 	argDisableGui            *bool
@@ -72,10 +73,10 @@ var (
 	gui    *spttb_gui.Gui
 	notify *notificator.Notificator
 
-	userLocalConfigPath string = spttb_system.LocalConfigPath()
-	userLocalBin        string = fmt.Sprintf("%s/spotitube", userLocalConfigPath)
-	userLocalGob        string = fmt.Sprintf("%s/%s_%s.gob", userLocalConfigPath, "%s", "%s")
 	procCurrentBin      string
+	userLocalConfigPath string = spttb_system.LocalConfigPath()
+	userLocalBin               = fmt.Sprintf("%s/spotitube", userLocalConfigPath)
+	userLocalGob               = fmt.Sprintf("%s/%s_%s.gob", userLocalConfigPath, "%s", "%s")
 )
 
 func main() {
@@ -117,6 +118,7 @@ func main() {
 	argDisableBrowserOpening = flag.Bool("disable-browser-opening", false, "Disable automatic browser opening for authentication")
 	argInteractive = flag.Bool("interactive", false, "Enable interactive mode")
 	argManualInput = flag.Bool("manual-input", false, "Always manually insert YouTube URL used for songs download")
+	argRemoveDuplicates = flag.Bool("remove-duplicates", false, "Remove encountered duplicates from online library/playlist")
 	argCleanJunks = flag.Bool("clean-junks", false, "Scan for junks file and clean them")
 	argLog = flag.Bool("log", false, "Enable logging into file ./spotitube.log")
 	argDisableGui = flag.Bool("disable-gui", false, "Disable GUI to reduce noise and increase readability of program flow")
@@ -287,7 +289,7 @@ func mainFetch() {
 
 		gui.Append("Checking which songs need to be downloaded...", spttb_gui.PanelRight)
 		var (
-			tracksDuplicates = 0
+			tracksDuplicates []api.ID
 			tracksMap        = make(map[string]float64)
 		)
 		for trackIndex := len(tracksOnline) - 1; trackIndex >= 0; trackIndex-- {
@@ -296,7 +298,23 @@ func mainFetch() {
 				tracksMap[spttb_track.IDString(tracksOnline[trackIndex])] = 1
 			} else {
 				gui.WarnAppend(fmt.Sprintf("Ignored song duplicate \"%s\" by \"%s\".", tracksOnline[trackIndex].SimpleTrack.Name, tracksOnline[trackIndex].SimpleTrack.Artists[0].Name), spttb_gui.PanelRight)
-				tracksDuplicates++
+				tracksDuplicates = append(tracksDuplicates, tracksOnline[trackIndex].SimpleTrack.ID)
+			}
+		}
+
+		if *argRemoveDuplicates && len(tracksDuplicates) > 0 {
+			if *argPlaylist == "none" {
+				if removeErr := spotifyClient.RemoveLibraryTracks(tracksDuplicates); removeErr != nil {
+					gui.Prompt(fmt.Sprintf("Something went wrong while removing %d duplicates: %s.", len(tracksDuplicates), removeErr.Error()), spttb_gui.PromptDismissable)
+				} else {
+					gui.Append(fmt.Sprintf("%d duplicate tracks correctly removed from library.", len(tracksDuplicates)), spttb_gui.PanelRight)
+				}
+			} else {
+				if removeErr := spotifyClient.RemovePlaylistTracks(*argPlaylist, tracksDuplicates); removeErr != nil {
+					gui.Prompt(fmt.Sprintf("Something went wrong while removing %d duplicates: %s.", len(tracksDuplicates), removeErr.Error()), spttb_gui.PromptDismissable)
+				} else {
+					gui.Append(fmt.Sprintf("%d duplicate tracks correctly removed from playlist.", len(tracksDuplicates)), spttb_gui.PanelRight)
+				}
 			}
 		}
 
@@ -304,7 +322,7 @@ func mainFetch() {
 			gui.WarnAppend(fmt.Sprintf("Unable to cache tracks: %s", dumpErr.Error()), spttb_gui.PanelRight)
 		}
 
-		gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Songs duplicates:", spttb_gui.FontStyleBold), tracksDuplicates), spttb_gui.PanelLeftTop)
+		gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Songs duplicates:", spttb_gui.FontStyleBold), len(tracksDuplicates)), spttb_gui.PanelLeftTop)
 		gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Songs online:", spttb_gui.FontStyleBold), len(tracks)), spttb_gui.PanelLeftTop)
 		gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Songs offline:", spttb_gui.FontStyleBold), tracks.CountOffline()), spttb_gui.PanelLeftTop)
 		gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Songs missing:", spttb_gui.FontStyleBold), tracks.CountOnline()), spttb_gui.PanelLeftTop)
@@ -612,8 +630,8 @@ func subUpdateSoftware(latestRelease []byte) {
 
 	if user, err := user.Current(); err == nil {
 		var (
-			binaryFolder string = fmt.Sprintf("%s/.spotitube", user.HomeDir)
-			binaryFname  string = fmt.Sprintf("%s/spotitube", binaryFolder)
+			binaryFolder = fmt.Sprintf("%s/.spotitube", user.HomeDir)
+			binaryFname  = fmt.Sprintf("%s/spotitube", binaryFolder)
 		)
 		err = spttb_system.Mkdir(binaryFolder)
 		if err != nil {

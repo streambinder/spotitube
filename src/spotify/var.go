@@ -12,6 +12,9 @@ var (
 	clientAuthenticator = api.NewAuthenticator(
 		SpotifyRedirectURL,
 		api.ScopeUserLibraryRead,
+		api.ScopeUserLibraryModify,
 		api.ScopePlaylistReadPrivate,
-		api.ScopePlaylistReadCollaborative)
+		api.ScopePlaylistReadCollaborative,
+		api.ScopePlaylistModifyPublic,
+		api.ScopePlaylistModifyPrivate)
 )

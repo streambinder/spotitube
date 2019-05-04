@@ -34,28 +34,28 @@ func QueryTracks(track *spttb_track.Track) (Tracks, error) {
 	}
 	html, _ := doc.Html()
 	if strings.Contains(strings.ToLower(html), "unusual traffic") {
-		return Tracks{}, fmt.Errorf("YouTube busted you: you'd better wait few minutes before retrying firing thousands video requests.")
+		return Tracks{}, fmt.Errorf("YouTube busted you: you'd better wait few minutes before retrying firing thousands video requests")
 	}
 
 	tracks, err := pullTracksFromDoc(*track, doc)
 	if err != nil {
 		return Tracks{}, err
-	} else {
-		tracks = tracks.evaluateScores()
-		slice.Sort(tracks[:], func(i, j int) bool {
-			var iPlus, jPlus int
-			if tracks[i].AffinityScore == tracks[j].AffinityScore {
-				if err := tracks[i].Track.Seems(fmt.Sprintf("%s %s", tracks[i].User, tracks[i].Title)); err == nil {
-					iPlus = 1
-				}
-				if err := tracks[j].Track.Seems(fmt.Sprintf("%s %s", tracks[j].User, tracks[j].Title)); err == nil {
-					jPlus = 1
-				}
-			}
-			return tracks[i].AffinityScore+iPlus > tracks[j].AffinityScore+jPlus
-		})
-		return tracks, nil
 	}
+
+	tracks = tracks.evaluateScores()
+	slice.Sort(tracks[:], func(i, j int) bool {
+		var iPlus, jPlus int
+		if tracks[i].AffinityScore == tracks[j].AffinityScore {
+			if err := tracks[i].Track.Seems(fmt.Sprintf("%s %s", tracks[i].User, tracks[i].Title)); err == nil {
+				iPlus = 1
+			}
+			if err := tracks[j].Track.Seems(fmt.Sprintf("%s %s", tracks[j].User, tracks[j].Title)); err == nil {
+				jPlus = 1
+			}
+		}
+		return tracks[i].AffinityScore+iPlus > tracks[j].AffinityScore+jPlus
+	})
+	return tracks, nil
 }
 
 // Match : return nil error if YouTube Track result object is matching with input Track object

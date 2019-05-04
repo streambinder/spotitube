@@ -22,6 +22,8 @@ const (
 	SongTypeKaraoke
 	// SongTypeParody : identifier for Song in its parody variant
 	SongTypeParody
+	// SongTypeReverse : identifier for Song in its reverse variant
+	SongTypeReverse
 	_
 	// ID3FrameTitle : ID3 title frame tag identifier
 	ID3FrameTitle = iota

@@ -445,6 +445,8 @@ func SeemsType(sequence string, songType int) bool {
 		songTypeAliases = []string{"karaoke", "instrumental"}
 	} else if songType == SongTypeParody {
 		songTypeAliases = []string{"parody"}
+	} else if songType == SongTypeReverse {
+		songTypeAliases = []string{"reverse"}
 	}
 
 	for _, songTypeAlias := range songTypeAliases {

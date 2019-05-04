@@ -76,10 +76,10 @@ func (spotify *Spotify) Auth(url string, xdgOpen bool) bool {
 
 // User : get authenticated username from authenticated client
 func (spotify *Spotify) User() (string, string) {
-	if user, err := spotify.Client.CurrentUser(); err != nil {
-		return "unknown", "unknown"
+	if user, err := spotify.Client.CurrentUser(); err == nil {
+		return user.DisplayName, user.ID
 	}
-	return user.DisplayName, user.ID
+	return "unknown", "unknown"
 }
 
 // LibraryTracks : return array of Spotify FullTrack of all authenticated user library songs

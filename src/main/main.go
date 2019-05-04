@@ -206,7 +206,7 @@ func main() {
 
 func mainFetch() {
 	if len(argFix.Paths) == 0 {
-		spotifyAuthURL := spttb_spotify.AuthURL()
+		spotifyAuthURL := spttb_spotify.BuildAuthURL()
 		gui.Append(fmt.Sprintf("Authentication URL: %s", spotifyAuthURL.Short), spttb_gui.PanelRight|spttb_gui.ParagraphStyleAutoReturn)
 		if !*argDisableBrowserOpening {
 			gui.DebugAppend("Waiting for automatic login process. If wait is too long, manually open that URL.", spttb_gui.PanelRight)

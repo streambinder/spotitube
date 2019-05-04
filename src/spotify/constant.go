@@ -11,7 +11,7 @@ const (
 	// SpotifyFaviconURL : Spotify app redirect URL's favicon
 	SpotifyFaviconURL = "https://spotify.com/favicon.ico"
 	// SpotifyHTMLAutoCloseTimeout : Spotify app redirect URL's autoclose timeout
-	SpotifyHTMLAutoCloseTimeout = "100000" // s
+	SpotifyHTMLAutoCloseTimeout = "5" // s
 	// SpotifyHTMLAutoCloseTimeoutMs : Spotify app redirect URL's autoclose timeout in ms (automatically parsed from SpotifyHTMLAutoCloseTimeout)
 	SpotifyHTMLAutoCloseTimeoutMs = SpotifyHTMLAutoCloseTimeout + "000" // ms
 	// SpotifyHTMLSigAuthor : Spotify app redirect URL's footer quoted author

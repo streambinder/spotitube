@@ -43,8 +43,8 @@ func parseTitle(trackTitle string, trackFeaturings []string) (string, string) {
 		)
 		for _, featuringValue := range trackFeaturings {
 			for _, featuringSymbol := range featuringSymbols {
-				if len(strings.Split(trackTitle, featuringSymbol)) > 1 &&
-					strings.Contains(strings.ToLower(strings.Split(trackTitle, featuringSymbol)[1]), strings.ToLower(featuringValue)) {
+				titleParts := strings.Split(strings.ToLower(trackTitle), featuringSymbol)
+				if len(titleParts) > 1 && strings.Contains(titleParts[1], strings.ToLower(featuringValue)) {
 					featuringsAlreadyParsed = true
 				}
 			}

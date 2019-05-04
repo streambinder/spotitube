@@ -78,6 +78,7 @@ func (spotify *Spotify) Auth(url string, xdgOpen bool) bool {
 func (spotify *Spotify) User() (string, string) {
 	if user, err := spotify.Client.CurrentUser(); err != nil {
 		return "unknown", "unknown"
+	}
 	return user.DisplayName, user.ID
 }
 

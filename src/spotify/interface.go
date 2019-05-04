@@ -106,6 +106,33 @@ func (spotify *Spotify) LibraryTracks() ([]api.FullTrack, error) {
 	return tracks, nil
 }
 
+// RemoveLibraryTracks : remove an array of tracks by their IDs from library
+func (spotify *Spotify) RemoveLibraryTracks(ids []api.ID) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	var (
+		iterations int
+	)
+	for true {
+		lowerbound := iterations * 50
+		upperbound := lowerbound + 50
+		if len(ids) < upperbound {
+			upperbound = lowerbound + (len(ids) - lowerbound)
+		}
+		chunk := ids[lowerbound:upperbound]
+		if err := spotify.Client.RemoveTracksFromLibrary(chunk...); err != nil {
+			return fmt.Errorf(fmt.Sprintf("Something gone wrong while removing %dth chunk of removing tracks: %s.", iterations, err.Error()))
+		}
+		if len(chunk) < 50 {
+			break
+		}
+		iterations++
+	}
+	return nil
+}
+
 // Playlist : return Spotify FullPlaylist from input string playlistURI
 func (spotify *Spotify) Playlist(playlistURI string) (*api.FullPlaylist, error) {
 	_, playlistID, playlistErr := parsePlaylistURI(playlistURI)
@@ -141,6 +168,37 @@ func (spotify *Spotify) PlaylistTracks(playlistURI string) ([]api.FullTrack, err
 		iterations++
 	}
 	return tracks, nil
+}
+
+// RemovePlaylistTracks : remove an array of tracks by their IDs from playlist
+func (spotify *Spotify) RemovePlaylistTracks(playlistURI string, ids []api.ID) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	_, playlistID, playlistErr := parsePlaylistURI(playlistURI)
+	if playlistErr != nil {
+		return playlistErr
+	}
+	var (
+		iterations int
+	)
+	for true {
+		lowerbound := iterations * 50
+		upperbound := lowerbound + 50
+		if len(ids) < upperbound {
+			upperbound = lowerbound + (len(ids) - lowerbound)
+		}
+		chunk := ids[lowerbound:upperbound]
+		if _, err := spotify.Client.RemoveTracksFromPlaylist(playlistID, chunk...); err != nil {
+			return fmt.Errorf(fmt.Sprintf("Something gone wrong while removing %dth chunk of removing tracks: %s.", iterations, err.Error()))
+		}
+		if len(chunk) < 50 {
+			break
+		}
+		iterations++
+	}
+	return nil
 }
 
 // Albums : return array Spotify FullAlbum, specular to the array of Spotify ID

@@ -166,8 +166,9 @@ You may want to use some of the following input flags:
 13. `-flush-missing`: if `-flush-metadata` toggled, it will just populate empty id3 frames, instead of flushing any of those.
 14. `-flush-missing`: if -flush-metadata toggled, it will just populate id3 frames different from the ones calculated by the application, instead of flushing any of those (keep in mind that, in order to compare the respective tags, it needs to redownload both artworks and lyrics).
 15. `-replace-local`: replace already downloaded (via `spotitube`) songs, if better ones get encountered.
-16. `-clean-junks`: forcely batch remove temporary files that kept existing for any unattended runtime error.
-17. `-version`: just print installed version.
+16. `-remove-duplicates`: remove encountered duplicates from online library/playlist.
+17. `-clean-junks`: forcely batch remove temporary files that kept existing for any unattended runtime error.
+18. `-version`: just print installed version.
 
 #### Developers
 

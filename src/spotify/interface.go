@@ -12,8 +12,8 @@ import (
 	api "github.com/zmb3/spotify"
 )
 
-// AuthURL : generate new authentication URL
-func AuthURL() *SpotifyAuthURL {
+// BuildAuthURL : generate new authentication URL
+func BuildAuthURL() *AuthURL {
 	var (
 		spotifyID  = os.Getenv("SPOTIFY_ID")
 		spotifyKey = os.Getenv("SPOTIFY_KEY")
@@ -29,15 +29,15 @@ func AuthURL() *SpotifyAuthURL {
 	tinyURL := fmt.Sprintf("http://tinyurl.com/api-create.php?url=%s", spotifyURL)
 	tinyResponse, tinyErr := http.Get(tinyURL)
 	if tinyErr != nil {
-		return &SpotifyAuthURL{Full: spotifyURL, Short: ""}
+		return &AuthURL{Full: spotifyURL, Short: ""}
 	}
 	defer tinyResponse.Body.Close()
 	tinyContent, tinyErr := ioutil.ReadAll(tinyResponse.Body)
 	if tinyErr != nil {
-		return &SpotifyAuthURL{Full: spotifyURL, Short: ""}
+		return &AuthURL{Full: spotifyURL, Short: ""}
 
 	}
-	return &SpotifyAuthURL{Full: spotifyURL, Short: string(tinyContent)}
+	return &AuthURL{Full: spotifyURL, Short: string(tinyContent)}
 }
 
 // NewClient : return a new Spotify instance

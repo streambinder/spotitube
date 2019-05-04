@@ -153,7 +153,7 @@ func InputString(message string) string {
 // LocalConfigPath : get local configuration and cache path
 func LocalConfigPath() string {
 	currentUser, _ := user.Current()
-	return fmt.Sprintf("%s/.spotitube", currentUser.HomeDir)
+	return fmt.Sprintf("%s/.cache/spotitube", currentUser.HomeDir)
 }
 
 // DumpGob : serialize and dump to disk given object to give filePath path

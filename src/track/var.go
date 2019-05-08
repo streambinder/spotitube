@@ -5,5 +5,5 @@ var (
 	SongTypes = []int{SongTypeLive, SongTypeCover, SongTypeRemix,
 		SongTypeAcoustic, SongTypeKaraoke, SongTypeParody}
 	// JunkSuffixes : array containing every file suffix considered junk
-	JunkSuffixes = []string{".ytdl", ".part", ".jpg", ".tmp", "-id3v2"}
+	JunkSuffixes = []string{".ytdl", ".webm", ".opus", ".part", ".jpg", ".tmp", "-id3v2"}
 )

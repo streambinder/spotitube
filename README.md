@@ -50,7 +50,7 @@ As already mentioned it heavily uses `youtube-dl` to download tracks from _YouTu
 
 ## What about its reliability
 
-[![](https://raw.githubusercontent.com/streambinder/spotitube/master/assets/images/sample_result.png)](#spotitube)
+[![](https://raw.githubusercontent.com/streambinder/spotitube/master/assets/sample.jpg)](#spotitube)
 
 Several tests got made during the drawing up of the application and now I can say its pretty good at choosing the right song out of a list of keywords (such as the title and the user of any _YouTube_ video).
 

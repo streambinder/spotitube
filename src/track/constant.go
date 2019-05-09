@@ -53,4 +53,6 @@ const (
 	ID3FrameYouTubeURL
 	// ID3FrameDuration : ID3 duration frame tag identifier
 	ID3FrameDuration
+	// ID3FrameSpotifyID : ID3 Spotify ID frame tag identifier
+	ID3FrameSpotifyID
 )

@@ -710,9 +710,8 @@ func subUpdateSoftware(latestRelease []byte) {
 		if err != nil {
 			gui.WarnAppend(fmt.Sprintf("Unable to persist new binary to %s: %s", binaryFname, err.Error()), spttb_gui.PanelRight)
 			return
-		} else {
-			os.Remove(binaryTempFname)
 		}
+		os.Remove(binaryTempFname)
 
 		err = os.Chmod(binaryFname, 0755)
 		if err != nil {

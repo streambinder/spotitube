@@ -19,6 +19,7 @@ type Track struct {
 	SongType      int
 	Image         string
 	URL           string
+	SpotifyID     string
 	Filename      string
 	FilenameTemp  string
 	FilenameExt   string
@@ -35,3 +36,6 @@ type TracksDump struct {
 	Tracks Tracks
 	Time   time.Time
 }
+
+// TracksIndex : Tracks index keeping ID - filename mapping
+type TracksIndex map[string]string

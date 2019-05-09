@@ -12,15 +12,6 @@ import (
 	"github.com/zmb3/spotify"
 )
 
-// IDString : return identity string for given spotify track
-func IDString(spotifyTrack spotify.FullTrack) string {
-	var id string
-	for _, artistItem := range spotifyTrack.SimpleTrack.Artists {
-		id += artistItem.Name
-	}
-	return id + spotifyTrack.SimpleTrack.Name
-}
-
 // CountOffline : return offline (local) songs count from Tracks
 func (tracks Tracks) CountOffline() int {
 	return len(tracks) - tracks.CountOnline()
@@ -60,6 +51,7 @@ func OpenLocalTrack(filename string) (Track, error) {
 		SongType:      parseType(TagGetFrame(trackMp3, ID3FrameTitle)),
 		Image:         TagGetFrame(trackMp3, ID3FrameArtworkURL),
 		URL:           TagGetFrame(trackMp3, ID3FrameYouTubeURL),
+		SpotifyID:     TagGetFrame(trackMp3, ID3FrameSpotifyID),
 		Filename:      "",
 		FilenameTemp:  "",
 		FilenameExt:   spttb_system.SongExtension,
@@ -120,6 +112,7 @@ func ParseSpotifyTrack(spotifyTrack spotify.FullTrack, spotifyAlbum spotify.Full
 		Duration:      spotifyTrack.SimpleTrack.Duration / 1000,
 		Image:         spotifyTrack.Album.Images[0].URL,
 		URL:           "",
+		SpotifyID:     spotifyTrack.SimpleTrack.ID.String(),
 		Filename:      "",
 		FilenameTemp:  "",
 		FilenameExt:   spttb_system.SongExtension,
@@ -150,6 +143,17 @@ func ParseSpotifyTrack(spotifyTrack spotify.FullTrack, spotifyAlbum spotify.Full
 	}
 
 	return track
+}
+
+// GetTag : open, parse and return filename ID3 tag
+func GetTag(path string, frame int) string {
+	tag, err := id3v2.Open(path, id3v2.Options{Parse: true})
+	if err != nil {
+		return ""
+	}
+	defer tag.Close()
+
+	return TagGetFrame(tag, frame)
 }
 
 // FlushLocal : recheck - and eventually update it - if track is local
@@ -267,6 +271,8 @@ func TagGetFrame(tag *id3v2.Tag, frame int) string {
 		return TagGetFrameYouTubeURL(tag)
 	case ID3FrameDuration:
 		return TagGetFrameDuration(tag)
+	case ID3FrameSpotifyID:
+		return TagGetFrameSpotifyID(tag)
 	}
 	return ""
 }
@@ -381,6 +387,19 @@ func TagGetFrameDuration(tag *id3v2.Tag) string {
 		for _, frameComment := range tag.GetFrames(tag.CommonID("Comments")) {
 			comment, ok := frameComment.(id3v2.CommentFrame)
 			if ok && comment.Description == "duration" {
+				return comment.Text
+			}
+		}
+	}
+	return ""
+}
+
+// TagGetFrameSpotifyID : get Spotify ID frame from input Tag
+func TagGetFrameSpotifyID(tag *id3v2.Tag) string {
+	if len(tag.GetFrames(tag.CommonID("Comments"))) > 0 {
+		for _, frameComment := range tag.GetFrames(tag.CommonID("Comments")) {
+			comment, ok := frameComment.(id3v2.CommentFrame)
+			if ok && comment.Description == "spotifyid" {
 				return comment.Text
 			}
 		}

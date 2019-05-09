@@ -49,6 +49,7 @@ var (
 	argDisableTimestampFlush *bool
 	argDisableUpdateCheck    *bool
 	argDisableBrowserOpening *bool
+	argDisableIndexing       *bool
 	argInteractive           *bool
 	argManualInput           *bool
 	argRemoveDuplicates      *bool
@@ -62,12 +63,14 @@ var (
 
 	tracks        spttb_track.Tracks
 	tracksFailed  spttb_track.Tracks
+	tracksIndex   = spttb_track.TracksIndex{}
 	playlistInfo  *api.FullPlaylist
 	spotifyClient *spttb_spotify.Spotify = spttb_spotify.NewClient()
 	spotifyUser   string
 	spotifyUserID string
 	waitGroup     sync.WaitGroup
 	waitGroupPool = make(chan bool, spttb_system.ConcurrencyLimit)
+	waitIndex     = make(chan bool, 1)
 
 	gui    *spttb_gui.Gui
 	notify *notificator.Notificator
@@ -75,6 +78,7 @@ var (
 	procCurrentBin      string
 	userLocalConfigPath string = spttb_system.LocalConfigPath()
 	userLocalBin               = fmt.Sprintf("%s/spotitube", userLocalConfigPath)
+	userLocalIndex             = fmt.Sprintf("%s/index.gob", userLocalConfigPath)
 	userLocalGob               = fmt.Sprintf("%s/%s_%s.gob", userLocalConfigPath, "%s", "%s")
 )
 
@@ -115,6 +119,7 @@ func main() {
 	argDisableTimestampFlush = flag.Bool("disable-timestamp-flush", false, "Disable automatic songs files timestamps flush")
 	argDisableUpdateCheck = flag.Bool("disable-update-check", false, "Disable automatic update check at startup")
 	argDisableBrowserOpening = flag.Bool("disable-browser-opening", false, "Disable automatic browser opening for authentication")
+	argDisableIndexing = flag.Bool("disable-indexing", false, "Disable automatic library indexing (used to keep track of tracks names modifications)")
 	argInteractive = flag.Bool("interactive", false, "Enable interactive mode")
 	argManualInput = flag.Bool("manual-input", false, "Always manually insert YouTube URL used for songs download")
 	argRemoveDuplicates = flag.Bool("remove-duplicates", false, "Remove encountered duplicates from online library/playlist")
@@ -186,6 +191,11 @@ func main() {
 	subCheckDependencies()
 	subCheckInternet()
 	subCheckUpdate()
+	subFetchIndex()
+
+	if !*argDisableIndexing {
+		go subAlignIndex()
+	}
 
 	if *argDisableGui {
 		channel := make(chan os.Signal, 1)
@@ -292,12 +302,13 @@ func mainFetch() {
 			tracksMap        = make(map[string]float64)
 		)
 		for trackIndex := len(tracksOnline) - 1; trackIndex >= 0; trackIndex-- {
-			if _, alreadyParsed := tracksMap[spttb_track.IDString(tracksOnline[trackIndex])]; !alreadyParsed {
+			trackID := tracksOnline[trackIndex].SimpleTrack.ID
+			if _, alreadyParsed := tracksMap[trackID.String()]; !alreadyParsed {
 				tracks = append(tracks, spttb_track.ParseSpotifyTrack(tracksOnline[trackIndex], tracksOnlineAlbums[trackIndex]))
-				tracksMap[spttb_track.IDString(tracksOnline[trackIndex])] = 1
+				tracksMap[trackID.String()] = 1
 			} else {
 				gui.WarnAppend(fmt.Sprintf("Ignored song duplicate \"%s\" by \"%s\".", tracksOnline[trackIndex].SimpleTrack.Name, tracksOnline[trackIndex].SimpleTrack.Artists[0].Name), spttb_gui.PanelRight)
-				tracksDuplicates = append(tracksDuplicates, tracksOnline[trackIndex].SimpleTrack.ID)
+				tracksDuplicates = append(tracksDuplicates, trackID)
 			}
 		}
 
@@ -325,6 +336,9 @@ func mainFetch() {
 		gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Songs online:", spttb_gui.FontStyleBold), len(tracks)), spttb_gui.PanelLeftTop)
 		gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Songs offline:", spttb_gui.FontStyleBold), tracks.CountOffline()), spttb_gui.PanelLeftTop)
 		gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Songs missing:", spttb_gui.FontStyleBold), tracks.CountOnline()), spttb_gui.PanelLeftTop)
+
+		<-waitIndex
+		close(waitIndex)
 	} else {
 		gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Fix song(s):", spttb_gui.FontStyleBold), len(argFix.Paths)), spttb_gui.PanelLeftTop)
 		for _, fixTrack := range argFix.Paths {
@@ -362,6 +376,19 @@ func mainSearch() {
 	for trackIndex, track := range tracks {
 		gui.LoadingHalfIncrease()
 		gui.Append(fmt.Sprintf("%d/%d: \"%s\"", trackIndex+1, len(tracks), track.Filename), spttb_gui.PanelRight|spttb_gui.FontStyleBold)
+
+		if trackPath, ok := tracksIndex[track.SpotifyID]; ok {
+			if trackPath != track.FilenameFinal() {
+				gui.Append(fmt.Sprintf("Track %s has been renamed: moving local one to %s", track.SpotifyID, track.FilenameFinal()), spttb_gui.PanelRight)
+				if err := os.Rename(trackPath, track.FilenameFinal()); err != nil {
+					gui.ErrAppend(fmt.Sprintf("Unable to move song: %s", err.Error()), spttb_gui.PanelRight)
+				} else {
+					track.Local = true
+					tracksIndex[track.SpotifyID] = track.FilenameFinal()
+				}
+			}
+		}
+
 		if subIfSongSearch(track) {
 			var (
 				youTubeTrack         = spttb_youtube.Track{Track: &track}
@@ -451,6 +478,7 @@ func mainSearch() {
 
 	subCondPlaylistFileWrite()
 	subCondTimestampFlush()
+	subWriteIndex()
 
 	junks := subCleanJunks()
 	gui.Append(fmt.Sprintf("Removed %d junk files.", junks), spttb_gui.PanelRight)
@@ -510,7 +538,6 @@ func subCheckDependencies() {
 				commandVersionValue = "Regex compile failure"
 			} else {
 				commandObj := exec.Command(commandName, []string{"--version"}...)
-				fmt.Println(commandOut.String())
 				commandObj.Stdout = &commandOut
 				commandObj.Stderr = &commandOut
 				_ = commandObj.Run()
@@ -587,6 +614,43 @@ func subCheckUpdate() {
 			}
 		}
 	}
+}
+
+func subFetchIndex() {
+	if !spttb_system.FileExists(userLocalIndex) {
+		gui.WarnAppend("No track index has been found.", spttb_gui.PanelRight)
+		return
+	}
+	gui.DebugAppend("Fetching local index...", spttb_gui.PanelRight)
+	spttb_system.FetchGob(userLocalIndex, tracksIndex)
+}
+
+func subWriteIndex() {
+	gui.DebugAppend(fmt.Sprintf("Writing %d entries index...", len(tracksIndex)), spttb_gui.PanelRight)
+	if writeErr := spttb_system.DumpGob(userLocalIndex, tracksIndex); writeErr != nil {
+		gui.WarnAppend(fmt.Sprintf("Unable to write tracks index: %s", writeErr.Error()), spttb_gui.PanelRight)
+	}
+}
+
+func subAlignIndex() {
+	gui.Append("Indexing started...", spttb_gui.PanelRight)
+	filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
+		if info == nil || info.IsDir() || filepath.Ext(path) != ".mp3" || strings.Contains(path, "/") {
+			return nil
+		}
+
+		gui.DebugAppend(fmt.Sprintf("Index: path %s", path), spttb_gui.PanelRight)
+		spotifyID := spttb_track.GetTag(path, spttb_track.ID3FrameSpotifyID)
+		if len(spotifyID) > 0 {
+			tracksIndex[spotifyID] = path
+		} else {
+			gui.DebugAppend(fmt.Sprintf("Index: no ID found. Ignoring %s...", path), spttb_gui.PanelRight)
+		}
+
+		return nil
+	})
+	waitIndex <- true
+	gui.Append(fmt.Sprintf("Indexing finished: %d tracks indexed.", len(tracksIndex)), spttb_gui.PanelRight)
 }
 
 func subUpdateSoftware(latestRelease []byte) {
@@ -760,6 +824,7 @@ func subSongFlushMetadata(track spttb_track.Track) {
 		subCondFlushID3FrameArtworkURL(track, trackMp3)
 		subCondFlushID3FrameYouTubeURL(track, trackMp3)
 		subCondFlushID3FrameDuration(track, trackMp3)
+		subCondFlushID3FrameSpotifyID(track, trackMp3)
 		subCondFlushID3FrameLyrics(track, trackMp3)
 		trackMp3.Save()
 	}
@@ -928,6 +993,20 @@ func subCondFlushID3FrameDuration(track spttb_track.Track, trackMp3 *id3.Tag) {
 	}
 }
 
+func subCondFlushID3FrameSpotifyID(track spttb_track.Track, trackMp3 *id3.Tag) {
+	if len(track.SpotifyID) > 0 &&
+		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameSpotifyID))) &&
+		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameSpotifyID) != track.SpotifyID)) {
+		gui.DebugAppend("Inflating Spotify ID metadata...", spttb_gui.PanelRight)
+		trackMp3.AddCommentFrame(id3.CommentFrame{
+			Encoding:    id3.EncodingUTF8,
+			Language:    "eng",
+			Description: "spotifyid",
+			Text:        track.SpotifyID,
+		})
+	}
+}
+
 func subCondFlushID3FrameLyrics(track spttb_track.Track, trackMp3 *id3.Tag) {
 	if len(track.Lyrics) > 0 && !*argDisableLyrics &&
 		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameLyrics))) &&
@@ -953,7 +1032,7 @@ func subFetchGob(path string) (spttb_track.TracksDump, error) {
 	}
 
 	if time.Since(tracksDump.Time).Minutes() > 30 {
-		return spttb_track.TracksDump{}, fmt.Errorf("Tracks cache declared obsolete: flushing it from Spotify...")
+		return spttb_track.TracksDump{}, fmt.Errorf("Tracks cache declared obsolete: flushing it from Spotify")
 	}
 
 	return *tracksDump, nil

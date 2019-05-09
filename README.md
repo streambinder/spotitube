@@ -6,7 +6,7 @@ Programmatically authenticate to your Spotify account and synchronize your music
 
 * * *
 
-[![](https://raw.githubusercontent.com/streambinder/spotitube/master/assets/images/sample.gif)](#spotitube)
+[![](https://raw.githubusercontent.com/streambinder/spotitube/master/assets/sample.gif)](#spotitube)
 
 ## What is
 

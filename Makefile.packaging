@@ -72,5 +72,11 @@ pkg_bin: bin
 		cp $(BINARY) $(PKG_NAME).bin; \
 	);
 
+.PHONY: pkg_exe
+pkg_exe: bin
+	@ ( \
+		cp $(BINARY).exe $(PKG_NAME).exe; \
+	);
+
 .PHONY: pkg_release
-release: pkg_rpm pkg_deb pkg_eopkg pkg_snap pkg_bin
+release: pkg_rpm pkg_deb pkg_eopkg pkg_snap pkg_bin pkg_exe

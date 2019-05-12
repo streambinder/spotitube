@@ -168,7 +168,7 @@ spotitube -folder ~/Music -playlist spotify:user:$USERNAME:playlist:$PLAYLIST_ID
 
 As some of users struggled to manage to have correct URI from a Spotify playlist, here's how you can get it:
 
-[![](https://raw.githubusercontent.com/streambinder/spotitube/master/assets/images/sample_playlist.png)](#)
+[![](https://raw.githubusercontent.com/streambinder/spotitube/master/assets/playlist_uri.jpg)](#)
 
 ##### Empty or not recognized playlists on my Android phone
 

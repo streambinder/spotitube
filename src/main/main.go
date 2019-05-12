@@ -63,7 +63,7 @@ var (
 
 	tracks        spttb_track.Tracks
 	tracksFailed  spttb_track.Tracks
-	tracksIndex   = spttb_track.TracksIndex{}
+	tracksIndex   = spttb_track.TracksIndex{make(map[string]string), make(map[string][]string)}
 	playlistInfo  *api.FullPlaylist
 	spotifyClient *spttb_spotify.Spotify = spttb_spotify.NewClient()
 	spotifyUser   string
@@ -377,14 +377,11 @@ func mainSearch() {
 		gui.LoadingHalfIncrease()
 		gui.Append(fmt.Sprintf("%d/%d: \"%s\"", trackIndex+1, len(tracks), track.Filename), spttb_gui.PanelRight|spttb_gui.FontStyleBold)
 
-		if trackPath, ok := tracksIndex[track.SpotifyID]; ok {
+		if trackPath, ok := tracksIndex.Tracks[track.SpotifyID]; ok {
 			if trackPath != track.FilenameFinal() {
 				gui.Append(fmt.Sprintf("Track %s has been renamed: moving local one to %s", track.SpotifyID, track.FilenameFinal()), spttb_gui.PanelRight)
-				if err := os.Rename(trackPath, track.FilenameFinal()); err != nil {
-					gui.ErrAppend(fmt.Sprintf("Unable to move song: %s", err.Error()), spttb_gui.PanelRight)
-				} else {
-					track.Local = true
-					tracksIndex[track.SpotifyID] = track.FilenameFinal()
+				if err := subTrackRename(&track); err != nil {
+					gui.ErrAppend(fmt.Sprintf("Unable to rename: %s", err.Error()), spttb_gui.PanelRight)
 				}
 			}
 		}
@@ -626,7 +623,7 @@ func subFetchIndex() {
 }
 
 func subWriteIndex() {
-	gui.DebugAppend(fmt.Sprintf("Writing %d entries index...", len(tracksIndex)), spttb_gui.PanelRight)
+	gui.DebugAppend(fmt.Sprintf("Writing %d entries index...", len(tracksIndex.Tracks)), spttb_gui.PanelRight)
 	if writeErr := spttb_system.DumpGob(userLocalIndex, tracksIndex); writeErr != nil {
 		gui.WarnAppend(fmt.Sprintf("Unable to write tracks index: %s", writeErr.Error()), spttb_gui.PanelRight)
 	}
@@ -635,22 +632,27 @@ func subWriteIndex() {
 func subAlignIndex() {
 	gui.Append("Indexing started...", spttb_gui.PanelRight)
 	filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
-		if info == nil || info.IsDir() || filepath.Ext(path) != ".mp3" || strings.Contains(path, "/") {
+		if info == nil || info.IsDir() {
 			return nil
 		}
 
-		gui.DebugAppend(fmt.Sprintf("Index: path %s", path), spttb_gui.PanelRight)
-		spotifyID := spttb_track.GetTag(path, spttb_track.ID3FrameSpotifyID)
-		if len(spotifyID) > 0 {
-			tracksIndex[spotifyID] = path
-		} else {
-			gui.DebugAppend(fmt.Sprintf("Index: no ID found. Ignoring %s...", path), spttb_gui.PanelRight)
+		if linkPath, err := os.Readlink(path); err == nil {
+			gui.DebugAppend(fmt.Sprintf("Index link: path %s", path), spttb_gui.PanelRight)
+			tracksIndex.Links[linkPath] = append(tracksIndex.Links[linkPath], path)
+		} else if filepath.Ext(path) == ".mp3" {
+			gui.DebugAppend(fmt.Sprintf("Index: path %s", path), spttb_gui.PanelRight)
+			spotifyID := spttb_track.GetTag(path, spttb_track.ID3FrameSpotifyID)
+			if len(spotifyID) > 0 {
+				tracksIndex.Tracks[spotifyID] = path
+			} else {
+				gui.DebugAppend(fmt.Sprintf("Index: no ID found. Ignoring %s...", path), spttb_gui.PanelRight)
+			}
 		}
 
 		return nil
 	})
 	waitIndex <- true
-	gui.Append(fmt.Sprintf("Indexing finished: %d tracks indexed.", len(tracksIndex)), spttb_gui.PanelRight)
+	gui.Append(fmt.Sprintf("Indexing finished: %d tracks indexed and %d linked.", len(tracksIndex.Tracks), len(tracksIndex.Links)), spttb_gui.PanelRight)
 }
 
 func subUpdateSoftware(latestRelease []byte) {
@@ -1218,6 +1220,59 @@ func subCondPlaylistFileWrite() {
 			}
 		}
 	}
+}
+
+func subTrackRename(track *spttb_track.Track) error {
+	var (
+		keyID   = track.SpotifyID
+		keyPath = tracksIndex.Tracks[track.SpotifyID]
+	)
+	if err := os.Rename(keyPath, track.FilenameFinal()); err != nil {
+		return err
+	} else {
+		for _, trackLink := range tracksIndex.Links[keyPath] {
+			var (
+				trackLinkParts  = strings.Split(trackLink, "/")
+				trackLinkFolder = strings.Join(trackLinkParts[:len(trackLinkParts)-1], "/")
+				trackLinkName   = trackLinkParts[len(trackLinkParts)-1]
+				trackLinkNew    = trackLinkFolder + "/" + track.FilenameFinal()
+			)
+			os.Rename(trackLink, trackLinkNew)
+			filepath.Walk(trackLinkFolder, func(path string, info os.FileInfo, err error) error {
+				if filepath.Ext(path) != ".m3u" || filepath.Ext(path) != ".pls" {
+					return nil
+				}
+
+				var (
+					playlistLines    = spttb_system.FileReadLines(path)
+					playlistLinesNew = make([]string, len(playlistLines))
+					playlistUpdated  = false
+				)
+				for _, line := range playlistLines {
+					if strings.Contains(line, trackLinkName) {
+						line = strings.ReplaceAll(line, trackLinkName, track.FilenameFinal())
+						playlistUpdated = true
+					}
+					playlistLinesNew = append(playlistLinesNew, line)
+				}
+
+				if playlistUpdated {
+					err := spttb_system.FileWriteLines(path, playlistLinesNew)
+					if err != nil {
+						gui.ErrAppend(fmt.Sprintf("Unable to update playlist %s: %s", path, err.Error()), spttb_gui.PanelRight)
+					}
+				}
+
+				return nil
+			})
+			tracksIndex.Links[track.FilenameFinal()] = append(tracksIndex.Links[track.FilenameFinal()], trackLinkNew)
+		}
+		track.Local = true
+		delete(tracksIndex.Links, keyPath)
+		tracksIndex.Tracks[keyID] = track.FilenameFinal()
+	}
+
+	return nil
 }
 
 func subCleanJunks() int {

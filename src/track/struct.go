@@ -37,5 +37,8 @@ type TracksDump struct {
 	Time   time.Time
 }
 
-// TracksIndex : Tracks index keeping ID - filename mapping
-type TracksIndex map[string]string
+// TracksIndex : Tracks index keeping ID - filename mapping and eventual filename links
+type TracksIndex struct {
+	Tracks map[string]string
+	Links  map[string][]string
+}

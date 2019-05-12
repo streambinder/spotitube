@@ -120,6 +120,45 @@ func FileCopy(pathFrom string, pathTo string) error {
 	return pathToOpen.Close()
 }
 
+// FileReadLines : open, read and return slice of file lines
+func FileReadLines(path string) []string {
+	var (
+		lines     = make([]string, 0)
+		file, err = os.Open(path)
+	)
+
+	if err != nil {
+		return lines
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+
+	return lines
+}
+
+// FileWriteLines : open and write slice of lines into file
+func FileWriteLines(path string, lines []string) error {
+	if err := os.Remove(path); err != nil {
+		return err
+	}
+
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	writer := bufio.NewWriter(file)
+	for _, line := range lines {
+		fmt.Fprintln(writer, line)
+	}
+	return writer.Flush()
+}
+
 // InputConfirm : ask for user confirmation over a given message
 func InputConfirm(message string) bool {
 	reader := bufio.NewReader(os.Stdin)

@@ -101,7 +101,7 @@ func main() {
 	}
 
 	if len(spttb_track.GeniusAccessToken) != 64 && len(os.Getenv("GENIUS_TOKEN")) != 64 {
-		fmt.Println(fmt.Sprintf("WARNING: Unknown GENIUS_TOKEN: please, export SPOTIFY_KEY enviroment variable, if you wan't to fetch lyrics from Genius provider."))
+		fmt.Println(fmt.Sprintf("WARNING: Unknown GENIUS_TOKEN: please, export GENIUS_TOKEN enviroment variable, if you wan't to fetch lyrics from Genius provider."))
 	}
 
 	argFolder = flag.String("folder", ".", "Folder to sync with music")

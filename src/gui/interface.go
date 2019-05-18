@@ -32,7 +32,7 @@ func Build(options uint64) *Gui {
 		return singleton
 	}
 
-	return &Gui{
+	singleton = &Gui{
 		&gocui.Gui{},
 		0,
 		0,
@@ -40,6 +40,7 @@ func Build(options uint64) *Gui {
 		make(chan bool),
 		nil,
 	}
+	return singleton
 }
 
 // LinkLogger : link input Logger logger to Gui
@@ -133,6 +134,9 @@ func (gui *Gui) DebugAppend(message string, options uint64) error {
 func (gui *Gui) Prompt(message string, options uint64) error {
 	if (gui.Options & GuiSilentMode) != 0 {
 		fmt.Println(message)
+		if (options & PromptDismissableWithExit) != 0 {
+			singleton.Closing <- true
+		}
 		return nil
 	}
 

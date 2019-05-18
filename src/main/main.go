@@ -197,6 +197,10 @@ func main() {
 		go subAlignIndex()
 	}
 
+	go func() {
+		<-gui.Closing
+		subSafeExit()
+	}()
 	if *argDisableGui {
 		channel := make(chan os.Signal, 1)
 		signal.Notify(channel, os.Interrupt)
@@ -204,11 +208,6 @@ func main() {
 			for range channel {
 				subSafeExit()
 			}
-		}()
-	} else {
-		go func() {
-			<-gui.Closing
-			subSafeExit()
 		}()
 	}
 

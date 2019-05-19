@@ -122,27 +122,31 @@ func searchLyricsGenius(track *Track) (string, error) {
 	lyricsClient := http.Client{
 		Timeout: time.Second * spttb_system.HTTPTimeout,
 	}
-	lyricsRequest, lyricsError := http.NewRequest(http.MethodGet,
-		fmt.Sprintf(LyricsGeniusAPIURL, url.QueryEscape(track.Title), url.QueryEscape(track.Artist)), nil)
+
+	encodedURL, lyricsError := url.Parse(fmt.Sprintf(LyricsGeniusAPIURL, url.QueryEscape(track.Title), url.QueryEscape(track.Artist)))
 	if lyricsError != nil {
-		return "", fmt.Errorf("Unable to compile Genius lyrics request: " + lyricsError.Error())
+		return "", lyricsError
+	}
+	lyricsRequest, lyricsError := http.NewRequest(http.MethodGet, encodedURL.String(), nil)
+	if lyricsError != nil {
+		return "", lyricsError
 	}
 	lyricsRequest.Header.Add("Authorization", fmt.Sprintf("Bearer %s", GeniusAccessToken))
 
 	lyricsResponse, lyricsError := lyricsClient.Do(lyricsRequest)
 	if lyricsError != nil {
-		return "", fmt.Errorf("Unable to read Genius lyrics response from lyrics request: " + lyricsError.Error())
+		return "", lyricsError
 	}
 
 	lyricsResponseBody, lyricsError := ioutil.ReadAll(lyricsResponse.Body)
 	if lyricsError != nil {
-		return "", fmt.Errorf("Unable to get Genius lyrics response body: " + lyricsError.Error())
+		return "", lyricsError
 	}
 
 	var result map[string]interface{}
 	hitsUnmarshalErr := json.Unmarshal([]byte(lyricsResponseBody), &result)
 	if hitsUnmarshalErr != nil {
-		return "", fmt.Errorf("Unable to unmarshal Genius lyrics content into interface: %s", hitsUnmarshalErr.Error())
+		return "", hitsUnmarshalErr
 	}
 
 	hits := result["response"].(map[string]interface{})["hits"].([]interface{})
@@ -174,23 +178,27 @@ func searchLyricsOvh(track *Track) (string, error) {
 	lyricsClient := http.Client{
 		Timeout: time.Second * spttb_system.HTTPTimeout,
 	}
-	lyricsRequest, lyricsError := http.NewRequest(http.MethodGet,
-		fmt.Sprintf(LyricsOVHAPIURL, url.QueryEscape(track.Artist), url.QueryEscape(track.Song)), nil)
+
+	encodedURL, lyricsError := url.Parse(fmt.Sprintf(LyricsOVHAPIURL, url.QueryEscape(track.Artist), url.QueryEscape(track.Song)))
 	if lyricsError != nil {
-		return "", fmt.Errorf("Unable to compile lyrics request: " + lyricsError.Error())
+		return "", lyricsError
+	}
+	lyricsRequest, lyricsError := http.NewRequest(http.MethodGet, encodedURL.String(), nil)
+	if lyricsError != nil {
+		return "", lyricsError
 	}
 	lyricsResponse, lyricsError := lyricsClient.Do(lyricsRequest)
 	if lyricsError != nil {
-		return "", fmt.Errorf("Unable to read response from lyrics request: " + lyricsError.Error())
+		return "", lyricsError
 	}
 	lyricsResponseBody, lyricsError := ioutil.ReadAll(lyricsResponse.Body)
 	if lyricsError != nil {
-		return "", fmt.Errorf("Unable to get response body: " + lyricsError.Error())
+		return "", lyricsError
 	}
 	lyricsData := LyricsAPIEntry{}
 	lyricsError = json.Unmarshal(lyricsResponseBody, &lyricsData)
 	if lyricsError != nil {
-		return "", fmt.Errorf("Unable to parse json from response body: " + lyricsError.Error())
+		return "", lyricsError
 	}
 
 	return strings.TrimSpace(unidecode.Unidecode(lyricsData.Lyrics)), nil

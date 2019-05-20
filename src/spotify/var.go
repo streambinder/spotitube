@@ -9,12 +9,5 @@ import (
 var (
 	clientChannel       = make(chan *api.Client)
 	clientState         = spttb_system.RandString(20)
-	clientAuthenticator = api.NewAuthenticator(
-		SpotifyRedirectURL,
-		api.ScopeUserLibraryRead,
-		api.ScopeUserLibraryModify,
-		api.ScopePlaylistReadPrivate,
-		api.ScopePlaylistReadCollaborative,
-		api.ScopePlaylistModifyPublic,
-		api.ScopePlaylistModifyPrivate)
+	clientAuthenticator api.Authenticator
 )

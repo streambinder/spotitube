@@ -8,12 +8,13 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 
 	api "github.com/zmb3/spotify"
 )
 
 // BuildAuthURL : generate new authentication URL
-func BuildAuthURL() *AuthURL {
+func BuildAuthURL(callbackHost string) *AuthURL {
 	var (
 		spotifyID  = os.Getenv("SPOTIFY_ID")
 		spotifyKey = os.Getenv("SPOTIFY_KEY")
@@ -24,6 +25,7 @@ func BuildAuthURL() *AuthURL {
 	if len(spotifyKey) == 0 {
 		spotifyKey = SpotifyClientSecret
 	}
+	clientAuthenticator = authenticator(fmt.Sprintf(SpotifyRedirectURL, callbackHost))
 	clientAuthenticator.SetAuthInfo(spotifyID, spotifyKey)
 	spotifyURL := clientAuthenticator.AuthURL(clientState)
 	tinyURL := fmt.Sprintf("http://tinyurl.com/api-create.php?url=%s", spotifyURL)
@@ -46,8 +48,14 @@ func NewClient() *Spotify {
 }
 
 // Auth : start local callback server to handle xdg-preferred browser authentication redirection
-func (spotify *Spotify) Auth(url string, xdgOpen bool) bool {
-	authServer := &http.Server{Addr: "127.0.0.1:8080"}
+func (spotify *Spotify) Auth(url string, authHost string, xdgOpen bool) bool {
+	var authBind string
+	if strings.Contains(authHost, "127.0.0.1") || strings.Contains(authHost, "localhost") {
+		authBind = authHost
+	} else {
+		authBind = "0.0.0.0"
+	}
+	authServer := &http.Server{Addr: fmt.Sprintf("%s:8080", authBind)}
 	http.HandleFunc("/favicon.ico", webHTTPFaviconHandler)
 	http.HandleFunc("/callback", webHTTPCompleteAuthHandler)
 

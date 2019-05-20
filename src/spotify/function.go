@@ -8,6 +8,17 @@ import (
 	api "github.com/zmb3/spotify"
 )
 
+func authenticator(callbackURI string) api.Authenticator {
+	return api.NewAuthenticator(
+		callbackURI,
+		api.ScopeUserLibraryRead,
+		api.ScopeUserLibraryModify,
+		api.ScopePlaylistReadPrivate,
+		api.ScopePlaylistReadCollaborative,
+		api.ScopePlaylistModifyPublic,
+		api.ScopePlaylistModifyPrivate)
+}
+
 func defaultOptions() api.Options {
 	var (
 		optLimit  = 50

@@ -50,6 +50,7 @@ var (
 	argDisableUpdateCheck    *bool
 	argDisableBrowserOpening *bool
 	argDisableIndexing       *bool
+	argAuthenticateOutside   *bool
 	argInteractive           *bool
 	argManualInput           *bool
 	argRemoveDuplicates      *bool
@@ -120,6 +121,7 @@ func main() {
 	argDisableUpdateCheck = flag.Bool("disable-update-check", false, "Disable automatic update check at startup")
 	argDisableBrowserOpening = flag.Bool("disable-browser-opening", false, "Disable automatic browser opening for authentication")
 	argDisableIndexing = flag.Bool("disable-indexing", false, "Disable automatic library indexing (used to keep track of tracks names modifications)")
+	argAuthenticateOutside = flag.Bool("authenticate-outside", false, "Enable authentication flow to be handled outside this machine")
 	argInteractive = flag.Bool("interactive", false, "Enable interactive mode")
 	argManualInput = flag.Bool("manual-input", false, "Always manually insert YouTube URL used for songs download")
 	argRemoveDuplicates = flag.Bool("remove-duplicates", false, "Remove encountered duplicates from online library/playlist")
@@ -216,12 +218,20 @@ func main() {
 
 func mainFetch() {
 	if len(argFix.Paths) == 0 {
-		spotifyAuthURL := spttb_spotify.BuildAuthURL()
+		var spotifyAuthHost string
+		if !*argAuthenticateOutside {
+			spotifyAuthHost = "localhost"
+		} else {
+			*argDisableBrowserOpening = true
+			spotifyAuthHost = "spotitube.local"
+			gui.Prompt("Outside authentication enabled: assure \"spotitube.local\" points to this machine.", spttb_gui.PromptDismissable)
+		}
+		spotifyAuthURL := spttb_spotify.BuildAuthURL(spotifyAuthHost)
 		gui.Append(fmt.Sprintf("Authentication URL: %s", spotifyAuthURL.Short), spttb_gui.ParagraphStyleAutoReturn)
 		if !*argDisableBrowserOpening {
 			gui.Append("Waiting for automatic login process. If wait is too long, manually open that URL.", spttb_gui.DebugAppend)
 		}
-		if !spotifyClient.Auth(spotifyAuthURL.Full, !*argDisableBrowserOpening) {
+		if !spotifyClient.Auth(spotifyAuthURL.Full, spotifyAuthHost, !*argDisableBrowserOpening) {
 			gui.Prompt("Unable to authenticate to spotify.", spttb_gui.PromptDismissableWithExit)
 		}
 		gui.Append("Authentication completed.")

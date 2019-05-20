@@ -7,7 +7,7 @@ const (
 	SpotifyClientSecret = ":SPOTIFY_CLIENT_SECRET:"
 
 	// SpotifyRedirectURL : Spotify app redirect URL
-	SpotifyRedirectURL = "http://localhost:8080/callback"
+	SpotifyRedirectURL = "http://%s:8080/callback"
 	// SpotifyFaviconURL : Spotify app redirect URL's favicon
 	SpotifyFaviconURL = "https://spotify.com/favicon.ico"
 	// SpotifyHTMLAutoCloseTimeout : Spotify app redirect URL's autoclose timeout

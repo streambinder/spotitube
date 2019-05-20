@@ -169,7 +169,7 @@ func main() {
 		guiOptions = guiOptions | spttb_gui.GuiDebugMode
 	}
 	if *argDisableGui {
-		guiOptions = guiOptions | spttb_gui.GuiSilentMode
+		guiOptions = guiOptions | spttb_gui.GuiBareMode
 	}
 	gui = spttb_gui.Build(guiOptions)
 
@@ -217,14 +217,14 @@ func main() {
 func mainFetch() {
 	if len(argFix.Paths) == 0 {
 		spotifyAuthURL := spttb_spotify.BuildAuthURL()
-		gui.Append(fmt.Sprintf("Authentication URL: %s", spotifyAuthURL.Short), spttb_gui.PanelRight|spttb_gui.ParagraphStyleAutoReturn)
+		gui.Append(fmt.Sprintf("Authentication URL: %s", spotifyAuthURL.Short), spttb_gui.ParagraphStyleAutoReturn)
 		if !*argDisableBrowserOpening {
-			gui.DebugAppend("Waiting for automatic login process. If wait is too long, manually open that URL.", spttb_gui.PanelRight)
+			gui.Append("Waiting for automatic login process. If wait is too long, manually open that URL.", spttb_gui.DebugAppend)
 		}
 		if !spotifyClient.Auth(spotifyAuthURL.Full, !*argDisableBrowserOpening) {
 			gui.Prompt("Unable to authenticate to spotify.", spttb_gui.PromptDismissableWithExit)
 		}
-		gui.Append("Authentication completed.", spttb_gui.PanelRight)
+		gui.Append("Authentication completed.")
 		spotifyUser, spotifyUserID = spotifyClient.User()
 		gui.Append(fmt.Sprintf("%s %s", spttb_gui.MessageStyle("Session user:", spttb_gui.FontStyleBold), spotifyUser), spttb_gui.PanelLeftTop)
 
@@ -242,20 +242,20 @@ func mainFetch() {
 			}
 			tracksDump, tracksDumpErr := subFetchGob(userLocalGob)
 			if tracksDumpErr != nil {
-				gui.WarnAppend(tracksDumpErr.Error(), spttb_gui.PanelRight)
-				gui.Append("Fetching music library...", spttb_gui.PanelRight)
+				gui.Append(tracksDumpErr.Error(), spttb_gui.WarningAppend)
+				gui.Append("Fetching music library...")
 				if tracksOnline, tracksErr = spotifyClient.LibraryTracks(); tracksErr != nil {
 					gui.Prompt(fmt.Sprintf("Something went wrong while fetching tracks from library: %s.", tracksErr.Error()), spttb_gui.PromptDismissableWithExit)
 				}
 			} else {
-				gui.Append(fmt.Sprintf("Tracks loaded from cache."), spttb_gui.PanelRight)
+				gui.Append(fmt.Sprintf("Tracks loaded from cache."))
 				gui.Append(fmt.Sprintf("%s %d/%d (min)", spttb_gui.MessageStyle("Tracks cache lifetime:", spttb_gui.FontStyleBold), int(time.Since(tracksDump.Time).Minutes()), 30), spttb_gui.PanelLeftTop)
 				for _, track := range tracksDump.Tracks {
 					tracks = append(tracks, track.FlushLocal())
 				}
 			}
 		} else {
-			gui.Append("Fetching playlist data...", spttb_gui.PanelRight)
+			gui.Append("Fetching playlist data...")
 			var playlistErr error
 			playlistInfo, playlistErr = spotifyClient.Playlist(*argPlaylist)
 			if playlistErr != nil {
@@ -274,13 +274,13 @@ func mainFetch() {
 				}
 				tracksDump, tracksDumpErr := subFetchGob(userLocalGob)
 				if tracksDumpErr != nil {
-					gui.WarnAppend(tracksDumpErr.Error(), spttb_gui.PanelRight)
-					gui.Append(fmt.Sprintf("Getting songs from \"%s\" playlist, by \"%s\"...", playlistInfo.Name, playlistInfo.Owner.DisplayName), spttb_gui.PanelRight|spttb_gui.FontStyleBold)
+					gui.Append(tracksDumpErr.Error(), spttb_gui.WarningAppend)
+					gui.Append(fmt.Sprintf("Getting songs from \"%s\" playlist, by \"%s\"...", playlistInfo.Name, playlistInfo.Owner.DisplayName), spttb_gui.FontStyleBold)
 					if tracksOnline, tracksErr = spotifyClient.PlaylistTracks(*argPlaylist); tracksErr != nil {
 						gui.Prompt(fmt.Sprintf("Something went wrong while fetching playlist: %s.", tracksErr.Error()), spttb_gui.PromptDismissableWithExit)
 					}
 				} else {
-					gui.Append(fmt.Sprintf("Tracks loaded from cache."), spttb_gui.PanelRight)
+					gui.Append(fmt.Sprintf("Tracks loaded from cache."))
 					gui.Append(fmt.Sprintf("%s %d/%d (min)", spttb_gui.MessageStyle("Tracks cache lifetime:", spttb_gui.FontStyleBold), int(time.Since(tracksDump.Time).Minutes()), 30), spttb_gui.PanelLeftTop)
 					for _, track := range tracksDump.Tracks {
 						tracks = append(tracks, track.FlushLocal())
@@ -295,7 +295,7 @@ func mainFetch() {
 			gui.Prompt(fmt.Sprintf("Something went wrong while fetching album info: %s.", tracksErr.Error()), spttb_gui.PromptDismissableWithExit)
 		}
 
-		gui.Append("Checking which songs need to be downloaded...", spttb_gui.PanelRight)
+		gui.Append("Checking which songs need to be downloaded...")
 		var (
 			tracksDuplicates []api.ID
 			tracksMap        = make(map[string]float64)
@@ -306,7 +306,7 @@ func mainFetch() {
 				tracks = append(tracks, spttb_track.ParseSpotifyTrack(tracksOnline[trackIndex], tracksOnlineAlbums[trackIndex]))
 				tracksMap[trackID.String()] = 1
 			} else {
-				gui.WarnAppend(fmt.Sprintf("Ignored song duplicate \"%s\" by \"%s\".", tracksOnline[trackIndex].SimpleTrack.Name, tracksOnline[trackIndex].SimpleTrack.Artists[0].Name), spttb_gui.PanelRight)
+				gui.Append(fmt.Sprintf("Ignored song duplicate \"%s\" by \"%s\".", tracksOnline[trackIndex].SimpleTrack.Name, tracksOnline[trackIndex].SimpleTrack.Artists[0].Name), spttb_gui.WarningAppend)
 				tracksDuplicates = append(tracksDuplicates, trackID)
 			}
 		}
@@ -316,19 +316,19 @@ func mainFetch() {
 				if removeErr := spotifyClient.RemoveLibraryTracks(tracksDuplicates); removeErr != nil {
 					gui.Prompt(fmt.Sprintf("Something went wrong while removing %d duplicates: %s.", len(tracksDuplicates), removeErr.Error()), spttb_gui.PromptDismissable)
 				} else {
-					gui.Append(fmt.Sprintf("%d duplicate tracks correctly removed from library.", len(tracksDuplicates)), spttb_gui.PanelRight)
+					gui.Append(fmt.Sprintf("%d duplicate tracks correctly removed from library.", len(tracksDuplicates)))
 				}
 			} else {
 				if removeErr := spotifyClient.RemovePlaylistTracks(*argPlaylist, tracksDuplicates); removeErr != nil {
 					gui.Prompt(fmt.Sprintf("Something went wrong while removing %d duplicates: %s.", len(tracksDuplicates), removeErr.Error()), spttb_gui.PromptDismissable)
 				} else {
-					gui.Append(fmt.Sprintf("%d duplicate tracks correctly removed from playlist.", len(tracksDuplicates)), spttb_gui.PanelRight)
+					gui.Append(fmt.Sprintf("%d duplicate tracks correctly removed from playlist.", len(tracksDuplicates)))
 				}
 			}
 		}
 
 		if dumpErr := spttb_system.DumpGob(userLocalGob, spttb_track.TracksDump{Tracks: tracks, Time: time.Now()}); dumpErr != nil {
-			gui.WarnAppend(fmt.Sprintf("Unable to cache tracks: %s", dumpErr.Error()), spttb_gui.PanelRight)
+			gui.Append(fmt.Sprintf("Unable to cache tracks: %s", dumpErr.Error()), spttb_gui.WarningAppend)
 		}
 
 		gui.Append(fmt.Sprintf("%s %d", spttb_gui.MessageStyle("Songs duplicates:", spttb_gui.FontStyleBold), len(tracksDuplicates)), spttb_gui.PanelLeftTop)
@@ -345,7 +345,7 @@ func mainFetch() {
 				gui.Prompt(fmt.Sprintf("Something went wrong: %s.", trackErr.Error()), spttb_gui.PromptDismissableWithExit)
 				mainExit()
 			} else {
-				gui.DebugAppend(fmt.Sprintf("%+v\n", track), spttb_gui.PanelRight)
+				gui.Append(fmt.Sprintf("%+v\n", track), spttb_gui.DebugAppend)
 				tracks = append(tracks, track)
 			}
 		}
@@ -370,17 +370,17 @@ func mainSearch() {
 	gui.LoadingSetMax(len(tracks))
 
 	songsFetch, songsFlush, songsIgnore := subCountSongs()
-	gui.Append(fmt.Sprintf("%d will be downloaded, %d flushed and %d ignored", songsFetch, songsFlush, songsIgnore), spttb_gui.PanelRight)
+	gui.Append(fmt.Sprintf("%d will be downloaded, %d flushed and %d ignored", songsFetch, songsFlush, songsIgnore))
 
 	for trackIndex, track := range tracks {
 		gui.LoadingHalfIncrease()
-		gui.Append(fmt.Sprintf("%d/%d: \"%s\"", trackIndex+1, len(tracks), track.Filename), spttb_gui.PanelRight|spttb_gui.FontStyleBold)
+		gui.Append(fmt.Sprintf("%d/%d: \"%s\"", trackIndex+1, len(tracks), track.Filename), spttb_gui.FontStyleBold)
 
 		if trackPath, ok := tracksIndex.Tracks[track.SpotifyID]; ok {
 			if trackPath != track.FilenameFinal() {
-				gui.Append(fmt.Sprintf("Track %s has been renamed: moving local one to %s", track.SpotifyID, track.FilenameFinal()), spttb_gui.PanelRight)
+				gui.Append(fmt.Sprintf("Track %s has been renamed: moving local one to %s", track.SpotifyID, track.FilenameFinal()))
 				if err := subTrackRename(&track); err != nil {
-					gui.ErrAppend(fmt.Sprintf("Unable to rename: %s", err.Error()), spttb_gui.PanelRight)
+					gui.Append(fmt.Sprintf("Unable to rename: %s", err.Error()), spttb_gui.ErrorAppend)
 				}
 			}
 		}
@@ -396,18 +396,18 @@ func mainSearch() {
 			if !*argManualInput {
 				youTubeTracks, youTubeTracksErr = spttb_youtube.QueryTracks(&track)
 				if youTubeTracksErr != nil {
-					gui.WarnAppend(fmt.Sprintf("Something went wrong while searching for \"%s\" track: %s.", track.Filename, youTubeTracksErr.Error()), spttb_gui.PanelRight)
+					gui.Append(fmt.Sprintf("Something went wrong while searching for \"%s\" track: %s.", track.Filename, youTubeTracksErr.Error()), spttb_gui.WarningAppend)
 					tracksFailed = append(tracksFailed, track)
 					gui.LoadingHalfIncrease()
 					continue
 				}
 				for _, youTubeTrackLoopEl := range youTubeTracks {
-					gui.DebugAppend(fmt.Sprintf("Result met: ID: %s,\nTitle: %s,\nUser: %s,\nDuration: %d.",
-						youTubeTrackLoopEl.ID, youTubeTrackLoopEl.Title, youTubeTrackLoopEl.User, youTubeTrackLoopEl.Duration), spttb_gui.PanelRight)
+					gui.Append(fmt.Sprintf("Result met: ID: %s,\nTitle: %s,\nUser: %s,\nDuration: %d.",
+						youTubeTrackLoopEl.ID, youTubeTrackLoopEl.Title, youTubeTrackLoopEl.User, youTubeTrackLoopEl.Duration), spttb_gui.DebugAppend)
 
 					youTubeTrackPickAuto, youTubeTrackPick = subMatchResult(track, youTubeTrackLoopEl)
 					if subIfPickFromAns(youTubeTrackPickAuto, youTubeTrackPick) {
-						gui.Append(fmt.Sprintf("Video \"%s\" is good to go for \"%s\".", youTubeTrackLoopEl.Title, track.Filename), spttb_gui.PanelRight)
+						gui.Append(fmt.Sprintf("Video \"%s\" is good to go for \"%s\".", youTubeTrackLoopEl.Title, track.Filename))
 						youTubeTrack = youTubeTrackLoopEl
 						break
 					}
@@ -422,20 +422,20 @@ func mainSearch() {
 			}
 
 			if youTubeTrack == (spttb_youtube.Track{}) {
-				gui.ErrAppend(fmt.Sprintf("Video for \"%s\" not found.", track.Filename), spttb_gui.PanelRight)
+				gui.Append(fmt.Sprintf("Video for \"%s\" not found.", track.Filename), spttb_gui.ErrorAppend)
 				tracksFailed = append(tracksFailed, track)
 				gui.LoadingHalfIncrease()
 				continue
 			}
 
 			if *argSimulate {
-				gui.Append(fmt.Sprintf("I would like to download \"%s\" for \"%s\" track, but I'm just simulating.", youTubeTrack.URL, track.Filename), spttb_gui.PanelRight)
+				gui.Append(fmt.Sprintf("I would like to download \"%s\" for \"%s\" track, but I'm just simulating.", youTubeTrack.URL, track.Filename))
 				gui.LoadingHalfIncrease()
 				continue
 			} else if *argReplaceLocal {
 				if track.URL == youTubeTrack.URL && !youTubeTrackPick {
-					gui.Append(fmt.Sprintf("Track \"%s\" is still the best result I can find.", track.Filename), spttb_gui.PanelRight)
-					gui.DebugAppend(fmt.Sprintf("Local track origin URL %s is the same as YouTube chosen one %s.", track.URL, youTubeTrack.URL), spttb_gui.PanelRight)
+					gui.Append(fmt.Sprintf("Track \"%s\" is still the best result I can find.", track.Filename))
+					gui.Append(fmt.Sprintf("Local track origin URL %s is the same as YouTube chosen one %s.", track.URL, youTubeTrack.URL), spttb_gui.DebugAppend)
 					gui.LoadingHalfIncrease()
 					continue
 				} else {
@@ -444,10 +444,10 @@ func mainSearch() {
 				}
 			}
 
-			gui.Append(fmt.Sprintf("Going to download \"%s\" from %s...", youTubeTrack.Title, youTubeTrack.URL), spttb_gui.PanelRight)
+			gui.Append(fmt.Sprintf("Going to download \"%s\" from %s...", youTubeTrack.Title, youTubeTrack.URL))
 			err := youTubeTrack.Download()
 			if err != nil {
-				gui.WarnAppend(fmt.Sprintf("Something went wrong downloading \"%s\": %s.", track.Filename, err.Error()), spttb_gui.PanelRight)
+				gui.Append(fmt.Sprintf("Something went wrong downloading \"%s\": %s.", track.Filename, err.Error()), spttb_gui.WarningAppend)
 				tracksFailed = append(tracksFailed, track)
 				gui.LoadingHalfIncrease()
 				continue
@@ -463,7 +463,7 @@ func mainSearch() {
 
 		subCondSequentialDo(&track)
 
-		gui.Append(fmt.Sprintf("Launching song processing jobs..."), spttb_gui.PanelRight)
+		gui.Append(fmt.Sprintf("Launching song processing jobs..."))
 		waitGroup.Add(1)
 		go subParallelSongProcess(track, &waitGroup)
 		if *argDebug {
@@ -477,15 +477,15 @@ func mainSearch() {
 	subWriteIndex()
 
 	junks := subCleanJunks()
-	gui.Append(fmt.Sprintf("Removed %d junk files.", junks), spttb_gui.PanelRight)
+	gui.Append(fmt.Sprintf("Removed %d junk files.", junks))
 
 	close(waitGroupPool)
 	waitGroup.Wait()
 	gui.LoadingFill()
 
-	gui.Append(fmt.Sprintf("%d tracks failed to synchronize.", len(tracksFailed)), spttb_gui.PanelRight)
+	gui.Append(fmt.Sprintf("%d tracks failed to synchronize.", len(tracksFailed)))
 	for _, track := range tracksFailed {
-		gui.Append(fmt.Sprintf(" - \"%s\"", track.Filename), spttb_gui.PanelRight)
+		gui.Append(fmt.Sprintf(" - \"%s\"", track.Filename))
 	}
 
 	var (
@@ -576,34 +576,34 @@ func subCheckUpdate() {
 		}
 		versionRequest, versionError := http.NewRequest(http.MethodGet, spttb_system.VersionOrigin, nil)
 		if versionError != nil {
-			gui.WarnAppend(fmt.Sprintf("Unable to compile version request: %s", versionError.Error()), spttb_gui.PanelRight)
+			gui.Append(fmt.Sprintf("Unable to compile version request: %s", versionError.Error()), spttb_gui.WarningAppend)
 		} else {
 			versionResponse, versionError := versionClient.Do(versionRequest)
 			if versionError != nil {
-				gui.WarnAppend(fmt.Sprintf("Unable to read response from version request: %s", versionError.Error()), spttb_gui.PanelRight)
+				gui.Append(fmt.Sprintf("Unable to read response from version request: %s", versionError.Error()), spttb_gui.WarningAppend)
 			} else {
 				versionResponseBody, versionError := ioutil.ReadAll(versionResponse.Body)
 				if versionError != nil {
-					gui.WarnAppend(fmt.Sprintf("Unable to get response body: %s", versionError.Error()), spttb_gui.PanelRight)
+					gui.Append(fmt.Sprintf("Unable to get response body: %s", versionError.Error()), spttb_gui.WarningAppend)
 				} else {
 					versionData := OnlineVersion{}
 					versionError = json.Unmarshal(versionResponseBody, &versionData)
 					if versionError != nil {
-						gui.WarnAppend(fmt.Sprintf("Unable to parse json from response body: %s", versionError.Error()), spttb_gui.PanelRight)
+						gui.Append(fmt.Sprintf("Unable to parse json from response body: %s", versionError.Error()), spttb_gui.WarningAppend)
 					} else {
 						versionValue := 0
 						versionRegex, versionError := regexp.Compile("[^0-9]+")
 						if versionError != nil {
-							gui.WarnAppend(fmt.Sprintf("Unable to compile regex needed to parse version: %s", versionError.Error()), spttb_gui.PanelRight)
+							gui.Append(fmt.Sprintf("Unable to compile regex needed to parse version: %s", versionError.Error()), spttb_gui.WarningAppend)
 						} else {
 							versionValue, versionError = strconv.Atoi(versionRegex.ReplaceAllString(versionData.Name, ""))
 							if versionError != nil {
-								gui.WarnAppend(fmt.Sprintf("Unable to fetch latest version value: %s", versionError.Error()), spttb_gui.PanelRight)
+								gui.Append(fmt.Sprintf("Unable to fetch latest version value: %s", versionError.Error()), spttb_gui.WarningAppend)
 							} else if versionValue != spttb_system.Version {
-								gui.Append(fmt.Sprintf("Going to update from %d to %d version.", spttb_system.Version, versionValue), spttb_gui.PanelRight)
+								gui.Append(fmt.Sprintf("Going to update from %d to %d version.", spttb_system.Version, versionValue))
 								subUpdateSoftware(versionResponseBody)
 							}
-							gui.DebugAppend(fmt.Sprintf("Actual version %d, online version %d.", spttb_system.Version, versionValue), spttb_gui.PanelRight)
+							gui.Append(fmt.Sprintf("Actual version %d, online version %d.", spttb_system.Version, versionValue), spttb_gui.DebugAppend)
 						}
 					}
 				}
@@ -614,44 +614,43 @@ func subCheckUpdate() {
 
 func subFetchIndex() {
 	if !spttb_system.FileExists(userLocalIndex) {
-		gui.WarnAppend("No track index has been found.", spttb_gui.PanelRight)
+		gui.Append("No track index has been found.", spttb_gui.DebugAppend)
 		return
 	}
-	gui.DebugAppend("Fetching local index...", spttb_gui.PanelRight)
+	gui.Append("Fetching local index...", spttb_gui.DebugAppend)
 	spttb_system.FetchGob(userLocalIndex, tracksIndex)
 }
 
 func subWriteIndex() {
-	gui.DebugAppend(fmt.Sprintf("Writing %d entries index...", len(tracksIndex.Tracks)), spttb_gui.PanelRight)
+	gui.Append(fmt.Sprintf("Writing %d entries index...", len(tracksIndex.Tracks)), spttb_gui.DebugAppend)
 	if writeErr := spttb_system.DumpGob(userLocalIndex, tracksIndex); writeErr != nil {
-		gui.WarnAppend(fmt.Sprintf("Unable to write tracks index: %s", writeErr.Error()), spttb_gui.PanelRight)
+		gui.Append(fmt.Sprintf("Unable to write tracks index: %s", writeErr.Error()), spttb_gui.WarningAppend)
 	}
 }
 
 func subAlignIndex() {
-	gui.Append("Indexing started...", spttb_gui.PanelRight)
 	filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
 		if info == nil || info.IsDir() {
 			return nil
 		}
 
 		if linkPath, err := os.Readlink(path); err == nil {
-			gui.DebugAppend(fmt.Sprintf("Index link: path %s", path), spttb_gui.PanelRight)
+			gui.Append(fmt.Sprintf("Index link: path %s", path), spttb_gui.DebugAppend)
 			tracksIndex.Links[linkPath] = append(tracksIndex.Links[linkPath], path)
 		} else if filepath.Ext(path) == ".mp3" {
-			gui.DebugAppend(fmt.Sprintf("Index: path %s", path), spttb_gui.PanelRight)
+			gui.Append(fmt.Sprintf("Index: path %s", path), spttb_gui.DebugAppend)
 			spotifyID := spttb_track.GetTag(path, spttb_track.ID3FrameSpotifyID)
 			if len(spotifyID) > 0 {
 				tracksIndex.Tracks[spotifyID] = path
 			} else {
-				gui.DebugAppend(fmt.Sprintf("Index: no ID found. Ignoring %s...", path), spttb_gui.PanelRight)
+				gui.Append(fmt.Sprintf("Index: no ID found. Ignoring %s...", path), spttb_gui.DebugAppend)
 			}
 		}
 
 		return nil
 	})
 	waitIndex <- true
-	gui.Append(fmt.Sprintf("Indexing finished: %d tracks indexed and %d linked.", len(tracksIndex.Tracks), len(tracksIndex.Links)), spttb_gui.PanelRight)
+	gui.Append(fmt.Sprintf("Indexing finished: %d tracks indexed and %d linked.", len(tracksIndex.Tracks), len(tracksIndex.Links)))
 }
 
 func subUpdateSoftware(latestRelease []byte) {
@@ -663,7 +662,7 @@ func subUpdateSoftware(latestRelease []byte) {
 	)
 	unmarshalErr := json.Unmarshal([]byte(latestRelease), &api)
 	if unmarshalErr != nil {
-		gui.WarnAppend(fmt.Sprintf("Unable to unmarshal Github latest relase data: %s", unmarshalErr.Error()), spttb_gui.PanelRight)
+		gui.Append(fmt.Sprintf("Unable to unmarshal Github latest relase data: %s", unmarshalErr.Error()), spttb_gui.WarningAppend)
 		return
 	}
 	for _, asset := range api["assets"].([]interface{}) {
@@ -677,22 +676,22 @@ func subUpdateSoftware(latestRelease []byte) {
 	binaryTempFname = fmt.Sprintf("/tmp/.%s", binaryName)
 	binaryOutput, err := os.Create(binaryTempFname)
 	if err != nil {
-		gui.WarnAppend(fmt.Sprintf("Unable to create temporary updated binary file: %s", err.Error()), spttb_gui.PanelRight)
+		gui.Append(fmt.Sprintf("Unable to create temporary updated binary file: %s", err.Error()), spttb_gui.WarningAppend)
 		return
 	}
 	defer binaryOutput.Close()
 
-	gui.Append(fmt.Sprintf("Downloading update from %s...", binaryURL), spttb_gui.PanelRight)
+	gui.Append(fmt.Sprintf("Downloading update from %s...", binaryURL))
 	binaryPayload, err := http.Get(binaryURL)
 	if err != nil {
-		gui.WarnAppend(fmt.Sprintf("Unable to download from %s: %s", binaryURL, err.Error()), spttb_gui.PanelRight)
+		gui.Append(fmt.Sprintf("Unable to download from %s: %s", binaryURL, err.Error()), spttb_gui.WarningAppend)
 		return
 	}
 	defer binaryPayload.Body.Close()
 
 	_, err = io.Copy(binaryOutput, binaryPayload.Body)
 	if err != nil {
-		gui.WarnAppend(fmt.Sprintf("Error while downloading from %s: %s", binaryURL, err.Error()), spttb_gui.PanelRight)
+		gui.Append(fmt.Sprintf("Error while downloading from %s: %s", binaryURL, err.Error()), spttb_gui.WarningAppend)
 		return
 	}
 
@@ -703,26 +702,26 @@ func subUpdateSoftware(latestRelease []byte) {
 		)
 		err = spttb_system.Mkdir(binaryFolder)
 		if err != nil {
-			gui.WarnAppend(fmt.Sprintf("Unable to create binary container folder at %s: %s", binaryFolder, err.Error()), spttb_gui.PanelRight)
+			gui.Append(fmt.Sprintf("Unable to create binary container folder at %s: %s", binaryFolder, err.Error()), spttb_gui.WarningAppend)
 			return
 		}
 		os.Remove(binaryFname)
 		err = spttb_system.FileCopy(binaryTempFname, binaryFname)
 		if err != nil {
-			gui.WarnAppend(fmt.Sprintf("Unable to persist new binary to %s: %s", binaryFname, err.Error()), spttb_gui.PanelRight)
+			gui.Append(fmt.Sprintf("Unable to persist new binary to %s: %s", binaryFname, err.Error()), spttb_gui.WarningAppend)
 			return
 		}
 		os.Remove(binaryTempFname)
 
 		err = os.Chmod(binaryFname, 0755)
 		if err != nil {
-			gui.WarnAppend(fmt.Sprintf("Unable to make %s executable: %s", binaryFname, err.Error()), spttb_gui.PanelRight)
+			gui.Append(fmt.Sprintf("Unable to make %s executable: %s", binaryFname, err.Error()), spttb_gui.WarningAppend)
 			return
 		}
 
 		err = syscall.Exec(binaryFname, os.Args, os.Environ())
 		if err != nil {
-			gui.ErrAppend(fmt.Sprintf("Unable to exec updated instance: %s", err.Error()), spttb_gui.PanelRight)
+			gui.Append(fmt.Sprintf("Unable to exec updated instance: %s", err.Error()), spttb_gui.ErrorAppend)
 		}
 		mainExit()
 	} else {
@@ -741,7 +740,7 @@ func subParallelSongProcess(track spttb_track.Track, wg *sync.WaitGroup) {
 
 	if !spttb_system.FileExists(track.FilenameTemporary()) && spttb_system.FileExists(track.FilenameFinal()) {
 		if err := spttb_system.FileCopy(track.FilenameFinal(), track.FilenameTemporary()); err != nil {
-			gui.WarnAppend(fmt.Sprintf("Unable to prepare song for getting its metadata flushed: %s", err.Error()), spttb_gui.PanelRight)
+			gui.Append(fmt.Sprintf("Unable to prepare song for getting its metadata flushed: %s", err.Error()), spttb_gui.WarningAppend)
 			return
 		}
 	}
@@ -753,7 +752,7 @@ func subParallelSongProcess(track spttb_track.Track, wg *sync.WaitGroup) {
 	os.Remove(track.FilenameFinal())
 	err := os.Rename(track.FilenameTemporary(), track.FilenameFinal())
 	if err != nil {
-		gui.WarnAppend(fmt.Sprintf("Unable to move song to its final path: %s", err.Error()), spttb_gui.PanelRight)
+		gui.Append(fmt.Sprintf("Unable to move song to its final path: %s", err.Error()), spttb_gui.WarningAppend)
 	}
 
 	waitGroupPool <- true
@@ -770,12 +769,12 @@ func subSongNormalize(track spttb_track.Track) {
 	)
 
 	commandArgs = []string{"-i", track.FilenameTemporary(), "-af", "volumedetect", "-f", "null", "-y", "null"}
-	gui.DebugAppend(fmt.Sprintf("Getting max_volume value: \"%s %s\"...", commandCmd, strings.Join(commandArgs, " ")), spttb_gui.PanelRight)
+	gui.Append(fmt.Sprintf("Getting max_volume value: \"%s %s\"...", commandCmd, strings.Join(commandArgs, " ")), spttb_gui.DebugAppend)
 	commandObj := exec.Command(commandCmd, commandArgs...)
 	commandObj.Stderr = &commandOut
 	commandErr = commandObj.Run()
 	if commandErr != nil {
-		gui.WarnAppend(fmt.Sprintf("Unable to use ffmpeg to pull max_volume song value: %s.", commandOut.String()), spttb_gui.PanelRight)
+		gui.Append(fmt.Sprintf("Unable to use ffmpeg to pull max_volume song value: %s.", commandOut.String()), spttb_gui.WarningAppend)
 		normalizationDelta = "0.0"
 	} else {
 		commandScanner := bufio.NewScanner(strings.NewReader(commandOut.String()))
@@ -788,15 +787,15 @@ func subSongNormalize(track spttb_track.Track) {
 	}
 
 	if _, commandErr = strconv.ParseFloat(normalizationDelta, 64); commandErr != nil {
-		gui.WarnAppend(fmt.Sprintf("Unable to pull max_volume delta to be applied along with song volume normalization: %s.", normalizationDelta), spttb_gui.PanelRight)
+		gui.Append(fmt.Sprintf("Unable to pull max_volume delta to be applied along with song volume normalization: %s.", normalizationDelta), spttb_gui.WarningAppend)
 		normalizationDelta = "0.0"
 	}
 	commandArgs = []string{"-i", track.FilenameTemporary(), "-af", "volume=+" + normalizationDelta + "dB", "-b:a", "320k", "-y", normalizationFile}
-	gui.DebugAppend(fmt.Sprintf("Compensating volume by %sdB...", normalizationDelta), spttb_gui.PanelRight)
-	gui.DebugAppend(fmt.Sprintf("Increasing audio quality for: %s...", track.Filename), spttb_gui.PanelRight)
-	gui.DebugAppend(fmt.Sprintf("Firing command: \"%s %s\"...", commandCmd, strings.Join(commandArgs, " ")), spttb_gui.PanelRight)
+	gui.Append(fmt.Sprintf("Compensating volume by %sdB...", normalizationDelta), spttb_gui.DebugAppend)
+	gui.Append(fmt.Sprintf("Increasing audio quality for: %s...", track.Filename), spttb_gui.DebugAppend)
+	gui.Append(fmt.Sprintf("Firing command: \"%s %s\"...", commandCmd, strings.Join(commandArgs, " ")), spttb_gui.DebugAppend)
 	if _, commandErr = exec.Command(commandCmd, commandArgs...).Output(); commandErr != nil {
-		gui.WarnAppend(fmt.Sprintf("Something went wrong while normalizing song \"%s\" volume: %s", track.Filename, commandErr.Error()), spttb_gui.PanelRight)
+		gui.Append(fmt.Sprintf("Something went wrong while normalizing song \"%s\" volume: %s", track.Filename, commandErr.Error()), spttb_gui.WarningAppend)
 	}
 	os.Remove(track.FilenameTemporary())
 	os.Rename(normalizationFile, track.FilenameTemporary())
@@ -805,9 +804,9 @@ func subSongNormalize(track spttb_track.Track) {
 func subSongFlushMetadata(track spttb_track.Track) {
 	trackMp3, err := id3.Open(track.FilenameTemporary(), id3.Options{Parse: true})
 	if err != nil {
-		gui.WarnAppend(fmt.Sprintf("Something bad happened while opening: %s", err.Error()), spttb_gui.PanelRight)
+		gui.Append(fmt.Sprintf("Something bad happened while opening: %s", err.Error()), spttb_gui.WarningAppend)
 	} else {
-		gui.DebugAppend(fmt.Sprintf("Fixing metadata for \"%s\"...", track.Filename), spttb_gui.PanelRight)
+		gui.Append(fmt.Sprintf("Fixing metadata for \"%s\"...", track.Filename), spttb_gui.DebugAppend)
 		if !*argFlushMissing && !*argFlushDifferent {
 			trackMp3.DeleteAllFrames()
 		}
@@ -835,7 +834,7 @@ func subCondFlushID3FrameTitle(track spttb_track.Track, trackMp3 *id3.Tag) {
 	if len(track.Title) > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameTitle))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameTitle) != track.Title)) {
-		gui.DebugAppend("Inflating title metadata...", spttb_gui.PanelRight)
+		gui.Append("Inflating title metadata...", spttb_gui.DebugAppend)
 		trackMp3.SetTitle(track.Title)
 	}
 }
@@ -844,7 +843,7 @@ func subCondFlushID3FrameSong(track spttb_track.Track, trackMp3 *id3.Tag) {
 	if len(track.Song) > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameSong))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameSong) != track.Song)) {
-		gui.DebugAppend("Inflating song metadata...", spttb_gui.PanelRight)
+		gui.Append("Inflating song metadata...", spttb_gui.DebugAppend)
 		trackMp3.AddCommentFrame(id3.CommentFrame{
 			Encoding:    id3.EncodingUTF8,
 			Language:    "eng",
@@ -858,7 +857,7 @@ func subCondFlushID3FrameArtist(track spttb_track.Track, trackMp3 *id3.Tag) {
 	if len(track.Artist) > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameArtist))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameArtist) != track.Artist)) {
-		gui.DebugAppend("Inflating artist metadata...", spttb_gui.PanelRight)
+		gui.Append("Inflating artist metadata...", spttb_gui.DebugAppend)
 		trackMp3.SetArtist(track.Artist)
 	}
 }
@@ -867,7 +866,7 @@ func subCondFlushID3FrameAlbum(track spttb_track.Track, trackMp3 *id3.Tag) {
 	if len(track.Album) > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameAlbum))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameAlbum) != track.Album)) {
-		gui.DebugAppend("Inflating album metadata...", spttb_gui.PanelRight)
+		gui.Append("Inflating album metadata...", spttb_gui.DebugAppend)
 		trackMp3.SetAlbum(track.Album)
 	}
 }
@@ -876,7 +875,7 @@ func subCondFlushID3FrameGenre(track spttb_track.Track, trackMp3 *id3.Tag) {
 	if len(track.Genre) > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameGenre))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameGenre) != track.Genre)) {
-		gui.DebugAppend("Inflating genre metadata...", spttb_gui.PanelRight)
+		gui.Append("Inflating genre metadata...", spttb_gui.DebugAppend)
 		trackMp3.SetGenre(track.Genre)
 	}
 }
@@ -885,7 +884,7 @@ func subCondFlushID3FrameYear(track spttb_track.Track, trackMp3 *id3.Tag) {
 	if len(track.Year) > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameYear))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameYear) != track.Year)) {
-		gui.DebugAppend("Inflating year metadata...", spttb_gui.PanelRight)
+		gui.Append("Inflating year metadata...", spttb_gui.DebugAppend)
 		trackMp3.SetYear(track.Year)
 	}
 }
@@ -894,7 +893,7 @@ func subCondFlushID3FrameFeaturings(track spttb_track.Track, trackMp3 *id3.Tag) 
 	if len(track.Featurings) > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameFeaturings))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameFeaturings) != strings.Join(track.Featurings, "|"))) {
-		gui.DebugAppend("Inflating featurings metadata...", spttb_gui.PanelRight)
+		gui.Append("Inflating featurings metadata...", spttb_gui.DebugAppend)
 		trackMp3.AddCommentFrame(id3.CommentFrame{
 			Encoding:    id3.EncodingUTF8,
 			Language:    "eng",
@@ -908,7 +907,7 @@ func subCondFlushID3FrameTrackNumber(track spttb_track.Track, trackMp3 *id3.Tag)
 	if track.TrackNumber > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameTrackNumber))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameTrackNumber) != fmt.Sprintf("%d", track.TrackNumber))) {
-		gui.DebugAppend("Inflating track number metadata...", spttb_gui.PanelRight)
+		gui.Append("Inflating track number metadata...", spttb_gui.DebugAppend)
 		trackMp3.AddFrame(trackMp3.CommonID("Track number/Position in set"),
 			id3.TextFrame{
 				Encoding: id3.EncodingUTF8,
@@ -921,7 +920,7 @@ func subCondFlushID3FrameTrackTotals(track spttb_track.Track, trackMp3 *id3.Tag)
 	if track.TrackTotals > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameTrackTotals))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameTrackTotals) != fmt.Sprintf("%d", track.TrackTotals))) {
-		gui.DebugAppend("Inflating total tracks number metadata...", spttb_gui.PanelRight)
+		gui.Append("Inflating total tracks number metadata...", spttb_gui.DebugAppend)
 		trackMp3.AddCommentFrame(id3.CommentFrame{
 			Encoding:    id3.EncodingUTF8,
 			Language:    "eng",
@@ -937,9 +936,9 @@ func subCondFlushID3FrameArtwork(track spttb_track.Track, trackMp3 *id3.Tag) {
 		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameArtworkURL) != track.Image)) {
 		trackArtworkReader, trackArtworkErr := ioutil.ReadFile(track.FilenameArtwork())
 		if trackArtworkErr != nil {
-			gui.WarnAppend(fmt.Sprintf("Unable to read artwork file: %s", trackArtworkErr.Error()), spttb_gui.PanelRight)
+			gui.Append(fmt.Sprintf("Unable to read artwork file: %s", trackArtworkErr.Error()), spttb_gui.WarningAppend)
 		} else {
-			gui.DebugAppend("Inflating artwork metadata...", spttb_gui.PanelRight)
+			gui.Append("Inflating artwork metadata...", spttb_gui.DebugAppend)
 			trackMp3.AddAttachedPicture(id3.PictureFrame{
 				Encoding:    id3.EncodingUTF8,
 				MimeType:    "image/jpeg",
@@ -955,7 +954,7 @@ func subCondFlushID3FrameArtworkURL(track spttb_track.Track, trackMp3 *id3.Tag) 
 	if len(track.Image) > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameArtworkURL))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameArtworkURL) != track.Image)) {
-		gui.DebugAppend("Inflating artwork url metadata...", spttb_gui.PanelRight)
+		gui.Append("Inflating artwork url metadata...", spttb_gui.DebugAppend)
 		trackMp3.AddCommentFrame(id3.CommentFrame{
 			Encoding:    id3.EncodingUTF8,
 			Language:    "eng",
@@ -969,7 +968,7 @@ func subCondFlushID3FrameYouTubeURL(track spttb_track.Track, trackMp3 *id3.Tag) 
 	if len(track.URL) > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameYouTubeURL))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameYouTubeURL) != track.URL)) {
-		gui.DebugAppend("Inflating youtube origin url metadata...", spttb_gui.PanelRight)
+		gui.Append("Inflating youtube origin url metadata...", spttb_gui.DebugAppend)
 		trackMp3.AddCommentFrame(id3.CommentFrame{
 			Encoding:    id3.EncodingUTF8,
 			Language:    "eng",
@@ -983,7 +982,7 @@ func subCondFlushID3FrameDuration(track spttb_track.Track, trackMp3 *id3.Tag) {
 	if track.Duration > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameDuration))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameDuration) != fmt.Sprintf("%d", track.Duration))) {
-		gui.DebugAppend("Inflating duration metadata...", spttb_gui.PanelRight)
+		gui.Append("Inflating duration metadata...", spttb_gui.DebugAppend)
 		trackMp3.AddCommentFrame(id3.CommentFrame{
 			Encoding:    id3.EncodingUTF8,
 			Language:    "eng",
@@ -997,7 +996,7 @@ func subCondFlushID3FrameSpotifyID(track spttb_track.Track, trackMp3 *id3.Tag) {
 	if len(track.SpotifyID) > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameSpotifyID))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameSpotifyID) != track.SpotifyID)) {
-		gui.DebugAppend("Inflating Spotify ID metadata...", spttb_gui.PanelRight)
+		gui.Append("Inflating Spotify ID metadata...", spttb_gui.DebugAppend)
 		trackMp3.AddCommentFrame(id3.CommentFrame{
 			Encoding:    id3.EncodingUTF8,
 			Language:    "eng",
@@ -1011,7 +1010,7 @@ func subCondFlushID3FrameLyrics(track spttb_track.Track, trackMp3 *id3.Tag) {
 	if len(track.Lyrics) > 0 && !*argDisableLyrics &&
 		(!*argFlushMissing || (*argFlushMissing && !spttb_track.TagHasFrame(trackMp3, spttb_track.ID3FrameLyrics))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && spttb_track.TagGetFrame(trackMp3, spttb_track.ID3FrameLyrics) != track.Lyrics)) {
-		gui.DebugAppend("Inflating lyrics metadata...", spttb_gui.PanelRight)
+		gui.Append("Inflating lyrics metadata...", spttb_gui.DebugAppend)
 		trackMp3.AddUnsynchronisedLyricsFrame(id3.UnsynchronisedLyricsFrame{
 			Encoding:          id3.EncodingUTF8,
 			Language:          "eng",
@@ -1108,12 +1107,12 @@ func subCondSequentialDo(track *spttb_track.Track) {
 func subCondLyricsFetch(track *spttb_track.Track) {
 	if !*argDisableLyrics &&
 		(!*argFlushMissing || (*argFlushMissing && !track.HasID3Frame(spttb_track.ID3FrameLyrics))) {
-		gui.DebugAppend(fmt.Sprintf("Fetching song \"%s\" lyrics...", track.Filename), spttb_gui.PanelRight)
+		gui.Append(fmt.Sprintf("Fetching song \"%s\" lyrics...", track.Filename), spttb_gui.DebugAppend)
 		lyricsErr := track.SearchLyrics()
 		if lyricsErr != nil {
-			gui.WarnAppend(fmt.Sprintf("Something went wrong while searching for song lyrics: %s", lyricsErr.Error()), spttb_gui.PanelRight)
+			gui.Append(fmt.Sprintf("Something went wrong while searching for song lyrics: %s", lyricsErr.Error()), spttb_gui.WarningAppend)
 		} else {
-			gui.DebugAppend(fmt.Sprintf("Song lyrics found."), spttb_gui.PanelRight)
+			gui.Append(fmt.Sprintf("Song lyrics found."), spttb_gui.DebugAppend)
 		}
 	}
 }
@@ -1121,28 +1120,28 @@ func subCondLyricsFetch(track *spttb_track.Track) {
 func subCondArtworkDownload(track *spttb_track.Track) {
 	if !spttb_system.FileExists(track.FilenameArtwork()) &&
 		(!*argFlushMissing || (*argFlushMissing && !track.HasID3Frame(spttb_track.ID3FrameArtwork))) {
-		gui.DebugAppend(fmt.Sprintf("Downloading song \"%s\" artwork at %s...", track.Filename, track.Image), spttb_gui.PanelRight)
+		gui.Append(fmt.Sprintf("Downloading song \"%s\" artwork at %s...", track.Filename, track.Image), spttb_gui.DebugAppend)
 		var commandOut bytes.Buffer
 		commandCmd := "ffmpeg"
 		commandArgs := []string{"-i", track.Image, "-q:v", "1", "-n", track.FilenameArtwork()}
 		commandObj := exec.Command(commandCmd, commandArgs...)
 		commandObj.Stderr = &commandOut
 		if err := commandObj.Run(); err != nil {
-			gui.WarnAppend(fmt.Sprintf("Unable to download artwork file \"%s\": %s", track.Image, commandOut.String()), spttb_gui.PanelRight)
+			gui.Append(fmt.Sprintf("Unable to download artwork file \"%s\": %s", track.Image, commandOut.String()), spttb_gui.WarningAppend)
 		}
 	}
 }
 
 func subCondTimestampFlush() {
 	if !*argDisableTimestampFlush {
-		gui.Append("Flushing files timestamps...", spttb_gui.PanelRight)
+		gui.Append("Flushing files timestamps...")
 		now := time.Now().Local().Add(time.Duration(-1*len(tracks)) * time.Minute)
 		for _, track := range tracks {
 			if !spttb_system.FileExists(track.FilenameFinal()) {
 				continue
 			}
 			if err := os.Chtimes(track.FilenameFinal(), now, now); err != nil {
-				gui.WarnAppend(fmt.Sprintf("Unable to flush timestamp on %s", track.FilenameFinal()), spttb_gui.PanelRight)
+				gui.Append(fmt.Sprintf("Unable to flush timestamp on %s", track.FilenameFinal()), spttb_gui.WarningAppend)
 			}
 			now = now.Add(1 * time.Minute)
 		}
@@ -1169,13 +1168,13 @@ func subCondPlaylistFileWrite() {
 		for _, track := range tracks {
 			if spttb_system.FileExists("../" + track.FilenameFinal()) {
 				if err := os.Symlink("../"+track.FilenameFinal(), track.FilenameFinal()); err != nil {
-					gui.ErrAppend(fmt.Sprintf("Unable to create symlink for \"%s\" in %s: %s", track.FilenameFinal(), playlistFolder, err.Error()), spttb_gui.PanelRight)
+					gui.Append(fmt.Sprintf("Unable to create symlink for \"%s\" in %s: %s", track.FilenameFinal(), playlistFolder, err.Error()), spttb_gui.ErrorAppend)
 				}
 			}
 		}
 		os.Chdir("..")
 
-		gui.Append(fmt.Sprintf("Creating playlist file at %s...", playlistFname), spttb_gui.PanelRight)
+		gui.Append(fmt.Sprintf("Creating playlist file at %s...", playlistFname))
 		if spttb_system.FileExists(playlistFname) {
 			os.Remove(playlistFname)
 		}
@@ -1190,7 +1189,7 @@ func subCondPlaylistFileWrite() {
 				}
 			}
 		} else {
-			gui.Append("Creating playlist PLS file...", spttb_gui.PanelRight)
+			gui.Append("Creating playlist PLS file...")
 			if spttb_system.FileExists(playlistInfo.Name + ".pls") {
 				os.Remove(playlistInfo.Name + ".pls")
 			}
@@ -1209,13 +1208,13 @@ func subCondPlaylistFileWrite() {
 
 		playlistFile, playlistErr := os.Create(playlistFname)
 		if playlistErr != nil {
-			gui.WarnAppend(fmt.Sprintf("Unable to create M3U file: %s", playlistErr.Error()), spttb_gui.PanelRight)
+			gui.Append(fmt.Sprintf("Unable to create M3U file: %s", playlistErr.Error()), spttb_gui.WarningAppend)
 		} else {
 			defer playlistFile.Close()
 			_, playlistErr := playlistFile.WriteString(playlistContent)
 			playlistFile.Sync()
 			if playlistErr != nil {
-				gui.WarnAppend(fmt.Sprintf("Unable to write M3U file: %s", playlistErr.Error()), spttb_gui.PanelRight)
+				gui.Append(fmt.Sprintf("Unable to write M3U file: %s", playlistErr.Error()), spttb_gui.WarningAppend)
 			}
 		}
 	}
@@ -1258,7 +1257,7 @@ func subTrackRename(track *spttb_track.Track) error {
 				if playlistUpdated {
 					err := spttb_system.FileWriteLines(path, playlistLinesNew)
 					if err != nil {
-						gui.ErrAppend(fmt.Sprintf("Unable to update playlist %s: %s", path, err.Error()), spttb_gui.PanelRight)
+						gui.Append(fmt.Sprintf("Unable to update playlist %s: %s", path, err.Error()), spttb_gui.ErrorAppend)
 					}
 				}
 

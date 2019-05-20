@@ -4,70 +4,128 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/jroimartin/gocui"
 )
 
-func condPanelSelector(options uint64) uint64 {
-	var panel uint64
-	if (options & PanelLeftTop) != 0 {
+func (gui *Gui) opHandle(operation Operation) error {
+	if !gui.hasOption(GuiDebugMode) && operation.hasOption(DebugAppend) {
+		return nil
+	}
+
+	if !operation.hasOption(LogNoWrite) && gui.Logger != nil {
+		gui.Logger.Append(operation.Message)
+	}
+
+	if operation.hasOption(ErrorAppend) {
+		operation.Options = operation.Options | FontColorRed | ParagraphStyleAutoReturn
+	} else if operation.hasOption(WarningAppend) {
+		operation.Options = operation.Options | FontColorYellow | ParagraphStyleAutoReturn
+	} else if operation.hasOption(DebugAppend) {
+		operation.Options = operation.Options | FontColorMagenta | ParagraphStyleAutoReturn
+	}
+
+	if gui.hasOption(GuiBareMode) {
+		fmt.Println(condColorStyle(condFontStyle(operation.Message, operation.Options), operation.Options))
+		return nil
+	}
+
+	var (
+		view  *gocui.View
+		err   error
+		panel Option
+	)
+	panel = condPanelSelector(operation.Options)
+	view, err = gui.View(Panels[panel])
+	if err != nil {
+		return err
+	}
+	if operation.hasOption(ClearAppend) {
+		view.Clear()
+	}
+	gui.Update(func(gui *gocui.Gui) error {
+		width, _ := view.Size()
+		var message = condParagraphStyle(operation.Message, operation.Options, width)
+		message = condFontStyle(operation.Message, operation.Options)
+		message = condOrientationStyle(operation.Message, operation.Options, view)
+		message = condColorStyle(operation.Message, operation.Options)
+		fmt.Fprintln(view, " "+message)
+		return nil
+	})
+	return nil
+}
+
+func (operation Operation) hasOption(option Option) bool {
+	return hasOption(operation.Options, option)
+}
+
+func (gui *Gui) hasOption(option Option) bool {
+	return hasOption(gui.Options, option)
+}
+
+func hasOption(options Options, option Option) bool {
+	return (options & option) != 0
+}
+
+func condPanelSelector(options Options) Option {
+	var panel Option = PanelRight
+	if hasOption(options, PanelLeftTop) {
 		panel = PanelLeftTop
-	} else if (options & PanelLeftBottom) != 0 {
+	} else if hasOption(options, PanelLeftBottom) {
 		panel = PanelLeftBottom
-	} else {
-		panel = PanelRight
 	}
 	return panel
 }
 
-func condParagraphStyle(message string, options uint64, width int) string {
-	if (options & ParagraphStyleStandard) != 0 {
+func condParagraphStyle(message string, options Option, width int) string {
+	if hasOption(options, ParagraphStyleStandard) {
 		message = messageParagraphStyle(message, ParagraphStyleStandard, width)
-	} else if (options & ParagraphStyleAutoReturn) != 0 {
+	} else if hasOption(options, ParagraphStyleAutoReturn) {
 		message = messageParagraphStyle(message, ParagraphStyleAutoReturn, width)
 	}
 	return message
 }
 
-func condFontStyle(message string, options uint64) string {
-	if (options & FontStyleBold) != 0 {
+func condFontStyle(message string, options Option) string {
+	if hasOption(options, FontStyleBold) {
 		message = MessageStyle(message, FontStyleBold)
-	} else if (options & FontStyleUnderline) != 0 {
+	} else if hasOption(options, FontStyleUnderline) {
 		message = MessageStyle(message, FontStyleUnderline)
-	} else if (options & FontStyleReverse) != 0 {
+	} else if hasOption(options, FontStyleReverse) {
 		message = MessageStyle(message, FontStyleReverse)
 	}
 	return message
 }
 
-func condOrientationStyle(message string, options uint64, view *gocui.View) string {
-	if (options & OrientationLeft) != 0 {
+func condOrientationStyle(message string, options Option, view *gocui.View) string {
+	if hasOption(options, OrientationLeft) {
 		message = messageOrientate(message, view, OrientationLeft)
-	} else if (options & OrientationCenter) != 0 {
+	} else if hasOption(options, OrientationCenter) {
 		message = messageOrientate(message, view, OrientationCenter)
-	} else if (options & OrientationRight) != 0 {
+	} else if hasOption(options, OrientationRight) {
 		message = messageOrientate(message, view, OrientationRight)
 	}
 	return message
 }
 
-func condColorStyle(message string, options uint64) string {
-	if (options & FontColorBlack) != 0 {
+func condColorStyle(message string, options Option) string {
+	if hasOption(options, FontColorBlack) {
 		message = messageColor(message, FontColorBlack)
-	} else if (options & FontColorRed) != 0 {
+	} else if hasOption(options, FontColorRed) {
 		message = messageColor(message, FontColorRed)
-	} else if (options & FontColorGreen) != 0 {
+	} else if hasOption(options, FontColorGreen) {
 		message = messageColor(message, FontColorGreen)
-	} else if (options & FontColorYellow) != 0 {
+	} else if hasOption(options, FontColorYellow) {
 		message = messageColor(message, FontColorYellow)
-	} else if (options & FontColorBlue) != 0 {
+	} else if hasOption(options, FontColorBlue) {
 		message = messageColor(message, FontColorBlue)
-	} else if (options & FontColorMagenta) != 0 {
+	} else if hasOption(options, FontColorMagenta) {
 		message = messageColor(message, FontColorMagenta)
-	} else if (options & FontColorCyan) != 0 {
+	} else if hasOption(options, FontColorCyan) {
 		message = messageColor(message, FontColorCyan)
-	} else if (options & FontColorWhite) != 0 {
+	} else if hasOption(options, FontColorWhite) {
 		message = messageColor(message, FontColorWhite)
 	}
 	return message
@@ -91,12 +149,12 @@ func messageOrientate(message string, view *gocui.View, orientation int) string 
 	return strings.Join(messageLines, "\n")
 }
 
-func messageColor(message string, colorConst int) string {
+func messageColor(message string, colorConst uint64) string {
 	colorFunc := color.New(FontColors[colorConst])
 	return colorFunc.Sprintf(message)
 }
 
-func messageParagraphStyle(message string, styleConst int, width int) string {
+func messageParagraphStyle(message string, styleConst uint64, width int) string {
 	if styleConst == ParagraphStyleAutoReturn {
 		var messageParagraph string
 		for len(message) > 0 {
@@ -184,6 +242,21 @@ func guiRun() {
 		if err != gocui.ErrQuit {
 			log.Panicln(err)
 		}
+	}
+}
+
+func guiDequeueOps() {
+	for true {
+		guiOpsMutex.Lock()
+		guiOp := guiOps.Front()
+		guiOpsMutex.Unlock()
+		if guiOp != nil {
+			singleton.opHandle(guiOp.Value.(Operation))
+			guiOpsMutex.Lock()
+			guiOps.Remove(guiOp)
+			guiOpsMutex.Unlock()
+		}
+		time.Sleep(1 * time.Microsecond)
 	}
 }
 

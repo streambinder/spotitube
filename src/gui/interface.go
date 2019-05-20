@@ -13,8 +13,12 @@ import (
 )
 
 // Build : generate a Gui object
-func Build(options uint64) *Gui {
-	if (options & GuiSilentMode) == 0 {
+func Build(options Options) *Gui {
+	defer func() {
+		go guiDequeueOps()
+	}()
+
+	if !hasOption(options, GuiBareMode) {
 		var gui *gocui.Gui
 		guiReady = make(chan *gocui.Gui)
 		go guiRun()
@@ -49,92 +53,23 @@ func (gui *Gui) LinkLogger(logger *spttb_logger.Logger) error {
 	return nil
 }
 
-// Append : add input string message to input uint64 options driven space
-func (gui *Gui) Append(message string, options uint64) error {
-	if (gui.Options & GuiSilentMode) != 0 {
-		fmt.Println(message)
-		return nil
+// Append : add input string message to input Options driven space
+func (gui *Gui) Append(message string, options ...Options) error {
+	var firstOptions uint64
+	if len(options) > 0 {
+		firstOptions = options[0]
 	}
-
-	guiAppendMutex.Lock()
-	defer guiAppendMutex.Unlock()
-
-	if (options&LogNoWrite) == 0 && gui.Logger != nil {
-		gui.Logger.Append(message)
-	}
-
-	var (
-		view  *gocui.View
-		err   error
-		panel uint64
-	)
-	panel = condPanelSelector(options)
-	view, err = gui.View(Panels[int(panel)])
-	if err != nil {
-		return err
-	}
-	gui.Update(func(gui *gocui.Gui) error {
-		width, _ := view.Size()
-		message = condParagraphStyle(message, options, width)
-		message = condFontStyle(message, options)
-		message = condOrientationStyle(message, options, view)
-		message = condColorStyle(message, options)
-		fmt.Fprintln(view, " "+message)
-		return nil
-	})
+	guiOpsMutex.Lock()
+	guiOps.PushBack(Operation{message, firstOptions})
+	defer guiOpsMutex.Unlock()
 	return nil
 }
 
-// ClearAppend : add input string message to input uint64 options driven space, after clearing its container
-func (gui *Gui) ClearAppend(message string, options uint64) error {
-	if (gui.Options & GuiSilentMode) != 0 {
+// Prompt : show a prompt containing input string message, driven with input Options
+func (gui *Gui) Prompt(message string, options Options) error {
+	if gui.hasOption(GuiBareMode) {
 		fmt.Println(message)
-		return nil
-	}
-
-	var (
-		view  *gocui.View
-		err   error
-		panel uint64
-	)
-	if (options & PanelRight) != 0 {
-		panel = PanelRight
-	} else if (options & PanelLeftTop) != 0 {
-		panel = PanelLeftTop
-	} else if (options & PanelLeftBottom) != 0 {
-		panel = PanelLeftBottom
-	}
-	view, err = gui.View(Panels[int(panel)])
-	if err != nil {
-		return err
-	}
-	view.Clear()
-	return gui.Append(message, options|panel)
-}
-
-// ErrAppend : add input string message, formatted as error, to input uint64 options driven space
-func (gui *Gui) ErrAppend(message string, options uint64) error {
-	return gui.Append(message, options|FontColorRed|ParagraphStyleAutoReturn)
-}
-
-// WarnAppend : add input string message, formatted as warning, to input uint64 options driven space
-func (gui *Gui) WarnAppend(message string, options uint64) error {
-	return gui.Append(message, options|FontColorYellow|ParagraphStyleAutoReturn)
-}
-
-// DebugAppend : add input string message, formatted as debug message, to input uint64 options driven space
-func (gui *Gui) DebugAppend(message string, options uint64) error {
-	if (gui.Options & GuiDebugMode) == 0 {
-		return nil
-	}
-	return gui.Append(message, options|ParagraphStyleAutoReturn|FontColorMagenta)
-}
-
-// Prompt : show a prompt containing input string message, driven with input uint64 options
-func (gui *Gui) Prompt(message string, options uint64) error {
-	if (gui.Options & GuiSilentMode) != 0 {
-		fmt.Println(message)
-		if (options & PromptDismissableWithExit) != 0 {
+		if hasOption(options, PromptDismissableWithExit) {
 			singleton.Closing <- true
 		}
 		return nil
@@ -160,7 +95,7 @@ func (gui *Gui) Prompt(message string, options uint64) error {
 				return err
 			}
 			fmt.Fprintln(view, message)
-			if (options & PromptDismissableWithExit) != 0 {
+			if hasOption(options, PromptDismissableWithExit) {
 				gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, guiDismissPromptAndClose)
 			} else {
 				gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, guiDismissPrompt)
@@ -172,9 +107,9 @@ func (gui *Gui) Prompt(message string, options uint64) error {
 	return nil
 }
 
-// PromptInput : show a confirmation/cancel prompt containing input string message, driven with input uint64 options
-func (gui *Gui) PromptInput(message string, options uint64) bool {
-	if (gui.Options & GuiSilentMode) != 0 {
+// PromptInput : show a confirmation/cancel prompt containing input string message, driven with input Options
+func (gui *Gui) PromptInput(message string, options Options) bool {
+	if gui.hasOption(GuiBareMode) {
 		return spttb_system.InputConfirm(message)
 	}
 
@@ -211,9 +146,9 @@ func (gui *Gui) PromptInput(message string, options uint64) bool {
 	return <-guiPromptDismiss
 }
 
-// PromptInputMessage : show an input prompt containing input string message, driven with input uint64 options
-func (gui *Gui) PromptInputMessage(message string, options uint64) string {
-	if (gui.Options & GuiSilentMode) != 0 {
+// PromptInputMessage : show an input prompt containing input string message, driven with input Options
+func (gui *Gui) PromptInputMessage(message string, options Options) string {
+	if gui.hasOption(GuiBareMode) {
 		return spttb_system.InputString(message)
 	}
 
@@ -252,7 +187,7 @@ func (gui *Gui) LoadingSetMax(max int) error {
 
 // LoadingFill : fill up the bottom loading bar
 func (gui *Gui) LoadingFill() error {
-	if (gui.Options & GuiSilentMode) != 0 {
+	if gui.hasOption(GuiBareMode) {
 		return nil
 	}
 
@@ -272,7 +207,7 @@ func (gui *Gui) LoadingFill() error {
 
 // LoadingIncrease : increase loading bar
 func (gui *Gui) LoadingIncrease() error {
-	if (gui.Options & GuiSilentMode) != 0 {
+	if gui.hasOption(GuiBareMode) {
 		return nil
 	}
 
@@ -293,7 +228,7 @@ func (gui *Gui) LoadingIncrease() error {
 
 // LoadingHalfIncrease : increase loading bar by half-step
 func (gui *Gui) LoadingHalfIncrease() error {
-	if (gui.Options & GuiSilentMode) != 0 {
+	if gui.hasOption(GuiBareMode) {
 		return nil
 	}
 
@@ -312,8 +247,8 @@ func (gui *Gui) LoadingHalfIncrease() error {
 	return nil
 }
 
-// MessageStyle : apply input int styleConst styling to input string message
-func MessageStyle(message string, styleConst int) string {
+// MessageStyle : apply input uint64 styleConst styling to input string message
+func MessageStyle(message string, styleConst uint64) string {
 	styleFunc := color.New(FontStyles[styleConst])
 	return styleFunc.Sprintf(message)
 }

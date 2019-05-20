@@ -9,6 +9,15 @@ const (
 	// PromptDismissableWithExit : identifier dismissable with exiting prompt
 	PromptDismissableWithExit
 	_
+	// ClearAppend : identifier for pre-append panel clearing
+	ClearAppend
+	// ErrorAppend : identifier for error mode append
+	ErrorAppend
+	// WarningAppend : identifier for warning mode append
+	WarningAppend
+	// DebugAppend : identifier for debug mode append
+	DebugAppend
+	_
 	// PanelLeftTop : identifier for panel at left-top
 	PanelLeftTop
 	// PanelLeftBottom : identifier for panel at left-bottom
@@ -57,8 +66,8 @@ const (
 	// LogNoWrite : identifier for log writing temporarily disable (if Gui has a Logger)
 	LogNoWrite
 	_
-	// GuiSilentMode : identifier for make gui as silent as possible
-	GuiSilentMode
+	// GuiBareMode : identifier for make gui as bare as possible
+	GuiBareMode
 	// GuiDebugMode : identifier for enabling debug mode
 	GuiDebugMode
 )

@@ -64,9 +64,9 @@ var (
 
 	tracks        spttb_track.Tracks
 	tracksFailed  spttb_track.Tracks
-	tracksIndex   = spttb_track.TracksIndex{make(map[string]string), make(map[string][]string)}
+	tracksIndex   = spttb_track.TracksIndex{Tracks: make(map[string]string), Links: make(map[string][]string)}
 	playlistInfo  *api.FullPlaylist
-	spotifyClient *spttb_spotify.Spotify = spttb_spotify.NewClient()
+	spotifyClient = spttb_spotify.NewClient()
 	spotifyUser   string
 	spotifyUserID string
 	waitGroup     sync.WaitGroup
@@ -77,10 +77,10 @@ var (
 	notify *notificator.Notificator
 
 	procCurrentBin      string
-	userLocalConfigPath string = spttb_system.LocalConfigPath()
-	userLocalBin               = fmt.Sprintf("%s/spotitube", userLocalConfigPath)
-	userLocalIndex             = fmt.Sprintf("%s/index.gob", userLocalConfigPath)
-	userLocalGob               = fmt.Sprintf("%s/%s_%s.gob", userLocalConfigPath, "%s", "%s")
+	userLocalConfigPath = spttb_system.LocalConfigPath()
+	userLocalBin        = fmt.Sprintf("%s/spotitube", userLocalConfigPath)
+	userLocalIndex      = fmt.Sprintf("%s/index.gob", userLocalConfigPath)
+	userLocalGob        = fmt.Sprintf("%s/%s_%s.gob", userLocalConfigPath, "%s", "%s")
 )
 
 func main() {
@@ -1237,48 +1237,48 @@ func subTrackRename(track *spttb_track.Track) error {
 	)
 	if err := os.Rename(keyPath, track.FilenameFinal()); err != nil {
 		return err
-	} else {
-		for _, trackLink := range tracksIndex.Links[keyPath] {
-			var (
-				trackLinkParts  = strings.Split(trackLink, "/")
-				trackLinkFolder = strings.Join(trackLinkParts[:len(trackLinkParts)-1], "/")
-				trackLinkName   = trackLinkParts[len(trackLinkParts)-1]
-				trackLinkNew    = trackLinkFolder + "/" + track.FilenameFinal()
-			)
-			os.Rename(trackLink, trackLinkNew)
-			filepath.Walk(trackLinkFolder, func(path string, info os.FileInfo, err error) error {
-				if filepath.Ext(path) != ".m3u" || filepath.Ext(path) != ".pls" {
-					return nil
-				}
-
-				var (
-					playlistLines    = spttb_system.FileReadLines(path)
-					playlistLinesNew = make([]string, len(playlistLines))
-					playlistUpdated  = false
-				)
-				for _, line := range playlistLines {
-					if strings.Contains(line, trackLinkName) {
-						line = strings.ReplaceAll(line, trackLinkName, track.FilenameFinal())
-						playlistUpdated = true
-					}
-					playlistLinesNew = append(playlistLinesNew, line)
-				}
-
-				if playlistUpdated {
-					err := spttb_system.FileWriteLines(path, playlistLinesNew)
-					if err != nil {
-						gui.Append(fmt.Sprintf("Unable to update playlist %s: %s", path, err.Error()), spttb_gui.ErrorAppend)
-					}
-				}
-
-				return nil
-			})
-			tracksIndex.Links[track.FilenameFinal()] = append(tracksIndex.Links[track.FilenameFinal()], trackLinkNew)
-		}
-		track.Local = true
-		delete(tracksIndex.Links, keyPath)
-		tracksIndex.Tracks[keyID] = track.FilenameFinal()
 	}
+
+	for _, trackLink := range tracksIndex.Links[keyPath] {
+		var (
+			trackLinkParts  = strings.Split(trackLink, "/")
+			trackLinkFolder = strings.Join(trackLinkParts[:len(trackLinkParts)-1], "/")
+			trackLinkName   = trackLinkParts[len(trackLinkParts)-1]
+			trackLinkNew    = trackLinkFolder + "/" + track.FilenameFinal()
+		)
+		os.Rename(trackLink, trackLinkNew)
+		filepath.Walk(trackLinkFolder, func(path string, info os.FileInfo, err error) error {
+			if filepath.Ext(path) != ".m3u" || filepath.Ext(path) != ".pls" {
+				return nil
+			}
+
+			var (
+				playlistLines    = spttb_system.FileReadLines(path)
+				playlistLinesNew = make([]string, len(playlistLines))
+				playlistUpdated  = false
+			)
+			for _, line := range playlistLines {
+				if strings.Contains(line, trackLinkName) {
+					line = strings.ReplaceAll(line, trackLinkName, track.FilenameFinal())
+					playlistUpdated = true
+				}
+				playlistLinesNew = append(playlistLinesNew, line)
+			}
+
+			if playlistUpdated {
+				err := spttb_system.FileWriteLines(path, playlistLinesNew)
+				if err != nil {
+					gui.Append(fmt.Sprintf("Unable to update playlist %s: %s", path, err.Error()), spttb_gui.ErrorAppend)
+				}
+			}
+
+			return nil
+		})
+		tracksIndex.Links[track.FilenameFinal()] = append(tracksIndex.Links[track.FilenameFinal()], trackLinkNew)
+	}
+	track.Local = true
+	delete(tracksIndex.Links, keyPath)
+	tracksIndex.Tracks[keyID] = track.FilenameFinal()
 
 	return nil
 }

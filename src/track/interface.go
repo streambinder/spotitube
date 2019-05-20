@@ -107,10 +107,15 @@ func ParseSpotifyTrack(spotifyTrack spotify.FullTrack, spotifyAlbum spotify.Full
 			}
 			return ""
 		}(),
-		TrackNumber:   spotifyTrack.SimpleTrack.TrackNumber,
-		TrackTotals:   len(spotifyAlbum.Tracks.Tracks),
-		Duration:      spotifyTrack.SimpleTrack.Duration / 1000,
-		Image:         spotifyTrack.Album.Images[0].URL,
+		TrackNumber: spotifyTrack.SimpleTrack.TrackNumber,
+		TrackTotals: len(spotifyAlbum.Tracks.Tracks),
+		Duration:    spotifyTrack.SimpleTrack.Duration / 1000,
+		Image: func() string {
+			if len(spotifyTrack.Album.Images) > 0 {
+				return spotifyTrack.Album.Images[0].URL
+			}
+			return ""
+		}(),
 		URL:           "",
 		SpotifyID:     spotifyTrack.SimpleTrack.ID.String(),
 		Filename:      "",

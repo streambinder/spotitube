@@ -1128,7 +1128,7 @@ func subCondLyricsFetch(track *spttb_track.Track) {
 }
 
 func subCondArtworkDownload(track *spttb_track.Track) {
-	if !spttb_system.FileExists(track.FilenameArtwork()) &&
+	if len(track.Image) > 0 && !spttb_system.FileExists(track.FilenameArtwork()) &&
 		(!*argFlushMissing || (*argFlushMissing && !track.HasID3Frame(spttb_track.ID3FrameArtwork))) {
 		gui.Append(fmt.Sprintf("Downloading song \"%s\" artwork at %s...", track.Filename, track.Image), spttb_gui.DebugAppend)
 		var commandOut bytes.Buffer

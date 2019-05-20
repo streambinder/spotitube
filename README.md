@@ -199,15 +199,16 @@ You may want to use some of the following input flags:
 8.  `-disable-update-check`: disable automatic update check at startup (and eventually consequent self-updating procedure).
 9.  `-disable-browser-opening`: disable automatic browser opening for authentication.
 10.  `-disable-indexing`: disable automatic library indexing (used to keep track of tracks names modifications).
-11. `-interactive`: enable interactive mode. This allows to eventually override `spotitube` decisions about which _YouTube_ result to pick, prompting for user input on every - legal - song it encounters.
-12. `-manual-input`: always manually insert YouTube URL used for songs download.
-13. `-flush-metadata`: enable metadata informations flush also for songs that have been already synchronized.
-14. `-flush-missing`: if `-flush-metadata` toggled, it will just populate empty id3 frames, instead of flushing any of those.
-15. `-flush-missing`: if -flush-metadata toggled, it will just populate id3 frames different from the ones calculated by the application, instead of flushing any of those (keep in mind that, in order to compare the respective tags, it needs to redownload both artworks and lyrics).
-16. `-replace-local`: replace already downloaded (via `spotitube`) songs, if better ones get encountered.
-17. `-remove-duplicates`: remove encountered duplicates from online library/playlist.
-18. `-clean-junks`: forcely batch remove temporary files that kept existing for any unattended runtime error.
-19. `-version`: just print installed version.
+11. `-authenticate-outside`: enable authentication flow to be handled outside the machine SpotiTube is being executed on.
+12. `-interactive`: enable interactive mode. This allows to eventually override `spotitube` decisions about which _YouTube_ result to pick, prompting for user input on every - legal - song it encounters.
+13. `-manual-input`: always manually insert YouTube URL used for songs download.
+14. `-flush-metadata`: enable metadata informations flush also for songs that have been already synchronized.
+15. `-flush-missing`: if `-flush-metadata` toggled, it will just populate empty id3 frames, instead of flushing any of those.
+16. `-flush-missing`: if -flush-metadata toggled, it will just populate id3 frames different from the ones calculated by the application, instead of flushing any of those (keep in mind that, in order to compare the respective tags, it needs to redownload both artworks and lyrics).
+17. `-replace-local`: replace already downloaded (via `spotitube`) songs, if better ones get encountered.
+18. `-remove-duplicates`: remove encountered duplicates from online library/playlist.
+19. `-clean-junks`: forcely batch remove temporary files that kept existing for any unattended runtime error.
+20. `-version`: just print installed version.
 
 #### Developers
 

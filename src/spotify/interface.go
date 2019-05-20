@@ -160,7 +160,9 @@ func (spotify *Spotify) PlaylistTracks(playlistURI string) ([]api.FullTrack, err
 			return []api.FullTrack{}, fmt.Errorf(fmt.Sprintf("Something gone wrong while reading %dth chunk of tracks: %s.", iterations, err.Error()))
 		}
 		for _, track := range chunk.Tracks {
-			tracks = append(tracks, track.Track)
+			if !track.IsLocal {
+				tracks = append(tracks, track.Track)
+			}
 		}
 		if len(chunk.Tracks) < 50 {
 			break

@@ -560,7 +560,7 @@ func subCheckInternet() {
 	client := http.Client{
 		Timeout: time.Second * spttb_system.HTTPTimeout,
 	}
-	req, _ := http.NewRequest("GET", "http://1.1.1.1", nil)
+	req, _ := http.NewRequest("GET", "http://clients3.google.com/generate_204", nil)
 	_, err := client.Do(req)
 	if err != nil {
 		gui.Prompt("Are you sure you're connected to the internet?", spttb_gui.PromptDismissableWithExit)

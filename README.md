@@ -136,7 +136,7 @@ go get github.com\zmb3\spotify
 6. Go to https://ytdl-org.github.io/youtube-dl/download.html, download the **Windows exe** and put it into the `spotitube/out/` folder
 7. Go to https://ffmpeg.zeranoe.com/builds/ and download the **SHARED** library (select **Shared** in the **Linking** column, to the right). Open the archive, go into the `bin/` folder, and copy/paste everything into the `spotitube/out/` folder
 8. You're almost there. Now go on Spotify, and find a playlist you want to export. Right click on it, then go to **share**, then **copy Spotify URI**
-9. Now, launch the exe with your terminal, specifying the playlist argument (paste the **Spotify URI**). You must also add `-disable-gui` and `-disable-browser-opening` e.g. `./out/spotitube.exe -playlist spotify:user:coulis:playlist:4DpcZ6Wfs3mzzwsnaXmN3L -disable-gui -disable-browser-opening`
+9. Now, launch the exe with your terminal, specifying the playlist argument (paste the **Spotify URI**). You must also add `-disable-gui` (e.g. `./out/spotitube.exe -playlist spotify:user:coulis:playlist:4DpcZ6Wfs3mzzwsnaXmN3L -disable-gui`)
 10. Once you've done this, the program will launch, and stop at the `Authentication URL:` line. Copy the URL, and paste it into your browser. Allow the access, and the download should start
 
 ##### Spotify application keys

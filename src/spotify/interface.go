@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	api "github.com/zmb3/spotify"
@@ -66,7 +67,12 @@ func (spotify *Spotify) Auth(url string, authHost string, xdgOpen bool) bool {
 	}()
 
 	if xdgOpen {
-		commandCmd := "xdg-open"
+		var commandCmd string
+		if runtime.GOOS == "windows" {
+			commandCmd = "start"
+		} else {
+			commandCmd = "xdg-open"
+		}
 		commandArgs := []string{url}
 		_, err := exec.Command(commandCmd, commandArgs...).Output()
 		if err != nil {

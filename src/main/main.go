@@ -15,6 +15,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -127,10 +128,14 @@ func main() {
 	argRemoveDuplicates = flag.Bool("remove-duplicates", false, "Remove encountered duplicates from online library/playlist")
 	argCleanJunks = flag.Bool("clean-junks", false, "Scan for junks file and clean them")
 	argLog = flag.Bool("log", false, "Enable logging into file ./spotitube.log")
-	argDisableGui = flag.Bool("disable-gui", false, "Disable GUI to reduce noise and increase readability of program flow")
 	argDebug = flag.Bool("debug", false, "Enable debug messages")
 	argSimulate = flag.Bool("simulate", false, "Simulate process flow, without really altering filesystem")
 	argVersion = flag.Bool("version", false, "Print version")
+	if runtime.GOOS != "windows" {
+		argDisableGui = flag.Bool("disable-gui", false, "Disable GUI to reduce noise and increase readability of program flow")
+	} else {
+		*argDisableGui = true
+	}
 	flag.Parse()
 
 	if *argVersion {

@@ -193,6 +193,7 @@ func guiDismissPromptWithInput(gui *gocui.Gui, view *gocui.View) error {
 	})
 	gui.DeleteKeybinding("", gocui.KeyEnter, gocui.ModNone)
 	gui.DeleteKeybinding("", gocui.KeyTab, gocui.ModNone)
+	time.Sleep(1 * time.Millisecond)
 	return nil
 }
 

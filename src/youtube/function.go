@@ -10,7 +10,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/agnivade/levenshtein"
-	"github.com/kennygrant/sanitize"
+	"github.com/gosimple/slug"
 )
 
 func pullTracksFromDoc(track spttb_track.Track, document *goquery.Document) (Tracks, error) {
@@ -79,7 +79,7 @@ func (tracks Tracks) evaluateScores() Tracks {
 		if err := track.Track.SeemsByWordMatch(fmt.Sprintf("%s %s", track.User, track.Title)); err == nil {
 			track.AffinityScore += 10
 		}
-		if strings.Contains(sanitize.Name(track.User), sanitize.Name(track.Track.Artist)) {
+		if strings.Contains(slug.Make(track.User), slug.Make(track.Track.Artist)) {
 			track.AffinityScore += 10
 		}
 		if spttb_track.SeemsType(track.Title, track.Track.SongType) {

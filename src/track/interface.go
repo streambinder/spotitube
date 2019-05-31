@@ -8,7 +8,7 @@ import (
 	spttb_system "system"
 
 	"github.com/bogem/id3v2"
-	"github.com/kennygrant/sanitize"
+	"github.com/gosimple/slug"
 	"github.com/zmb3/spotify"
 )
 
@@ -214,7 +214,7 @@ func (track Track) Seems(sequence string) error {
 
 // SeemsByWordMatch : return nil error if Track song name, artist and featurings are contained in sequence
 func (track Track) SeemsByWordMatch(sequence string) error {
-	sequence = sanitize.Name(strings.ToLower(sequence))
+	sequence = slug.Make(strings.ToLower(sequence))
 	for _, trackItem := range append([]string{track.Song, track.Artist}, track.Featurings...) {
 		trackItem = strings.ToLower(trackItem)
 		if len(trackItem) > 7 && trackItem[:7] == "cast of" {
@@ -227,7 +227,7 @@ func (track Track) SeemsByWordMatch(sequence string) error {
 			trackItem = strings.Split(trackItem, " and ")[0]
 		}
 		trackItem = strings.TrimSpace(trackItem)
-		trackItem = sanitize.Name(trackItem)
+		trackItem = slug.Make(trackItem)
 		if len(trackItem) > 3 && !strings.Contains(sequence, trackItem) {
 			return fmt.Errorf("Songs seem to be mismatching by words comparison: \"%v+\" in \"%s\", due to \"%s\"",
 				append([]string{track.Song, track.Artist}, track.Featurings...), sequence, trackItem)
@@ -476,10 +476,10 @@ func SeemsType(sequence string, songType int) bool {
 	for _, songTypeAlias := range songTypeAliases {
 		sequence = strings.ToLower(sequence)
 		if len(songTypeAlias) != 1 {
-			sequence = sanitize.Name(sequence)
+			sequence = slug.Make(sequence)
 		}
-		if len(sanitize.Name(strings.ToLower(songTypeAlias))) == len(songTypeAlias) {
-			songTypeAlias = sanitize.Name(strings.ToLower(songTypeAlias))
+		if len(slug.Make(strings.ToLower(songTypeAlias))) == len(songTypeAlias) {
+			songTypeAlias = slug.Make(strings.ToLower(songTypeAlias))
 		}
 		if strings.Contains(sequence, songTypeAlias) {
 			return true

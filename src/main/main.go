@@ -31,7 +31,7 @@ import (
 
 	"github.com/0xAX/notificator"
 	id3 "github.com/bogem/id3v2"
-	"github.com/kennygrant/sanitize"
+	"github.com/gosimple/slug"
 	api "github.com/zmb3/spotify"
 )
 
@@ -1166,7 +1166,7 @@ func subCondTimestampFlush() {
 func subCondPlaylistFileWrite() {
 	if !*argSimulate && !*argDisablePlaylistFile && *argPlaylist != "none" {
 		var (
-			playlistFolder  = sanitize.Name(playlistInfo.Name)
+			playlistFolder  = slug.Make(playlistInfo.Name)
 			playlistFname   = fmt.Sprintf("%s/%s", playlistFolder, playlistInfo.Name)
 			playlistContent string
 		)

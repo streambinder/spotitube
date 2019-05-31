@@ -11,6 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 )
 
 // String : string representation for PathsArrayFlag object
@@ -215,4 +218,11 @@ func FetchGob(filePath string, object interface{}) error {
 	}
 	file.Close()
 	return err
+}
+
+// Asciify : transform eventually unicoded string to ASCII
+func Asciify(dirty string) string {
+	t := transform.Chain(norm.NFD, transform.RemoveFunc(isNonspacingMark), norm.NFC)
+	clean, _, _ := transform.String(t, dirty)
+	return clean
 }

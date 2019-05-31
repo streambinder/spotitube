@@ -127,7 +127,7 @@ go get github.com\bogem\id3v2
 go get github.com\bradfitz\slice
 go get github.com\fatih\color
 go get github.com\jroimartin\gocui
-go get github.com\kennygrant\sanitize
+go get github.com\gosimple\slug
 go get github.com\lunixbochs\vtclean
 go get github.com\mozillazg\go-unidecode
 go get github.com\zmb3\spotify

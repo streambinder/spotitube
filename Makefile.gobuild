@@ -24,25 +24,25 @@ bin:
 		else \
 			echo -en "Building...\r"; \
 		fi; \
-		cp $(CUR_DIR)/src/spotify/constant.go{,.orig} && \
-		cp $(CUR_DIR)/src/track/constant.go{,.orig} && \
+		cp $(CUR_DIR)/src/spotitube/spotify/spotify.go{,.orig} && \
+		cp $(CUR_DIR)/src/spotitube/track/track.go{,.orig} && \
 		( \
 			if [ "$(OS)" == "Darwin" ]; then \
-				sed -i '' 's|:SPOTIFY_CLIENT_ID:|${SPOTIFY_ID}|g' $(CUR_DIR)/src/spotify/constant.go && \
-				sed -i '' 's|:SPOTIFY_CLIENT_SECRET:|${SPOTIFY_KEY}|g' $(CUR_DIR)/src/spotify/constant.go && \
-				sed -i '' 's|:GENIUS_TOKEN:|${GENIUS_TOKEN}|g' $(CUR_DIR)/src/track/constant.go; \
+				sed -i '' 's|:SPOTIFY_CLIENT_ID:|${SPOTIFY_ID}|g' $(CUR_DIR)/src/spotitube/spotify/spotify.go && \
+				sed -i '' 's|:SPOTIFY_CLIENT_SECRET:|${SPOTIFY_KEY}|g' $(CUR_DIR)/src/spotitube/spotify/spotify.go && \
+				sed -i '' 's|:GENIUS_TOKEN:|${GENIUS_TOKEN}|g' $(CUR_DIR)/src/spotitube/track/track.go; \
 			else \
-				sed -i 's|:SPOTIFY_CLIENT_ID:|${SPOTIFY_ID}|g' $(CUR_DIR)/src/spotify/constant.go && \
-				sed -i 's|:SPOTIFY_CLIENT_SECRET:|${SPOTIFY_KEY}|g' $(CUR_DIR)/src/spotify/constant.go && \
-				sed -i 's|:GENIUS_TOKEN:|${GENIUS_TOKEN}|g' $(CUR_DIR)/src/track/constant.go; \
+				sed -i 's|:SPOTIFY_CLIENT_ID:|${SPOTIFY_ID}|g' $(CUR_DIR)/src/spotitube/spotify/spotify.go && \
+				sed -i 's|:SPOTIFY_CLIENT_SECRET:|${SPOTIFY_KEY}|g' $(CUR_DIR)/src/spotitube/spotify/spotify.go && \
+				sed -i 's|:GENIUS_TOKEN:|${GENIUS_TOKEN}|g' $(CUR_DIR)/src/spotitube/track/track.go; \
 			fi; \
 		); \
 		( \
-			GOPATH=$(CUR_DIR) GOARCH=386 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BINARY) $(CUR_DIR)/src/main/main.go && \
-			GOPATH=$(CUR_DIR) GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BINARY).exe $(CUR_DIR)/src/main/main.go && \
+			GOPATH=$(CUR_DIR) GOARCH=386 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BINARY) $(CUR_DIR)/src/main.go && \
+			GOPATH=$(CUR_DIR) GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BINARY).exe $(CUR_DIR)/src/main.go && \
 			echo -e "\rBuilt at: $(BINARY)" \
 		); \
-		(mv -f $(CUR_DIR)/src/spotify/constant.go{.orig,} && mv -f $(CUR_DIR)/src/track/constant.go{.orig,}); \
+		(mv -f $(CUR_DIR)/src/spotitube/spotify/spotify.go{.orig,} && mv -f $(CUR_DIR)/src/spotitube/track/track.go{.orig,}); \
 	);
 
 .PHONY: deps

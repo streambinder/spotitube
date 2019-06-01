@@ -1,5 +1,43 @@
 package spotify
 
+import (
+	"context"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"os"
+	"os/exec"
+	"runtime"
+	"spotitube/system"
+	"strings"
+
+	"github.com/zmb3/spotify"
+)
+
+// Spotify : struct object containing all the informations needed to authenticate and fetch from Spotify
+type Spotify struct {
+	Client *spotify.Client
+}
+
+// AuthURL : struct object containing both the full authentication URL provided by Spotify and the shortened one using TinyURL
+type AuthURL struct {
+	Full  string
+	Short string
+}
+
+// Playlist : alias for Spotify FullPlaylist
+type Playlist = spotify.FullPlaylist
+
+// Album : alias for Spotify FullAlbum
+type Album = spotify.FullAlbum
+
+// Track : alias for Spotify FullTrack
+type Track = spotify.FullTrack
+
+// ID : alias for Spotify ID
+type ID = spotify.ID
+
 const (
 	// SpotifyClientID : Spotify app client ID
 	SpotifyClientID = ":SPOTIFY_CLIENT_ID:"
@@ -69,3 +107,299 @@ const (
 	</body>
 	</html>`
 )
+
+var (
+	clientChannel       = make(chan *spotify.Client)
+	clientState         = system.RandString(20)
+	clientAuthenticator spotify.Authenticator
+)
+
+// BuildAuthURL : generate new authentication URL
+func BuildAuthURL(callbackHost string) *AuthURL {
+	var (
+		spotifyID  = os.Getenv("SPOTIFY_ID")
+		spotifyKey = os.Getenv("SPOTIFY_KEY")
+	)
+	if len(spotifyID) == 0 {
+		spotifyID = SpotifyClientID
+	}
+	if len(spotifyKey) == 0 {
+		spotifyKey = SpotifyClientSecret
+	}
+	clientAuthenticator = authenticator(fmt.Sprintf(SpotifyRedirectURL, callbackHost))
+	clientAuthenticator.SetAuthInfo(spotifyID, spotifyKey)
+	spotifyURL := clientAuthenticator.AuthURL(clientState)
+	tinyURL := fmt.Sprintf("http://tinyurl.com/api-create.php?url=%s", spotifyURL)
+	tinyResponse, tinyErr := http.Get(tinyURL)
+	if tinyErr != nil {
+		return &AuthURL{Full: spotifyURL, Short: ""}
+	}
+	defer tinyResponse.Body.Close()
+	tinyContent, tinyErr := ioutil.ReadAll(tinyResponse.Body)
+	if tinyErr != nil {
+		return &AuthURL{Full: spotifyURL, Short: ""}
+
+	}
+	return &AuthURL{Full: spotifyURL, Short: string(tinyContent)}
+}
+
+// NewClient : return a new Spotify instance
+func NewClient() *Spotify {
+	return &Spotify{}
+}
+
+// Auth : start local callback server to handle xdg-preferred browser authentication redirection
+func (s *Spotify) Auth(url string, authHost string, xdgOpen bool) bool {
+	var authBind string
+	if strings.Contains(authHost, "127.0.0.1") || strings.Contains(authHost, "localhost") {
+		authBind = authHost
+	} else {
+		authBind = "0.0.0.0"
+	}
+	authServer := &http.Server{Addr: fmt.Sprintf("%s:8080", authBind)}
+	http.HandleFunc("/favicon.ico", webHTTPFaviconHandler)
+	http.HandleFunc("/callback", webHTTPCompleteAuthHandler)
+
+	go func() {
+		if err := authServer.ListenAndServe(); err != http.ErrServerClosed {
+			log.Fatalf("ListenAndServe(): %s", err)
+		}
+	}()
+
+	if xdgOpen {
+		var commandCmd string
+		if runtime.GOOS == "windows" {
+			commandCmd = "start"
+		} else {
+			commandCmd = "xdg-open"
+		}
+		commandArgs := []string{url}
+		_, err := exec.Command(commandCmd, commandArgs...).Output()
+		if err != nil {
+			return false
+		}
+	}
+
+	s.Client = <-clientChannel
+	if authServer != nil {
+		authServer.Shutdown(context.Background())
+	}
+
+	return true
+}
+
+// User : get authenticated username from authenticated client
+func (s *Spotify) User() (string, string) {
+	if user, err := s.Client.CurrentUser(); err == nil {
+		return user.DisplayName, user.ID
+	}
+	return "unknown", "unknown"
+}
+
+// LibraryTracks : return array of Spotify FullTrack of all authenticated user library songs
+func (s *Spotify) LibraryTracks() ([]Track, error) {
+	var (
+		tracks     []Track
+		iterations int
+		options    = defaultOptions()
+	)
+	for true {
+		*options.Offset = *options.Limit * iterations
+		chunk, err := s.Client.CurrentUsersTracksOpt(&options)
+		if err != nil {
+			return []Track{}, fmt.Errorf(fmt.Sprintf("Something gone wrong while reading %dth chunk of tracks: %s.", iterations, err.Error()))
+		}
+		for _, track := range chunk.Tracks {
+			tracks = append(tracks, track.FullTrack)
+		}
+		if len(chunk.Tracks) < 50 {
+			break
+		}
+		iterations++
+	}
+	return tracks, nil
+}
+
+// RemoveLibraryTracks : remove an array of tracks by their IDs from library
+func (s *Spotify) RemoveLibraryTracks(ids []ID) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	var iterations int
+	for true {
+		lowerbound := iterations * 50
+		upperbound := lowerbound + 50
+		if len(ids) < upperbound {
+			upperbound = lowerbound + (len(ids) - lowerbound)
+		}
+		chunk := ids[lowerbound:upperbound]
+		if err := s.Client.RemoveTracksFromLibrary(chunk...); err != nil {
+			return fmt.Errorf(fmt.Sprintf("Something gone wrong while removing %dth chunk of removing tracks: %s.", iterations, err.Error()))
+		}
+		if len(chunk) < 50 {
+			break
+		}
+		iterations++
+	}
+	return nil
+}
+
+// Playlist : return Spotify FullPlaylist from input string playlistURI
+func (s *Spotify) Playlist(playlistURI string) (*Playlist, error) {
+	_, playlistID, playlistErr := parsePlaylistURI(playlistURI)
+	if playlistErr != nil {
+		return &Playlist{}, playlistErr
+	}
+	return s.Client.GetPlaylist(playlistID)
+}
+
+// PlaylistTracks : return array of Spotify FullTrack of all input string playlistURI identified playlist
+func (s *Spotify) PlaylistTracks(playlistURI string) ([]Track, error) {
+	var (
+		tracks     []Track
+		iterations int
+		options    = defaultOptions()
+	)
+	_, playlistID, playlistErr := parsePlaylistURI(playlistURI)
+	if playlistErr != nil {
+		return tracks, playlistErr
+	}
+	for true {
+		*options.Offset = *options.Limit * iterations
+		chunk, err := s.Client.GetPlaylistTracksOpt(playlistID, &options, "")
+		if err != nil {
+			return []Track{}, fmt.Errorf(fmt.Sprintf("Something gone wrong while reading %dth chunk of tracks: %s.", iterations, err.Error()))
+		}
+		for _, track := range chunk.Tracks {
+			if !track.IsLocal {
+				tracks = append(tracks, track.Track)
+			}
+		}
+		if len(chunk.Tracks) < 50 {
+			break
+		}
+		iterations++
+	}
+	return tracks, nil
+}
+
+// RemovePlaylistTracks : remove an array of tracks by their IDs from playlist
+func (s *Spotify) RemovePlaylistTracks(playlistURI string, ids []ID) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	_, playlistID, playlistErr := parsePlaylistURI(playlistURI)
+	if playlistErr != nil {
+		return playlistErr
+	}
+	var (
+		iterations int
+	)
+	for true {
+		lowerbound := iterations * 50
+		upperbound := lowerbound + 50
+		if len(ids) < upperbound {
+			upperbound = lowerbound + (len(ids) - lowerbound)
+		}
+		chunk := ids[lowerbound:upperbound]
+		if _, err := s.Client.RemoveTracksFromPlaylist(playlistID, chunk...); err != nil {
+			return fmt.Errorf(fmt.Sprintf("Something gone wrong while removing %dth chunk of removing tracks: %s.", iterations, err.Error()))
+		}
+		if len(chunk) < 50 {
+			break
+		}
+		iterations++
+	}
+	return nil
+}
+
+// Albums : return array Spotify FullAlbum, specular to the array of Spotify ID
+func (s *Spotify) Albums(ids []ID) ([]Album, error) {
+	var (
+		albums     []spotify.FullAlbum
+		iterations int
+		upperbound int
+		lowerbound int
+	)
+	for true {
+		lowerbound = iterations * 20
+		if upperbound = lowerbound + 20; upperbound >= len(ids) {
+			upperbound = lowerbound + (len(ids) - lowerbound)
+		}
+		chunk, err := s.Client.GetAlbums(ids[lowerbound:upperbound]...)
+		if err != nil {
+			var chunk []spotify.FullAlbum
+			for _, albumID := range ids[lowerbound:upperbound] {
+				album, err := s.Client.GetAlbum(albumID)
+				if err == nil {
+					chunk = append(chunk, *album)
+				} else {
+					chunk = append(chunk, spotify.FullAlbum{})
+				}
+			}
+		}
+		for _, album := range chunk {
+			albums = append(albums, *album)
+		}
+		if len(chunk) < 20 {
+			break
+		}
+		iterations++
+	}
+	return albums, nil
+}
+
+func authenticator(callbackURI string) spotify.Authenticator {
+	return spotify.NewAuthenticator(
+		callbackURI,
+		spotify.ScopeUserLibraryRead,
+		spotify.ScopeUserLibraryModify,
+		spotify.ScopePlaylistReadPrivate,
+		spotify.ScopePlaylistReadCollaborative,
+		spotify.ScopePlaylistModifyPublic,
+		spotify.ScopePlaylistModifyPrivate)
+}
+
+func defaultOptions() spotify.Options {
+	var (
+		optLimit  = 50
+		optOffset = 0
+	)
+	return spotify.Options{
+		Limit:  &optLimit,
+		Offset: &optOffset,
+	}
+}
+
+func parsePlaylistURI(playlistURI string) (string, ID, error) {
+	if strings.Count(playlistURI, ":") == 4 {
+		return strings.Split(playlistURI, ":")[2], ID(strings.Split(playlistURI, ":")[4]), nil
+	}
+	return "", "", fmt.Errorf(fmt.Sprintf("Malformed playlist URI: expected 5 columns, given %d.", strings.Count(playlistURI, ":")))
+}
+
+func webHTTPFaviconHandler(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, SpotifyFaviconURL, 301)
+}
+
+func webHTTPCompleteAuthHandler(w http.ResponseWriter, r *http.Request) {
+	tok, err := clientAuthenticator.Token(clientState, r)
+	if err != nil {
+		http.Error(w, webHTTPMessage("Couldn't get token", "none"), http.StatusForbidden)
+		// logger.Fatal("Couldn't get token.")
+	}
+	if st := r.FormValue("state"); st != clientState {
+		http.NotFound(w, r)
+		// logger.Fatal("\"state\" value not found.")
+	}
+	client := clientAuthenticator.NewClient(tok)
+	fmt.Fprintf(w, webHTTPMessage("Login completed", "Come back to the shell and enjoy the magic!"))
+	// logger.Log("Login process completed.")
+	clientChannel <- &client
+}
+
+func webHTTPMessage(contentTitle string, contentSubtitle string) string {
+	return fmt.Sprintf(SpotifyHTMLTemplate, contentTitle, contentSubtitle)
+}

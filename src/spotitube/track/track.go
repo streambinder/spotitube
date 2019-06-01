@@ -1,15 +1,126 @@
 package track
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"os"
+	"spotitube/system"
 	"strconv"
 	"strings"
+	"time"
 
-	spttb_system "system"
-
+	"github.com/PuerkitoBio/goquery"
 	"github.com/bogem/id3v2"
 	"github.com/gosimple/slug"
+	"github.com/mozillazg/go-unidecode"
 	"github.com/zmb3/spotify"
+)
+
+// Track : struct containing all the informations about a track
+type Track struct {
+	Title         string
+	Song          string
+	Artist        string
+	Album         string
+	Year          string
+	Featurings    []string
+	Genre         string
+	TrackNumber   int
+	TrackTotals   int
+	Duration      int
+	SongType      int
+	Image         string
+	URL           string
+	SpotifyID     string
+	Filename      string
+	FilenameTemp  string
+	FilenameExt   string
+	SearchPattern string
+	Lyrics        string
+	Local         bool
+}
+
+// Tracks : Track array
+type Tracks []Track
+
+// TracksDump : Tracks dumpable object
+type TracksDump struct {
+	Tracks Tracks
+	Time   time.Time
+}
+
+// TracksIndex : Tracks index keeping ID - filename mapping and eventual filename links
+type TracksIndex struct {
+	Tracks map[string]string
+	Links  map[string][]string
+}
+
+const (
+	// GeniusAccessToken : Genius app access token
+	GeniusAccessToken = ":GENIUS_TOKEN:"
+	// LyricsGeniusAPIURL : lyrics Genius API URL
+	LyricsGeniusAPIURL = "https://api.genius.com/search?q=%s+%s"
+	// LyricsOVHAPIURL : lyrics OVH API URL
+	LyricsOVHAPIURL = "https://api.lyrics.ovh/v1/%s/%s"
+
+	// SongTypeAlbum : identifier for Song in its album variant
+	SongTypeAlbum = iota
+	// SongTypeLive : identifier for Song in its live variant
+	SongTypeLive
+	// SongTypeCover : identifier for Song in its cover variant
+	SongTypeCover
+	// SongTypeRemix : identifier for Song in its remix variant
+	SongTypeRemix
+	// SongTypeAcoustic : identifier for Song in its acoustic variant
+	SongTypeAcoustic
+	// SongTypeKaraoke : identifier for Song in its karaoke variant
+	SongTypeKaraoke
+	// SongTypeParody : identifier for Song in its parody variant
+	SongTypeParody
+	// SongTypeReverse : identifier for Song in its reverse variant
+	SongTypeReverse
+	_
+	// ID3FrameTitle : ID3 title frame tag identifier
+	ID3FrameTitle = iota
+	// ID3FrameSong : ID3 song frame tag identifier
+	ID3FrameSong
+	// ID3FrameArtist : ID3 artist frame tag identifier
+	ID3FrameArtist
+	// ID3FrameAlbum : ID3 album frame tag identifier
+	ID3FrameAlbum
+	// ID3FrameGenre : ID3 genre frame tag identifier
+	ID3FrameGenre
+	// ID3FrameYear : ID3 year frame tag identifier
+	ID3FrameYear
+	// ID3FrameFeaturings : ID3 featurings frame tag identifier
+	ID3FrameFeaturings
+	// ID3FrameTrackNumber : ID3 track number frame tag identifier
+	ID3FrameTrackNumber
+	// ID3FrameTrackTotals : ID3 total tracks number frame tag identifier
+	ID3FrameTrackTotals
+	// ID3FrameArtwork : ID3 artwork frame tag identifier
+	ID3FrameArtwork
+	// ID3FrameArtworkURL : ID3 artwork URL frame tag identifier
+	ID3FrameArtworkURL
+	// ID3FrameLyrics : ID3 lyrics frame tag identifier
+	ID3FrameLyrics
+	// ID3FrameYouTubeURL : ID3 youtube URL frame tag identifier
+	ID3FrameYouTubeURL
+	// ID3FrameDuration : ID3 duration frame tag identifier
+	ID3FrameDuration
+	// ID3FrameSpotifyID : ID3 Spotify ID frame tag identifier
+	ID3FrameSpotifyID
+)
+
+var (
+	// SongTypes : array containing every song variant identifier
+	SongTypes = []int{SongTypeLive, SongTypeCover, SongTypeRemix,
+		SongTypeAcoustic, SongTypeKaraoke, SongTypeParody}
+	// JunkSuffixes : array containing every file suffix considered junk
+	JunkSuffixes = []string{".ytdl", ".webm", ".opus", ".part", ".jpg", ".tmp", "-id3v2"}
 )
 
 // CountOffline : return offline (local) songs count from Tracks
@@ -30,7 +141,7 @@ func (tracks Tracks) CountOnline() int {
 
 // OpenLocalTrack : parse local filename track informations into a new Track object
 func OpenLocalTrack(filename string) (Track, error) {
-	if !spttb_system.FileExists(filename) {
+	if !system.FileExists(filename) {
 		return Track{}, fmt.Errorf(fmt.Sprintf("%s does not exist", filename))
 	}
 	trackMp3, err := id3v2.Open(filename, id3v2.Options{Parse: true})
@@ -54,7 +165,7 @@ func OpenLocalTrack(filename string) (Track, error) {
 		SpotifyID:     TagGetFrame(trackMp3, ID3FrameSpotifyID),
 		Filename:      "",
 		FilenameTemp:  "",
-		FilenameExt:   spttb_system.SongExtension,
+		FilenameExt:   system.SongExtension,
 		SearchPattern: "",
 		Lyrics:        TagGetFrame(trackMp3, ID3FrameLyrics),
 		Local:         true,
@@ -120,7 +231,7 @@ func ParseSpotifyTrack(spotifyTrack spotify.FullTrack, spotifyAlbum spotify.Full
 		SpotifyID:     spotifyTrack.SimpleTrack.ID.String(),
 		Filename:      "",
 		FilenameTemp:  "",
-		FilenameExt:   spttb_system.SongExtension,
+		FilenameExt:   system.SongExtension,
 		SearchPattern: "",
 		Lyrics:        "",
 		Local:         false,
@@ -138,7 +249,7 @@ func ParseSpotifyTrack(spotifyTrack spotify.FullTrack, spotifyAlbum spotify.Full
 
 	track.SearchPattern = strings.Replace(track.FilenameTemp[1:], "-", " ", -1)
 
-	if spttb_system.FileExists(track.FilenameFinal()) {
+	if system.FileExists(track.FilenameFinal()) {
 		track.Local = true
 	}
 
@@ -163,7 +274,7 @@ func GetTag(path string, frame int) string {
 
 // FlushLocal : recheck - and eventually update it - if track is local
 func (track Track) FlushLocal() Track {
-	if spttb_system.FileExists(track.FilenameFinal()) {
+	if system.FileExists(track.FilenameFinal()) {
 		track.Local = true
 	}
 	return track
@@ -456,7 +567,7 @@ func SeemsType(sequence string, songType int) bool {
 	var songTypeAliases []string
 	if songType == SongTypeLive {
 		songTypeAliases = []string{"@", "live", "perform", "tour"}
-		for _, year := range spttb_system.MakeRange(1950, 2050) {
+		for _, year := range system.MakeRange(1950, 2050) {
 			songTypeAliases = append(songTypeAliases, []string{strconv.Itoa(year), "'" + strconv.Itoa(year)[2:]}...)
 		}
 	} else if songType == SongTypeCover {
@@ -486,4 +597,178 @@ func SeemsType(sequence string, songType int) bool {
 		}
 	}
 	return false
+}
+
+func parseType(sequence string) int {
+	for _, songType := range SongTypes {
+		if SeemsType(sequence, songType) {
+			return songType
+		}
+	}
+	return SongTypeAlbum
+}
+
+func parseTitle(trackTitle string, trackFeaturings []string) (string, string) {
+	var trackSong string
+
+	if !(strings.Contains(trackTitle, " (") && strings.Contains(strings.Split(strings.Split(trackTitle, ")")[0], "(")[1], " - ")) {
+		trackTitle = strings.Split(trackTitle, " - ")[0]
+	}
+	if strings.Contains(trackTitle, " live ") {
+		trackTitle = strings.Split(trackTitle, " live ")[0]
+	}
+	trackTitle = strings.TrimSpace(trackTitle)
+	if len(trackFeaturings) > 0 {
+		var (
+			featuringsAlreadyParsed bool
+			featuringSymbols        = []string{"featuring", "feat", "ft", "with", "prod"}
+		)
+		for _, featuringValue := range trackFeaturings {
+			for _, featuringSymbol := range featuringSymbols {
+				titleParts := strings.Split(strings.ToLower(trackTitle), featuringSymbol)
+				if len(titleParts) > 1 && strings.Contains(titleParts[1], strings.ToLower(featuringValue)) {
+					featuringsAlreadyParsed = true
+				}
+			}
+		}
+		if featuringsAlreadyParsed {
+			for _, featuringSymbol := range featuringSymbols {
+				for _, featuringSymbolCase := range []string{featuringSymbol, strings.Title(featuringSymbol)} {
+					trackTitle = strings.Replace(trackTitle, featuringSymbolCase+". ", "ft. ", -1)
+					trackTitle = strings.Replace(trackTitle, featuringSymbolCase+" ", "ft. ", -1)
+				}
+			}
+		} else {
+			if strings.Contains(trackTitle, "(") &&
+				(strings.Contains(trackTitle, " vs. ") || strings.Contains(trackTitle, " vs ")) &&
+				strings.Contains(trackTitle, ")") {
+				trackTitle = strings.Split(trackTitle, " (")[0]
+			}
+			var trackFeaturingsInline string
+			if len(trackFeaturings) > 1 {
+				trackFeaturingsInline = "(ft. " + strings.TrimSpace(strings.Join(trackFeaturings[:len(trackFeaturings)-1], ", ")) +
+					" and " + strings.TrimSpace(trackFeaturings[len(trackFeaturings)-1]) + ")"
+			} else {
+				trackFeaturingsInline = "(ft. " + strings.TrimSpace(trackFeaturings[0]) + ")"
+			}
+			trackTitle = fmt.Sprintf("%s %s", trackTitle, trackFeaturingsInline)
+		}
+		trackSong = strings.Split(trackTitle, " (ft. ")[0]
+	} else {
+		trackSong = trackTitle
+	}
+
+	return trackTitle, trackSong
+}
+
+func parseFilename(track Track) (string, string) {
+	var (
+		trackFilename     string
+		trackFilenameTemp string
+	)
+	trackFilename = track.Artist + " - " + track.Title
+	for _, symbol := range []string{"/", "\\", ".", "?", "<", ">", ":", "*"} {
+		trackFilename = strings.Replace(trackFilename, symbol, "", -1)
+	}
+
+	trackFilename = strings.Replace(trackFilename, "  ", " ", -1)
+	trackFilename = system.Asciify(trackFilename)
+	trackFilename = strings.TrimSpace(trackFilename)
+	trackFilenameTemp = ("." + slug.Make(trackFilename))
+
+	return trackFilename, trackFilenameTemp
+}
+
+func searchLyricsGenius(track *Track) (string, error) {
+	var geniusToken = os.Getenv("GENIUS_TOKEN")
+	if len(geniusToken) == 0 {
+		geniusToken = GeniusAccessToken
+	}
+	if len(GeniusAccessToken) == 0 {
+		return "", fmt.Errorf("Cannot fetch lyrics from Genius without a valid token")
+	}
+
+	lyricsClient := http.Client{
+		Timeout: time.Second * system.HTTPTimeout,
+	}
+
+	encodedURL, lyricsError := url.Parse(fmt.Sprintf(LyricsGeniusAPIURL, url.QueryEscape(track.Title), url.QueryEscape(track.Artist)))
+	if lyricsError != nil {
+		return "", lyricsError
+	}
+	lyricsRequest, lyricsError := http.NewRequest(http.MethodGet, encodedURL.String(), nil)
+	if lyricsError != nil {
+		return "", lyricsError
+	}
+	lyricsRequest.Header.Add("Authorization", fmt.Sprintf("Bearer %s", GeniusAccessToken))
+
+	lyricsResponse, lyricsError := lyricsClient.Do(lyricsRequest)
+	if lyricsError != nil {
+		return "", lyricsError
+	}
+
+	lyricsResponseBody, lyricsError := ioutil.ReadAll(lyricsResponse.Body)
+	if lyricsError != nil {
+		return "", lyricsError
+	}
+
+	var result map[string]interface{}
+	hitsUnmarshalErr := json.Unmarshal([]byte(lyricsResponseBody), &result)
+	if hitsUnmarshalErr != nil {
+		return "", hitsUnmarshalErr
+	}
+
+	hits := result["response"].(map[string]interface{})["hits"].([]interface{})
+	var lyricsURL string
+	for _, value := range hits {
+		valueResult := value.(map[string]interface{})["result"].(map[string]interface{})
+		songTitle := strings.TrimSpace(valueResult["title"].(string))
+		songArtist := strings.TrimSpace(valueResult["primary_artist"].(map[string]interface{})["name"].(string))
+
+		songErr := track.Seems(fmt.Sprintf("%s %s", songTitle, songArtist))
+		if songErr == nil {
+			lyricsURL = strings.TrimSpace(valueResult["url"].(string))
+			break
+		}
+	}
+
+	if len(lyricsURL) == 0 {
+		return "", fmt.Errorf("Genius lyrics not found")
+	}
+
+	doc, _ := goquery.NewDocument(lyricsURL)
+	return strings.TrimSpace(unidecode.Unidecode(doc.Find(".lyrics").Eq(0).Text())), nil
+}
+
+func searchLyricsOvh(track *Track) (string, error) {
+	type LyricsAPIEntry struct {
+		Lyrics string `json:"lyrics"`
+	}
+	lyricsClient := http.Client{
+		Timeout: time.Second * system.HTTPTimeout,
+	}
+
+	encodedURL, lyricsError := url.Parse(fmt.Sprintf(LyricsOVHAPIURL, url.QueryEscape(track.Artist), url.QueryEscape(track.Song)))
+	if lyricsError != nil {
+		return "", lyricsError
+	}
+	lyricsRequest, lyricsError := http.NewRequest(http.MethodGet, encodedURL.String(), nil)
+	if lyricsError != nil {
+		return "", lyricsError
+	}
+	lyricsResponse, lyricsError := lyricsClient.Do(lyricsRequest)
+	if lyricsError != nil {
+		return "", lyricsError
+	}
+	lyricsResponseBody, lyricsError := ioutil.ReadAll(lyricsResponse.Body)
+	if lyricsError != nil {
+		return "", lyricsError
+	}
+	lyricsData := LyricsAPIEntry{}
+	lyricsError = json.Unmarshal(lyricsResponseBody, &lyricsData)
+	if lyricsError != nil {
+		return "", lyricsError
+	}
+
+	return strings.TrimSpace(unidecode.Unidecode(lyricsData.Lyrics)), nil
 }

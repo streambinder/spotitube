@@ -4,10 +4,22 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/lunixbochs/vtclean"
 )
+
+var (
+	// DefaultLogFname : default log filename
+	DefaultLogFname = fmt.Sprintf("spotitube_%s.log", time.Now().Format("2006-01-02_15.04.05"))
+)
+
+// Logger : struct containing all the informations kept to handle logging
+type Logger struct {
+	File  string
+	Mutex sync.Mutex
+}
 
 // Build : Logger struct object constructor
 func Build(filename string) *Logger {

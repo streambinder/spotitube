@@ -171,12 +171,19 @@ func main() {
 
 	var guiOptions uint64
 	if *argDebug {
-		guiOptions = guiOptions | cui.GuiDebugMode
+		guiOptions |= cui.GuiDebugMode
 	}
 	if *argDisableGui {
-		guiOptions = guiOptions | cui.GuiBareMode
+		guiOptions |= cui.GuiBareMode
 	}
-	cuiInterface = cui.Build(guiOptions)
+	if *argLog {
+		guiOptions |= cui.LogEnable
+	}
+
+	var err error
+	if cuiInterface, err = cui.Startup(guiOptions); err != nil {
+		fmt.Println(fmt.Sprintf("Unable to build user interface: %s", err.Error()))
+	}
 
 	cuiInterface.Append(fmt.Sprintf("%s %s", cui.MessageStyle("Folder:", cui.FontStyleBold), *argFolder), cui.PanelLeftTop)
 	if *argLog {
@@ -192,7 +199,6 @@ func main() {
 	cuiInterface.Append(fmt.Sprintf("%s %s", cui.MessageStyle("URL:", cui.FontStyleBold), system.VersionRepository), cui.PanelLeftBottom)
 	cuiInterface.Append(fmt.Sprintf("%s GPLv2", cui.MessageStyle("License:", cui.FontStyleBold)), cui.PanelLeftBottom)
 
-	subLinkLog()
 	subCheckDependencies()
 	subCheckInternet()
 	subCheckUpdate()
@@ -203,7 +209,7 @@ func main() {
 	}
 
 	go func() {
-		<-cuiInterface.Closing
+		<-cuiInterface.CloseChan
 		subSafeExit()
 	}()
 	if *argDisableGui {
@@ -380,7 +386,7 @@ func mainSearch() {
 	defer mainExit()
 	defer subCleanJunks()
 
-	cuiInterface.LoadingSetMax(len(tracks))
+	cuiInterface.LoadingMax = len(tracks)
 
 	songsFetch, songsFlush, songsIgnore := subCountSongs()
 	cuiInterface.Append(fmt.Sprintf("%d will be downloaded, %d flushed and %d ignored", songsFetch, songsFlush, songsIgnore))
@@ -567,15 +573,6 @@ func subCheckInternet() {
 	_, err := client.Do(req)
 	if err != nil {
 		cuiInterface.Prompt("Are you sure you're connected to the internet?", cui.PromptDismissableWithExit)
-	}
-}
-
-func subLinkLog() {
-	if *argLog {
-		err := cuiInterface.LinkLogger(logger.Build(logger.DefaultLogFname))
-		if err != nil {
-			cuiInterface.Prompt(fmt.Sprintf("Something went wrong while linking logger to %s", logger.DefaultLogFname), cui.PromptDismissableWithExit)
-		}
 	}
 }
 

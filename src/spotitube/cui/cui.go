@@ -24,11 +24,19 @@ type Option = Options
 // CUI : struct object containing all the informations to handle CUI
 type CUI struct {
 	*gocui.Gui
-	Width   int
-	Height  int
-	Options Options
-	Closing chan bool
-	Logger  *logger.Logger
+	Options           Options
+	Width             int
+	Height            int
+	Ops               *list.List
+	OpsMutex          *sync.Mutex
+	LoadingOffset     float64
+	LoadingMax        int
+	LoadingSprint     string
+	PromptInputChan   chan string
+	PromptDismissChan chan bool
+	PromptMutex       *sync.Mutex
+	Logger            *logger.Logger
+	CloseChan         chan bool
 }
 
 // Operation : enqueued GUI operation (append)
@@ -100,8 +108,8 @@ const (
 	// ParagraphStyleAutoReturn : identifier for text autoreturning paragraph format, to fit words in lines
 	ParagraphStyleAutoReturn
 	_
-	// LogNoWrite : identifier for log writing temporarily disable (if Gui has a Logger)
-	LogNoWrite
+	// LogEnable : identifier for log writing flag
+	LogEnable
 	_
 	// GuiBareMode : identifier for make gui as bare as possible
 	GuiBareMode
@@ -132,91 +140,98 @@ var (
 	FontStyles = map[uint64]color.Attribute{
 		FontStyleBold: color.Bold,
 	}
-
-	guiOps           = list.New()
-	guiOpsMutex      sync.Mutex
-	guiReady         chan *gocui.Gui
-	guiPromptDismiss chan bool
-	guiPromptInput   chan string
-	guiPromptMutex   sync.Mutex
-	guiLoadingCtr    float64
-	guiLoadingMax    = 100
-	guiLoadingSprint = color.New(color.BgWhite).SprintFunc()(" ")
-
-	singleton *CUI
 )
 
-// Build : generate a Gui object
-func Build(options Options) *CUI {
+// Startup : generate a Gui object
+func Startup(options Options) (*CUI, error) {
+	c := &CUI{
+		Options:       options,
+		Ops:           list.New(),
+		OpsMutex:      &sync.Mutex{},
+		LoadingOffset: 0,
+		LoadingMax:    0,
+		LoadingSprint: color.New(color.BgWhite).SprintFunc()(" "),
+		// PromptInputChan:   make(chan string),
+		// PromptDismissChan: make(chan bool),
+		PromptMutex: &sync.Mutex{},
+		Logger:      nil,
+		CloseChan:   make(chan bool),
+	}
 	defer func() {
-		go guiDequeueOps()
+		go guiDequeueOps(c)
 	}()
 
 	if !hasOption(options, GuiBareMode) {
-		var gui *gocui.Gui
-		guiReady = make(chan *gocui.Gui)
-		go guiRun()
-		gui = <-guiReady
-		guiWidth, guiHeight := gui.Size()
-
-		singleton = &CUI{
-			gui,
-			guiWidth,
-			guiHeight,
-			options,
-			make(chan bool),
-			nil,
+		gui, err := gocui.NewGui(gocui.OutputNormal)
+		if err != nil {
+			return c, err
 		}
-		return singleton
+
+		c.Gui = gui
+		c.SetManagerFunc(guiStandardLayout)
+		c.Width, c.Height = c.Size()
+
+		if err := c.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, c.Shutdown); err != nil {
+			return c, err
+		}
+
+		go func(c *CUI) {
+			defer c.Close()
+			if err := c.MainLoop(); err != nil {
+				if err != gocui.ErrQuit {
+					log.Panicln(err)
+				}
+			}
+		}(c)
 	}
 
-	singleton = &CUI{
-		&gocui.Gui{},
-		0,
-		0,
-		options,
-		make(chan bool),
-		nil,
+	if hasOption(options, LogEnable) {
+		c.Logger = logger.Build(logger.DefaultLogFname)
 	}
-	return singleton
+
+	return c, nil
 }
 
-// LinkLogger : link input Logger logger to Gui
-func (gui *CUI) LinkLogger(logger *logger.Logger) error {
-	gui.Logger = logger
-	return nil
+// Shutdown : shut down the interface
+func (c *CUI) Shutdown(gui *gocui.Gui, view *gocui.View) error {
+	c.CloseChan <- true
+	c.Gui.DeleteKeybinding("", gocui.KeyCtrlC, gocui.ModNone)
+	return gocui.ErrQuit
 }
 
 // Append : add input string message to input Options driven space
-func (gui *CUI) Append(message string, options ...Options) error {
+func (c *CUI) Append(message string, options ...Options) error {
 	var firstOptions uint64
 	if len(options) > 0 {
 		firstOptions = options[0]
 	}
-	guiOpsMutex.Lock()
-	guiOps.PushBack(Operation{message, firstOptions})
-	defer guiOpsMutex.Unlock()
+
+	c.OpsMutex.Lock()
+	c.Ops.PushBack(Operation{message, firstOptions})
+	defer c.OpsMutex.Unlock()
+
 	return nil
 }
 
 // Prompt : show a prompt containing input string message, driven with input Options
-func (gui *CUI) Prompt(message string, options Options) error {
-	if gui.hasOption(GuiBareMode) {
+func (c *CUI) Prompt(message string, options Options) error {
+	if c.hasOption(GuiBareMode) {
 		fmt.Println(message)
 		if hasOption(options, PromptDismissableWithExit) {
-			singleton.Closing <- true
+			c.CloseChan <- true
 		}
 		return nil
 	}
 
-	guiPromptMutex.Lock()
-	defer guiPromptMutex.Unlock()
+	c.PromptMutex.Lock()
+	defer c.PromptMutex.Unlock()
 
-	guiPromptDismiss = make(chan bool)
-	if (options&LogNoWrite) == 0 && gui.Logger != nil {
-		gui.Logger.Append(message)
+	if c.hasOption(LogEnable) {
+		c.Logger.Append(message)
 	}
-	gui.Update(func(gui *gocui.Gui) error {
+
+	c.PromptDismissChan = make(chan bool)
+	c.Update(func(gui *gocui.Gui) error {
 		var (
 			view *gocui.View
 			err  error
@@ -230,28 +245,28 @@ func (gui *CUI) Prompt(message string, options Options) error {
 			}
 			fmt.Fprintln(view, message)
 			if hasOption(options, PromptDismissableWithExit) {
-				gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, guiDismissPromptAndClose)
+				gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, c.callbackShutdown)
 			} else {
-				gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, guiDismissPrompt)
+				gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, c.callback)
 			}
 		}
 		return nil
 	})
-	<-guiPromptDismiss
+	<-c.PromptDismissChan
 	return nil
 }
 
 // PromptInput : show a confirmation/cancel prompt containing input string message, driven with input Options
-func (gui *CUI) PromptInput(message string, options Options) bool {
-	if gui.hasOption(GuiBareMode) {
+func (c *CUI) PromptInput(message string, options Options) bool {
+	if c.hasOption(GuiBareMode) {
 		return system.InputConfirm(message)
 	}
 
-	guiPromptMutex.Lock()
-	defer guiPromptMutex.Unlock()
+	c.PromptMutex.Lock()
+	defer c.PromptMutex.Unlock()
 
-	guiPromptDismiss = make(chan bool)
-	gui.Update(func(gui *gocui.Gui) error {
+	c.PromptDismissChan = make(chan bool)
+	c.Update(func(gui *gocui.Gui) error {
 		var (
 			view *gocui.View
 			err  error
@@ -271,26 +286,26 @@ func (gui *CUI) PromptInput(message string, options Options) bool {
 			if err != gocui.ErrUnknownView {
 				return err
 			}
-			gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, guiDismissPromptWithInputOk)
-			gui.SetKeybinding("", gocui.KeyTab, gocui.ModNone, guiDismissPromptWithInputNok)
+			gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, c.callbackInputConfirm)
+			gui.SetKeybinding("", gocui.KeyTab, gocui.ModNone, c.callbackInputCancel)
 			fmt.Fprintln(view, messageOrientate(message, view, OrientationCenter))
 		}
 		return nil
 	})
-	return <-guiPromptDismiss
+	return <-c.PromptDismissChan
 }
 
 // PromptInputMessage : show an input prompt containing input string message, driven with input Options
-func (gui *CUI) PromptInputMessage(message string, options Options) string {
-	if gui.hasOption(GuiBareMode) {
+func (c *CUI) PromptInputMessage(message string, options Options) string {
+	if c.hasOption(GuiBareMode) {
 		return system.InputString(message)
 	}
 
-	guiPromptMutex.Lock()
-	defer guiPromptMutex.Unlock()
+	c.PromptMutex.Lock()
+	defer c.PromptMutex.Unlock()
 
-	guiPromptInput = make(chan string)
-	gui.Update(func(gui *gocui.Gui) error {
+	c.PromptInputChan = make(chan string)
+	c.Update(func(gui *gocui.Gui) error {
 		var (
 			view *gocui.View
 			err  error
@@ -305,27 +320,21 @@ func (gui *CUI) PromptInputMessage(message string, options Options) string {
 			view.Editable = true
 			view.Title = fmt.Sprintf(" %s ", message)
 			_ = view.SetCursor(0, 0)
-			gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, guiDismissPromptWithInputMessage)
+			gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, c.callbackInputTyping)
 			_, _ = gui.SetCurrentView("GuiPrompt")
 		}
 		return nil
 	})
-	return strings.Replace(<-guiPromptInput, "\n", "", -1)
-}
-
-// LoadingSetMax : set maximum value for bottom loading bar
-func (gui *CUI) LoadingSetMax(max int) error {
-	guiLoadingMax = max
-	return nil
+	return strings.Replace(<-c.PromptInputChan, "\n", "", -1)
 }
 
 // LoadingFill : fill up the bottom loading bar
-func (gui *CUI) LoadingFill() error {
-	if gui.hasOption(GuiBareMode) {
+func (c *CUI) LoadingFill() error {
+	if c.hasOption(GuiBareMode) {
 		return nil
 	}
 
-	gui.Update(func(gui *gocui.Gui) error {
+	c.Update(func(gui *gocui.Gui) error {
 		view, err := gui.View(Panels[PanelLoading])
 		if err != nil {
 			return err
@@ -333,49 +342,49 @@ func (gui *CUI) LoadingFill() error {
 		maxWidth, _ := view.Size()
 		view.Clear()
 		view.Title = fmt.Sprintf(" 100 %% ")
-		fmt.Fprint(view, strings.Repeat(guiLoadingSprint, maxWidth))
+		fmt.Fprint(view, strings.Repeat(c.LoadingSprint, maxWidth))
 		return nil
 	})
 	return nil
 }
 
 // LoadingIncrease : increase loading bar
-func (gui *CUI) LoadingIncrease() error {
-	if gui.hasOption(GuiBareMode) {
+func (c *CUI) LoadingIncrease() error {
+	if c.hasOption(GuiBareMode) {
 		return nil
 	}
 
-	gui.Update(func(gui *gocui.Gui) error {
+	c.Update(func(gui *gocui.Gui) error {
 		view, err := gui.View(Panels[PanelLoading])
 		if err != nil {
 			return err
 		}
 		maxWidth, _ := view.Size()
 		view.Clear()
-		view.Title = fmt.Sprintf(" %d %% ", int(math.Floor(guiLoadingCtr))*100/guiLoadingMax)
-		fmt.Fprint(view, strings.Repeat(guiLoadingSprint, int(math.Floor(guiLoadingCtr))*maxWidth/guiLoadingMax))
-		guiLoadingCtr++
+		view.Title = fmt.Sprintf(" %d %% ", int(math.Floor(c.LoadingOffset))*100/c.LoadingMax)
+		fmt.Fprint(view, strings.Repeat(c.LoadingSprint, int(math.Floor(c.LoadingOffset))*maxWidth/c.LoadingMax))
+		c.LoadingOffset++
 		return nil
 	})
 	return nil
 }
 
 // LoadingHalfIncrease : increase loading bar by half-step
-func (gui *CUI) LoadingHalfIncrease() error {
-	if gui.hasOption(GuiBareMode) {
+func (c *CUI) LoadingHalfIncrease() error {
+	if c.hasOption(GuiBareMode) {
 		return nil
 	}
 
-	gui.Update(func(gui *gocui.Gui) error {
+	c.Update(func(gui *gocui.Gui) error {
 		view, err := gui.View(Panels[PanelLoading])
 		if err != nil {
 			return err
 		}
 		maxWidth, _ := view.Size()
 		view.Clear()
-		view.Title = fmt.Sprintf(" %d %% ", int(math.Floor(guiLoadingCtr))*100/guiLoadingMax)
-		fmt.Fprint(view, strings.Repeat(guiLoadingSprint, int(math.Floor(guiLoadingCtr))*maxWidth/guiLoadingMax))
-		guiLoadingCtr += 0.5
+		view.Title = fmt.Sprintf(" %d %% ", int(math.Floor(c.LoadingOffset))*100/c.LoadingMax)
+		fmt.Fprint(view, strings.Repeat(c.LoadingSprint, int(math.Floor(c.LoadingOffset))*maxWidth/c.LoadingMax))
+		c.LoadingOffset += 0.5
 		return nil
 	})
 	return nil
@@ -387,13 +396,13 @@ func MessageStyle(message string, styleConst uint64) string {
 	return styleFunc.Sprintf(message)
 }
 
-func (gui *CUI) opHandle(operation Operation) error {
-	if !gui.hasOption(GuiDebugMode) && operation.hasOption(DebugAppend) {
+func (c *CUI) opHandle(operation Operation) error {
+	if !c.hasOption(GuiDebugMode) && operation.hasOption(DebugAppend) {
 		return nil
 	}
 
-	if !operation.hasOption(LogNoWrite) && gui.Logger != nil {
-		gui.Logger.Append(operation.Message)
+	if c.hasOption(LogEnable) {
+		c.Logger.Append(operation.Message)
 	}
 
 	if operation.hasOption(ErrorAppend) {
@@ -404,7 +413,7 @@ func (gui *CUI) opHandle(operation Operation) error {
 		operation.Options = operation.Options | FontColorMagenta | ParagraphStyleAutoReturn
 	}
 
-	if gui.hasOption(GuiBareMode) {
+	if c.hasOption(GuiBareMode) {
 		fmt.Println(condColorStyle(condFontStyle(operation.Message, operation.Options), operation.Options))
 		return nil
 	}
@@ -415,14 +424,14 @@ func (gui *CUI) opHandle(operation Operation) error {
 		panel Option
 	)
 	panel = condPanelSelector(operation.Options)
-	view, err = gui.View(Panels[panel])
+	view, err = c.View(Panels[panel])
 	if err != nil {
 		return err
 	}
 	if operation.hasOption(ClearAppend) {
 		view.Clear()
 	}
-	gui.Update(func(gui *gocui.Gui) error {
+	c.Update(func(gui *gocui.Gui) error {
 		width, _ := view.Size()
 		var message = condParagraphStyle(operation.Message, operation.Options, width)
 		message = condFontStyle(operation.Message, operation.Options)
@@ -438,8 +447,8 @@ func (operation Operation) hasOption(option Option) bool {
 	return hasOption(operation.Options, option)
 }
 
-func (gui *CUI) hasOption(option Option) bool {
-	return hasOption(gui.Options, option)
+func (c *CUI) hasOption(option Option) bool {
+	return hasOption(c.Options, option)
 }
 
 func hasOption(options Options, option Option) bool {
@@ -548,91 +557,69 @@ func messageParagraphStyle(message string, styleConst uint64, width int) string 
 	return message
 }
 
-func guiDismissPrompt(gui *gocui.Gui, view *gocui.View) error {
-	gui.Update(func(gui *gocui.Gui) error {
+func (c *CUI) callback(gui *gocui.Gui, view *gocui.View) error {
+	c.Update(func(gui *gocui.Gui) error {
 		gui.DeleteView("GuiPrompt")
 		return nil
 	})
-	gui.DeleteKeybinding("", gocui.KeyEnter, gocui.ModNone)
-	guiPromptDismiss <- true
+	c.DeleteKeybinding("", gocui.KeyEnter, gocui.ModNone)
+	c.PromptDismissChan <- true
 	return nil
 }
 
-func guiDismissPromptAndClose(gui *gocui.Gui, view *gocui.View) error {
-	guiDismissPrompt(gui, view)
-	return guiClose(gui, view)
+func (c *CUI) callbackShutdown(gui *gocui.Gui, view *gocui.View) error {
+	c.callback(c.Gui, view)
+	return guiClose(c.Gui, view)
 }
 
-func guiDismissPromptWithInput(gui *gocui.Gui, view *gocui.View) error {
-	gui.Update(func(gui *gocui.Gui) error {
+func (c *CUI) callbackInputInteractive(gui *gocui.Gui, view *gocui.View) error {
+	c.Update(func(gui *gocui.Gui) error {
 		gui.DeleteView("GuiPrompt")
 		return nil
 	})
-	gui.DeleteKeybinding("", gocui.KeyEnter, gocui.ModNone)
-	gui.DeleteKeybinding("", gocui.KeyTab, gocui.ModNone)
+	c.DeleteKeybinding("", gocui.KeyEnter, gocui.ModNone)
+	c.DeleteKeybinding("", gocui.KeyTab, gocui.ModNone)
 	time.Sleep(1 * time.Millisecond)
 	return nil
 }
 
-func guiDismissPromptWithInputOk(gui *gocui.Gui, view *gocui.View) error {
-	if err := guiDismissPromptWithInput(gui, view); err != nil {
+func (c *CUI) callbackInputConfirm(gui *gocui.Gui, view *gocui.View) error {
+	if err := c.callbackInputInteractive(c.Gui, view); err != nil {
 		return err
 	}
-	guiPromptDismiss <- true
+	c.PromptDismissChan <- true
 	return nil
 }
 
-func guiDismissPromptWithInputNok(gui *gocui.Gui, view *gocui.View) error {
-	if err := guiDismissPromptWithInput(gui, view); err != nil {
+func (c *CUI) callbackInputCancel(gui *gocui.Gui, view *gocui.View) error {
+	if err := c.callbackInputInteractive(c.Gui, view); err != nil {
 		return err
 	}
-	guiPromptDismiss <- false
+	c.PromptDismissChan <- false
 	return nil
 }
 
-func guiDismissPromptWithInputMessage(gui *gocui.Gui, view *gocui.View) error {
-	gui.Update(func(gui *gocui.Gui) error {
+func (c *CUI) callbackInputTyping(gui *gocui.Gui, view *gocui.View) error {
+	c.Update(func(gui *gocui.Gui) error {
 		gui.DeleteView("GuiPrompt")
 		return nil
 	})
-	gui.DeleteKeybinding("", gocui.KeyEnter, gocui.ModNone)
+	c.DeleteKeybinding("", gocui.KeyEnter, gocui.ModNone)
 	view.Rewind()
-	guiPromptInput <- view.Buffer()
+	c.PromptInputChan <- view.Buffer()
 	return nil
 }
 
-func guiRun() {
-	gui, err := gocui.NewGui(gocui.OutputNormal)
-	if err != nil {
-		log.Panicln(err)
-	}
-	defer gui.Close()
-
-	gui.SetManagerFunc(guiStandardLayout)
-
-	if err := gui.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, guiClose); err != nil {
-		log.Panicln(err)
-	}
-
-	guiReady <- gui
-
-	if err := gui.MainLoop(); err != nil {
-		if err != gocui.ErrQuit {
-			log.Panicln(err)
-		}
-	}
-}
-
-func guiDequeueOps() {
+func guiDequeueOps(c *CUI) {
 	for true {
-		guiOpsMutex.Lock()
-		guiOp := guiOps.Front()
-		guiOpsMutex.Unlock()
-		if guiOp != nil {
-			singleton.opHandle(guiOp.Value.(Operation))
-			guiOpsMutex.Lock()
-			guiOps.Remove(guiOp)
-			guiOpsMutex.Unlock()
+		c.OpsMutex.Lock()
+		operation := c.Ops.Front()
+		c.OpsMutex.Unlock()
+		if operation != nil {
+			c.opHandle(operation.Value.(Operation))
+			c.OpsMutex.Lock()
+			c.Ops.Remove(operation)
+			c.OpsMutex.Unlock()
 		}
 		time.Sleep(1 * time.Microsecond)
 	}
@@ -677,7 +664,7 @@ func guiStandardLayout(gui *gocui.Gui) error {
 }
 
 func guiClose(gui *gocui.Gui, view *gocui.View) error {
-	singleton.Closing <- true
+	// singleton.Closing <- true
 	gui.DeleteKeybinding("", gocui.KeyCtrlC, gocui.ModNone)
 	return gocui.ErrQuit
 }

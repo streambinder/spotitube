@@ -185,19 +185,19 @@ func main() {
 		fmt.Println(fmt.Sprintf("Unable to build user interface: %s", err.Error()))
 	}
 
-	cuiInterface.Append(fmt.Sprintf("%s %s", cui.MessageStyle("Folder:", cui.FontStyleBold), *argFolder), cui.PanelLeftTop)
+	cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Folder:", cui.StyleBold), *argFolder), cui.PanelLeftTop)
 	if *argLog {
-		cuiInterface.Append(fmt.Sprintf("%s %s", cui.MessageStyle("Log:", cui.FontStyleBold), logger.DefaultLogFname), cui.PanelLeftTop)
+		cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Log:", cui.StyleBold), logger.DefaultLogFname), cui.PanelLeftTop)
 	}
-	cuiInterface.Append(fmt.Sprintf("%s %d", cui.MessageStyle("Version:", cui.FontStyleBold), system.Version), cui.PanelLeftBottom)
+	cuiInterface.Append(fmt.Sprintf("%s %d", cui.Font("Version:", cui.StyleBold), system.Version), cui.PanelLeftBottom)
 	if os.Getenv("FORKED") == "1" {
-		cuiInterface.Append(fmt.Sprintf("%s %s", cui.MessageStyle("Caller:", cui.FontStyleBold), "automatically updated"), cui.PanelLeftBottom)
+		cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Caller:", cui.StyleBold), "automatically updated"), cui.PanelLeftBottom)
 	} else {
-		cuiInterface.Append(fmt.Sprintf("%s %s", cui.MessageStyle("Caller:", cui.FontStyleBold), "installed"), cui.PanelLeftBottom)
+		cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Caller:", cui.StyleBold), "installed"), cui.PanelLeftBottom)
 	}
-	cuiInterface.Append(fmt.Sprintf("%s %s", cui.MessageStyle("Date:", cui.FontStyleBold), time.Now().Format("2006-01-02 15:04:05")), cui.PanelLeftBottom)
-	cuiInterface.Append(fmt.Sprintf("%s %s", cui.MessageStyle("URL:", cui.FontStyleBold), system.VersionRepository), cui.PanelLeftBottom)
-	cuiInterface.Append(fmt.Sprintf("%s GPLv2", cui.MessageStyle("License:", cui.FontStyleBold)), cui.PanelLeftBottom)
+	cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Date:", cui.StyleBold), time.Now().Format("2006-01-02 15:04:05")), cui.PanelLeftBottom)
+	cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("URL:", cui.StyleBold), system.VersionRepository), cui.PanelLeftBottom)
+	cuiInterface.Append(fmt.Sprintf("%s GPL-3.0", cui.Font("License:", cui.StyleBold)), cui.PanelLeftBottom)
 
 	subCheckDependencies()
 	subCheckInternet()
@@ -233,19 +233,19 @@ func mainFetch() {
 		} else {
 			*argDisableBrowserOpening = true
 			spotifyAuthHost = "spotitube.local"
-			cuiInterface.Prompt("Outside authentication enabled: assure \"spotitube.local\" points to this machine.", cui.PromptDismissable)
+			cuiInterface.Prompt("Outside authentication enabled: assure \"spotitube.local\" points to this machine.")
 		}
 		spotifyAuthURL := spotify.BuildAuthURL(spotifyAuthHost)
-		cuiInterface.Append(fmt.Sprintf("Authentication URL: %s", spotifyAuthURL.Short), cui.ParagraphStyleAutoReturn)
+		cuiInterface.Append(fmt.Sprintf("Authentication URL: %s", spotifyAuthURL.Short), cui.ParagraphAutoReturn)
 		if !*argDisableBrowserOpening {
 			cuiInterface.Append("Waiting for automatic login process. If wait is too long, manually open that URL.", cui.DebugAppend)
 		}
 		if !spotifyClient.Auth(spotifyAuthURL.Full, spotifyAuthHost, !*argDisableBrowserOpening) {
-			cuiInterface.Prompt("Unable to authenticate to spotify.", cui.PromptDismissableWithExit)
+			cuiInterface.Prompt("Unable to authenticate to spotify.", cui.PromptExit)
 		}
 		cuiInterface.Append("Authentication completed.")
 		spotifyUser, spotifyUserID = spotifyClient.User()
-		cuiInterface.Append(fmt.Sprintf("%s %s", cui.MessageStyle("Session user:", cui.FontStyleBold), spotifyUser), cui.PanelLeftTop)
+		cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Session user:", cui.StyleBold), spotifyUser), cui.PanelLeftTop)
 
 		var (
 			tracksOnline          []spotify.Track
@@ -264,11 +264,11 @@ func mainFetch() {
 				cuiInterface.Append(tracksDumpErr.Error(), cui.WarningAppend)
 				cuiInterface.Append("Fetching music library...")
 				if tracksOnline, tracksErr = spotifyClient.LibraryTracks(); tracksErr != nil {
-					cuiInterface.Prompt(fmt.Sprintf("Something went wrong while fetching tracks from library: %s.", tracksErr.Error()), cui.PromptDismissableWithExit)
+					cuiInterface.Prompt(fmt.Sprintf("Something went wrong while fetching tracks from library: %s.", tracksErr.Error()), cui.PromptExit)
 				}
 			} else {
 				cuiInterface.Append(fmt.Sprintf("Tracks loaded from cache."))
-				cuiInterface.Append(fmt.Sprintf("%s %d/%d (min)", cui.MessageStyle("Tracks cache lifetime:", cui.FontStyleBold), int(time.Since(tracksDump.Time).Minutes()), 30), cui.PanelLeftTop)
+				cuiInterface.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font("Tracks cache lifetime:", cui.StyleBold), int(time.Since(tracksDump.Time).Minutes()), 30), cui.PanelLeftTop)
 				for _, t := range tracksDump.Tracks {
 					tracks = append(tracks, t.FlushLocal())
 				}
@@ -278,13 +278,13 @@ func mainFetch() {
 			var playlistErr error
 			playlistInfo, playlistErr = spotifyClient.Playlist(*argPlaylist)
 			if playlistErr != nil {
-				cuiInterface.Prompt("Something went wrong while fetching playlist info.", cui.PromptDismissableWithExit)
+				cuiInterface.Prompt("Something went wrong while fetching playlist info.", cui.PromptExit)
 			} else {
-				cuiInterface.Append(fmt.Sprintf("%s %s", cui.MessageStyle("Playlist name:", cui.FontStyleBold), playlistInfo.Name), cui.PanelLeftTop)
+				cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Playlist name:", cui.StyleBold), playlistInfo.Name), cui.PanelLeftTop)
 				if len(playlistInfo.Owner.DisplayName) == 0 && len(strings.Split(*argPlaylist, ":")) >= 3 {
-					cuiInterface.Append(fmt.Sprintf("%s %s", cui.MessageStyle("Playlist owner:", cui.FontStyleBold), strings.Split(*argPlaylist, ":")[2]), cui.PanelLeftTop)
+					cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Playlist owner:", cui.StyleBold), strings.Split(*argPlaylist, ":")[2]), cui.PanelLeftTop)
 				} else {
-					cuiInterface.Append(fmt.Sprintf("%s %s", cui.MessageStyle("Playlist owner:", cui.FontStyleBold), playlistInfo.Owner.DisplayName), cui.PanelLeftTop)
+					cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Playlist owner:", cui.StyleBold), playlistInfo.Owner.DisplayName), cui.PanelLeftTop)
 				}
 
 				userLocalGob = fmt.Sprintf(userLocalGob, playlistInfo.Owner.ID, playlistInfo.Name)
@@ -294,13 +294,13 @@ func mainFetch() {
 				tracksDump, tracksDumpErr := subFetchGob(userLocalGob)
 				if tracksDumpErr != nil {
 					cuiInterface.Append(tracksDumpErr.Error(), cui.WarningAppend)
-					cuiInterface.Append(fmt.Sprintf("Getting songs from \"%s\" playlist, by \"%s\"...", playlistInfo.Name, playlistInfo.Owner.DisplayName), cui.FontStyleBold)
+					cuiInterface.Append(fmt.Sprintf("Getting songs from \"%s\" playlist, by \"%s\"...", playlistInfo.Name, playlistInfo.Owner.DisplayName), cui.StyleBold)
 					if tracksOnline, tracksErr = spotifyClient.PlaylistTracks(*argPlaylist); tracksErr != nil {
-						cuiInterface.Prompt(fmt.Sprintf("Something went wrong while fetching playlist: %s.", tracksErr.Error()), cui.PromptDismissableWithExit)
+						cuiInterface.Prompt(fmt.Sprintf("Something went wrong while fetching playlist: %s.", tracksErr.Error()), cui.PromptExit)
 					}
 				} else {
 					cuiInterface.Append(fmt.Sprintf("Tracks loaded from cache."))
-					cuiInterface.Append(fmt.Sprintf("%s %d/%d (min)", cui.MessageStyle("Tracks cache lifetime:", cui.FontStyleBold), int(time.Since(tracksDump.Time).Minutes()), 30), cui.PanelLeftTop)
+					cuiInterface.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font("Tracks cache lifetime:", cui.StyleBold), int(time.Since(tracksDump.Time).Minutes()), 30), cui.PanelLeftTop)
 					for _, t := range tracksDump.Tracks {
 						tracks = append(tracks, t.FlushLocal())
 					}
@@ -311,7 +311,7 @@ func mainFetch() {
 			tracksOnlineAlbumsIds = append(tracksOnlineAlbumsIds, t.Album.ID)
 		}
 		if tracksOnlineAlbums, tracksErr = spotifyClient.Albums(tracksOnlineAlbumsIds); tracksErr != nil {
-			cuiInterface.Prompt(fmt.Sprintf("Something went wrong while fetching album info: %s.", tracksErr.Error()), cui.PromptDismissableWithExit)
+			cuiInterface.Prompt(fmt.Sprintf("Something went wrong while fetching album info: %s.", tracksErr.Error()), cui.PromptExit)
 		}
 
 		cuiInterface.Append("Checking which songs need to be downloaded...")
@@ -333,13 +333,13 @@ func mainFetch() {
 		if *argRemoveDuplicates && len(tracksDuplicates) > 0 {
 			if *argPlaylist == "none" {
 				if removeErr := spotifyClient.RemoveLibraryTracks(tracksDuplicates); removeErr != nil {
-					cuiInterface.Prompt(fmt.Sprintf("Something went wrong while removing %d duplicates: %s.", len(tracksDuplicates), removeErr.Error()), cui.PromptDismissable)
+					cuiInterface.Prompt(fmt.Sprintf("Something went wrong while removing %d duplicates: %s.", len(tracksDuplicates), removeErr.Error()))
 				} else {
 					cuiInterface.Append(fmt.Sprintf("%d duplicate tracks correctly removed from library.", len(tracksDuplicates)))
 				}
 			} else {
 				if removeErr := spotifyClient.RemovePlaylistTracks(*argPlaylist, tracksDuplicates); removeErr != nil {
-					cuiInterface.Prompt(fmt.Sprintf("Something went wrong while removing %d duplicates: %s.", len(tracksDuplicates), removeErr.Error()), cui.PromptDismissable)
+					cuiInterface.Prompt(fmt.Sprintf("Something went wrong while removing %d duplicates: %s.", len(tracksDuplicates), removeErr.Error()))
 				} else {
 					cuiInterface.Append(fmt.Sprintf("%d duplicate tracks correctly removed from playlist.", len(tracksDuplicates)))
 				}
@@ -350,18 +350,18 @@ func mainFetch() {
 			cuiInterface.Append(fmt.Sprintf("Unable to cache tracks: %s", dumpErr.Error()), cui.WarningAppend)
 		}
 
-		cuiInterface.Append(fmt.Sprintf("%s %d", cui.MessageStyle("Songs duplicates:", cui.FontStyleBold), len(tracksDuplicates)), cui.PanelLeftTop)
-		cuiInterface.Append(fmt.Sprintf("%s %d", cui.MessageStyle("Songs online:", cui.FontStyleBold), len(tracks)), cui.PanelLeftTop)
-		cuiInterface.Append(fmt.Sprintf("%s %d", cui.MessageStyle("Songs offline:", cui.FontStyleBold), tracks.CountOffline()), cui.PanelLeftTop)
-		cuiInterface.Append(fmt.Sprintf("%s %d", cui.MessageStyle("Songs missing:", cui.FontStyleBold), tracks.CountOnline()), cui.PanelLeftTop)
+		cuiInterface.Append(fmt.Sprintf("%s %d", cui.Font("Songs duplicates:", cui.StyleBold), len(tracksDuplicates)), cui.PanelLeftTop)
+		cuiInterface.Append(fmt.Sprintf("%s %d", cui.Font("Songs online:", cui.StyleBold), len(tracks)), cui.PanelLeftTop)
+		cuiInterface.Append(fmt.Sprintf("%s %d", cui.Font("Songs offline:", cui.StyleBold), tracks.CountOffline()), cui.PanelLeftTop)
+		cuiInterface.Append(fmt.Sprintf("%s %d", cui.Font("Songs missing:", cui.StyleBold), tracks.CountOnline()), cui.PanelLeftTop)
 
 		<-waitIndex
 		close(waitIndex)
 	} else {
-		cuiInterface.Append(fmt.Sprintf("%s %d", cui.MessageStyle("Fix song(s):", cui.FontStyleBold), len(argFix.Paths)), cui.PanelLeftTop)
+		cuiInterface.Append(fmt.Sprintf("%s %d", cui.Font("Fix song(s):", cui.StyleBold), len(argFix.Paths)), cui.PanelLeftTop)
 		for _, fixTrack := range argFix.Paths {
 			if t, trackErr := track.OpenLocalTrack(fixTrack); trackErr != nil {
-				cuiInterface.Prompt(fmt.Sprintf("Something went wrong: %s.", trackErr.Error()), cui.PromptDismissableWithExit)
+				cuiInterface.Prompt(fmt.Sprintf("Something went wrong: %s.", trackErr.Error()), cui.PromptExit)
 				mainExit()
 			} else {
 				cuiInterface.Append(fmt.Sprintf("%+v\n", t), cui.DebugAppend)
@@ -377,7 +377,7 @@ func mainFetch() {
 	if len(tracks) > 0 {
 		mainSearch()
 	} else {
-		cuiInterface.Prompt("No song needs to be downloaded.", cui.PromptDismissableWithExit)
+		cuiInterface.Prompt("No song needs to be downloaded.", cui.PromptExit)
 		mainExit()
 	}
 }
@@ -386,14 +386,14 @@ func mainSearch() {
 	defer mainExit()
 	defer subCleanJunks()
 
-	cuiInterface.LoadingMax = len(tracks)
+	cuiInterface.ProgressMax = len(tracks)
 
 	songsFetch, songsFlush, songsIgnore := subCountSongs()
 	cuiInterface.Append(fmt.Sprintf("%d will be downloaded, %d flushed and %d ignored", songsFetch, songsFlush, songsIgnore))
 
 	for trackIndex, t := range tracks {
-		cuiInterface.LoadingHalfIncrease()
-		cuiInterface.Append(fmt.Sprintf("%d/%d: \"%s\"", trackIndex+1, len(tracks), t.Filename), cui.FontStyleBold)
+		cuiInterface.ProgressHalfIncrease()
+		cuiInterface.Append(fmt.Sprintf("%d/%d: \"%s\"", trackIndex+1, len(tracks), t.Filename), cui.StyleBold)
 
 		if trackPath, ok := tracksIndex.Tracks[t.SpotifyID]; ok {
 			if trackPath != t.FilenameFinal() {
@@ -417,7 +417,7 @@ func mainSearch() {
 				if youTubeTracksErr != nil {
 					cuiInterface.Append(fmt.Sprintf("Something went wrong while searching for \"%s\" track: %s.", t.Filename, youTubeTracksErr.Error()), cui.WarningAppend)
 					tracksFailed = append(tracksFailed, t)
-					cuiInterface.LoadingHalfIncrease()
+					cuiInterface.ProgressHalfIncrease()
 					continue
 				}
 				for _, youTubeTrackLoopEl := range youTubeTracks {
@@ -443,19 +443,19 @@ func mainSearch() {
 			if youTubeTrack == (youtube.Track{}) {
 				cuiInterface.Append(fmt.Sprintf("Video for \"%s\" not found.", t.Filename), cui.ErrorAppend)
 				tracksFailed = append(tracksFailed, t)
-				cuiInterface.LoadingHalfIncrease()
+				cuiInterface.ProgressHalfIncrease()
 				continue
 			}
 
 			if *argSimulate {
 				cuiInterface.Append(fmt.Sprintf("I would like to download \"%s\" for \"%s\" track, but I'm just simulating.", youTubeTrack.URL, t.Filename))
-				cuiInterface.LoadingHalfIncrease()
+				cuiInterface.ProgressHalfIncrease()
 				continue
 			} else if *argReplaceLocal {
 				if t.URL == youTubeTrack.URL && !youTubeTrackPick {
 					cuiInterface.Append(fmt.Sprintf("Track \"%s\" is still the best result I can find.", t.Filename))
 					cuiInterface.Append(fmt.Sprintf("Local track origin URL %s is the same as YouTube chosen one %s.", t.URL, youTubeTrack.URL), cui.DebugAppend)
-					cuiInterface.LoadingHalfIncrease()
+					cuiInterface.ProgressHalfIncrease()
 					continue
 				} else {
 					t.URL = ""
@@ -468,7 +468,7 @@ func mainSearch() {
 			if err != nil {
 				cuiInterface.Append(fmt.Sprintf("Something went wrong downloading \"%s\": %s.", t.Filename, err.Error()), cui.WarningAppend)
 				tracksFailed = append(tracksFailed, t)
-				cuiInterface.LoadingHalfIncrease()
+				cuiInterface.ProgressHalfIncrease()
 				continue
 			} else {
 				t.URL = youTubeTrack.URL
@@ -476,7 +476,7 @@ func mainSearch() {
 		}
 
 		if !subIfSongProcess(t) {
-			cuiInterface.LoadingHalfIncrease()
+			cuiInterface.ProgressHalfIncrease()
 			continue
 		}
 
@@ -500,7 +500,7 @@ func mainSearch() {
 
 	close(waitGroupPool)
 	waitGroup.Wait()
-	cuiInterface.LoadingFill()
+	cuiInterface.ProgressFill()
 
 	cuiInterface.Append(fmt.Sprintf("%d tracks failed to synchronize.", len(tracksFailed)))
 	for _, t := range tracksFailed {
@@ -527,7 +527,7 @@ func mainSearch() {
 	}
 	notify.Push(notifyTitle, notifyContent, "", notificator.UR_NORMAL)
 
-	cuiInterface.Prompt("Synchronization completed.", cui.PromptDismissableWithExit)
+	cuiInterface.Prompt("Synchronization completed.", cui.PromptExit)
 }
 
 func mainExit(delay ...time.Duration) {
@@ -542,7 +542,7 @@ func subCheckDependencies() {
 	for _, commandName := range []string{"youtube-dl", "ffmpeg"} {
 		_, err := exec.LookPath(commandName)
 		if err != nil {
-			cuiInterface.Prompt(fmt.Sprintf("Are you sure %s is asctually installed?", commandName), cui.PromptDismissableWithExit)
+			cuiInterface.Prompt(fmt.Sprintf("Are you sure %s is asctually installed?", commandName), cui.PromptExit)
 		} else {
 			var (
 				commandOut          bytes.Buffer
@@ -560,7 +560,7 @@ func subCheckDependencies() {
 					commandVersionValue = commandVersionRegValue
 				}
 			}
-			cuiInterface.Append(fmt.Sprintf("%s %s", cui.MessageStyle(fmt.Sprintf("Version %s:", commandName), cui.FontStyleBold), commandVersionValue), cui.PanelLeftTop)
+			cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font(fmt.Sprintf("Version %s:", commandName), cui.StyleBold), commandVersionValue), cui.PanelLeftTop)
 		}
 	}
 }
@@ -572,7 +572,7 @@ func subCheckInternet() {
 	req, _ := http.NewRequest("GET", "http://clients3.google.com/generate_204", nil)
 	_, err := client.Do(req)
 	if err != nil {
-		cuiInterface.Prompt("Are you sure you're connected to the internet?", cui.PromptDismissableWithExit)
+		cuiInterface.Prompt("Are you sure you're connected to the internet?", cui.PromptExit)
 	}
 }
 
@@ -740,7 +740,7 @@ func subUpdateSoftware(latestRelease []byte) {
 }
 
 func subParallelSongProcess(t track.Track, wg *sync.WaitGroup) {
-	defer cuiInterface.LoadingHalfIncrease()
+	defer cuiInterface.ProgressHalfIncrease()
 	defer wg.Done()
 	<-waitGroupPool
 
@@ -1076,11 +1076,10 @@ func subMatchResult(t track.Track, youTubeTrack youtube.Track) (bool, bool) {
 	ansErr = youTubeTrack.Match(t)
 	ansAutomated = bool(ansErr == nil)
 	if *argInteractive {
-		ansInput = cuiInterface.PromptInput(fmt.Sprintf("Do you want to download the following video for \"%s\"?\n"+
-			"ID: %s\nTitle: %s\nUser: %s\nDuration: %d\nURL: %s\nScore: %d/6\nResult is matching: %s",
+		ansInput = cuiInterface.Prompt(fmt.Sprintf("Do you want to download the following video for \"%s\"?\n"+
+			"ID: %s\nTitle: %s\nUser: %s\nDuration: %d\nURL: %s\nResult is matching: %s",
 			t.Filename, youTubeTrack.ID, youTubeTrack.Title, youTubeTrack.User,
-			youTubeTrack.Duration, youTubeTrack.URL, youTubeTrack.AffinityScore,
-			strconv.FormatBool(ansAutomated)), cui.OptionNil)
+			youTubeTrack.Duration, youTubeTrack.URL, strconv.FormatBool(ansAutomated)), cui.PromptBinary)
 	}
 	return ansAutomated, ansInput
 }
@@ -1091,13 +1090,13 @@ func subIfPickFromAns(ansAutomated bool, ansInput bool) bool {
 
 func subCondManualInputURL(youTubeTrack *youtube.Track) {
 	if *argInteractive && youTubeTrack.URL == "" {
-		inputURL := cuiInterface.PromptInputMessage(fmt.Sprintf("Please, manually enter URL for \"%s\"", youTubeTrack.Track.Filename), cui.PromptDismissable)
+		inputURL := cuiInterface.PromptInputMessage(fmt.Sprintf("Please, manually enter URL for \"%s\"", youTubeTrack.Track.Filename), cui.PromptInput)
 		if len(inputURL) > 0 {
 			if err := youtube.ValidateURL(inputURL); err == nil {
 				youTubeTrack.Title = "input video"
 				youTubeTrack.URL = inputURL
 			} else {
-				cuiInterface.Prompt(fmt.Sprintf("Something went wrong: %s", err.Error()), cui.PromptDismissable)
+				cuiInterface.Prompt(fmt.Sprintf("Something went wrong: %s", err.Error()))
 			}
 		}
 	}

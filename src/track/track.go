@@ -7,10 +7,11 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"spotitube/system"
 	"strconv"
 	"strings"
 	"time"
+
+	"../system"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/bogem/id3v2"

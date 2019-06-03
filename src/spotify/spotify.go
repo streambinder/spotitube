@@ -9,8 +9,9 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"spotitube/system"
 	"strings"
+
+	"../system"
 
 	"github.com/zmb3/spotify"
 )

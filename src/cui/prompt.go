@@ -3,9 +3,10 @@ package cui
 import (
 	"fmt"
 	"math"
-	"spotitube/system"
 	"strings"
 	"time"
+
+	"../system"
 
 	"github.com/jroimartin/gocui"
 )

@@ -6,9 +6,10 @@ import (
 	"math"
 	"net/http"
 	"os/exec"
-	"spotitube/track"
 	"strconv"
 	"strings"
+
+	"../track"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/agnivade/levenshtein"

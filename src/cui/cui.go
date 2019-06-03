@@ -4,11 +4,12 @@ import (
 	"container/list"
 	"fmt"
 	"log"
-	"spotitube/logger"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"../logger"
 
 	"github.com/fatih/color"
 	"github.com/jroimartin/gocui"

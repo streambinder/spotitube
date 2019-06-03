@@ -67,7 +67,7 @@ var (
 	tracksFailed  track.Tracks
 	tracksIndex   = track.TracksIndex{Tracks: make(map[string]string), Links: make(map[string][]string)}
 	playlistInfo  *spotify.Playlist
-	spotifyClient = spotify.NewClient()
+	spotifyClient *spotify.Client
 	spotifyUser   string
 	spotifyUserID string
 	waitGroup     sync.WaitGroup
@@ -242,7 +242,8 @@ func mainFetch() {
 		if !*argDisableBrowserOpening {
 			cuiInterface.Append("Waiting for automatic login process. If wait is too long, manually open that URL.", cui.DebugAppend)
 		}
-		if !spotifyClient.Auth(spotifyAuthURL.Full, spotifyAuthHost, !*argDisableBrowserOpening) {
+		var err error
+		if spotifyClient, err = spotify.Auth(spotifyAuthURL.Full, spotifyAuthHost, !*argDisableBrowserOpening); err != nil {
 			cuiInterface.Prompt("Unable to authenticate to spotify.", cui.PromptExit)
 		}
 		cuiInterface.Append("Authentication completed.")

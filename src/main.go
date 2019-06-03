@@ -189,7 +189,7 @@ func main() {
 
 	cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Folder:", cui.StyleBold), *argFolder), cui.PanelLeftTop)
 	if *argLog {
-		cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Log:", cui.StyleBold), logger.DefaultLogFname), cui.PanelLeftTop)
+		cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Log:", cui.StyleBold), logger.LogFilename), cui.PanelLeftTop)
 	}
 	cuiInterface.Append(fmt.Sprintf("%s %d", cui.Font("Version:", cui.StyleBold), spotitube.Version), cui.PanelLeftBottom)
 	if os.Getenv("FORKED") == "1" {

@@ -24,17 +24,17 @@ bin:
 		else \
 			echo -en "Building...\r"; \
 		fi; \
-		cp $(CUR_DIR)/src/spotitube/spotify/spotify.go{,.orig} && \
-		cp $(CUR_DIR)/src/spotitube/track/track.go{,.orig} && \
+		cp $(CUR_DIR)/src/spotify/spotify.go{,.orig} && \
+		cp $(CUR_DIR)/src/track/track.go{,.orig} && \
 		( \
 			if [ "$(OS)" == "Darwin" ]; then \
-				sed -i '' 's|:SPOTIFY_CLIENT_ID:|${SPOTIFY_ID}|g' $(CUR_DIR)/src/spotitube/spotify/spotify.go && \
-				sed -i '' 's|:SPOTIFY_CLIENT_SECRET:|${SPOTIFY_KEY}|g' $(CUR_DIR)/src/spotitube/spotify/spotify.go && \
-				sed -i '' 's|:GENIUS_TOKEN:|${GENIUS_TOKEN}|g' $(CUR_DIR)/src/spotitube/track/track.go; \
+				sed -i '' 's|:SPOTIFY_CLIENT_ID:|${SPOTIFY_ID}|g' $(CUR_DIR)/src/spotify/spotify.go && \
+				sed -i '' 's|:SPOTIFY_CLIENT_SECRET:|${SPOTIFY_KEY}|g' $(CUR_DIR)/src/spotify/spotify.go && \
+				sed -i '' 's|:GENIUS_TOKEN:|${GENIUS_TOKEN}|g' $(CUR_DIR)/src/track/track.go; \
 			else \
-				sed -i 's|:SPOTIFY_CLIENT_ID:|${SPOTIFY_ID}|g' $(CUR_DIR)/src/spotitube/spotify/spotify.go && \
-				sed -i 's|:SPOTIFY_CLIENT_SECRET:|${SPOTIFY_KEY}|g' $(CUR_DIR)/src/spotitube/spotify/spotify.go && \
-				sed -i 's|:GENIUS_TOKEN:|${GENIUS_TOKEN}|g' $(CUR_DIR)/src/spotitube/track/track.go; \
+				sed -i 's|:SPOTIFY_CLIENT_ID:|${SPOTIFY_ID}|g' $(CUR_DIR)/src/spotify/spotify.go && \
+				sed -i 's|:SPOTIFY_CLIENT_SECRET:|${SPOTIFY_KEY}|g' $(CUR_DIR)/src/spotify/spotify.go && \
+				sed -i 's|:GENIUS_TOKEN:|${GENIUS_TOKEN}|g' $(CUR_DIR)/src/track/track.go; \
 			fi; \
 		); \
 		( \
@@ -42,7 +42,7 @@ bin:
 			GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BINARY).exe $(CUR_DIR)/src/main.go && \
 			echo -e "\rBuilt at: $(BINARY)" \
 		); \
-		(mv -f $(CUR_DIR)/src/spotitube/spotify/spotify.go{.orig,} && mv -f $(CUR_DIR)/src/spotitube/track/track.go{.orig,}); \
+		(mv -f $(CUR_DIR)/src/spotify/spotify.go{.orig,} && mv -f $(CUR_DIR)/src/track/track.go{.orig,}); \
 	);
 
 .PHONY: deps
@@ -52,7 +52,7 @@ deps:
 		find src -type f  \
 			| xargs egrep '\"'$$regex_domain'\/.*\/.*\"' \
 			| awk '{ print $$NF }' | grep -v ^$$ | sort -u | sed 's/"//g' | while read dep; do \
-			if [ ! -d $(CUR_DIR)/src/$$dep ]; then \
+			if [ ! -d $(GOPATH)/src/$$dep ]; then \
 				echo "Fetching $$dep dependency..."; \
 			fi; \
 			go get $$dep || exit 1; \

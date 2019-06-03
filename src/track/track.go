@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"../spotitube"
 	"../system"
 
 	"github.com/PuerkitoBio/goquery"
@@ -166,7 +167,7 @@ func OpenLocalTrack(filename string) (Track, error) {
 		SpotifyID:     TagGetFrame(trackMp3, ID3FrameSpotifyID),
 		Filename:      "",
 		FilenameTemp:  "",
-		FilenameExt:   system.SongExtension,
+		FilenameExt:   spotitube.SongExtension,
 		SearchPattern: "",
 		Lyrics:        TagGetFrame(trackMp3, ID3FrameLyrics),
 		Local:         true,
@@ -232,7 +233,7 @@ func ParseSpotifyTrack(spotifyTrack spotify.FullTrack, spotifyAlbum spotify.Full
 		SpotifyID:     spotifyTrack.SimpleTrack.ID.String(),
 		Filename:      "",
 		FilenameTemp:  "",
-		FilenameExt:   system.SongExtension,
+		FilenameExt:   spotitube.SongExtension,
 		SearchPattern: "",
 		Lyrics:        "",
 		Local:         false,
@@ -690,7 +691,7 @@ func searchLyricsGenius(track *Track) (string, error) {
 	}
 
 	lyricsClient := http.Client{
-		Timeout: time.Second * system.HTTPTimeout,
+		Timeout: time.Second * spotitube.HTTPTimeout,
 	}
 
 	encodedURL, lyricsError := url.Parse(fmt.Sprintf(LyricsGeniusAPIURL, url.QueryEscape(track.Title), url.QueryEscape(track.Artist)))
@@ -746,7 +747,7 @@ func searchLyricsOvh(track *Track) (string, error) {
 		Lyrics string `json:"lyrics"`
 	}
 	lyricsClient := http.Client{
-		Timeout: time.Second * system.HTTPTimeout,
+		Timeout: time.Second * spotitube.HTTPTimeout,
 	}
 
 	encodedURL, lyricsError := url.Parse(fmt.Sprintf(LyricsOVHAPIURL, url.QueryEscape(track.Artist), url.QueryEscape(track.Song)))

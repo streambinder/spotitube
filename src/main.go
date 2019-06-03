@@ -25,6 +25,7 @@ import (
 	"./cui"
 	"./logger"
 	"./spotify"
+	"./spotitube"
 	"./system"
 	"./track"
 	"./youtube"
@@ -70,7 +71,7 @@ var (
 	spotifyUser   string
 	spotifyUserID string
 	waitGroup     sync.WaitGroup
-	waitGroupPool = make(chan bool, system.ConcurrencyLimit)
+	waitGroupPool = make(chan bool, spotitube.ConcurrencyLimit)
 	waitIndex     = make(chan bool, 1)
 
 	cuiInterface *cui.CUI
@@ -138,7 +139,7 @@ func main() {
 	flag.Parse()
 
 	if *argVersion {
-		fmt.Println(fmt.Sprintf("SpotiTube, version %d.", system.Version))
+		fmt.Println(fmt.Sprintf("SpotiTube, version %d.", spotitube.Version))
 		os.Exit(0)
 	}
 
@@ -190,14 +191,14 @@ func main() {
 	if *argLog {
 		cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Log:", cui.StyleBold), logger.DefaultLogFname), cui.PanelLeftTop)
 	}
-	cuiInterface.Append(fmt.Sprintf("%s %d", cui.Font("Version:", cui.StyleBold), system.Version), cui.PanelLeftBottom)
+	cuiInterface.Append(fmt.Sprintf("%s %d", cui.Font("Version:", cui.StyleBold), spotitube.Version), cui.PanelLeftBottom)
 	if os.Getenv("FORKED") == "1" {
 		cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Caller:", cui.StyleBold), "automatically updated"), cui.PanelLeftBottom)
 	} else {
 		cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Caller:", cui.StyleBold), "installed"), cui.PanelLeftBottom)
 	}
 	cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Date:", cui.StyleBold), time.Now().Format("2006-01-02 15:04:05")), cui.PanelLeftBottom)
-	cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("URL:", cui.StyleBold), system.VersionRepository), cui.PanelLeftBottom)
+	cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("URL:", cui.StyleBold), spotitube.VersionRepository), cui.PanelLeftBottom)
 	cuiInterface.Append(fmt.Sprintf("%s GPL-3.0", cui.Font("License:", cui.StyleBold)), cui.PanelLeftBottom)
 
 	subCheckDependencies()
@@ -371,7 +372,7 @@ func mainFetch() {
 		}
 	}
 
-	for range [system.ConcurrencyLimit]int{} {
+	for range [spotitube.ConcurrencyLimit]int{} {
 		waitGroupPool <- true
 	}
 
@@ -568,7 +569,7 @@ func subCheckDependencies() {
 
 func subCheckInternet() {
 	client := http.Client{
-		Timeout: time.Second * system.HTTPTimeout,
+		Timeout: time.Second * spotitube.HTTPTimeout,
 	}
 	req, _ := http.NewRequest("GET", "http://clients3.google.com/generate_204", nil)
 	_, err := client.Do(req)
@@ -583,9 +584,9 @@ func subCheckUpdate() {
 			Name string `json:"name"`
 		}
 		versionClient := http.Client{
-			Timeout: time.Second * system.HTTPTimeout,
+			Timeout: time.Second * spotitube.HTTPTimeout,
 		}
-		versionRequest, versionError := http.NewRequest(http.MethodGet, system.VersionOrigin, nil)
+		versionRequest, versionError := http.NewRequest(http.MethodGet, spotitube.VersionOrigin, nil)
 		if versionError != nil {
 			cuiInterface.Append(fmt.Sprintf("Unable to compile version request: %s", versionError.Error()), cui.WarningAppend)
 		} else {
@@ -610,11 +611,11 @@ func subCheckUpdate() {
 							versionValue, versionError = strconv.Atoi(versionRegex.ReplaceAllString(versionData.Name, ""))
 							if versionError != nil {
 								cuiInterface.Append(fmt.Sprintf("Unable to fetch latest version value: %s", versionError.Error()), cui.WarningAppend)
-							} else if versionValue != system.Version {
-								cuiInterface.Append(fmt.Sprintf("Going to update from %d to %d version.", system.Version, versionValue))
+							} else if versionValue != spotitube.Version {
+								cuiInterface.Append(fmt.Sprintf("Going to update from %d to %d version.", spotitube.Version, versionValue))
 								subUpdateSoftware(versionResponseBody)
 							}
-							cuiInterface.Append(fmt.Sprintf("Actual version %d, online version %d.", system.Version, versionValue), cui.DebugAppend)
+							cuiInterface.Append(fmt.Sprintf("Actual version %d, online version %d.", spotitube.Version, versionValue), cui.DebugAppend)
 						}
 					}
 				}

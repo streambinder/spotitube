@@ -38,8 +38,8 @@ bin:
 			fi; \
 		); \
 		( \
-			GOPATH=$(CUR_DIR) GOARCH=386 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BINARY) $(CUR_DIR)/src/main.go && \
-			GOPATH=$(CUR_DIR) GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BINARY).exe $(CUR_DIR)/src/main.go && \
+			GOARCH=386 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BINARY) $(CUR_DIR)/src/main.go && \
+			GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BINARY).exe $(CUR_DIR)/src/main.go && \
 			echo -e "\rBuilt at: $(BINARY)" \
 		); \
 		(mv -f $(CUR_DIR)/src/spotitube/spotify/spotify.go{.orig,} && mv -f $(CUR_DIR)/src/spotitube/track/track.go{.orig,}); \
@@ -50,12 +50,11 @@ deps:
 	@ ( \
 		regex_domain='(([a-zA-Z](-?[a-zA-Z0-9])*)\.)*[a-zA-Z](-?[a-zA-Z0-9])+\.[a-zA-Z]{2,}'; \
 		find src -type f  \
-			| egrep -v 'src\/'$$regex_domain'' \
 			| xargs egrep '\"'$$regex_domain'\/.*\/.*\"' \
 			| awk '{ print $$NF }' | grep -v ^$$ | sort -u | sed 's/"//g' | while read dep; do \
 			if [ ! -d $(CUR_DIR)/src/$$dep ]; then \
 				echo "Fetching $$dep dependency..."; \
 			fi; \
-			GOPATH=$(CUR_DIR)/ go get $$dep || exit 1; \
+			go get $$dep || exit 1; \
 		done; \
 	);

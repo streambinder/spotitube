@@ -115,7 +115,7 @@ func Startup(options Options) (*CUI, error) {
 	}
 
 	if hasOption(options, LogEnable) {
-		c.Logger = logger.Build(logger.DefaultLogFname)
+		c.Logger = logger.Build()
 	}
 
 	return c, nil

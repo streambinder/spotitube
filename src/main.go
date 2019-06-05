@@ -78,7 +78,7 @@ var (
 	notify       *notificator.Notificator
 
 	procCurrentBin      string
-	userLocalConfigPath = system.LocalConfigPath()
+	userLocalConfigPath = spotitube.LocalConfigPath()
 	userLocalBin        = fmt.Sprintf("%s/spotitube", userLocalConfigPath)
 	userLocalIndex      = fmt.Sprintf("%s/index.gob", userLocalConfigPath)
 	userLocalGob        = fmt.Sprintf("%s/%s_%s.gob", userLocalConfigPath, "%s", "%s")

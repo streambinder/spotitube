@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -566,39 +567,25 @@ func (track *Track) SearchLyrics() error {
 
 // SeemsType : return True if input sequence matches with selected input songType variant
 func SeemsType(sequence string, songType int) bool {
-	var songTypeAliases []string
+	var regexes []string
 	if songType == SongTypeLive {
-		songTypeAliases = []string{"@", "live", "perform", "tour"}
-		for _, year := range system.MakeRange(1950, 2050) {
-			songTypeAliases = append(songTypeAliases, []string{strconv.Itoa(year), "'" + strconv.Itoa(year)[2:]}...)
-		}
+		regexes = []string{slug.Make("@"), slug.Make("live"), slug.Make("perform"), slug.Make("tour"), "[1-2]{1}[0-9]{3}"}
 	} else if songType == SongTypeCover {
-		songTypeAliases = []string{"cover", "vs", "amateur"}
+		regexes = []string{slug.Make("cover"), slug.Make("vs"), slug.Make("amateur")}
 	} else if songType == SongTypeRemix {
-		songTypeAliases = []string{"remix", "radio edit"}
+		regexes = []string{slug.Make("remix"), slug.Make("radio-edit")}
 	} else if songType == SongTypeAcoustic {
-		songTypeAliases = []string{"acoustic"}
+		regexes = []string{slug.Make("acoustic")}
 	} else if songType == SongTypeKaraoke {
-		songTypeAliases = []string{"karaoke", "instrumental"}
+		regexes = []string{slug.Make("karaoke"), slug.Make("instrumental")}
 	} else if songType == SongTypeParody {
-		songTypeAliases = []string{"parody"}
+		regexes = []string{slug.Make("parody")}
 	} else if songType == SongTypeReverse {
-		songTypeAliases = []string{"reverse"}
+		regexes = []string{slug.Make("reverse")}
 	}
 
-	for _, songTypeAlias := range songTypeAliases {
-		sequence = strings.ToLower(sequence)
-		if len(songTypeAlias) != 1 {
-			sequence = slug.Make(sequence)
-		}
-		if len(slug.Make(strings.ToLower(songTypeAlias))) == len(songTypeAlias) {
-			songTypeAlias = slug.Make(strings.ToLower(songTypeAlias))
-		}
-		if strings.Contains(sequence, songTypeAlias) {
-			return true
-		}
-	}
-	return false
+	match, _ := regexp.MatchString(fmt.Sprintf(`(\A|-)(%s)(-|\z)`, strings.Join(regexes, "|")), slug.Make(sequence))
+	return match
 }
 
 func parseType(sequence string) int {

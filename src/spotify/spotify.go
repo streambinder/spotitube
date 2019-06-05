@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"../system"
-
+	"github.com/thanhpk/randstr"
 	"github.com/zmb3/spotify"
 )
 
 var (
-	clientState         = system.RandString(20)
+	clientState         = randstr.Hex(20)
 	clientAuthenticator spotify.Authenticator
 )
 

@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"../spotitube"
 	"../track"
 
 	"github.com/PuerkitoBio/goquery"
@@ -53,7 +54,7 @@ func QueryTracks(track *track.Track) (Tracks, error) {
 	var (
 		doc         *goquery.Document
 		queryString = fmt.Sprintf(YouTubeQueryPattern,
-			strings.Replace(track.SearchPattern, " ", "+", -1))
+			strings.Replace(track.Query(), " ", "+", -1))
 	)
 	request, _ := http.NewRequest("GET", queryString, nil)
 	request.Header.Add("Accept-Language", "en")
@@ -111,7 +112,7 @@ func (youtube_track Track) Match(track track.Track) error {
 func (youtube_track Track) Download() error {
 	var commandOut bytes.Buffer
 	commandCmd := "youtube-dl"
-	commandArgs := []string{"--output", fmt.Sprintf("%s.%s", youtube_track.Track.FilenameTemp, youtube_track.Track.FilenameExt[1:]), "--format", "bestaudio", "--extract-audio", "--audio-format", youtube_track.Track.FilenameExt[1:], "--audio-quality", "0", youtube_track.URL}
+	commandArgs := []string{"--format", "bestaudio", "--extract-audio", "--audio-format", spotitube.SongExtension, "--audio-quality", "0", "--output", strings.Replace(youtube_track.Track.FilenameTemporary(), fmt.Sprintf(".%s", spotitube.SongExtension), "", -1) + ".%(ext)s", youtube_track.URL}
 	commandObj := exec.Command(commandCmd, commandArgs...)
 	commandObj.Stderr = &commandOut
 	if commandErr := commandObj.Run(); commandErr != nil {
@@ -215,10 +216,10 @@ func (tracks Tracks) evaluateScores() Tracks {
 		if strings.Contains(slug.Make(t.User), slug.Make(t.Track.Artist)) {
 			t.AffinityScore += 10
 		}
-		if track.SeemsType(t.Title, t.Track.SongType) {
+		if track.IsType(t.Title, t.Track.Type()) {
 			t.AffinityScore += 10
 		}
-		levenshteinDistance := levenshtein.ComputeDistance(t.Track.SearchPattern, fmt.Sprintf("%s %s", t.User, t.Title))
+		levenshteinDistance := levenshtein.ComputeDistance(t.Track.Query(), fmt.Sprintf("%s %s", t.User, t.Title))
 		t.AffinityScore -= levenshteinDistance
 		evaluatedTracks = append(evaluatedTracks, t)
 	}

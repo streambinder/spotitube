@@ -396,11 +396,11 @@ func mainSearch() {
 
 	for trackIndex, t := range tracks {
 		cuiInterface.ProgressHalfIncrease()
-		cuiInterface.Append(fmt.Sprintf("%d/%d: \"%s\"", trackIndex+1, len(tracks), t.Filename), cui.StyleBold)
+		cuiInterface.Append(fmt.Sprintf("%d/%d: \"%s\"", trackIndex+1, len(tracks), t.Filename()), cui.StyleBold)
 
 		if trackPath, ok := tracksIndex.Tracks[t.SpotifyID]; ok {
-			if trackPath != t.FilenameFinal() {
-				cuiInterface.Append(fmt.Sprintf("Track %s has been renamed: moving local one to %s", t.SpotifyID, t.FilenameFinal()))
+			if trackPath != t.Filename() {
+				cuiInterface.Append(fmt.Sprintf("Track %s has been renamed: moving local one to %s", t.SpotifyID, t.Filename()))
 				if err := subTrackRename(&t); err != nil {
 					cuiInterface.Append(fmt.Sprintf("Unable to rename: %s", err.Error()), cui.ErrorAppend)
 				}
@@ -418,7 +418,7 @@ func mainSearch() {
 			if !*argManualInput {
 				youTubeTracks, youTubeTracksErr = youtube.QueryTracks(&t)
 				if youTubeTracksErr != nil {
-					cuiInterface.Append(fmt.Sprintf("Something went wrong while searching for \"%s\" track: %s.", t.Filename, youTubeTracksErr.Error()), cui.WarningAppend)
+					cuiInterface.Append(fmt.Sprintf("Something went wrong while searching for \"%s\" track: %s.", t.Basename(), youTubeTracksErr.Error()), cui.WarningAppend)
 					tracksFailed = append(tracksFailed, t)
 					cuiInterface.ProgressHalfIncrease()
 					continue
@@ -429,7 +429,7 @@ func mainSearch() {
 
 					youTubeTrackPickAuto, youTubeTrackPick = subMatchResult(t, youTubeTrackLoopEl)
 					if subIfPickFromAns(youTubeTrackPickAuto, youTubeTrackPick) {
-						cuiInterface.Append(fmt.Sprintf("Video \"%s\" is good to go for \"%s\".", youTubeTrackLoopEl.Title, t.Filename))
+						cuiInterface.Append(fmt.Sprintf("Video \"%s\" is good to go for \"%s\".", youTubeTrackLoopEl.Title, t.Basename()))
 						youTubeTrack = youTubeTrackLoopEl
 						break
 					}
@@ -444,19 +444,19 @@ func mainSearch() {
 			}
 
 			if youTubeTrack == (youtube.Track{}) {
-				cuiInterface.Append(fmt.Sprintf("Video for \"%s\" not found.", t.Filename), cui.ErrorAppend)
+				cuiInterface.Append(fmt.Sprintf("Video for \"%s\" not found.", t.Basename()), cui.ErrorAppend)
 				tracksFailed = append(tracksFailed, t)
 				cuiInterface.ProgressHalfIncrease()
 				continue
 			}
 
 			if *argSimulate {
-				cuiInterface.Append(fmt.Sprintf("I would like to download \"%s\" for \"%s\" track, but I'm just simulating.", youTubeTrack.URL, t.Filename))
+				cuiInterface.Append(fmt.Sprintf("I would like to download \"%s\" for \"%s\" track, but I'm just simulating.", youTubeTrack.URL, t.Basename()))
 				cuiInterface.ProgressHalfIncrease()
 				continue
 			} else if *argReplaceLocal {
 				if t.URL == youTubeTrack.URL && !youTubeTrackPick {
-					cuiInterface.Append(fmt.Sprintf("Track \"%s\" is still the best result I can find.", t.Filename))
+					cuiInterface.Append(fmt.Sprintf("Track \"%s\" is still the best result I can find.", t.Basename()))
 					cuiInterface.Append(fmt.Sprintf("Local track origin URL %s is the same as YouTube chosen one %s.", t.URL, youTubeTrack.URL), cui.DebugAppend)
 					cuiInterface.ProgressHalfIncrease()
 					continue
@@ -469,7 +469,7 @@ func mainSearch() {
 			cuiInterface.Append(fmt.Sprintf("Going to download \"%s\" from %s...", youTubeTrack.Title, youTubeTrack.URL))
 			err := youTubeTrack.Download()
 			if err != nil {
-				cuiInterface.Append(fmt.Sprintf("Something went wrong downloading \"%s\": %s.", t.Filename, err.Error()), cui.WarningAppend)
+				cuiInterface.Append(fmt.Sprintf("Something went wrong downloading \"%s\": %s.", t.Basename(), err.Error()), cui.WarningAppend)
 				tracksFailed = append(tracksFailed, t)
 				cuiInterface.ProgressHalfIncrease()
 				continue
@@ -507,7 +507,7 @@ func mainSearch() {
 
 	cuiInterface.Append(fmt.Sprintf("%d tracks failed to synchronize.", len(tracksFailed)))
 	for _, t := range tracksFailed {
-		cuiInterface.Append(fmt.Sprintf(" - \"%s\"", t.Filename))
+		cuiInterface.Append(fmt.Sprintf(" - \"%s\"", t.Basename()))
 	}
 
 	var (
@@ -751,8 +751,8 @@ func subParallelSongProcess(t track.Track, wg *sync.WaitGroup) {
 		subSongNormalize(t)
 	}
 
-	if !system.FileExists(t.FilenameTemporary()) && system.FileExists(t.FilenameFinal()) {
-		if err := system.FileCopy(t.FilenameFinal(), t.FilenameTemporary()); err != nil {
+	if !system.FileExists(t.FilenameTemporary()) && system.FileExists(t.Filename()) {
+		if err := system.FileCopy(t.Filename(), t.FilenameTemporary()); err != nil {
 			cuiInterface.Append(fmt.Sprintf("Unable to prepare song for getting its metadata flushed: %s", err.Error()), cui.WarningAppend)
 			return
 		}
@@ -762,8 +762,8 @@ func subParallelSongProcess(t track.Track, wg *sync.WaitGroup) {
 		subSongFlushMetadata(t)
 	}
 
-	os.Remove(t.FilenameFinal())
-	err := os.Rename(t.FilenameTemporary(), t.FilenameFinal())
+	os.Remove(t.Filename())
+	err := os.Rename(t.FilenameTemporary(), t.Filename())
 	if err != nil {
 		cuiInterface.Append(fmt.Sprintf("Unable to move song to its final path: %s", err.Error()), cui.WarningAppend)
 	}
@@ -778,7 +778,7 @@ func subSongNormalize(t track.Track) {
 		commandOut         bytes.Buffer
 		commandErr         error
 		normalizationDelta string
-		normalizationFile  = strings.Replace(t.FilenameTemporary(), t.FilenameExt, ".norm"+t.FilenameExt, -1)
+		normalizationFile  = strings.Replace(t.FilenameTemporary(), spotitube.SongExtension, fmt.Sprintf("norm.%s", spotitube.SongExtension), -1)
 	)
 
 	commandArgs = []string{"-i", t.FilenameTemporary(), "-af", "volumedetect", "-f", "null", "-y", "null"}
@@ -805,10 +805,10 @@ func subSongNormalize(t track.Track) {
 	}
 	commandArgs = []string{"-i", t.FilenameTemporary(), "-af", "volume=+" + normalizationDelta + "dB", "-b:a", "320k", "-y", normalizationFile}
 	cuiInterface.Append(fmt.Sprintf("Compensating volume by %sdB...", normalizationDelta), cui.DebugAppend)
-	cuiInterface.Append(fmt.Sprintf("Increasing audio quality for: %s...", t.Filename), cui.DebugAppend)
+	cuiInterface.Append(fmt.Sprintf("Increasing audio quality for: %s...", t.Basename()), cui.DebugAppend)
 	cuiInterface.Append(fmt.Sprintf("Firing command: \"%s %s\"...", commandCmd, strings.Join(commandArgs, " ")), cui.DebugAppend)
 	if _, commandErr = exec.Command(commandCmd, commandArgs...).Output(); commandErr != nil {
-		cuiInterface.Append(fmt.Sprintf("Something went wrong while normalizing song \"%s\" volume: %s", t.Filename, commandErr.Error()), cui.WarningAppend)
+		cuiInterface.Append(fmt.Sprintf("Something went wrong while normalizing song \"%s\" volume: %s", t.Basename(), commandErr.Error()), cui.WarningAppend)
 	}
 	os.Remove(t.FilenameTemporary())
 	os.Rename(normalizationFile, t.FilenameTemporary())
@@ -819,7 +819,7 @@ func subSongFlushMetadata(t track.Track) {
 	if err != nil {
 		cuiInterface.Append(fmt.Sprintf("Something bad happened while opening: %s", err.Error()), cui.WarningAppend)
 	} else {
-		cuiInterface.Append(fmt.Sprintf("Fixing metadata for \"%s\"...", t.Filename), cui.DebugAppend)
+		cuiInterface.Append(fmt.Sprintf("Fixing metadata for \"%s\"...", t.Basename()), cui.DebugAppend)
 		if !*argFlushMissing && !*argFlushDifferent {
 			trackMp3.DeleteAllFrames()
 		}
@@ -1081,7 +1081,7 @@ func subMatchResult(t track.Track, youTubeTrack youtube.Track) (bool, bool) {
 	if *argInteractive {
 		ansInput = cuiInterface.Prompt(fmt.Sprintf("Do you want to download the following video for \"%s\"?\n"+
 			"ID: %s\nTitle: %s\nUser: %s\nDuration: %d\nURL: %s\nResult is matching: %s",
-			t.Filename, youTubeTrack.ID, youTubeTrack.Title, youTubeTrack.User,
+			t.Basename(), youTubeTrack.ID, youTubeTrack.Title, youTubeTrack.User,
 			youTubeTrack.Duration, youTubeTrack.URL, strconv.FormatBool(ansAutomated)), cui.PromptBinary)
 	}
 	return ansAutomated, ansInput
@@ -1093,7 +1093,7 @@ func subIfPickFromAns(ansAutomated bool, ansInput bool) bool {
 
 func subCondManualInputURL(youTubeTrack *youtube.Track) {
 	if *argInteractive && youTubeTrack.URL == "" {
-		inputURL := cuiInterface.PromptInputMessage(fmt.Sprintf("Please, manually enter URL for \"%s\"", youTubeTrack.Track.Filename), cui.PromptInput)
+		inputURL := cuiInterface.PromptInputMessage(fmt.Sprintf("Please, manually enter URL for \"%s\"", youTubeTrack.Track.Basename()), cui.PromptInput)
 		if len(inputURL) > 0 {
 			if err := youtube.ValidateURL(inputURL); err == nil {
 				youTubeTrack.Title = "input video"
@@ -1119,7 +1119,7 @@ func subCondSequentialDo(t *track.Track) {
 func subCondLyricsFetch(t *track.Track) {
 	if !*argDisableLyrics &&
 		(!*argFlushMissing || (*argFlushMissing && !t.HasID3Frame(track.ID3FrameLyrics))) {
-		cuiInterface.Append(fmt.Sprintf("Fetching song \"%s\" lyrics...", t.Filename), cui.DebugAppend)
+		cuiInterface.Append(fmt.Sprintf("Fetching song \"%s\" lyrics...", t.Basename()), cui.DebugAppend)
 		lyricsErr := t.SearchLyrics()
 		if lyricsErr != nil {
 			cuiInterface.Append(fmt.Sprintf("Something went wrong while searching for song lyrics: %s", lyricsErr.Error()), cui.WarningAppend)
@@ -1132,7 +1132,7 @@ func subCondLyricsFetch(t *track.Track) {
 func subCondArtworkDownload(t *track.Track) {
 	if len(t.Image) > 0 && !system.FileExists(t.FilenameArtwork()) &&
 		(!*argFlushMissing || (*argFlushMissing && !t.HasID3Frame(track.ID3FrameArtwork))) {
-		cuiInterface.Append(fmt.Sprintf("Downloading song \"%s\" artwork at %s...", t.Filename, t.Image), cui.DebugAppend)
+		cuiInterface.Append(fmt.Sprintf("Downloading song \"%s\" artwork at %s...", t.Basename(), t.Image), cui.DebugAppend)
 		var commandOut bytes.Buffer
 		commandCmd := "ffmpeg"
 		commandArgs := []string{"-i", t.Image, "-q:v", "1", "-n", t.FilenameArtwork()}
@@ -1149,11 +1149,11 @@ func subCondTimestampFlush() {
 		cuiInterface.Append("Flushing files timestamps...")
 		now := time.Now().Local().Add(time.Duration(-1*len(tracks)) * time.Minute)
 		for _, t := range tracks {
-			if !system.FileExists(t.FilenameFinal()) {
+			if !system.FileExists(t.Filename()) {
 				continue
 			}
-			if err := os.Chtimes(t.FilenameFinal(), now, now); err != nil {
-				cuiInterface.Append(fmt.Sprintf("Unable to flush timestamp on %s", t.FilenameFinal()), cui.WarningAppend)
+			if err := os.Chtimes(t.Filename(), now, now); err != nil {
+				cuiInterface.Append(fmt.Sprintf("Unable to flush timestamp on %s", t.Filename()), cui.WarningAppend)
 			}
 			now = now.Add(1 * time.Minute)
 		}
@@ -1178,9 +1178,9 @@ func subCondPlaylistFileWrite() {
 		os.Mkdir(playlistFolder, 0775)
 		os.Chdir(playlistFolder)
 		for _, t := range tracks {
-			if system.FileExists("../" + t.FilenameFinal()) {
-				if err := os.Symlink("../"+t.FilenameFinal(), t.FilenameFinal()); err != nil {
-					cuiInterface.Append(fmt.Sprintf("Unable to create symlink for \"%s\" in %s: %s", t.FilenameFinal(), playlistFolder, err.Error()), cui.ErrorAppend)
+			if system.FileExists("../" + t.Filename()) {
+				if err := os.Symlink("../"+t.Filename(), t.Filename()); err != nil {
+					cuiInterface.Append(fmt.Sprintf("Unable to create symlink for \"%s\" in %s: %s", t.Filename(), playlistFolder, err.Error()), cui.ErrorAppend)
 				}
 			}
 		}
@@ -1195,9 +1195,9 @@ func subCondPlaylistFileWrite() {
 			playlistContent = "#EXTM3U\n"
 			for trackIndex := len(tracks) - 1; trackIndex >= 0; trackIndex-- {
 				t := tracks[trackIndex]
-				if system.FileExists(t.FilenameFinal()) {
-					playlistContent += "#EXTINF:" + strconv.Itoa(t.Duration) + "," + t.Filename + "\n" +
-						"./" + t.FilenameFinal() + "\n"
+				if system.FileExists(t.Filename()) {
+					playlistContent += "#EXTINF:" + strconv.Itoa(t.Duration) + "," + t.Filename() + "\n" +
+						"./" + t.Filename() + "\n"
 				}
 			}
 		} else {
@@ -1209,9 +1209,9 @@ func subCondPlaylistFileWrite() {
 			for trackIndex := len(tracks) - 1; trackIndex >= 0; trackIndex-- {
 				t := tracks[trackIndex]
 				trackInvertedIndex := len(tracks) - trackIndex
-				if system.FileExists(t.FilenameFinal()) {
-					playlistContent += "File" + strconv.Itoa(trackInvertedIndex) + "=./" + t.FilenameFinal() + "\n" +
-						"Title" + strconv.Itoa(trackInvertedIndex) + "=" + t.Filename + "\n" +
+				if system.FileExists(t.Filename()) {
+					playlistContent += "File" + strconv.Itoa(trackInvertedIndex) + "=./" + t.Filename() + "\n" +
+						"Title" + strconv.Itoa(trackInvertedIndex) + "=" + t.Filename() + "\n" +
 						"Length" + strconv.Itoa(trackInvertedIndex) + "=" + strconv.Itoa(t.Duration) + "\n\n"
 				}
 			}
@@ -1237,7 +1237,7 @@ func subTrackRename(t *track.Track) error {
 		keyID   = t.SpotifyID
 		keyPath = tracksIndex.Tracks[t.SpotifyID]
 	)
-	if err := os.Rename(keyPath, t.FilenameFinal()); err != nil {
+	if err := os.Rename(keyPath, t.Filename()); err != nil {
 		return err
 	}
 
@@ -1246,7 +1246,7 @@ func subTrackRename(t *track.Track) error {
 			trackLinkParts  = strings.Split(trackLink, "/")
 			trackLinkFolder = strings.Join(trackLinkParts[:len(trackLinkParts)-1], "/")
 			trackLinkName   = trackLinkParts[len(trackLinkParts)-1]
-			trackLinkNew    = trackLinkFolder + "/" + t.FilenameFinal()
+			trackLinkNew    = trackLinkFolder + "/" + t.Filename()
 		)
 		os.Rename(trackLink, trackLinkNew)
 		filepath.Walk(trackLinkFolder, func(path string, info os.FileInfo, err error) error {
@@ -1261,7 +1261,7 @@ func subTrackRename(t *track.Track) error {
 			)
 			for _, line := range playlistLines {
 				if strings.Contains(line, trackLinkName) {
-					line = strings.ReplaceAll(line, trackLinkName, t.FilenameFinal())
+					line = strings.ReplaceAll(line, trackLinkName, t.Filename())
 					playlistUpdated = true
 				}
 				playlistLinesNew = append(playlistLinesNew, line)
@@ -1276,11 +1276,11 @@ func subTrackRename(t *track.Track) error {
 
 			return nil
 		})
-		tracksIndex.Links[t.FilenameFinal()] = append(tracksIndex.Links[t.FilenameFinal()], trackLinkNew)
+		tracksIndex.Links[t.Filename()] = append(tracksIndex.Links[t.Filename()], trackLinkNew)
 	}
 	t.Local = true
 	delete(tracksIndex.Links, keyPath)
-	tracksIndex.Tracks[keyID] = t.FilenameFinal()
+	tracksIndex.Tracks[keyID] = t.Filename()
 
 	return nil
 }

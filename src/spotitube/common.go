@@ -19,7 +19,7 @@ const (
 	ConcurrencyLimit = 100
 
 	// SongExtension : default downloaded songs extension
-	SongExtension = ".mp3"
+	SongExtension = "mp3"
 	// TCPCheckOrigin : default internet connection check origin
 	TCPCheckOrigin = "github.com:443"
 	// HTTPTimeout : default timeout for HTTP calls

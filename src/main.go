@@ -396,7 +396,7 @@ func mainSearch() {
 
 	for trackIndex, t := range tracks {
 		cuiInterface.ProgressHalfIncrease()
-		cuiInterface.Append(fmt.Sprintf("%d/%d: \"%s\"", trackIndex+1, len(tracks), t.Filename()), cui.StyleBold)
+		cuiInterface.Append(fmt.Sprintf("%d/%d: \"%s\"", trackIndex+1, len(tracks), t.Basename()), cui.StyleBold)
 
 		if trackPath, ok := tracksIndex.Tracks[t.SpotifyID]; ok {
 			if trackPath != t.Filename() {

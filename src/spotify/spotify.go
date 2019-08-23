@@ -72,11 +72,7 @@ func (c *Client) RemoveLibraryTracks(ids []ID) error {
 
 // Playlist : return Spotify FullPlaylist from input string playlistURI
 func (c *Client) Playlist(playlistURI string) (*Playlist, error) {
-	_, playlistID, playlistErr := parsePlaylistURI(playlistURI)
-	if playlistErr != nil {
-		return &Playlist{}, playlistErr
-	}
-	return c.GetPlaylist(playlistID)
+	return c.GetPlaylist(parsePlaylistURI(playlistURI))
 }
 
 // PlaylistTracks : return array of Spotify FullTrack of all input string playlistURI identified playlist
@@ -86,13 +82,10 @@ func (c *Client) PlaylistTracks(playlistURI string) ([]Track, error) {
 		iterations int
 		options    = defaultOptions()
 	)
-	_, playlistID, playlistErr := parsePlaylistURI(playlistURI)
-	if playlistErr != nil {
-		return tracks, playlistErr
-	}
+
 	for true {
 		*options.Offset = *options.Limit * iterations
-		chunk, err := c.GetPlaylistTracksOpt(playlistID, &options, "")
+		chunk, err := c.GetPlaylistTracksOpt(parsePlaylistURI(playlistURI), &options, "")
 		if err != nil {
 			return []Track{}, fmt.Errorf(fmt.Sprintf("Something gone wrong while reading %dth chunk of tracks: %s.", iterations, err.Error()))
 		}
@@ -115,10 +108,6 @@ func (c *Client) RemovePlaylistTracks(playlistURI string, ids []ID) error {
 		return nil
 	}
 
-	_, playlistID, playlistErr := parsePlaylistURI(playlistURI)
-	if playlistErr != nil {
-		return playlistErr
-	}
 	var (
 		iterations int
 	)
@@ -129,7 +118,7 @@ func (c *Client) RemovePlaylistTracks(playlistURI string, ids []ID) error {
 			upperbound = lowerbound + (len(ids) - lowerbound)
 		}
 		chunk := ids[lowerbound:upperbound]
-		if _, err := c.RemoveTracksFromPlaylist(playlistID, chunk...); err != nil {
+		if _, err := c.RemoveTracksFromPlaylist(parsePlaylistURI(playlistURI), chunk...); err != nil {
 			return fmt.Errorf(fmt.Sprintf("Something gone wrong while removing %dth chunk of removing tracks: %s.", iterations, err.Error()))
 		}
 		if len(chunk) < 50 {
@@ -187,9 +176,10 @@ func defaultOptions() spotify.Options {
 	}
 }
 
-func parsePlaylistURI(playlistURI string) (string, ID, error) {
-	if strings.Count(playlistURI, ":") == 4 {
-		return strings.Split(playlistURI, ":")[2], ID(strings.Split(playlistURI, ":")[4]), nil
+func parsePlaylistURI(playlistURI string) ID {
+	if strings.Count(playlistURI, ":") == 0 {
+		return ID(playlistURI)
 	}
-	return "", "", fmt.Errorf(fmt.Sprintf("Malformed playlist URI: expected 5 columns, given %d.", strings.Count(playlistURI, ":")))
+	parts := strings.Split(playlistURI, ":")
+	return ID(parts[len(parts)-1])
 }

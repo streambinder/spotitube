@@ -72,7 +72,7 @@ func (c *Client) RemoveLibraryTracks(ids []ID) error {
 
 // Playlist : return Spotify FullPlaylist from input string playlistURI
 func (c *Client) Playlist(playlistURI string) (*Playlist, error) {
-	return c.GetPlaylist(parsePlaylistURI(playlistURI))
+	return c.GetPlaylist(PlaylistID(playlistURI))
 }
 
 // PlaylistTracks : return array of Spotify FullTrack of all input string playlistURI identified playlist
@@ -85,7 +85,7 @@ func (c *Client) PlaylistTracks(playlistURI string) ([]Track, error) {
 
 	for true {
 		*options.Offset = *options.Limit * iterations
-		chunk, err := c.GetPlaylistTracksOpt(parsePlaylistURI(playlistURI), &options, "")
+		chunk, err := c.GetPlaylistTracksOpt(PlaylistID(playlistURI), &options, "")
 		if err != nil {
 			return []Track{}, fmt.Errorf(fmt.Sprintf("Something gone wrong while reading %dth chunk of tracks: %s.", iterations, err.Error()))
 		}
@@ -118,7 +118,7 @@ func (c *Client) RemovePlaylistTracks(playlistURI string, ids []ID) error {
 			upperbound = lowerbound + (len(ids) - lowerbound)
 		}
 		chunk := ids[lowerbound:upperbound]
-		if _, err := c.RemoveTracksFromPlaylist(parsePlaylistURI(playlistURI), chunk...); err != nil {
+		if _, err := c.RemoveTracksFromPlaylist(PlaylistID(playlistURI), chunk...); err != nil {
 			return fmt.Errorf(fmt.Sprintf("Something gone wrong while removing %dth chunk of removing tracks: %s.", iterations, err.Error()))
 		}
 		if len(chunk) < 50 {
@@ -165,6 +165,15 @@ func (c *Client) Albums(ids []ID) ([]Album, error) {
 	return albums, nil
 }
 
+// PlaylistID : return a Spotify playlist ID from playlist URI string
+func PlaylistID(playlistURI string) ID {
+	if strings.Count(playlistURI, ":") == 0 {
+		return ID(playlistURI)
+	}
+	parts := strings.Split(playlistURI, ":")
+	return ID(parts[len(parts)-1])
+}
+
 func defaultOptions() spotify.Options {
 	var (
 		optLimit  = 50
@@ -174,12 +183,4 @@ func defaultOptions() spotify.Options {
 		Limit:  &optLimit,
 		Offset: &optOffset,
 	}
-}
-
-func parsePlaylistURI(playlistURI string) ID {
-	if strings.Count(playlistURI, ":") == 0 {
-		return ID(playlistURI)
-	}
-	parts := strings.Split(playlistURI, ":")
-	return ID(parts[len(parts)-1])
 }

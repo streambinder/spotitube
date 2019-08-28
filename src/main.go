@@ -24,11 +24,11 @@ import (
 
 	"./cui"
 	"./logger"
+	"./provider"
 	"./spotify"
 	"./spotitube"
 	"./system"
 	"./track"
-	"./youtube"
 
 	"github.com/0xAX/notificator"
 	"github.com/bogem/id3v2"
@@ -409,72 +409,80 @@ func mainSearch() {
 
 		if subIfSongSearch(t) {
 			var (
-				youTubeTrack         = youtube.Track{Track: &t}
-				youTubeTracks        = youtube.Tracks{}
-				youTubeTracksErr     error
-				youTubeTrackPickAuto bool
-				youTubeTrackPick     bool
+				entry    = &provider.Entry{Track: &t}
+				prov     provider.Provider
+				provName string
 			)
-			if !*argManualInput {
-				youTubeTracks, youTubeTracksErr = youtube.QueryTracks(&t)
-				if youTubeTracksErr != nil {
-					cuiInterface.Append(fmt.Sprintf("Something went wrong while searching for \"%s\" track: %s.", t.Basename(), youTubeTracksErr.Error()), cui.WarningAppend)
+			for provName, prov = range provider.Providers {
+				var (
+					provEntries   = []*provider.Entry{}
+					provErr       error
+					entryPickAuto bool
+					entryPick     bool
+				)
+
+				cuiInterface.Append(fmt.Sprintf("Searching entries on %s provider", provName))
+				if !*argManualInput {
+					provEntries, provErr = prov.Query(&t)
+					if provErr != nil {
+						cuiInterface.Append(fmt.Sprintf("Something went wrong while searching for \"%s\" track: %s.", t.Basename(), provErr.Error()), cui.WarningAppend)
+						tracksFailed = append(tracksFailed, t)
+						cuiInterface.ProgressHalfIncrease()
+						continue
+					}
+					for _, provEntry := range provEntries {
+						cuiInterface.Append(fmt.Sprintf("Result met: ID: %s,\nTitle: %s,\nUser: %s,\nDuration: %d.",
+							provEntry.ID, provEntry.Title, provEntry.User, provEntry.Duration), cui.DebugAppend)
+
+						entryPickAuto, entryPick = subMatchResult(prov, &t, provEntry)
+						if subIfPickFromAns(entryPickAuto, entryPick) {
+							cuiInterface.Append(fmt.Sprintf("Video \"%s\" is good to go for \"%s\".", provEntry.Title, t.Basename()))
+							entry = provEntry
+							break
+						}
+					}
+				}
+
+				subCondManualInputURL(prov, entry)
+				if entry.URL == "" {
+					entry = &provider.Entry{}
+				} else {
+					entry.Track = &t
+				}
+
+				if entry == (&provider.Entry{}) {
+					cuiInterface.Append(fmt.Sprintf("Video for \"%s\" not found.", t.Basename()), cui.ErrorAppend)
 					tracksFailed = append(tracksFailed, t)
 					cuiInterface.ProgressHalfIncrease()
 					continue
 				}
-				for _, youTubeTrackLoopEl := range youTubeTracks {
-					cuiInterface.Append(fmt.Sprintf("Result met: ID: %s,\nTitle: %s,\nUser: %s,\nDuration: %d.",
-						youTubeTrackLoopEl.ID, youTubeTrackLoopEl.Title, youTubeTrackLoopEl.User, youTubeTrackLoopEl.Duration), cui.DebugAppend)
 
-					youTubeTrackPickAuto, youTubeTrackPick = subMatchResult(t, youTubeTrackLoopEl)
-					if subIfPickFromAns(youTubeTrackPickAuto, youTubeTrackPick) {
-						cuiInterface.Append(fmt.Sprintf("Video \"%s\" is good to go for \"%s\".", youTubeTrackLoopEl.Title, t.Basename()))
-						youTubeTrack = youTubeTrackLoopEl
-						break
+				if *argSimulate {
+					cuiInterface.Append(fmt.Sprintf("I would like to download \"%s\" for \"%s\" track, but I'm just simulating.", entry.URL, t.Basename()))
+					cuiInterface.ProgressHalfIncrease()
+					continue
+				} else if *argReplaceLocal {
+					if t.URL == entry.URL && !entryPick {
+						cuiInterface.Append(fmt.Sprintf("Track \"%s\" is still the best result I can find.", t.Basename()))
+						cuiInterface.Append(fmt.Sprintf("Local track origin URL %s is the same as YouTube chosen one %s.", t.URL, entry.URL), cui.DebugAppend)
+						cuiInterface.ProgressHalfIncrease()
+						continue
+					} else {
+						t.URL = ""
+						t.Local = false
 					}
 				}
 			}
 
-			subCondManualInputURL(&youTubeTrack)
-			if youTubeTrack.URL == "" {
-				youTubeTrack = youtube.Track{}
-			} else {
-				youTubeTrack.Track = &t
-			}
-
-			if youTubeTrack == (youtube.Track{}) {
-				cuiInterface.Append(fmt.Sprintf("Video for \"%s\" not found.", t.Basename()), cui.ErrorAppend)
-				tracksFailed = append(tracksFailed, t)
-				cuiInterface.ProgressHalfIncrease()
-				continue
-			}
-
-			if *argSimulate {
-				cuiInterface.Append(fmt.Sprintf("I would like to download \"%s\" for \"%s\" track, but I'm just simulating.", youTubeTrack.URL, t.Basename()))
-				cuiInterface.ProgressHalfIncrease()
-				continue
-			} else if *argReplaceLocal {
-				if t.URL == youTubeTrack.URL && !youTubeTrackPick {
-					cuiInterface.Append(fmt.Sprintf("Track \"%s\" is still the best result I can find.", t.Basename()))
-					cuiInterface.Append(fmt.Sprintf("Local track origin URL %s is the same as YouTube chosen one %s.", t.URL, youTubeTrack.URL), cui.DebugAppend)
-					cuiInterface.ProgressHalfIncrease()
-					continue
-				} else {
-					t.URL = ""
-					t.Local = false
-				}
-			}
-
-			cuiInterface.Append(fmt.Sprintf("Going to download \"%s\" from %s...", youTubeTrack.Title, youTubeTrack.URL))
-			err := youTubeTrack.Download()
+			cuiInterface.Append(fmt.Sprintf("Going to download \"%s\" from %s...", entry.Title, entry.URL))
+			err := prov.Download(entry)
 			if err != nil {
 				cuiInterface.Append(fmt.Sprintf("Something went wrong downloading \"%s\": %s.", t.Basename(), err.Error()), cui.WarningAppend)
 				tracksFailed = append(tracksFailed, t)
 				cuiInterface.ProgressHalfIncrease()
 				continue
 			} else {
-				t.URL = youTubeTrack.URL
+				t.URL = entry.URL
 			}
 		}
 
@@ -981,11 +989,11 @@ func subCondFlushID3FrameYouTubeURL(t track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.URL) > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameYouTubeURL))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameYouTubeURL) != t.URL)) {
-		cuiInterface.Append("Inflating youtube origin url metadata...", cui.DebugAppend)
+		cuiInterface.Append("Inflating origin url metadata...", cui.DebugAppend)
 		trackMp3.AddCommentFrame(id3v2.CommentFrame{
 			Encoding:    id3v2.EncodingUTF8,
 			Language:    "eng",
-			Description: "youtube",
+			Description: "origin",
 			Text:        t.URL,
 		})
 	}
@@ -1070,19 +1078,18 @@ func subCountSongs() (int, int, int) {
 	return songsFetch, songsFlush, songsIgnore
 }
 
-func subMatchResult(t track.Track, youTubeTrack youtube.Track) (bool, bool) {
+func subMatchResult(p provider.Provider, t *track.Track, e *provider.Entry) (bool, bool) {
 	var (
 		ansInput     bool
 		ansAutomated bool
 		ansErr       error
 	)
-	ansErr = youTubeTrack.Match(t)
+	ansErr = p.Match(e, t)
 	ansAutomated = bool(ansErr == nil)
 	if *argInteractive {
 		ansInput = cuiInterface.Prompt(fmt.Sprintf("Do you want to download the following video for \"%s\"?\n"+
 			"ID: %s\nTitle: %s\nUser: %s\nDuration: %d\nURL: %s\nResult is matching: %s",
-			t.Basename(), youTubeTrack.ID, youTubeTrack.Title, youTubeTrack.User,
-			youTubeTrack.Duration, youTubeTrack.URL, strconv.FormatBool(ansAutomated)), cui.PromptBinary)
+			t.Basename(), e.ID, e.Title, e.User, e.Duration, e.URL, strconv.FormatBool(ansAutomated)), cui.PromptBinary)
 	}
 	return ansAutomated, ansInput
 }
@@ -1091,13 +1098,13 @@ func subIfPickFromAns(ansAutomated bool, ansInput bool) bool {
 	return (!*argInteractive && ansAutomated) || (*argInteractive && ansInput)
 }
 
-func subCondManualInputURL(youTubeTrack *youtube.Track) {
-	if *argInteractive && youTubeTrack.URL == "" {
-		inputURL := cuiInterface.PromptInputMessage(fmt.Sprintf("Please, manually enter URL for \"%s\"", youTubeTrack.Track.Basename()), cui.PromptInput)
+func subCondManualInputURL(p provider.Provider, e *provider.Entry) {
+	if *argInteractive && e.URL == "" {
+		inputURL := cuiInterface.PromptInputMessage(fmt.Sprintf("Please, manually enter URL for \"%s\"", e.Track.Basename()), cui.PromptInput)
 		if len(inputURL) > 0 {
-			if err := youtube.ValidateURL(inputURL); err == nil {
-				youTubeTrack.Title = "input video"
-				youTubeTrack.URL = inputURL
+			if err := p.ValidateURL(inputURL); err == nil {
+				e.Title = "input video"
+				e.URL = inputURL
 			} else {
 				cuiInterface.Prompt(fmt.Sprintf("Something went wrong: %s", err.Error()))
 			}

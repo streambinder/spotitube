@@ -1,4 +1,4 @@
-package youtube
+package provider
 
 import (
 	"bytes"
@@ -18,20 +18,6 @@ import (
 	"github.com/gosimple/slug"
 )
 
-// Tracks : Track array
-type Tracks []Track
-
-// Track : single YouTube search result struct
-type Track struct {
-	Track         *track.Track
-	ID            string
-	URL           string
-	Title         string
-	User          string
-	Duration      int
-	AffinityScore int
-}
-
 const (
 	// YouTubeVideoPrefix : YouTube video prefix
 	YouTubeVideoPrefix = "https://www.youtube.com"
@@ -49,8 +35,14 @@ const (
 	YouTubeDurationTolerance = 20 // second(s)
 )
 
-// QueryTracks : initialize a Tracks object by searching for Track results
-func QueryTracks(track *track.Track) (Tracks, error) {
+// YouTubeProvider is the provider implementation which uses as source
+// YouTube videos.
+type YouTubeProvider struct {
+	Provider
+}
+
+// Query : query provider for entries related to track
+func (p YouTubeProvider) Query(track *track.Track) ([]*Entry, error) {
 	var (
 		doc         *goquery.Document
 		queryString = fmt.Sprintf(YouTubeQueryPattern,
@@ -65,58 +57,67 @@ func QueryTracks(track *track.Track) (Tracks, error) {
 		doc, err = goquery.NewDocument(queryString)
 	}
 	if err != nil {
-		return Tracks{}, fmt.Errorf(fmt.Sprintf("Cannot retrieve doc from \"%s\": %s", queryString, err.Error()))
+		return []*Entry{}, fmt.Errorf(fmt.Sprintf("Cannot retrieve doc from \"%s\": %s", queryString, err.Error()))
 	}
 	html, _ := doc.Html()
 	if strings.Contains(strings.ToLower(html), "unusual traffic") {
-		return Tracks{}, fmt.Errorf("YouTube busted you: you'd better wait few minutes before retrying firing thousands video requests")
+		return []*Entry{}, fmt.Errorf("YouTube busted you: you'd better wait few minutes before retrying firing thousands video requests")
 	}
 
-	tracks, err := pullTracksFromDoc(*track, doc)
+	entries, err := pullTracksFromDoc(*track, doc)
 	if err != nil {
-		return Tracks{}, err
+		return []*Entry{}, err
 	}
 
-	tracks = tracks.evaluateScores()
-	slice.Sort(tracks[:], func(i, j int) bool {
+	evaluateScores(entries)
+	slice.Sort(entries[:], func(i, j int) bool {
 		var iPlus, jPlus int
-		if tracks[i].AffinityScore == tracks[j].AffinityScore {
-			if err := tracks[i].Track.Seems(fmt.Sprintf("%s %s", tracks[i].User, tracks[i].Title)); err == nil {
+		if entries[i].AffinityScore == entries[j].AffinityScore {
+			if err := entries[i].Track.Seems(fmt.Sprintf("%s %s", entries[i].User, entries[i].Title)); err == nil {
 				iPlus = 1
 			}
-			if err := tracks[j].Track.Seems(fmt.Sprintf("%s %s", tracks[j].User, tracks[j].Title)); err == nil {
+			if err := entries[j].Track.Seems(fmt.Sprintf("%s %s", entries[j].User, entries[j].Title)); err == nil {
 				jPlus = 1
 			}
 		}
-		return tracks[i].AffinityScore+iPlus > tracks[j].AffinityScore+jPlus
+		return entries[i].AffinityScore+iPlus > entries[j].AffinityScore+jPlus
 	})
-	return tracks, nil
+	return entries, nil
 }
 
-// Match : return nil error if YouTube Track result object is matching with input Track object
-func (youtube_track Track) Match(track track.Track) error {
-	if int(math.Abs(float64(track.Duration-youtube_track.Duration))) > YouTubeDurationTolerance {
+// Match : return nil error if YouTube entry is matching with track
+func (p YouTubeProvider) Match(e *Entry, t *track.Track) error {
+	if int(math.Abs(float64(t.Duration-e.Duration))) > YouTubeDurationTolerance {
 		return fmt.Errorf(fmt.Sprintf("The duration difference is excessive: | %d - %d | = %d (max tolerated: %d)",
-			track.Duration, youtube_track.Duration, int(math.Abs(float64(track.Duration-youtube_track.Duration))), YouTubeDurationTolerance))
+			t.Duration, e.Duration, int(math.Abs(float64(t.Duration-e.Duration))), YouTubeDurationTolerance))
 	}
-	if strings.Contains(youtube_track.URL, "&list=") {
+	if strings.Contains(e.URL, "&list=") {
 		return fmt.Errorf("Track is actually pointing to playlist")
 	}
-	if strings.Contains(youtube_track.URL, "/user/") {
+	if strings.Contains(e.URL, "/user/") {
 		return fmt.Errorf("Track is actually pointing to user")
 	}
-	return track.Seems(fmt.Sprintf("%s %s", youtube_track.User, youtube_track.Title))
+	return t.Seems(fmt.Sprintf("%s %s", e.User, e.Title))
 }
 
-// Download : delegate youtube-dl call to download YouTube Track result
-func (youtube_track Track) Download() error {
+// Download : delegate youtube-dl call to download entry
+func (p YouTubeProvider) Download(e *Entry) error {
 	var commandOut bytes.Buffer
 	commandCmd := "youtube-dl"
-	commandArgs := []string{"--format", "bestaudio", "--extract-audio", "--audio-format", spotitube.SongExtension, "--audio-quality", "0", "--output", strings.Replace(youtube_track.Track.FilenameTemporary(), fmt.Sprintf(".%s", spotitube.SongExtension), "", -1) + ".%(ext)s", youtube_track.URL}
+	commandArgs := []string{"--format", "bestaudio", "--extract-audio", "--audio-format", spotitube.SongExtension, "--audio-quality", "0", "--output", strings.Replace(e.Track.FilenameTemporary(), fmt.Sprintf(".%s", spotitube.SongExtension), "", -1) + ".%(ext)s", e.URL}
 	commandObj := exec.Command(commandCmd, commandArgs...)
 	commandObj.Stderr = &commandOut
 	if commandErr := commandObj.Run(); commandErr != nil {
 		return fmt.Errorf(fmt.Sprintf("Something went wrong while executing \"%s %s\":\n%s", commandCmd, strings.Join(commandArgs, " "), commandOut.String()))
+	}
+	return nil
+}
+
+// ValidateURL : return nil error if input URL is a valid YouTube URL
+func (p YouTubeProvider) ValidateURL(url string) error {
+	if !strings.Contains(strings.ToLower(url), "youtu.be/") &&
+		!strings.Contains(strings.ToLower(url), "watch?v=") {
+		return fmt.Errorf(fmt.Sprintf("URL %s doesn't seem to be pointing to any YouTube video.", url))
 	}
 	return nil
 }
@@ -138,18 +139,9 @@ func IDFromURL(url string) string {
 	return idPart
 }
 
-// ValidateURL : return nil error if input URL is a valid YouTube URL
-func ValidateURL(url string) error {
-	if !strings.Contains(strings.ToLower(url), "youtu.be/") &&
-		!strings.Contains(strings.ToLower(url), "watch?v=") {
-		return fmt.Errorf(fmt.Sprintf("URL %s doesn't seem to be pointing to any YouTube video.", url))
-	}
-	return nil
-}
-
-func pullTracksFromDoc(track track.Track, document *goquery.Document) (Tracks, error) {
+func pullTracksFromDoc(track track.Track, document *goquery.Document) ([]*Entry, error) {
 	var (
-		tracks            = []Track{}
+		entries           = []*Entry{}
 		selection         = document.Find(YouTubeHTMLVideoSelector)
 		selectionDesc     = document.Find(YouTubeHTMLDescSelector)
 		selectionDuration = document.Find(YouTubeHTMLDurationSelector)
@@ -188,7 +180,7 @@ func pullTracksFromDoc(track track.Track, document *goquery.Document) (Tracks, e
 		if itemHrefOk && itemTitleOk && itemLengthOk &&
 			(strings.Contains(strings.ToLower(itemHref), "youtu.be") || !strings.Contains(strings.ToLower(itemHref), "&list=")) &&
 			(strings.Contains(strings.ToLower(itemHref), "youtu.be") || strings.Contains(strings.ToLower(itemHref), "watch?v=")) {
-			tracks = append(tracks, Track{
+			entries = append(entries, &Entry{
 				Track:    &track,
 				ID:       IDFromURL(YouTubeVideoPrefix + itemHref),
 				URL:      YouTubeVideoPrefix + itemHref,
@@ -199,12 +191,11 @@ func pullTracksFromDoc(track track.Track, document *goquery.Document) (Tracks, e
 		}
 	}
 
-	return tracks, nil
+	return entries, nil
 }
 
-func (tracks Tracks) evaluateScores() Tracks {
-	var evaluatedTracks Tracks
-	for _, t := range tracks {
+func evaluateScores(e []*Entry) {
+	for _, t := range e {
 		if math.Abs(float64(t.Track.Duration-t.Duration)) <= float64(YouTubeDurationTolerance/2) {
 			t.AffinityScore += 20
 		} else if math.Abs(float64(t.Track.Duration-t.Duration)) <= float64(YouTubeDurationTolerance) {
@@ -221,7 +212,5 @@ func (tracks Tracks) evaluateScores() Tracks {
 		}
 		levenshteinDistance := levenshtein.ComputeDistance(t.Track.Query(), fmt.Sprintf("%s %s", t.User, t.Title))
 		t.AffinityScore -= levenshteinDistance
-		evaluatedTracks = append(evaluatedTracks, t)
 	}
-	return evaluatedTracks
 }

@@ -13,9 +13,7 @@ import (
 	"../track"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/agnivade/levenshtein"
 	"github.com/bradfitz/slice"
-	"github.com/gosimple/slug"
 )
 
 const (
@@ -39,6 +37,7 @@ const (
 // YouTube videos.
 type YouTubeProvider struct {
 	Provider
+	Scorer
 }
 
 // Query : query provider for entries related to track
@@ -69,19 +68,7 @@ func (p YouTubeProvider) Query(track *track.Track) ([]*Entry, error) {
 		return []*Entry{}, err
 	}
 
-	evaluateScores(entries)
-	slice.Sort(entries[:], func(i, j int) bool {
-		var iPlus, jPlus int
-		if entries[i].AffinityScore == entries[j].AffinityScore {
-			if err := entries[i].Track.Seems(fmt.Sprintf("%s %s", entries[i].User, entries[i].Title)); err == nil {
-				iPlus = 1
-			}
-			if err := entries[j].Track.Seems(fmt.Sprintf("%s %s", entries[j].User, entries[j].Title)); err == nil {
-				jPlus = 1
-			}
-		}
-		return entries[i].AffinityScore+iPlus > entries[j].AffinityScore+jPlus
-	})
+	slice.Sort(entries[:], func(i, j int) bool { return p.Score(entries[i], track) > p.Score(entries[j], track) })
 	return entries, nil
 }
 
@@ -101,10 +88,10 @@ func (p YouTubeProvider) Match(e *Entry, t *track.Track) error {
 }
 
 // Download : delegate youtube-dl call to download entry
-func (p YouTubeProvider) Download(e *Entry) error {
+func (p YouTubeProvider) Download(e *Entry, fname string) error {
 	var commandOut bytes.Buffer
 	commandCmd := "youtube-dl"
-	commandArgs := []string{"--format", "bestaudio", "--extract-audio", "--audio-format", spotitube.SongExtension, "--audio-quality", "0", "--output", strings.Replace(e.Track.FilenameTemporary(), fmt.Sprintf(".%s", spotitube.SongExtension), "", -1) + ".%(ext)s", e.URL}
+	commandArgs := []string{"--format", "bestaudio", "--extract-audio", "--audio-format", spotitube.SongExtension, "--audio-quality", "0", "--output", strings.Replace(fname, fmt.Sprintf(".%s", spotitube.SongExtension), "", -1) + ".%(ext)s", e.URL}
 	commandObj := exec.Command(commandCmd, commandArgs...)
 	commandObj.Stderr = &commandOut
 	if commandErr := commandObj.Run(); commandErr != nil {
@@ -181,7 +168,6 @@ func pullTracksFromDoc(track track.Track, document *goquery.Document) ([]*Entry,
 			(strings.Contains(strings.ToLower(itemHref), "youtu.be") || !strings.Contains(strings.ToLower(itemHref), "&list=")) &&
 			(strings.Contains(strings.ToLower(itemHref), "youtu.be") || strings.Contains(strings.ToLower(itemHref), "watch?v=")) {
 			entries = append(entries, &Entry{
-				Track:    &track,
 				ID:       IDFromURL(YouTubeVideoPrefix + itemHref),
 				URL:      YouTubeVideoPrefix + itemHref,
 				Title:    itemTitle,
@@ -192,25 +178,4 @@ func pullTracksFromDoc(track track.Track, document *goquery.Document) ([]*Entry,
 	}
 
 	return entries, nil
-}
-
-func evaluateScores(e []*Entry) {
-	for _, t := range e {
-		if math.Abs(float64(t.Track.Duration-t.Duration)) <= float64(YouTubeDurationTolerance/2) {
-			t.AffinityScore += 20
-		} else if math.Abs(float64(t.Track.Duration-t.Duration)) <= float64(YouTubeDurationTolerance) {
-			t.AffinityScore += 10
-		}
-		if err := t.Track.SeemsByWordMatch(fmt.Sprintf("%s %s", t.User, t.Title)); err == nil {
-			t.AffinityScore += 10
-		}
-		if strings.Contains(slug.Make(t.User), slug.Make(t.Track.Artist)) {
-			t.AffinityScore += 10
-		}
-		if track.IsType(t.Title, t.Track.Type()) {
-			t.AffinityScore += 10
-		}
-		levenshteinDistance := levenshtein.ComputeDistance(t.Track.Query(), fmt.Sprintf("%s %s", t.User, t.Title))
-		t.AffinityScore -= levenshteinDistance
-	}
 }

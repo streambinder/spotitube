@@ -409,7 +409,7 @@ func mainSearch() {
 
 		if subIfSongSearch(t) {
 			var (
-				entry    = &provider.Entry{Track: &t}
+				entry    = new(provider.Entry)
 				prov     provider.Provider
 				provName string
 			)
@@ -443,11 +443,9 @@ func mainSearch() {
 					}
 				}
 
-				subCondManualInputURL(prov, entry)
+				subCondManualInputURL(prov, entry, &t)
 				if entry.URL == "" {
 					entry = &provider.Entry{}
-				} else {
-					entry.Track = &t
 				}
 
 				if entry == (&provider.Entry{}) {
@@ -475,7 +473,7 @@ func mainSearch() {
 			}
 
 			cuiInterface.Append(fmt.Sprintf("Going to download \"%s\" from %s...", entry.Title, entry.URL))
-			err := prov.Download(entry)
+			err := prov.Download(entry, t.FilenameTemporary())
 			if err != nil {
 				cuiInterface.Append(fmt.Sprintf("Something went wrong downloading \"%s\": %s.", t.Basename(), err.Error()), cui.WarningAppend)
 				tracksFailed = append(tracksFailed, t)
@@ -1098,9 +1096,9 @@ func subIfPickFromAns(ansAutomated bool, ansInput bool) bool {
 	return (!*argInteractive && ansAutomated) || (*argInteractive && ansInput)
 }
 
-func subCondManualInputURL(p provider.Provider, e *provider.Entry) {
+func subCondManualInputURL(p provider.Provider, e *provider.Entry, t *track.Track) {
 	if *argInteractive && e.URL == "" {
-		inputURL := cuiInterface.PromptInputMessage(fmt.Sprintf("Please, manually enter URL for \"%s\"", e.Track.Basename()), cui.PromptInput)
+		inputURL := cuiInterface.PromptInputMessage(fmt.Sprintf("Please, manually enter URL for \"%s\"", t.Basename()), cui.PromptInput)
 		if len(inputURL) > 0 {
 			if err := p.ValidateURL(inputURL); err == nil {
 				e.Title = "input video"

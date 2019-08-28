@@ -124,7 +124,7 @@ func main() {
 	argDisableIndexing = flag.Bool("disable-indexing", false, "Disable automatic library indexing (used to keep track of tracks names modifications)")
 	argAuthenticateOutside = flag.Bool("authenticate-outside", false, "Enable authentication flow to be handled outside this machine")
 	argInteractive = flag.Bool("interactive", false, "Enable interactive mode")
-	argManualInput = flag.Bool("manual-input", false, "Always manually insert YouTube URL used for songs download")
+	argManualInput = flag.Bool("manual-input", false, "Always manually insert URL used for songs download")
 	argRemoveDuplicates = flag.Bool("remove-duplicates", false, "Remove encountered duplicates from online library/playlist")
 	argCleanJunks = flag.Bool("clean-junks", false, "Scan for junks file and clean them")
 	argLog = flag.Bool("log", false, "Enable logging into file ./spotitube.log")
@@ -462,7 +462,7 @@ func mainSearch() {
 				} else if *argReplaceLocal {
 					if t.URL == entry.URL && !entryPick {
 						cuiInterface.Append(fmt.Sprintf("Track \"%s\" is still the best result I can find.", t.Basename()))
-						cuiInterface.Append(fmt.Sprintf("Local track origin URL %s is the same as YouTube chosen one %s.", t.URL, entry.URL), cui.DebugAppend)
+						cuiInterface.Append(fmt.Sprintf("Local track origin URL %s is the same as the chosen one %s.", t.URL, entry.URL), cui.DebugAppend)
 						cuiInterface.ProgressHalfIncrease()
 						continue
 					} else {
@@ -840,7 +840,7 @@ func subSongFlushMetadata(t track.Track) {
 		subCondFlushID3FrameTrackTotals(t, trackMp3)
 		subCondFlushID3FrameArtwork(t, trackMp3)
 		subCondFlushID3FrameArtworkURL(t, trackMp3)
-		subCondFlushID3FrameYouTubeURL(t, trackMp3)
+		subCondFlushID3FrameOrigin(t, trackMp3)
 		subCondFlushID3FrameDuration(t, trackMp3)
 		subCondFlushID3FrameSpotifyID(t, trackMp3)
 		subCondFlushID3FrameLyrics(t, trackMp3)
@@ -983,10 +983,10 @@ func subCondFlushID3FrameArtworkURL(t track.Track, trackMp3 *id3v2.Tag) {
 	}
 }
 
-func subCondFlushID3FrameYouTubeURL(t track.Track, trackMp3 *id3v2.Tag) {
+func subCondFlushID3FrameOrigin(t track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.URL) > 0 &&
-		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameYouTubeURL))) &&
-		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameYouTubeURL) != t.URL)) {
+		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameOrigin))) &&
+		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameOrigin) != t.URL)) {
 		cuiInterface.Append("Inflating origin url metadata...", cui.DebugAppend)
 		trackMp3.AddCommentFrame(id3v2.CommentFrame{
 			Encoding:    id3v2.EncodingUTF8,

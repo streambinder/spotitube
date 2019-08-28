@@ -83,7 +83,7 @@ func OpenLocalTrack(filename string) (Track, error) {
 		TrackTotals: 0,
 		Duration:    0,
 		Image:       TagGetFrame(trackMp3, ID3FrameArtworkURL),
-		URL:         TagGetFrame(trackMp3, ID3FrameYouTubeURL),
+		URL:         TagGetFrame(trackMp3, ID3FrameOrigin),
 		SpotifyID:   TagGetFrame(trackMp3, ID3FrameSpotifyID),
 		Lyrics:      TagGetFrame(trackMp3, ID3FrameLyrics),
 		Local:       true,
@@ -159,7 +159,7 @@ func ParseSpotifyTrack(spotifyTrack spotify.FullTrack, spotifyAlbum spotify.Full
 	}
 
 	if track.Local {
-		track.URL = track.GetID3Frame(ID3FrameYouTubeURL)
+		track.URL = track.GetID3Frame(ID3FrameOrigin)
 		track.Lyrics = track.GetID3Frame(ID3FrameLyrics)
 	}
 

@@ -29,8 +29,6 @@ const (
 	YouTubeHTMLDescSelector = ".yt-lockup-byline"
 	// YouTubeHTMLDurationSelector : YouTube entry duration selector
 	YouTubeHTMLDurationSelector = ".accessible-description"
-	// YouTubeDurationTolerance : max video duration difference tolerance
-	YouTubeDurationTolerance = 20 // second(s)
 )
 
 // YouTubeProvider is the provider implementation which uses as source
@@ -74,9 +72,9 @@ func (p YouTubeProvider) Query(track *track.Track) ([]*Entry, error) {
 
 // Match : return nil error if YouTube entry is matching with track
 func (p YouTubeProvider) Match(e *Entry, t *track.Track) error {
-	if int(math.Abs(float64(t.Duration-e.Duration))) > YouTubeDurationTolerance {
+	if int(math.Abs(float64(t.Duration-e.Duration))) > DurationTolerance {
 		return fmt.Errorf(fmt.Sprintf("The duration difference is excessive: | %d - %d | = %d (max tolerated: %d)",
-			t.Duration, e.Duration, int(math.Abs(float64(t.Duration-e.Duration))), YouTubeDurationTolerance))
+			t.Duration, e.Duration, int(math.Abs(float64(t.Duration-e.Duration))), DurationTolerance))
 	}
 	if strings.Contains(e.URL, "&list=") {
 		return fmt.Errorf("Track is actually pointing to playlist")

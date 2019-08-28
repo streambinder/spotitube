@@ -29,8 +29,8 @@ const (
 	ID3FrameArtworkURL
 	// ID3FrameLyrics : ID3 lyrics frame tag identifier
 	ID3FrameLyrics
-	// ID3FrameYouTubeURL : ID3 youtube URL frame tag identifier
-	ID3FrameYouTubeURL
+	// ID3FrameOrigin : ID3 origin frame tag identifier
+	ID3FrameOrigin
 	// ID3FrameDuration : ID3 duration frame tag identifier
 	ID3FrameDuration
 	// ID3FrameSpotifyID : ID3 Spotify ID frame tag identifier
@@ -75,8 +75,8 @@ func TagGetFrame(tag *id3v2.Tag, frame int) string {
 		return TagGetFrameArtworkURL(tag)
 	case ID3FrameLyrics:
 		return TagGetFrameLyrics(tag)
-	case ID3FrameYouTubeURL:
-		return TagGetFrameYouTubeURL(tag)
+	case ID3FrameOrigin:
+		return TagGetFrameOrigin(tag)
 	case ID3FrameDuration:
 		return TagGetFrameDuration(tag)
 	case ID3FrameSpotifyID:
@@ -176,12 +176,12 @@ func TagGetFrameLyrics(tag *id3v2.Tag) string {
 	return ""
 }
 
-// TagGetFrameYouTubeURL : get youtube URL frame from input Tag
-func TagGetFrameYouTubeURL(tag *id3v2.Tag) string {
+// TagGetFrameOrigin : get origin frame from input Tag
+func TagGetFrameOrigin(tag *id3v2.Tag) string {
 	if len(tag.GetFrames(tag.CommonID("Comments"))) > 0 {
 		for _, frameComment := range tag.GetFrames(tag.CommonID("Comments")) {
 			comment, ok := frameComment.(id3v2.CommentFrame)
-			if ok && comment.Description == "youtube" {
+			if ok && comment.Description == "origin" {
 				return comment.Text
 			}
 		}

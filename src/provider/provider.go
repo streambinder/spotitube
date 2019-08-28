@@ -10,12 +10,17 @@ import (
 	"github.com/gosimple/slug"
 )
 
+const (
+	// DurationTolerance : max result duration difference tolerance
+	DurationTolerance = 20 // second(s)
+)
+
 // Providers is an exported map of usable providers
 var Providers = map[string]Provider{
 	"YouTube": new(YouTubeProvider),
 }
 
-// Entry : single YouTube search result struct
+// Entry : single search result struct
 type Entry struct {
 	ID       string
 	URL      string
@@ -47,9 +52,9 @@ type Scorer struct {
 func (s Scorer) Score(e *Entry, t *track.Track) int {
 	var score = 0 - levenshtein.ComputeDistance(t.Query(), fmt.Sprintf("%s %s", e.User, e.Title))
 
-	if math.Abs(float64(t.Duration-e.Duration)) <= float64(YouTubeDurationTolerance/2) {
+	if math.Abs(float64(t.Duration-e.Duration)) <= float64(DurationTolerance/2) {
 		score += 20
-	} else if math.Abs(float64(t.Duration-e.Duration)) <= float64(YouTubeDurationTolerance) {
+	} else if math.Abs(float64(t.Duration-e.Duration)) <= float64(DurationTolerance) {
 		score += 10
 	}
 

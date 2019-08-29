@@ -74,8 +74,8 @@ var (
 	waitGroupPool = make(chan bool, spotitube.ConcurrencyLimit)
 	waitIndex     = make(chan bool, 1)
 
-	cuiInterface *cui.CUI
-	notify       *notificator.Notificator
+	ui     *cui.CUI
+	notify *notificator.Notificator
 
 	procCurrentBin      string
 	userLocalConfigPath = spotitube.LocalConfigPath()
@@ -183,23 +183,23 @@ func main() {
 	}
 
 	var err error
-	if cuiInterface, err = cui.Startup(guiOptions); err != nil {
+	if ui, err = cui.Startup(guiOptions); err != nil {
 		fmt.Println(fmt.Sprintf("Unable to build user interface: %s", err.Error()))
 	}
 
-	cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Folder:", cui.StyleBold), *argFolder), cui.PanelLeftTop)
+	ui.Append(fmt.Sprintf("%s %s", cui.Font("Folder:", cui.StyleBold), *argFolder), cui.PanelLeftTop)
 	if *argLog {
-		cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Log:", cui.StyleBold), logger.LogFilename), cui.PanelLeftTop)
+		ui.Append(fmt.Sprintf("%s %s", cui.Font("Log:", cui.StyleBold), logger.LogFilename), cui.PanelLeftTop)
 	}
-	cuiInterface.Append(fmt.Sprintf("%s %d", cui.Font("Version:", cui.StyleBold), spotitube.Version), cui.PanelLeftBottom)
+	ui.Append(fmt.Sprintf("%s %d", cui.Font("Version:", cui.StyleBold), spotitube.Version), cui.PanelLeftBottom)
 	if os.Getenv("FORKED") == "1" {
-		cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Caller:", cui.StyleBold), "automatically updated"), cui.PanelLeftBottom)
+		ui.Append(fmt.Sprintf("%s %s", cui.Font("Caller:", cui.StyleBold), "automatically updated"), cui.PanelLeftBottom)
 	} else {
-		cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Caller:", cui.StyleBold), "installed"), cui.PanelLeftBottom)
+		ui.Append(fmt.Sprintf("%s %s", cui.Font("Caller:", cui.StyleBold), "installed"), cui.PanelLeftBottom)
 	}
-	cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Date:", cui.StyleBold), time.Now().Format("2006-01-02 15:04:05")), cui.PanelLeftBottom)
-	cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("URL:", cui.StyleBold), spotitube.VersionRepository), cui.PanelLeftBottom)
-	cuiInterface.Append(fmt.Sprintf("%s GPL-3.0", cui.Font("License:", cui.StyleBold)), cui.PanelLeftBottom)
+	ui.Append(fmt.Sprintf("%s %s", cui.Font("Date:", cui.StyleBold), time.Now().Format("2006-01-02 15:04:05")), cui.PanelLeftBottom)
+	ui.Append(fmt.Sprintf("%s %s", cui.Font("URL:", cui.StyleBold), spotitube.VersionRepository), cui.PanelLeftBottom)
+	ui.Append(fmt.Sprintf("%s GPL-3.0", cui.Font("License:", cui.StyleBold)), cui.PanelLeftBottom)
 
 	subCheckDependencies()
 	subCheckInternet()
@@ -211,7 +211,7 @@ func main() {
 	}
 
 	go func() {
-		<-cuiInterface.CloseChan
+		<-ui.CloseChan
 		subSafeExit()
 	}()
 	if *argDisableGui {
@@ -235,20 +235,20 @@ func mainFetch() {
 		} else {
 			*argDisableBrowserOpening = true
 			spotifyAuthHost = "spotitube.local"
-			cuiInterface.Prompt("Outside authentication enabled: assure \"spotitube.local\" points to this machine.")
+			ui.Prompt("Outside authentication enabled: assure \"spotitube.local\" points to this machine.")
 		}
 		spotifyAuthURL := spotify.BuildAuthURL(spotifyAuthHost)
-		cuiInterface.Append(fmt.Sprintf("Authentication URL: %s", spotifyAuthURL.Short), cui.ParagraphAutoReturn)
+		ui.Append(fmt.Sprintf("Authentication URL: %s", spotifyAuthURL.Short), cui.ParagraphAutoReturn)
 		if !*argDisableBrowserOpening {
-			cuiInterface.Append("Waiting for automatic login process. If wait is too long, manually open that URL.", cui.DebugAppend)
+			ui.Append("Waiting for automatic login process. If wait is too long, manually open that URL.", cui.DebugAppend)
 		}
 		var err error
 		if spotifyClient, err = spotify.Auth(spotifyAuthURL.Full, spotifyAuthHost, !*argDisableBrowserOpening); err != nil {
-			cuiInterface.Prompt("Unable to authenticate to spotify.", cui.PromptExit)
+			ui.Prompt("Unable to authenticate to spotify.", cui.PromptExit)
 		}
-		cuiInterface.Append("Authentication completed.")
+		ui.Append("Authentication completed.")
 		spotifyUser, spotifyUserID = spotifyClient.User()
-		cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Session user:", cui.StyleBold), spotifyUser), cui.PanelLeftTop)
+		ui.Append(fmt.Sprintf("%s %s", cui.Font("Session user:", cui.StyleBold), spotifyUser), cui.PanelLeftTop)
 
 		var (
 			tracksOnline          []spotify.Track
@@ -264,30 +264,30 @@ func mainFetch() {
 			}
 			tracksDump, tracksDumpErr := subFetchGob(userLocalGob)
 			if tracksDumpErr != nil {
-				cuiInterface.Append(tracksDumpErr.Error(), cui.WarningAppend)
-				cuiInterface.Append("Fetching music library...")
+				ui.Append(tracksDumpErr.Error(), cui.WarningAppend)
+				ui.Append("Fetching music library...")
 				if tracksOnline, tracksErr = spotifyClient.LibraryTracks(); tracksErr != nil {
-					cuiInterface.Prompt(fmt.Sprintf("Something went wrong while fetching tracks from library: %s.", tracksErr.Error()), cui.PromptExit)
+					ui.Prompt(fmt.Sprintf("Something went wrong while fetching tracks from library: %s.", tracksErr.Error()), cui.PromptExit)
 				}
 			} else {
-				cuiInterface.Append(fmt.Sprintf("Tracks loaded from cache."))
-				cuiInterface.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font("Tracks cache lifetime:", cui.StyleBold), int(time.Since(tracksDump.Time).Minutes()), 30), cui.PanelLeftTop)
+				ui.Append(fmt.Sprintf("Tracks loaded from cache."))
+				ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font("Tracks cache lifetime:", cui.StyleBold), int(time.Since(tracksDump.Time).Minutes()), 30), cui.PanelLeftTop)
 				for _, t := range tracksDump.Tracks {
 					tracks = append(tracks, t.FlushLocal())
 				}
 			}
 		} else {
-			cuiInterface.Append("Fetching playlist data...")
+			ui.Append("Fetching playlist data...")
 			var playlistErr error
 			playlistInfo, playlistErr = spotifyClient.Playlist(*argPlaylist)
 			if playlistErr != nil {
-				cuiInterface.Prompt("Something went wrong while fetching playlist info.", cui.PromptExit)
+				ui.Prompt("Something went wrong while fetching playlist info.", cui.PromptExit)
 			} else {
-				cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Playlist name:", cui.StyleBold), playlistInfo.Name), cui.PanelLeftTop)
+				ui.Append(fmt.Sprintf("%s %s", cui.Font("Playlist name:", cui.StyleBold), playlistInfo.Name), cui.PanelLeftTop)
 				if len(playlistInfo.Owner.DisplayName) == 0 && len(strings.Split(*argPlaylist, ":")) >= 3 {
-					cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Playlist owner:", cui.StyleBold), strings.Split(*argPlaylist, ":")[2]), cui.PanelLeftTop)
+					ui.Append(fmt.Sprintf("%s %s", cui.Font("Playlist owner:", cui.StyleBold), strings.Split(*argPlaylist, ":")[2]), cui.PanelLeftTop)
 				} else {
-					cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font("Playlist owner:", cui.StyleBold), playlistInfo.Owner.DisplayName), cui.PanelLeftTop)
+					ui.Append(fmt.Sprintf("%s %s", cui.Font("Playlist owner:", cui.StyleBold), playlistInfo.Owner.DisplayName), cui.PanelLeftTop)
 				}
 
 				userLocalGob = fmt.Sprintf(userLocalGob, playlistInfo.Owner.ID, playlistInfo.Name)
@@ -296,14 +296,14 @@ func mainFetch() {
 				}
 				tracksDump, tracksDumpErr := subFetchGob(userLocalGob)
 				if tracksDumpErr != nil {
-					cuiInterface.Append(tracksDumpErr.Error(), cui.WarningAppend)
-					cuiInterface.Append(fmt.Sprintf("Getting songs from \"%s\" playlist, by \"%s\"...", playlistInfo.Name, playlistInfo.Owner.DisplayName), cui.StyleBold)
+					ui.Append(tracksDumpErr.Error(), cui.WarningAppend)
+					ui.Append(fmt.Sprintf("Getting songs from \"%s\" playlist, by \"%s\"...", playlistInfo.Name, playlistInfo.Owner.DisplayName), cui.StyleBold)
 					if tracksOnline, tracksErr = spotifyClient.PlaylistTracks(*argPlaylist); tracksErr != nil {
-						cuiInterface.Prompt(fmt.Sprintf("Something went wrong while fetching playlist: %s.", tracksErr.Error()), cui.PromptExit)
+						ui.Prompt(fmt.Sprintf("Something went wrong while fetching playlist: %s.", tracksErr.Error()), cui.PromptExit)
 					}
 				} else {
-					cuiInterface.Append(fmt.Sprintf("Tracks loaded from cache."))
-					cuiInterface.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font("Tracks cache lifetime:", cui.StyleBold), int(time.Since(tracksDump.Time).Minutes()), 30), cui.PanelLeftTop)
+					ui.Append(fmt.Sprintf("Tracks loaded from cache."))
+					ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font("Tracks cache lifetime:", cui.StyleBold), int(time.Since(tracksDump.Time).Minutes()), 30), cui.PanelLeftTop)
 					for _, t := range tracksDump.Tracks {
 						tracks = append(tracks, t.FlushLocal())
 					}
@@ -314,10 +314,10 @@ func mainFetch() {
 			tracksOnlineAlbumsIds = append(tracksOnlineAlbumsIds, t.Album.ID)
 		}
 		if tracksOnlineAlbums, tracksErr = spotifyClient.Albums(tracksOnlineAlbumsIds); tracksErr != nil {
-			cuiInterface.Prompt(fmt.Sprintf("Something went wrong while fetching album info: %s.", tracksErr.Error()), cui.PromptExit)
+			ui.Prompt(fmt.Sprintf("Something went wrong while fetching album info: %s.", tracksErr.Error()), cui.PromptExit)
 		}
 
-		cuiInterface.Append("Checking which songs need to be downloaded...")
+		ui.Append("Checking which songs need to be downloaded...")
 		var (
 			tracksDuplicates []spotify.ID
 			tracksMap        = make(map[string]float64)
@@ -328,7 +328,7 @@ func mainFetch() {
 				tracks = append(tracks, track.ParseSpotifyTrack(tracksOnline[trackIndex], tracksOnlineAlbums[trackIndex]))
 				tracksMap[trackID.String()] = 1
 			} else {
-				cuiInterface.Append(fmt.Sprintf("Ignored song duplicate \"%s\" by \"%s\".", tracksOnline[trackIndex].SimpleTrack.Name, tracksOnline[trackIndex].SimpleTrack.Artists[0].Name), cui.WarningAppend)
+				ui.Append(fmt.Sprintf("Ignored song duplicate \"%s\" by \"%s\".", tracksOnline[trackIndex].SimpleTrack.Name, tracksOnline[trackIndex].SimpleTrack.Artists[0].Name), cui.WarningAppend)
 				tracksDuplicates = append(tracksDuplicates, trackID)
 			}
 		}
@@ -336,38 +336,38 @@ func mainFetch() {
 		if *argRemoveDuplicates && len(tracksDuplicates) > 0 {
 			if *argPlaylist == "none" {
 				if removeErr := spotifyClient.RemoveLibraryTracks(tracksDuplicates); removeErr != nil {
-					cuiInterface.Prompt(fmt.Sprintf("Something went wrong while removing %d duplicates: %s.", len(tracksDuplicates), removeErr.Error()))
+					ui.Prompt(fmt.Sprintf("Something went wrong while removing %d duplicates: %s.", len(tracksDuplicates), removeErr.Error()))
 				} else {
-					cuiInterface.Append(fmt.Sprintf("%d duplicate tracks correctly removed from library.", len(tracksDuplicates)))
+					ui.Append(fmt.Sprintf("%d duplicate tracks correctly removed from library.", len(tracksDuplicates)))
 				}
 			} else {
 				if removeErr := spotifyClient.RemovePlaylistTracks(*argPlaylist, tracksDuplicates); removeErr != nil {
-					cuiInterface.Prompt(fmt.Sprintf("Something went wrong while removing %d duplicates: %s.", len(tracksDuplicates), removeErr.Error()))
+					ui.Prompt(fmt.Sprintf("Something went wrong while removing %d duplicates: %s.", len(tracksDuplicates), removeErr.Error()))
 				} else {
-					cuiInterface.Append(fmt.Sprintf("%d duplicate tracks correctly removed from playlist.", len(tracksDuplicates)))
+					ui.Append(fmt.Sprintf("%d duplicate tracks correctly removed from playlist.", len(tracksDuplicates)))
 				}
 			}
 		}
 
 		if dumpErr := system.DumpGob(userLocalGob, track.TracksDump{Tracks: tracks, Time: time.Now()}); dumpErr != nil {
-			cuiInterface.Append(fmt.Sprintf("Unable to cache tracks: %s", dumpErr.Error()), cui.WarningAppend)
+			ui.Append(fmt.Sprintf("Unable to cache tracks: %s", dumpErr.Error()), cui.WarningAppend)
 		}
 
-		cuiInterface.Append(fmt.Sprintf("%s %d", cui.Font("Songs duplicates:", cui.StyleBold), len(tracksDuplicates)), cui.PanelLeftTop)
-		cuiInterface.Append(fmt.Sprintf("%s %d", cui.Font("Songs online:", cui.StyleBold), len(tracks)), cui.PanelLeftTop)
-		cuiInterface.Append(fmt.Sprintf("%s %d", cui.Font("Songs offline:", cui.StyleBold), tracks.CountOffline()), cui.PanelLeftTop)
-		cuiInterface.Append(fmt.Sprintf("%s %d", cui.Font("Songs missing:", cui.StyleBold), tracks.CountOnline()), cui.PanelLeftTop)
+		ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs duplicates:", cui.StyleBold), len(tracksDuplicates)), cui.PanelLeftTop)
+		ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs online:", cui.StyleBold), len(tracks)), cui.PanelLeftTop)
+		ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs offline:", cui.StyleBold), tracks.CountOffline()), cui.PanelLeftTop)
+		ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs missing:", cui.StyleBold), tracks.CountOnline()), cui.PanelLeftTop)
 
 		<-waitIndex
 		close(waitIndex)
 	} else {
-		cuiInterface.Append(fmt.Sprintf("%s %d", cui.Font("Fix song(s):", cui.StyleBold), len(argFix.Paths)), cui.PanelLeftTop)
+		ui.Append(fmt.Sprintf("%s %d", cui.Font("Fix song(s):", cui.StyleBold), len(argFix.Paths)), cui.PanelLeftTop)
 		for _, fixTrack := range argFix.Paths {
 			if t, trackErr := track.OpenLocalTrack(fixTrack); trackErr != nil {
-				cuiInterface.Prompt(fmt.Sprintf("Something went wrong: %s.", trackErr.Error()), cui.PromptExit)
+				ui.Prompt(fmt.Sprintf("Something went wrong: %s.", trackErr.Error()), cui.PromptExit)
 				mainExit()
 			} else {
-				cuiInterface.Append(fmt.Sprintf("%+v\n", t), cui.DebugAppend)
+				ui.Append(fmt.Sprintf("%+v\n", t), cui.DebugAppend)
 				tracks = append(tracks, t)
 			}
 		}
@@ -380,7 +380,7 @@ func mainFetch() {
 	if len(tracks) > 0 {
 		mainSearch()
 	} else {
-		cuiInterface.Prompt("No song needs to be downloaded.", cui.PromptExit)
+		ui.Prompt("No song needs to be downloaded.", cui.PromptExit)
 		mainExit()
 	}
 }
@@ -389,20 +389,20 @@ func mainSearch() {
 	defer mainExit()
 	defer subCleanJunks()
 
-	cuiInterface.ProgressMax = len(tracks)
+	ui.ProgressMax = len(tracks)
 
 	songsFetch, songsFlush, songsIgnore := subCountSongs()
-	cuiInterface.Append(fmt.Sprintf("%d will be downloaded, %d flushed and %d ignored", songsFetch, songsFlush, songsIgnore))
+	ui.Append(fmt.Sprintf("%d will be downloaded, %d flushed and %d ignored", songsFetch, songsFlush, songsIgnore))
 
 	for trackIndex, t := range tracks {
-		cuiInterface.ProgressHalfIncrease()
-		cuiInterface.Append(fmt.Sprintf("%d/%d: \"%s\"", trackIndex+1, len(tracks), t.Basename()), cui.StyleBold)
+		ui.ProgressHalfIncrease()
+		ui.Append(fmt.Sprintf("%d/%d: \"%s\"", trackIndex+1, len(tracks), t.Basename()), cui.StyleBold)
 
 		if trackPath, ok := tracksIndex.Tracks[t.SpotifyID]; ok {
 			if trackPath != t.Filename() {
-				cuiInterface.Append(fmt.Sprintf("Track %s has been renamed: moving local one to %s", t.SpotifyID, t.Filename()))
+				ui.Append(fmt.Sprintf("Track %s has been renamed: moving local one to %s", t.SpotifyID, t.Filename()))
 				if err := subTrackRename(&t); err != nil {
-					cuiInterface.Append(fmt.Sprintf("Unable to rename: %s", err.Error()), cui.ErrorAppend)
+					ui.Append(fmt.Sprintf("Unable to rename: %s", err.Error()), cui.ErrorAppend)
 				}
 			}
 		}
@@ -421,22 +421,22 @@ func mainSearch() {
 					entryPick     bool
 				)
 
-				cuiInterface.Append(fmt.Sprintf("Searching entries on %s provider", provName))
+				ui.Append(fmt.Sprintf("Searching entries on %s provider", provName))
 				if !*argManualInput {
 					provEntries, provErr = prov.Query(&t)
 					if provErr != nil {
-						cuiInterface.Append(fmt.Sprintf("Something went wrong while searching for \"%s\" track: %s.", t.Basename(), provErr.Error()), cui.WarningAppend)
+						ui.Append(fmt.Sprintf("Something went wrong while searching for \"%s\" track: %s.", t.Basename(), provErr.Error()), cui.WarningAppend)
 						tracksFailed = append(tracksFailed, t)
-						cuiInterface.ProgressHalfIncrease()
+						ui.ProgressHalfIncrease()
 						continue
 					}
 					for _, provEntry := range provEntries {
-						cuiInterface.Append(fmt.Sprintf("Result met: ID: %s,\nTitle: %s,\nUser: %s,\nDuration: %d.",
+						ui.Append(fmt.Sprintf("Result met: ID: %s,\nTitle: %s,\nUser: %s,\nDuration: %d.",
 							provEntry.ID, provEntry.Title, provEntry.User, provEntry.Duration), cui.DebugAppend)
 
 						entryPickAuto, entryPick = subMatchResult(prov, &t, provEntry)
 						if subIfPickFromAns(entryPickAuto, entryPick) {
-							cuiInterface.Append(fmt.Sprintf("Video \"%s\" is good to go for \"%s\".", provEntry.Title, t.Basename()))
+							ui.Append(fmt.Sprintf("Video \"%s\" is good to go for \"%s\".", provEntry.Title, t.Basename()))
 							entry = provEntry
 							break
 						}
@@ -449,21 +449,21 @@ func mainSearch() {
 				}
 
 				if entry == (&provider.Entry{}) {
-					cuiInterface.Append(fmt.Sprintf("Video for \"%s\" not found.", t.Basename()), cui.ErrorAppend)
+					ui.Append(fmt.Sprintf("Video for \"%s\" not found.", t.Basename()), cui.ErrorAppend)
 					tracksFailed = append(tracksFailed, t)
-					cuiInterface.ProgressHalfIncrease()
+					ui.ProgressHalfIncrease()
 					continue
 				}
 
 				if *argSimulate {
-					cuiInterface.Append(fmt.Sprintf("I would like to download \"%s\" for \"%s\" track, but I'm just simulating.", entry.URL, t.Basename()))
-					cuiInterface.ProgressHalfIncrease()
+					ui.Append(fmt.Sprintf("I would like to download \"%s\" for \"%s\" track, but I'm just simulating.", entry.URL, t.Basename()))
+					ui.ProgressHalfIncrease()
 					continue
 				} else if *argReplaceLocal {
 					if t.URL == entry.URL && !entryPick {
-						cuiInterface.Append(fmt.Sprintf("Track \"%s\" is still the best result I can find.", t.Basename()))
-						cuiInterface.Append(fmt.Sprintf("Local track origin URL %s is the same as the chosen one %s.", t.URL, entry.URL), cui.DebugAppend)
-						cuiInterface.ProgressHalfIncrease()
+						ui.Append(fmt.Sprintf("Track \"%s\" is still the best result I can find.", t.Basename()))
+						ui.Append(fmt.Sprintf("Local track origin URL %s is the same as the chosen one %s.", t.URL, entry.URL), cui.DebugAppend)
+						ui.ProgressHalfIncrease()
 						continue
 					} else {
 						t.URL = ""
@@ -472,12 +472,12 @@ func mainSearch() {
 				}
 			}
 
-			cuiInterface.Append(fmt.Sprintf("Going to download \"%s\" from %s...", entry.Title, entry.URL))
+			ui.Append(fmt.Sprintf("Going to download \"%s\" from %s...", entry.Title, entry.URL))
 			err := prov.Download(entry, t.FilenameTemporary())
 			if err != nil {
-				cuiInterface.Append(fmt.Sprintf("Something went wrong downloading \"%s\": %s.", t.Basename(), err.Error()), cui.WarningAppend)
+				ui.Append(fmt.Sprintf("Something went wrong downloading \"%s\": %s.", t.Basename(), err.Error()), cui.WarningAppend)
 				tracksFailed = append(tracksFailed, t)
-				cuiInterface.ProgressHalfIncrease()
+				ui.ProgressHalfIncrease()
 				continue
 			} else {
 				t.URL = entry.URL
@@ -485,13 +485,13 @@ func mainSearch() {
 		}
 
 		if !subIfSongProcess(t) {
-			cuiInterface.ProgressHalfIncrease()
+			ui.ProgressHalfIncrease()
 			continue
 		}
 
 		subCondSequentialDo(&t)
 
-		cuiInterface.Append(fmt.Sprintf("Launching song processing jobs..."))
+		ui.Append(fmt.Sprintf("Launching song processing jobs..."))
 		waitGroup.Add(1)
 		go subParallelSongProcess(t, &waitGroup)
 		if *argDebug {
@@ -505,15 +505,15 @@ func mainSearch() {
 	subWriteIndex()
 
 	junks := subCleanJunks()
-	cuiInterface.Append(fmt.Sprintf("Removed %d junk files.", junks))
+	ui.Append(fmt.Sprintf("Removed %d junk files.", junks))
 
 	close(waitGroupPool)
 	waitGroup.Wait()
-	cuiInterface.ProgressFill()
+	ui.ProgressFill()
 
-	cuiInterface.Append(fmt.Sprintf("%d tracks failed to synchronize.", len(tracksFailed)))
+	ui.Append(fmt.Sprintf("%d tracks failed to synchronize.", len(tracksFailed)))
 	for _, t := range tracksFailed {
-		cuiInterface.Append(fmt.Sprintf(" - \"%s\"", t.Basename()))
+		ui.Append(fmt.Sprintf(" - \"%s\"", t.Basename()))
 	}
 
 	var (
@@ -536,7 +536,7 @@ func mainSearch() {
 	}
 	notify.Push(notifyTitle, notifyContent, "", notificator.UR_NORMAL)
 
-	cuiInterface.Prompt("Synchronization completed.", cui.PromptExit)
+	ui.Prompt("Synchronization completed.", cui.PromptExit)
 }
 
 func mainExit(delay ...time.Duration) {
@@ -551,7 +551,7 @@ func subCheckDependencies() {
 	for _, commandName := range []string{"youtube-dl", "ffmpeg"} {
 		_, err := exec.LookPath(commandName)
 		if err != nil {
-			cuiInterface.Prompt(fmt.Sprintf("Are you sure %s is asctually installed?", commandName), cui.PromptExit)
+			ui.Prompt(fmt.Sprintf("Are you sure %s is asctually installed?", commandName), cui.PromptExit)
 		} else {
 			var (
 				commandOut          bytes.Buffer
@@ -569,7 +569,7 @@ func subCheckDependencies() {
 					commandVersionValue = commandVersionRegValue
 				}
 			}
-			cuiInterface.Append(fmt.Sprintf("%s %s", cui.Font(fmt.Sprintf("Version %s:", commandName), cui.StyleBold), commandVersionValue), cui.PanelLeftTop)
+			ui.Append(fmt.Sprintf("%s %s", cui.Font(fmt.Sprintf("Version %s:", commandName), cui.StyleBold), commandVersionValue), cui.PanelLeftTop)
 		}
 	}
 }
@@ -581,7 +581,7 @@ func subCheckInternet() {
 	req, _ := http.NewRequest("GET", "http://clients3.google.com/generate_204", nil)
 	_, err := client.Do(req)
 	if err != nil {
-		cuiInterface.Prompt("Are you sure you're connected to the internet?", cui.PromptExit)
+		ui.Prompt("Are you sure you're connected to the internet?", cui.PromptExit)
 	}
 }
 
@@ -595,34 +595,34 @@ func subCheckUpdate() {
 		}
 		versionRequest, versionError := http.NewRequest(http.MethodGet, spotitube.VersionOrigin, nil)
 		if versionError != nil {
-			cuiInterface.Append(fmt.Sprintf("Unable to compile version request: %s", versionError.Error()), cui.WarningAppend)
+			ui.Append(fmt.Sprintf("Unable to compile version request: %s", versionError.Error()), cui.WarningAppend)
 		} else {
 			versionResponse, versionError := versionClient.Do(versionRequest)
 			if versionError != nil {
-				cuiInterface.Append(fmt.Sprintf("Unable to read response from version request: %s", versionError.Error()), cui.WarningAppend)
+				ui.Append(fmt.Sprintf("Unable to read response from version request: %s", versionError.Error()), cui.WarningAppend)
 			} else {
 				versionResponseBody, versionError := ioutil.ReadAll(versionResponse.Body)
 				if versionError != nil {
-					cuiInterface.Append(fmt.Sprintf("Unable to get response body: %s", versionError.Error()), cui.WarningAppend)
+					ui.Append(fmt.Sprintf("Unable to get response body: %s", versionError.Error()), cui.WarningAppend)
 				} else {
 					versionData := OnlineVersion{}
 					versionError = json.Unmarshal(versionResponseBody, &versionData)
 					if versionError != nil {
-						cuiInterface.Append(fmt.Sprintf("Unable to parse json from response body: %s", versionError.Error()), cui.WarningAppend)
+						ui.Append(fmt.Sprintf("Unable to parse json from response body: %s", versionError.Error()), cui.WarningAppend)
 					} else {
 						versionValue := 0
 						versionRegex, versionError := regexp.Compile("[^0-9]+")
 						if versionError != nil {
-							cuiInterface.Append(fmt.Sprintf("Unable to compile regex needed to parse version: %s", versionError.Error()), cui.WarningAppend)
+							ui.Append(fmt.Sprintf("Unable to compile regex needed to parse version: %s", versionError.Error()), cui.WarningAppend)
 						} else {
 							versionValue, versionError = strconv.Atoi(versionRegex.ReplaceAllString(versionData.Name, ""))
 							if versionError != nil {
-								cuiInterface.Append(fmt.Sprintf("Unable to fetch latest version value: %s", versionError.Error()), cui.WarningAppend)
+								ui.Append(fmt.Sprintf("Unable to fetch latest version value: %s", versionError.Error()), cui.WarningAppend)
 							} else if versionValue != spotitube.Version {
-								cuiInterface.Append(fmt.Sprintf("Going to update from %d to %d version.", spotitube.Version, versionValue))
+								ui.Append(fmt.Sprintf("Going to update from %d to %d version.", spotitube.Version, versionValue))
 								subUpdateSoftware(versionResponseBody)
 							}
-							cuiInterface.Append(fmt.Sprintf("Actual version %d, online version %d.", spotitube.Version, versionValue), cui.DebugAppend)
+							ui.Append(fmt.Sprintf("Actual version %d, online version %d.", spotitube.Version, versionValue), cui.DebugAppend)
 						}
 					}
 				}
@@ -633,17 +633,17 @@ func subCheckUpdate() {
 
 func subFetchIndex() {
 	if !system.FileExists(userLocalIndex) {
-		cuiInterface.Append("No track index has been found.", cui.DebugAppend)
+		ui.Append("No track index has been found.", cui.DebugAppend)
 		return
 	}
-	cuiInterface.Append("Fetching local index...", cui.DebugAppend)
+	ui.Append("Fetching local index...", cui.DebugAppend)
 	system.FetchGob(userLocalIndex, tracksIndex)
 }
 
 func subWriteIndex() {
-	cuiInterface.Append(fmt.Sprintf("Writing %d entries index...", len(tracksIndex.Tracks)), cui.DebugAppend)
+	ui.Append(fmt.Sprintf("Writing %d entries index...", len(tracksIndex.Tracks)), cui.DebugAppend)
 	if writeErr := system.DumpGob(userLocalIndex, tracksIndex); writeErr != nil {
-		cuiInterface.Append(fmt.Sprintf("Unable to write tracks index: %s", writeErr.Error()), cui.WarningAppend)
+		ui.Append(fmt.Sprintf("Unable to write tracks index: %s", writeErr.Error()), cui.WarningAppend)
 	}
 }
 
@@ -654,22 +654,22 @@ func subAlignIndex() {
 		}
 
 		if linkPath, err := os.Readlink(path); err == nil {
-			cuiInterface.Append(fmt.Sprintf("Index link: path %s", path), cui.DebugAppend)
+			ui.Append(fmt.Sprintf("Index link: path %s", path), cui.DebugAppend)
 			tracksIndex.Links[linkPath] = append(tracksIndex.Links[linkPath], path)
 		} else if filepath.Ext(path) == ".mp3" {
-			cuiInterface.Append(fmt.Sprintf("Index: path %s", path), cui.DebugAppend)
+			ui.Append(fmt.Sprintf("Index: path %s", path), cui.DebugAppend)
 			spotifyID := track.GetTag(path, track.ID3FrameSpotifyID)
 			if len(spotifyID) > 0 {
 				tracksIndex.Tracks[spotifyID] = path
 			} else {
-				cuiInterface.Append(fmt.Sprintf("Index: no ID found. Ignoring %s...", path), cui.DebugAppend)
+				ui.Append(fmt.Sprintf("Index: no ID found. Ignoring %s...", path), cui.DebugAppend)
 			}
 		}
 
 		return nil
 	})
 	waitIndex <- true
-	cuiInterface.Append(fmt.Sprintf("Indexing finished: %d tracks indexed and %d linked.", len(tracksIndex.Tracks), len(tracksIndex.Links)))
+	ui.Append(fmt.Sprintf("Indexing finished: %d tracks indexed and %d linked.", len(tracksIndex.Tracks), len(tracksIndex.Links)))
 }
 
 func subUpdateSoftware(latestRelease []byte) {
@@ -681,7 +681,7 @@ func subUpdateSoftware(latestRelease []byte) {
 	)
 	unmarshalErr := json.Unmarshal([]byte(latestRelease), &api)
 	if unmarshalErr != nil {
-		cuiInterface.Append(fmt.Sprintf("Unable to unmarshal Github latest relase data: %s", unmarshalErr.Error()), cui.WarningAppend)
+		ui.Append(fmt.Sprintf("Unable to unmarshal Github latest relase data: %s", unmarshalErr.Error()), cui.WarningAppend)
 		return
 	}
 	for _, asset := range api["assets"].([]interface{}) {
@@ -695,22 +695,22 @@ func subUpdateSoftware(latestRelease []byte) {
 	binaryTempFname = fmt.Sprintf("/tmp/.%s", binaryName)
 	binaryOutput, err := os.Create(binaryTempFname)
 	if err != nil {
-		cuiInterface.Append(fmt.Sprintf("Unable to create temporary updated binary file: %s", err.Error()), cui.WarningAppend)
+		ui.Append(fmt.Sprintf("Unable to create temporary updated binary file: %s", err.Error()), cui.WarningAppend)
 		return
 	}
 	defer binaryOutput.Close()
 
-	cuiInterface.Append(fmt.Sprintf("Downloading update from %s...", binaryURL))
+	ui.Append(fmt.Sprintf("Downloading update from %s...", binaryURL))
 	binaryPayload, err := http.Get(binaryURL)
 	if err != nil {
-		cuiInterface.Append(fmt.Sprintf("Unable to download from %s: %s", binaryURL, err.Error()), cui.WarningAppend)
+		ui.Append(fmt.Sprintf("Unable to download from %s: %s", binaryURL, err.Error()), cui.WarningAppend)
 		return
 	}
 	defer binaryPayload.Body.Close()
 
 	_, err = io.Copy(binaryOutput, binaryPayload.Body)
 	if err != nil {
-		cuiInterface.Append(fmt.Sprintf("Error while downloading from %s: %s", binaryURL, err.Error()), cui.WarningAppend)
+		ui.Append(fmt.Sprintf("Error while downloading from %s: %s", binaryURL, err.Error()), cui.WarningAppend)
 		return
 	}
 
@@ -721,26 +721,26 @@ func subUpdateSoftware(latestRelease []byte) {
 		)
 		err = system.Mkdir(binaryFolder)
 		if err != nil {
-			cuiInterface.Append(fmt.Sprintf("Unable to create binary container folder at %s: %s", binaryFolder, err.Error()), cui.WarningAppend)
+			ui.Append(fmt.Sprintf("Unable to create binary container folder at %s: %s", binaryFolder, err.Error()), cui.WarningAppend)
 			return
 		}
 		os.Remove(binaryFname)
 		err = system.FileCopy(binaryTempFname, binaryFname)
 		if err != nil {
-			cuiInterface.Append(fmt.Sprintf("Unable to persist new binary to %s: %s", binaryFname, err.Error()), cui.WarningAppend)
+			ui.Append(fmt.Sprintf("Unable to persist new binary to %s: %s", binaryFname, err.Error()), cui.WarningAppend)
 			return
 		}
 		os.Remove(binaryTempFname)
 
 		err = os.Chmod(binaryFname, 0755)
 		if err != nil {
-			cuiInterface.Append(fmt.Sprintf("Unable to make %s executable: %s", binaryFname, err.Error()), cui.WarningAppend)
+			ui.Append(fmt.Sprintf("Unable to make %s executable: %s", binaryFname, err.Error()), cui.WarningAppend)
 			return
 		}
 
 		err = syscall.Exec(binaryFname, os.Args, os.Environ())
 		if err != nil {
-			cuiInterface.Append(fmt.Sprintf("Unable to exec updated instance: %s", err.Error()), cui.ErrorAppend)
+			ui.Append(fmt.Sprintf("Unable to exec updated instance: %s", err.Error()), cui.ErrorAppend)
 		}
 		mainExit()
 	} else {
@@ -749,7 +749,7 @@ func subUpdateSoftware(latestRelease []byte) {
 }
 
 func subParallelSongProcess(t track.Track, wg *sync.WaitGroup) {
-	defer cuiInterface.ProgressHalfIncrease()
+	defer ui.ProgressHalfIncrease()
 	defer wg.Done()
 	<-waitGroupPool
 
@@ -759,7 +759,7 @@ func subParallelSongProcess(t track.Track, wg *sync.WaitGroup) {
 
 	if !system.FileExists(t.FilenameTemporary()) && system.FileExists(t.Filename()) {
 		if err := system.FileCopy(t.Filename(), t.FilenameTemporary()); err != nil {
-			cuiInterface.Append(fmt.Sprintf("Unable to prepare song for getting its metadata flushed: %s", err.Error()), cui.WarningAppend)
+			ui.Append(fmt.Sprintf("Unable to prepare song for getting its metadata flushed: %s", err.Error()), cui.WarningAppend)
 			return
 		}
 	}
@@ -771,7 +771,7 @@ func subParallelSongProcess(t track.Track, wg *sync.WaitGroup) {
 	os.Remove(t.Filename())
 	err := os.Rename(t.FilenameTemporary(), t.Filename())
 	if err != nil {
-		cuiInterface.Append(fmt.Sprintf("Unable to move song to its final path: %s", err.Error()), cui.WarningAppend)
+		ui.Append(fmt.Sprintf("Unable to move song to its final path: %s", err.Error()), cui.WarningAppend)
 	}
 
 	waitGroupPool <- true
@@ -788,12 +788,12 @@ func subSongNormalize(t track.Track) {
 	)
 
 	commandArgs = []string{"-i", t.FilenameTemporary(), "-af", "volumedetect", "-f", "null", "-y", "null"}
-	cuiInterface.Append(fmt.Sprintf("Getting max_volume value: \"%s %s\"...", commandCmd, strings.Join(commandArgs, " ")), cui.DebugAppend)
+	ui.Append(fmt.Sprintf("Getting max_volume value: \"%s %s\"...", commandCmd, strings.Join(commandArgs, " ")), cui.DebugAppend)
 	commandObj := exec.Command(commandCmd, commandArgs...)
 	commandObj.Stderr = &commandOut
 	commandErr = commandObj.Run()
 	if commandErr != nil {
-		cuiInterface.Append(fmt.Sprintf("Unable to use ffmpeg to pull max_volume song value: %s.", commandOut.String()), cui.WarningAppend)
+		ui.Append(fmt.Sprintf("Unable to use ffmpeg to pull max_volume song value: %s.", commandOut.String()), cui.WarningAppend)
 		normalizationDelta = "0.0"
 	} else {
 		commandScanner := bufio.NewScanner(strings.NewReader(commandOut.String()))
@@ -806,15 +806,15 @@ func subSongNormalize(t track.Track) {
 	}
 
 	if _, commandErr = strconv.ParseFloat(normalizationDelta, 64); commandErr != nil {
-		cuiInterface.Append(fmt.Sprintf("Unable to pull max_volume delta to be applied along with song volume normalization: %s.", normalizationDelta), cui.WarningAppend)
+		ui.Append(fmt.Sprintf("Unable to pull max_volume delta to be applied along with song volume normalization: %s.", normalizationDelta), cui.WarningAppend)
 		normalizationDelta = "0.0"
 	}
 	commandArgs = []string{"-i", t.FilenameTemporary(), "-af", "volume=+" + normalizationDelta + "dB", "-b:a", "320k", "-y", normalizationFile}
-	cuiInterface.Append(fmt.Sprintf("Compensating volume by %sdB...", normalizationDelta), cui.DebugAppend)
-	cuiInterface.Append(fmt.Sprintf("Increasing audio quality for: %s...", t.Basename()), cui.DebugAppend)
-	cuiInterface.Append(fmt.Sprintf("Firing command: \"%s %s\"...", commandCmd, strings.Join(commandArgs, " ")), cui.DebugAppend)
+	ui.Append(fmt.Sprintf("Compensating volume by %sdB...", normalizationDelta), cui.DebugAppend)
+	ui.Append(fmt.Sprintf("Increasing audio quality for: %s...", t.Basename()), cui.DebugAppend)
+	ui.Append(fmt.Sprintf("Firing command: \"%s %s\"...", commandCmd, strings.Join(commandArgs, " ")), cui.DebugAppend)
 	if _, commandErr = exec.Command(commandCmd, commandArgs...).Output(); commandErr != nil {
-		cuiInterface.Append(fmt.Sprintf("Something went wrong while normalizing song \"%s\" volume: %s", t.Basename(), commandErr.Error()), cui.WarningAppend)
+		ui.Append(fmt.Sprintf("Something went wrong while normalizing song \"%s\" volume: %s", t.Basename(), commandErr.Error()), cui.WarningAppend)
 	}
 	os.Remove(t.FilenameTemporary())
 	os.Rename(normalizationFile, t.FilenameTemporary())
@@ -823,9 +823,9 @@ func subSongNormalize(t track.Track) {
 func subSongFlushMetadata(t track.Track) {
 	trackMp3, err := id3v2.Open(t.FilenameTemporary(), id3v2.Options{Parse: true})
 	if err != nil {
-		cuiInterface.Append(fmt.Sprintf("Something bad happened while opening: %s", err.Error()), cui.WarningAppend)
+		ui.Append(fmt.Sprintf("Something bad happened while opening: %s", err.Error()), cui.WarningAppend)
 	} else {
-		cuiInterface.Append(fmt.Sprintf("Fixing metadata for \"%s\"...", t.Basename()), cui.DebugAppend)
+		ui.Append(fmt.Sprintf("Fixing metadata for \"%s\"...", t.Basename()), cui.DebugAppend)
 		if !*argFlushMissing && !*argFlushDifferent {
 			trackMp3.DeleteAllFrames()
 		}
@@ -853,7 +853,7 @@ func subCondFlushID3FrameTitle(t track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Title) > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameTitle))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameTitle) != t.Title)) {
-		cuiInterface.Append("Inflating title metadata...", cui.DebugAppend)
+		ui.Append("Inflating title metadata...", cui.DebugAppend)
 		trackMp3.SetTitle(t.Title)
 	}
 }
@@ -862,7 +862,7 @@ func subCondFlushID3FrameSong(t track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Song) > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameSong))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameSong) != t.Song)) {
-		cuiInterface.Append("Inflating song metadata...", cui.DebugAppend)
+		ui.Append("Inflating song metadata...", cui.DebugAppend)
 		trackMp3.AddCommentFrame(id3v2.CommentFrame{
 			Encoding:    id3v2.EncodingUTF8,
 			Language:    "eng",
@@ -876,7 +876,7 @@ func subCondFlushID3FrameArtist(t track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Artist) > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameArtist))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameArtist) != t.Artist)) {
-		cuiInterface.Append("Inflating artist metadata...", cui.DebugAppend)
+		ui.Append("Inflating artist metadata...", cui.DebugAppend)
 		trackMp3.SetArtist(t.Artist)
 	}
 }
@@ -885,7 +885,7 @@ func subCondFlushID3FrameAlbum(t track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Album) > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameAlbum))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameAlbum) != t.Album)) {
-		cuiInterface.Append("Inflating album metadata...", cui.DebugAppend)
+		ui.Append("Inflating album metadata...", cui.DebugAppend)
 		trackMp3.SetAlbum(t.Album)
 	}
 }
@@ -894,7 +894,7 @@ func subCondFlushID3FrameGenre(t track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Genre) > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameGenre))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameGenre) != t.Genre)) {
-		cuiInterface.Append("Inflating genre metadata...", cui.DebugAppend)
+		ui.Append("Inflating genre metadata...", cui.DebugAppend)
 		trackMp3.SetGenre(t.Genre)
 	}
 }
@@ -903,7 +903,7 @@ func subCondFlushID3FrameYear(t track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Year) > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameYear))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameYear) != t.Year)) {
-		cuiInterface.Append("Inflating year metadata...", cui.DebugAppend)
+		ui.Append("Inflating year metadata...", cui.DebugAppend)
 		trackMp3.SetYear(t.Year)
 	}
 }
@@ -912,7 +912,7 @@ func subCondFlushID3FrameFeaturings(t track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Featurings) > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameFeaturings))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameFeaturings) != strings.Join(t.Featurings, "|"))) {
-		cuiInterface.Append("Inflating featurings metadata...", cui.DebugAppend)
+		ui.Append("Inflating featurings metadata...", cui.DebugAppend)
 		trackMp3.AddCommentFrame(id3v2.CommentFrame{
 			Encoding:    id3v2.EncodingUTF8,
 			Language:    "eng",
@@ -926,7 +926,7 @@ func subCondFlushID3FrameTrackNumber(t track.Track, trackMp3 *id3v2.Tag) {
 	if t.TrackNumber > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameTrackNumber))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameTrackNumber) != fmt.Sprintf("%d", t.TrackNumber))) {
-		cuiInterface.Append("Inflating track number metadata...", cui.DebugAppend)
+		ui.Append("Inflating track number metadata...", cui.DebugAppend)
 		trackMp3.AddFrame(trackMp3.CommonID("Track number/Position in set"),
 			id3v2.TextFrame{
 				Encoding: id3v2.EncodingUTF8,
@@ -939,7 +939,7 @@ func subCondFlushID3FrameTrackTotals(t track.Track, trackMp3 *id3v2.Tag) {
 	if t.TrackTotals > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameTrackTotals))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameTrackTotals) != fmt.Sprintf("%d", t.TrackTotals))) {
-		cuiInterface.Append("Inflating total tracks number metadata...", cui.DebugAppend)
+		ui.Append("Inflating total tracks number metadata...", cui.DebugAppend)
 		trackMp3.AddCommentFrame(id3v2.CommentFrame{
 			Encoding:    id3v2.EncodingUTF8,
 			Language:    "eng",
@@ -955,9 +955,9 @@ func subCondFlushID3FrameArtwork(t track.Track, trackMp3 *id3v2.Tag) {
 		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameArtworkURL) != t.Image)) {
 		trackArtworkReader, trackArtworkErr := ioutil.ReadFile(t.FilenameArtwork())
 		if trackArtworkErr != nil {
-			cuiInterface.Append(fmt.Sprintf("Unable to read artwork file: %s", trackArtworkErr.Error()), cui.WarningAppend)
+			ui.Append(fmt.Sprintf("Unable to read artwork file: %s", trackArtworkErr.Error()), cui.WarningAppend)
 		} else {
-			cuiInterface.Append("Inflating artwork metadata...", cui.DebugAppend)
+			ui.Append("Inflating artwork metadata...", cui.DebugAppend)
 			trackMp3.AddAttachedPicture(id3v2.PictureFrame{
 				Encoding:    id3v2.EncodingUTF8,
 				MimeType:    "image/jpeg",
@@ -973,7 +973,7 @@ func subCondFlushID3FrameArtworkURL(t track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Image) > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameArtworkURL))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameArtworkURL) != t.Image)) {
-		cuiInterface.Append("Inflating artwork url metadata...", cui.DebugAppend)
+		ui.Append("Inflating artwork url metadata...", cui.DebugAppend)
 		trackMp3.AddCommentFrame(id3v2.CommentFrame{
 			Encoding:    id3v2.EncodingUTF8,
 			Language:    "eng",
@@ -987,7 +987,7 @@ func subCondFlushID3FrameOrigin(t track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.URL) > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameOrigin))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameOrigin) != t.URL)) {
-		cuiInterface.Append("Inflating origin url metadata...", cui.DebugAppend)
+		ui.Append("Inflating origin url metadata...", cui.DebugAppend)
 		trackMp3.AddCommentFrame(id3v2.CommentFrame{
 			Encoding:    id3v2.EncodingUTF8,
 			Language:    "eng",
@@ -1001,7 +1001,7 @@ func subCondFlushID3FrameDuration(t track.Track, trackMp3 *id3v2.Tag) {
 	if t.Duration > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameDuration))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameDuration) != fmt.Sprintf("%d", t.Duration))) {
-		cuiInterface.Append("Inflating duration metadata...", cui.DebugAppend)
+		ui.Append("Inflating duration metadata...", cui.DebugAppend)
 		trackMp3.AddCommentFrame(id3v2.CommentFrame{
 			Encoding:    id3v2.EncodingUTF8,
 			Language:    "eng",
@@ -1015,7 +1015,7 @@ func subCondFlushID3FrameSpotifyID(t track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.SpotifyID) > 0 &&
 		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameSpotifyID))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameSpotifyID) != t.SpotifyID)) {
-		cuiInterface.Append("Inflating Spotify ID metadata...", cui.DebugAppend)
+		ui.Append("Inflating Spotify ID metadata...", cui.DebugAppend)
 		trackMp3.AddCommentFrame(id3v2.CommentFrame{
 			Encoding:    id3v2.EncodingUTF8,
 			Language:    "eng",
@@ -1029,7 +1029,7 @@ func subCondFlushID3FrameLyrics(t track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Lyrics) > 0 && !*argDisableLyrics &&
 		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameLyrics))) &&
 		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameLyrics) != t.Lyrics)) {
-		cuiInterface.Append("Inflating lyrics metadata...", cui.DebugAppend)
+		ui.Append("Inflating lyrics metadata...", cui.DebugAppend)
 		trackMp3.AddUnsynchronisedLyricsFrame(id3v2.UnsynchronisedLyricsFrame{
 			Encoding:          id3v2.EncodingUTF8,
 			Language:          "eng",
@@ -1085,7 +1085,7 @@ func subMatchResult(p provider.Provider, t *track.Track, e *provider.Entry) (boo
 	ansErr = p.Match(e, t)
 	ansAutomated = bool(ansErr == nil)
 	if *argInteractive {
-		ansInput = cuiInterface.Prompt(fmt.Sprintf("Do you want to download the following video for \"%s\"?\n"+
+		ansInput = ui.Prompt(fmt.Sprintf("Do you want to download the following video for \"%s\"?\n"+
 			"ID: %s\nTitle: %s\nUser: %s\nDuration: %d\nURL: %s\nResult is matching: %s",
 			t.Basename(), e.ID, e.Title, e.User, e.Duration, e.URL, strconv.FormatBool(ansAutomated)), cui.PromptBinary)
 	}
@@ -1098,13 +1098,13 @@ func subIfPickFromAns(ansAutomated bool, ansInput bool) bool {
 
 func subCondManualInputURL(p provider.Provider, e *provider.Entry, t *track.Track) {
 	if *argInteractive && e.URL == "" {
-		inputURL := cuiInterface.PromptInputMessage(fmt.Sprintf("Please, manually enter URL for \"%s\"", t.Basename()), cui.PromptInput)
+		inputURL := ui.PromptInputMessage(fmt.Sprintf("Please, manually enter URL for \"%s\"", t.Basename()), cui.PromptInput)
 		if len(inputURL) > 0 {
 			if err := p.ValidateURL(inputURL); err == nil {
 				e.Title = "input video"
 				e.URL = inputURL
 			} else {
-				cuiInterface.Prompt(fmt.Sprintf("Something went wrong: %s", err.Error()))
+				ui.Prompt(fmt.Sprintf("Something went wrong: %s", err.Error()))
 			}
 		}
 	}
@@ -1124,12 +1124,12 @@ func subCondSequentialDo(t *track.Track) {
 func subCondLyricsFetch(t *track.Track) {
 	if !*argDisableLyrics &&
 		(!*argFlushMissing || (*argFlushMissing && !t.HasID3Frame(track.ID3FrameLyrics))) {
-		cuiInterface.Append(fmt.Sprintf("Fetching song \"%s\" lyrics...", t.Basename()), cui.DebugAppend)
+		ui.Append(fmt.Sprintf("Fetching song \"%s\" lyrics...", t.Basename()), cui.DebugAppend)
 		lyricsErr := t.SearchLyrics()
 		if lyricsErr != nil {
-			cuiInterface.Append(fmt.Sprintf("Something went wrong while searching for song lyrics: %s", lyricsErr.Error()), cui.WarningAppend)
+			ui.Append(fmt.Sprintf("Something went wrong while searching for song lyrics: %s", lyricsErr.Error()), cui.WarningAppend)
 		} else {
-			cuiInterface.Append(fmt.Sprintf("Song lyrics found."), cui.DebugAppend)
+			ui.Append(fmt.Sprintf("Song lyrics found."), cui.DebugAppend)
 		}
 	}
 }
@@ -1137,28 +1137,28 @@ func subCondLyricsFetch(t *track.Track) {
 func subCondArtworkDownload(t *track.Track) {
 	if len(t.Image) > 0 && !system.FileExists(t.FilenameArtwork()) &&
 		(!*argFlushMissing || (*argFlushMissing && !t.HasID3Frame(track.ID3FrameArtwork))) {
-		cuiInterface.Append(fmt.Sprintf("Downloading song \"%s\" artwork at %s...", t.Basename(), t.Image), cui.DebugAppend)
+		ui.Append(fmt.Sprintf("Downloading song \"%s\" artwork at %s...", t.Basename(), t.Image), cui.DebugAppend)
 		var commandOut bytes.Buffer
 		commandCmd := "ffmpeg"
 		commandArgs := []string{"-i", t.Image, "-q:v", "1", "-n", t.FilenameArtwork()}
 		commandObj := exec.Command(commandCmd, commandArgs...)
 		commandObj.Stderr = &commandOut
 		if err := commandObj.Run(); err != nil {
-			cuiInterface.Append(fmt.Sprintf("Unable to download artwork file \"%s\": %s", t.Image, commandOut.String()), cui.WarningAppend)
+			ui.Append(fmt.Sprintf("Unable to download artwork file \"%s\": %s", t.Image, commandOut.String()), cui.WarningAppend)
 		}
 	}
 }
 
 func subCondTimestampFlush() {
 	if !*argDisableTimestampFlush {
-		cuiInterface.Append("Flushing files timestamps...")
+		ui.Append("Flushing files timestamps...")
 		now := time.Now().Local().Add(time.Duration(-1*len(tracks)) * time.Minute)
 		for _, t := range tracks {
 			if !system.FileExists(t.Filename()) {
 				continue
 			}
 			if err := os.Chtimes(t.Filename(), now, now); err != nil {
-				cuiInterface.Append(fmt.Sprintf("Unable to flush timestamp on %s", t.Filename()), cui.WarningAppend)
+				ui.Append(fmt.Sprintf("Unable to flush timestamp on %s", t.Filename()), cui.WarningAppend)
 			}
 			now = now.Add(1 * time.Minute)
 		}
@@ -1185,13 +1185,13 @@ func subCondPlaylistFileWrite() {
 		for _, t := range tracks {
 			if system.FileExists("../" + t.Filename()) {
 				if err := os.Symlink("../"+t.Filename(), t.Filename()); err != nil {
-					cuiInterface.Append(fmt.Sprintf("Unable to create symlink for \"%s\" in %s: %s", t.Filename(), playlistFolder, err.Error()), cui.ErrorAppend)
+					ui.Append(fmt.Sprintf("Unable to create symlink for \"%s\" in %s: %s", t.Filename(), playlistFolder, err.Error()), cui.ErrorAppend)
 				}
 			}
 		}
 		os.Chdir("..")
 
-		cuiInterface.Append(fmt.Sprintf("Creating playlist file at %s...", playlistFname))
+		ui.Append(fmt.Sprintf("Creating playlist file at %s...", playlistFname))
 		if system.FileExists(playlistFname) {
 			os.Remove(playlistFname)
 		}
@@ -1206,7 +1206,7 @@ func subCondPlaylistFileWrite() {
 				}
 			}
 		} else {
-			cuiInterface.Append("Creating playlist PLS file...")
+			ui.Append("Creating playlist PLS file...")
 			if system.FileExists(playlistInfo.Name + ".pls") {
 				os.Remove(playlistInfo.Name + ".pls")
 			}
@@ -1225,13 +1225,13 @@ func subCondPlaylistFileWrite() {
 
 		playlistFile, playlistErr := os.Create(playlistFname)
 		if playlistErr != nil {
-			cuiInterface.Append(fmt.Sprintf("Unable to create M3U file: %s", playlistErr.Error()), cui.WarningAppend)
+			ui.Append(fmt.Sprintf("Unable to create M3U file: %s", playlistErr.Error()), cui.WarningAppend)
 		} else {
 			defer playlistFile.Close()
 			_, playlistErr := playlistFile.WriteString(playlistContent)
 			playlistFile.Sync()
 			if playlistErr != nil {
-				cuiInterface.Append(fmt.Sprintf("Unable to write M3U file: %s", playlistErr.Error()), cui.WarningAppend)
+				ui.Append(fmt.Sprintf("Unable to write M3U file: %s", playlistErr.Error()), cui.WarningAppend)
 			}
 		}
 	}
@@ -1275,7 +1275,7 @@ func subTrackRename(t *track.Track) error {
 			if playlistUpdated {
 				err := system.FileWriteLines(path, playlistLinesNew)
 				if err != nil {
-					cuiInterface.Append(fmt.Sprintf("Unable to update playlist %s: %s", path, err.Error()), cui.ErrorAppend)
+					ui.Append(fmt.Sprintf("Unable to update playlist %s: %s", path, err.Error()), cui.ErrorAppend)
 				}
 			}
 

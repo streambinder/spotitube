@@ -36,31 +36,31 @@ import (
 )
 
 var (
-	argFolder                *string
-	argPlaylist              *string
-	argInvalidateCache       *bool
-	argReplaceLocal          *bool
-	argFlushMetadata         *bool
-	argFlushMissing          *bool
-	argFlushDifferent        *bool
-	argDisableNormalization  *bool
-	argDisablePlaylistFile   *bool
-	argPlsFile               *bool
-	argDisableLyrics         *bool
-	argDisableTimestampFlush *bool
-	argDisableUpdateCheck    *bool
-	argDisableBrowserOpening *bool
-	argDisableIndexing       *bool
-	argAuthenticateOutside   *bool
-	argInteractive           *bool
-	argManualInput           *bool
-	argRemoveDuplicates      *bool
-	argCleanJunks            *bool
-	argLog                   *bool
-	argDisableGui            *bool
-	argDebug                 *bool
-	argSimulate              *bool
-	argVersion               *bool
+	argFolder                string
+	argPlaylist              string
+	argInvalidateCache       bool
+	argReplaceLocal          bool
+	argFlushMetadata         bool
+	argFlushMissing          bool
+	argFlushDifferent        bool
+	argDisableNormalization  bool
+	argDisablePlaylistFile   bool
+	argPlsFile               bool
+	argDisableLyrics         bool
+	argDisableTimestampFlush bool
+	argDisableUpdateCheck    bool
+	argDisableBrowserOpening bool
+	argDisableIndexing       bool
+	argAuthenticateOutside   bool
+	argInteractive           bool
+	argManualInput           bool
+	argRemoveDuplicates      bool
+	argCleanJunks            bool
+	argLog                   bool
+	argDisableGui            bool
+	argDebug                 bool
+	argSimulate              bool
+	argVersion               bool
 	argFix                   system.PathsArrayFlag
 
 	tracks        track.Tracks
@@ -106,64 +106,64 @@ func main() {
 		fmt.Println(fmt.Sprintf("WARNING: Unknown GENIUS_TOKEN: please, export GENIUS_TOKEN enviroment variable, if you wan't to fetch lyrics from Genius provider."))
 	}
 
-	argFolder = flag.String("folder", ".", "Folder to sync with music")
-	argPlaylist = flag.String("playlist", "none", "Playlist URI to synchronize")
-	argInvalidateCache = flag.Bool("invalidate-cache", false, "Manually invalidate library cache, retriggering its fetch from Spotify")
+	argFolder = *flag.String("folder", ".", "Folder to sync with music")
+	argPlaylist = *flag.String("playlist", "none", "Playlist URI to synchronize")
+	argInvalidateCache = *flag.Bool("invalidate-cache", false, "Manually invalidate library cache, retriggering its fetch from Spotify")
 	flag.Var(&argFix, "fix", "Offline song filename(s) which straighten the shot to")
-	argReplaceLocal = flag.Bool("replace-local", false, "Replace local library songs if better results get encountered")
-	argFlushMetadata = flag.Bool("flush-metadata", false, "Flush metadata informations to already synchronized songs")
-	argFlushMissing = flag.Bool("flush-missing", false, "If -flush-metadata toggled, it will just populate empty id3v2 frames, instead of flushing any of those")
-	argFlushDifferent = flag.Bool("flush-different", false, "If -flush-metadata toggled, it will just populate id3v2 frames different from the ones calculated by the application, instead of flushing any of those")
-	argDisableNormalization = flag.Bool("disable-normalization", false, "Disable songs volume normalization")
-	argDisablePlaylistFile = flag.Bool("disable-playlist-file", false, "Disable automatic creation of playlists file")
-	argPlsFile = flag.Bool("pls-file", false, "Generate playlist file with .pls instead of .m3u")
-	argDisableLyrics = flag.Bool("disable-lyrics", false, "Disable download of songs lyrics and their application into mp3")
-	argDisableTimestampFlush = flag.Bool("disable-timestamp-flush", false, "Disable automatic songs files timestamps flush")
-	argDisableUpdateCheck = flag.Bool("disable-update-check", false, "Disable automatic update check at startup")
-	argDisableBrowserOpening = flag.Bool("disable-browser-opening", false, "Disable automatic browser opening for authentication")
-	argDisableIndexing = flag.Bool("disable-indexing", false, "Disable automatic library indexing (used to keep track of tracks names modifications)")
-	argAuthenticateOutside = flag.Bool("authenticate-outside", false, "Enable authentication flow to be handled outside this machine")
-	argInteractive = flag.Bool("interactive", false, "Enable interactive mode")
-	argManualInput = flag.Bool("manual-input", false, "Always manually insert URL used for songs download")
-	argRemoveDuplicates = flag.Bool("remove-duplicates", false, "Remove encountered duplicates from online library/playlist")
-	argCleanJunks = flag.Bool("clean-junks", false, "Scan for junks file and clean them")
-	argLog = flag.Bool("log", false, "Enable logging into file ./spotitube.log")
-	argDebug = flag.Bool("debug", false, "Enable debug messages")
-	argSimulate = flag.Bool("simulate", false, "Simulate process flow, without really altering filesystem")
-	argVersion = flag.Bool("version", false, "Print version")
+	argReplaceLocal = *flag.Bool("replace-local", false, "Replace local library songs if better results get encountered")
+	argFlushMetadata = *flag.Bool("flush-metadata", false, "Flush metadata informations to already synchronized songs")
+	argFlushMissing = *flag.Bool("flush-missing", false, "If -flush-metadata toggled, it will just populate empty id3v2 frames, instead of flushing any of those")
+	argFlushDifferent = *flag.Bool("flush-different", false, "If -flush-metadata toggled, it will just populate id3v2 frames different from the ones calculated by the application, instead of flushing any of those")
+	argDisableNormalization = *flag.Bool("disable-normalization", false, "Disable songs volume normalization")
+	argDisablePlaylistFile = *flag.Bool("disable-playlist-file", false, "Disable automatic creation of playlists file")
+	argPlsFile = *flag.Bool("pls-file", false, "Generate playlist file with .pls instead of .m3u")
+	argDisableLyrics = *flag.Bool("disable-lyrics", false, "Disable download of songs lyrics and their application into mp3")
+	argDisableTimestampFlush = *flag.Bool("disable-timestamp-flush", false, "Disable automatic songs files timestamps flush")
+	argDisableUpdateCheck = *flag.Bool("disable-update-check", false, "Disable automatic update check at startup")
+	argDisableBrowserOpening = *flag.Bool("disable-browser-opening", false, "Disable automatic browser opening for authentication")
+	argDisableIndexing = *flag.Bool("disable-indexing", false, "Disable automatic library indexing (used to keep track of tracks names modifications)")
+	argAuthenticateOutside = *flag.Bool("authenticate-outside", false, "Enable authentication flow to be handled outside this machine")
+	argInteractive = *flag.Bool("interactive", false, "Enable interactive mode")
+	argManualInput = *flag.Bool("manual-input", false, "Always manually insert URL used for songs download")
+	argRemoveDuplicates = *flag.Bool("remove-duplicates", false, "Remove encountered duplicates from online library/playlist")
+	argCleanJunks = *flag.Bool("clean-junks", false, "Scan for junks file and clean them")
+	argLog = *flag.Bool("log", false, "Enable logging into file ./spotitube.log")
+	argDebug = *flag.Bool("debug", false, "Enable debug messages")
+	argSimulate = *flag.Bool("simulate", false, "Simulate process flow, without really altering filesystem")
+	argVersion = *flag.Bool("version", false, "Print version")
 	if runtime.GOOS != "windows" {
-		argDisableGui = flag.Bool("disable-gui", false, "Disable GUI to reduce noise and increase readability of program flow")
+		argDisableGui = *flag.Bool("disable-gui", false, "Disable GUI to reduce noise and increase readability of program flow")
 	} else {
-		*argDisableGui = true
+		argDisableGui = true
 	}
 	flag.Parse()
 
-	if *argVersion {
+	if argVersion {
 		fmt.Println(fmt.Sprintf("SpotiTube, version %d.", spotitube.Version))
 		os.Exit(0)
 	}
 
 	if len(argFix.Paths) > 0 {
-		*argReplaceLocal = true
-		*argFlushMetadata = true
+		argReplaceLocal = true
+		argFlushMetadata = true
 	}
 
-	if *argManualInput {
-		*argInteractive = true
+	if argManualInput {
+		argInteractive = true
 	}
 
-	if !(system.Dir(*argFolder)) {
-		fmt.Println(fmt.Sprintf("Chosen music folder does not exist: %s", *argFolder))
+	if !(system.Dir(argFolder)) {
+		fmt.Println(fmt.Sprintf("Chosen music folder does not exist: %s", argFolder))
 		os.Exit(1)
 	} else {
-		*argFolder, _ = filepath.Abs(*argFolder)
-		os.Chdir(*argFolder)
+		argFolder, _ = filepath.Abs(argFolder)
+		os.Chdir(argFolder)
 		if user, err := user.Current(); err == nil {
-			*argFolder = strings.Replace(*argFolder, user.HomeDir, "~", -1)
+			argFolder = strings.Replace(argFolder, user.HomeDir, "~", -1)
 		}
 	}
 
-	if *argCleanJunks {
+	if argCleanJunks {
 		junks := subCleanJunks()
 		fmt.Println(fmt.Sprintf("Removed %d junk files.", junks))
 		os.Exit(0)
@@ -172,13 +172,13 @@ func main() {
 	system.Mkdir(userLocalConfigPath)
 
 	var guiOptions uint64
-	if *argDebug {
+	if argDebug {
 		guiOptions |= cui.GuiDebugMode
 	}
-	if *argDisableGui {
+	if argDisableGui {
 		guiOptions |= cui.GuiBareMode
 	}
-	if *argLog {
+	if argLog {
 		guiOptions |= cui.LogEnable
 	}
 
@@ -187,8 +187,8 @@ func main() {
 		fmt.Println(fmt.Sprintf("Unable to build user interface: %s", err.Error()))
 	}
 
-	ui.Append(fmt.Sprintf("%s %s", cui.Font("Folder:", cui.StyleBold), *argFolder), cui.PanelLeftTop)
-	if *argLog {
+	ui.Append(fmt.Sprintf("%s %s", cui.Font("Folder:", cui.StyleBold), argFolder), cui.PanelLeftTop)
+	if argLog {
 		ui.Append(fmt.Sprintf("%s %s", cui.Font("Log:", cui.StyleBold), logger.LogFilename), cui.PanelLeftTop)
 	}
 	ui.Append(fmt.Sprintf("%s %d", cui.Font("Version:", cui.StyleBold), spotitube.Version), cui.PanelLeftBottom)
@@ -206,7 +206,7 @@ func main() {
 	subCheckUpdate()
 	subFetchIndex()
 
-	if !*argDisableIndexing {
+	if !argDisableIndexing {
 		go subAlignIndex()
 	}
 
@@ -214,7 +214,7 @@ func main() {
 		<-ui.CloseChan
 		subSafeExit()
 	}()
-	if *argDisableGui {
+	if argDisableGui {
 		channel := make(chan os.Signal, 1)
 		signal.Notify(channel, os.Interrupt)
 		go func() {
@@ -230,20 +230,20 @@ func main() {
 func mainFetch() {
 	if len(argFix.Paths) == 0 {
 		var spotifyAuthHost string
-		if !*argAuthenticateOutside {
+		if !argAuthenticateOutside {
 			spotifyAuthHost = "localhost"
 		} else {
-			*argDisableBrowserOpening = true
+			argDisableBrowserOpening = true
 			spotifyAuthHost = "spotitube.local"
 			ui.Prompt("Outside authentication enabled: assure \"spotitube.local\" points to this machine.")
 		}
 		spotifyAuthURL := spotify.BuildAuthURL(spotifyAuthHost)
 		ui.Append(fmt.Sprintf("Authentication URL: %s", spotifyAuthURL.Short), cui.ParagraphAutoReturn)
-		if !*argDisableBrowserOpening {
+		if !argDisableBrowserOpening {
 			ui.Append("Waiting for automatic login process. If wait is too long, manually open that URL.", cui.DebugAppend)
 		}
 		var err error
-		if spotifyClient, err = spotify.Auth(spotifyAuthURL.Full, spotifyAuthHost, !*argDisableBrowserOpening); err != nil {
+		if spotifyClient, err = spotify.Auth(spotifyAuthURL.Full, spotifyAuthHost, !argDisableBrowserOpening); err != nil {
 			ui.Prompt("Unable to authenticate to spotify.", cui.PromptExit)
 		}
 		ui.Append("Authentication completed.")
@@ -257,9 +257,9 @@ func mainFetch() {
 			tracksErr             error
 		)
 
-		if *argPlaylist == "none" {
+		if argPlaylist == "none" {
 			userLocalGob = fmt.Sprintf(userLocalGob, spotifyUserID, "library")
-			if *argInvalidateCache {
+			if argInvalidateCache {
 				os.Remove(userLocalGob)
 			}
 			tracksDump, tracksDumpErr := subFetchGob(userLocalGob)
@@ -279,26 +279,26 @@ func mainFetch() {
 		} else {
 			ui.Append("Fetching playlist data...")
 			var playlistErr error
-			playlistInfo, playlistErr = spotifyClient.Playlist(*argPlaylist)
+			playlistInfo, playlistErr = spotifyClient.Playlist(argPlaylist)
 			if playlistErr != nil {
 				ui.Prompt("Something went wrong while fetching playlist info.", cui.PromptExit)
 			} else {
 				ui.Append(fmt.Sprintf("%s %s", cui.Font("Playlist name:", cui.StyleBold), playlistInfo.Name), cui.PanelLeftTop)
-				if len(playlistInfo.Owner.DisplayName) == 0 && len(strings.Split(*argPlaylist, ":")) >= 3 {
-					ui.Append(fmt.Sprintf("%s %s", cui.Font("Playlist owner:", cui.StyleBold), strings.Split(*argPlaylist, ":")[2]), cui.PanelLeftTop)
+				if len(playlistInfo.Owner.DisplayName) == 0 && len(strings.Split(argPlaylist, ":")) >= 3 {
+					ui.Append(fmt.Sprintf("%s %s", cui.Font("Playlist owner:", cui.StyleBold), strings.Split(argPlaylist, ":")[2]), cui.PanelLeftTop)
 				} else {
 					ui.Append(fmt.Sprintf("%s %s", cui.Font("Playlist owner:", cui.StyleBold), playlistInfo.Owner.DisplayName), cui.PanelLeftTop)
 				}
 
 				userLocalGob = fmt.Sprintf(userLocalGob, playlistInfo.Owner.ID, playlistInfo.Name)
-				if *argInvalidateCache {
+				if argInvalidateCache {
 					os.Remove(userLocalGob)
 				}
 				tracksDump, tracksDumpErr := subFetchGob(userLocalGob)
 				if tracksDumpErr != nil {
 					ui.Append(tracksDumpErr.Error(), cui.WarningAppend)
 					ui.Append(fmt.Sprintf("Getting songs from \"%s\" playlist, by \"%s\"...", playlistInfo.Name, playlistInfo.Owner.DisplayName), cui.StyleBold)
-					if tracksOnline, tracksErr = spotifyClient.PlaylistTracks(*argPlaylist); tracksErr != nil {
+					if tracksOnline, tracksErr = spotifyClient.PlaylistTracks(argPlaylist); tracksErr != nil {
 						ui.Prompt(fmt.Sprintf("Something went wrong while fetching playlist: %s.", tracksErr.Error()), cui.PromptExit)
 					}
 				} else {
@@ -333,15 +333,15 @@ func mainFetch() {
 			}
 		}
 
-		if *argRemoveDuplicates && len(tracksDuplicates) > 0 {
-			if *argPlaylist == "none" {
+		if argRemoveDuplicates && len(tracksDuplicates) > 0 {
+			if argPlaylist == "none" {
 				if removeErr := spotifyClient.RemoveLibraryTracks(tracksDuplicates); removeErr != nil {
 					ui.Prompt(fmt.Sprintf("Something went wrong while removing %d duplicates: %s.", len(tracksDuplicates), removeErr.Error()))
 				} else {
 					ui.Append(fmt.Sprintf("%d duplicate tracks correctly removed from library.", len(tracksDuplicates)))
 				}
 			} else {
-				if removeErr := spotifyClient.RemovePlaylistTracks(*argPlaylist, tracksDuplicates); removeErr != nil {
+				if removeErr := spotifyClient.RemovePlaylistTracks(argPlaylist, tracksDuplicates); removeErr != nil {
 					ui.Prompt(fmt.Sprintf("Something went wrong while removing %d duplicates: %s.", len(tracksDuplicates), removeErr.Error()))
 				} else {
 					ui.Append(fmt.Sprintf("%d duplicate tracks correctly removed from playlist.", len(tracksDuplicates)))
@@ -422,7 +422,7 @@ func mainSearch() {
 				)
 
 				ui.Append(fmt.Sprintf("Searching entries on %s provider", provName))
-				if !*argManualInput {
+				if !argManualInput {
 					provEntries, provErr = prov.Query(&t)
 					if provErr != nil {
 						ui.Append(fmt.Sprintf("Something went wrong while searching for \"%s\" track: %s.", t.Basename(), provErr.Error()), cui.WarningAppend)
@@ -455,11 +455,11 @@ func mainSearch() {
 					continue
 				}
 
-				if *argSimulate {
+				if argSimulate {
 					ui.Append(fmt.Sprintf("I would like to download \"%s\" for \"%s\" track, but I'm just simulating.", entry.URL, t.Basename()))
 					ui.ProgressHalfIncrease()
 					continue
-				} else if *argReplaceLocal {
+				} else if argReplaceLocal {
 					if t.URL == entry.URL && !entryPick {
 						ui.Append(fmt.Sprintf("Track \"%s\" is still the best result I can find.", t.Basename()))
 						ui.Append(fmt.Sprintf("Local track origin URL %s is the same as the chosen one %s.", t.URL, entry.URL), cui.DebugAppend)
@@ -494,7 +494,7 @@ func mainSearch() {
 		ui.Append(fmt.Sprintf("Launching song processing jobs..."))
 		waitGroup.Add(1)
 		go subParallelSongProcess(t, &waitGroup)
-		if *argDebug {
+		if argDebug {
 			waitGroup.Wait()
 		}
 	}
@@ -524,7 +524,7 @@ func mainSearch() {
 		notifyTitle   string
 		notifyContent string
 	)
-	if *argPlaylist == "none" {
+	if argPlaylist == "none" {
 		notifyTitle = "Library synchronization"
 	} else {
 		notifyTitle = fmt.Sprintf("%s playlist synchronization", playlistInfo.Name)
@@ -586,7 +586,7 @@ func subCheckInternet() {
 }
 
 func subCheckUpdate() {
-	if !*argDisableUpdateCheck {
+	if !argDisableUpdateCheck {
 		type OnlineVersion struct {
 			Name string `json:"name"`
 		}
@@ -753,7 +753,7 @@ func subParallelSongProcess(t track.Track, wg *sync.WaitGroup) {
 	defer wg.Done()
 	<-waitGroupPool
 
-	if !t.Local && !*argDisableNormalization {
+	if !t.Local && !argDisableNormalization {
 		subSongNormalize(t)
 	}
 
@@ -764,7 +764,7 @@ func subParallelSongProcess(t track.Track, wg *sync.WaitGroup) {
 		}
 	}
 
-	if (t.Local && *argFlushMetadata) || !t.Local {
+	if (t.Local && argFlushMetadata) || !t.Local {
 		subSongFlushMetadata(t)
 	}
 
@@ -826,7 +826,7 @@ func subSongFlushMetadata(t track.Track) {
 		ui.Append(fmt.Sprintf("Something bad happened while opening: %s", err.Error()), cui.WarningAppend)
 	} else {
 		ui.Append(fmt.Sprintf("Fixing metadata for \"%s\"...", t.Basename()), cui.DebugAppend)
-		if !*argFlushMissing && !*argFlushDifferent {
+		if !argFlushMissing && !argFlushDifferent {
 			trackMp3.DeleteAllFrames()
 		}
 		subCondFlushID3FrameTitle(t, trackMp3)
@@ -851,8 +851,8 @@ func subSongFlushMetadata(t track.Track) {
 
 func subCondFlushID3FrameTitle(t track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Title) > 0 &&
-		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameTitle))) &&
-		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameTitle) != t.Title)) {
+		(!argFlushMissing || (argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameTitle))) &&
+		(!argFlushDifferent || (argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameTitle) != t.Title)) {
 		ui.Append("Inflating title metadata...", cui.DebugAppend)
 		trackMp3.SetTitle(t.Title)
 	}
@@ -860,8 +860,8 @@ func subCondFlushID3FrameTitle(t track.Track, trackMp3 *id3v2.Tag) {
 
 func subCondFlushID3FrameSong(t track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Song) > 0 &&
-		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameSong))) &&
-		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameSong) != t.Song)) {
+		(!argFlushMissing || (argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameSong))) &&
+		(!argFlushDifferent || (argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameSong) != t.Song)) {
 		ui.Append("Inflating song metadata...", cui.DebugAppend)
 		trackMp3.AddCommentFrame(id3v2.CommentFrame{
 			Encoding:    id3v2.EncodingUTF8,
@@ -874,8 +874,8 @@ func subCondFlushID3FrameSong(t track.Track, trackMp3 *id3v2.Tag) {
 
 func subCondFlushID3FrameArtist(t track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Artist) > 0 &&
-		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameArtist))) &&
-		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameArtist) != t.Artist)) {
+		(!argFlushMissing || (argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameArtist))) &&
+		(!argFlushDifferent || (argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameArtist) != t.Artist)) {
 		ui.Append("Inflating artist metadata...", cui.DebugAppend)
 		trackMp3.SetArtist(t.Artist)
 	}
@@ -883,8 +883,8 @@ func subCondFlushID3FrameArtist(t track.Track, trackMp3 *id3v2.Tag) {
 
 func subCondFlushID3FrameAlbum(t track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Album) > 0 &&
-		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameAlbum))) &&
-		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameAlbum) != t.Album)) {
+		(!argFlushMissing || (argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameAlbum))) &&
+		(!argFlushDifferent || (argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameAlbum) != t.Album)) {
 		ui.Append("Inflating album metadata...", cui.DebugAppend)
 		trackMp3.SetAlbum(t.Album)
 	}
@@ -892,8 +892,8 @@ func subCondFlushID3FrameAlbum(t track.Track, trackMp3 *id3v2.Tag) {
 
 func subCondFlushID3FrameGenre(t track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Genre) > 0 &&
-		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameGenre))) &&
-		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameGenre) != t.Genre)) {
+		(!argFlushMissing || (argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameGenre))) &&
+		(!argFlushDifferent || (argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameGenre) != t.Genre)) {
 		ui.Append("Inflating genre metadata...", cui.DebugAppend)
 		trackMp3.SetGenre(t.Genre)
 	}
@@ -901,8 +901,8 @@ func subCondFlushID3FrameGenre(t track.Track, trackMp3 *id3v2.Tag) {
 
 func subCondFlushID3FrameYear(t track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Year) > 0 &&
-		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameYear))) &&
-		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameYear) != t.Year)) {
+		(!argFlushMissing || (argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameYear))) &&
+		(!argFlushDifferent || (argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameYear) != t.Year)) {
 		ui.Append("Inflating year metadata...", cui.DebugAppend)
 		trackMp3.SetYear(t.Year)
 	}
@@ -910,8 +910,8 @@ func subCondFlushID3FrameYear(t track.Track, trackMp3 *id3v2.Tag) {
 
 func subCondFlushID3FrameFeaturings(t track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Featurings) > 0 &&
-		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameFeaturings))) &&
-		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameFeaturings) != strings.Join(t.Featurings, "|"))) {
+		(!argFlushMissing || (argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameFeaturings))) &&
+		(!argFlushDifferent || (argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameFeaturings) != strings.Join(t.Featurings, "|"))) {
 		ui.Append("Inflating featurings metadata...", cui.DebugAppend)
 		trackMp3.AddCommentFrame(id3v2.CommentFrame{
 			Encoding:    id3v2.EncodingUTF8,
@@ -924,8 +924,8 @@ func subCondFlushID3FrameFeaturings(t track.Track, trackMp3 *id3v2.Tag) {
 
 func subCondFlushID3FrameTrackNumber(t track.Track, trackMp3 *id3v2.Tag) {
 	if t.TrackNumber > 0 &&
-		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameTrackNumber))) &&
-		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameTrackNumber) != fmt.Sprintf("%d", t.TrackNumber))) {
+		(!argFlushMissing || (argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameTrackNumber))) &&
+		(!argFlushDifferent || (argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameTrackNumber) != fmt.Sprintf("%d", t.TrackNumber))) {
 		ui.Append("Inflating track number metadata...", cui.DebugAppend)
 		trackMp3.AddFrame(trackMp3.CommonID("Track number/Position in set"),
 			id3v2.TextFrame{
@@ -937,8 +937,8 @@ func subCondFlushID3FrameTrackNumber(t track.Track, trackMp3 *id3v2.Tag) {
 
 func subCondFlushID3FrameTrackTotals(t track.Track, trackMp3 *id3v2.Tag) {
 	if t.TrackTotals > 0 &&
-		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameTrackTotals))) &&
-		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameTrackTotals) != fmt.Sprintf("%d", t.TrackTotals))) {
+		(!argFlushMissing || (argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameTrackTotals))) &&
+		(!argFlushDifferent || (argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameTrackTotals) != fmt.Sprintf("%d", t.TrackTotals))) {
 		ui.Append("Inflating total tracks number metadata...", cui.DebugAppend)
 		trackMp3.AddCommentFrame(id3v2.CommentFrame{
 			Encoding:    id3v2.EncodingUTF8,
@@ -951,8 +951,8 @@ func subCondFlushID3FrameTrackTotals(t track.Track, trackMp3 *id3v2.Tag) {
 
 func subCondFlushID3FrameArtwork(t track.Track, trackMp3 *id3v2.Tag) {
 	if system.FileExists(t.FilenameArtwork()) &&
-		(!*argFlushMissing || (*argFlushMissing && !t.HasID3Frame(track.ID3FrameArtwork))) &&
-		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameArtworkURL) != t.Image)) {
+		(!argFlushMissing || (argFlushMissing && !t.HasID3Frame(track.ID3FrameArtwork))) &&
+		(!argFlushDifferent || (argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameArtworkURL) != t.Image)) {
 		trackArtworkReader, trackArtworkErr := ioutil.ReadFile(t.FilenameArtwork())
 		if trackArtworkErr != nil {
 			ui.Append(fmt.Sprintf("Unable to read artwork file: %s", trackArtworkErr.Error()), cui.WarningAppend)
@@ -971,8 +971,8 @@ func subCondFlushID3FrameArtwork(t track.Track, trackMp3 *id3v2.Tag) {
 
 func subCondFlushID3FrameArtworkURL(t track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Image) > 0 &&
-		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameArtworkURL))) &&
-		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameArtworkURL) != t.Image)) {
+		(!argFlushMissing || (argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameArtworkURL))) &&
+		(!argFlushDifferent || (argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameArtworkURL) != t.Image)) {
 		ui.Append("Inflating artwork url metadata...", cui.DebugAppend)
 		trackMp3.AddCommentFrame(id3v2.CommentFrame{
 			Encoding:    id3v2.EncodingUTF8,
@@ -985,8 +985,8 @@ func subCondFlushID3FrameArtworkURL(t track.Track, trackMp3 *id3v2.Tag) {
 
 func subCondFlushID3FrameOrigin(t track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.URL) > 0 &&
-		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameOrigin))) &&
-		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameOrigin) != t.URL)) {
+		(!argFlushMissing || (argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameOrigin))) &&
+		(!argFlushDifferent || (argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameOrigin) != t.URL)) {
 		ui.Append("Inflating origin url metadata...", cui.DebugAppend)
 		trackMp3.AddCommentFrame(id3v2.CommentFrame{
 			Encoding:    id3v2.EncodingUTF8,
@@ -999,8 +999,8 @@ func subCondFlushID3FrameOrigin(t track.Track, trackMp3 *id3v2.Tag) {
 
 func subCondFlushID3FrameDuration(t track.Track, trackMp3 *id3v2.Tag) {
 	if t.Duration > 0 &&
-		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameDuration))) &&
-		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameDuration) != fmt.Sprintf("%d", t.Duration))) {
+		(!argFlushMissing || (argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameDuration))) &&
+		(!argFlushDifferent || (argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameDuration) != fmt.Sprintf("%d", t.Duration))) {
 		ui.Append("Inflating duration metadata...", cui.DebugAppend)
 		trackMp3.AddCommentFrame(id3v2.CommentFrame{
 			Encoding:    id3v2.EncodingUTF8,
@@ -1013,8 +1013,8 @@ func subCondFlushID3FrameDuration(t track.Track, trackMp3 *id3v2.Tag) {
 
 func subCondFlushID3FrameSpotifyID(t track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.SpotifyID) > 0 &&
-		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameSpotifyID))) &&
-		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameSpotifyID) != t.SpotifyID)) {
+		(!argFlushMissing || (argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameSpotifyID))) &&
+		(!argFlushDifferent || (argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameSpotifyID) != t.SpotifyID)) {
 		ui.Append("Inflating Spotify ID metadata...", cui.DebugAppend)
 		trackMp3.AddCommentFrame(id3v2.CommentFrame{
 			Encoding:    id3v2.EncodingUTF8,
@@ -1026,9 +1026,9 @@ func subCondFlushID3FrameSpotifyID(t track.Track, trackMp3 *id3v2.Tag) {
 }
 
 func subCondFlushID3FrameLyrics(t track.Track, trackMp3 *id3v2.Tag) {
-	if len(t.Lyrics) > 0 && !*argDisableLyrics &&
-		(!*argFlushMissing || (*argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameLyrics))) &&
-		(!*argFlushDifferent || (*argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameLyrics) != t.Lyrics)) {
+	if len(t.Lyrics) > 0 && !argDisableLyrics &&
+		(!argFlushMissing || (argFlushMissing && !track.TagHasFrame(trackMp3, track.ID3FrameLyrics))) &&
+		(!argFlushDifferent || (argFlushDifferent && track.TagGetFrame(trackMp3, track.ID3FrameLyrics) != t.Lyrics)) {
 		ui.Append("Inflating lyrics metadata...", cui.DebugAppend)
 		trackMp3.AddUnsynchronisedLyricsFrame(id3v2.UnsynchronisedLyricsFrame{
 			Encoding:          id3v2.EncodingUTF8,
@@ -1040,7 +1040,7 @@ func subCondFlushID3FrameLyrics(t track.Track, trackMp3 *id3v2.Tag) {
 }
 
 func subIfSongSearch(t track.Track) bool {
-	return !t.Local || *argReplaceLocal || *argSimulate
+	return !t.Local || argReplaceLocal || argSimulate
 }
 
 func subFetchGob(path string) (track.TracksDump, error) {
@@ -1062,10 +1062,10 @@ func subCountSongs() (int, int, int) {
 		songsFlush  int
 		songsIgnore int
 	)
-	if *argReplaceLocal {
+	if argReplaceLocal {
 		songsFetch = len(tracks)
 		songsFlush = songsFetch
-	} else if *argFlushMetadata {
+	} else if argFlushMetadata {
 		songsFetch = tracks.CountOnline()
 		songsFlush = len(tracks)
 	} else {
@@ -1084,7 +1084,7 @@ func subMatchResult(p provider.Provider, t *track.Track, e *provider.Entry) (boo
 	)
 	ansErr = p.Match(e, t)
 	ansAutomated = bool(ansErr == nil)
-	if *argInteractive {
+	if argInteractive {
 		ansInput = ui.Prompt(fmt.Sprintf("Do you want to download the following video for \"%s\"?\n"+
 			"ID: %s\nTitle: %s\nUser: %s\nDuration: %d\nURL: %s\nResult is matching: %s",
 			t.Basename(), e.ID, e.Title, e.User, e.Duration, e.URL, strconv.FormatBool(ansAutomated)), cui.PromptBinary)
@@ -1093,11 +1093,11 @@ func subMatchResult(p provider.Provider, t *track.Track, e *provider.Entry) (boo
 }
 
 func subIfPickFromAns(ansAutomated bool, ansInput bool) bool {
-	return (!*argInteractive && ansAutomated) || (*argInteractive && ansInput)
+	return (!argInteractive && ansAutomated) || (argInteractive && ansInput)
 }
 
 func subCondManualInputURL(p provider.Provider, e *provider.Entry, t *track.Track) {
-	if *argInteractive && e.URL == "" {
+	if argInteractive && e.URL == "" {
 		inputURL := ui.PromptInputMessage(fmt.Sprintf("Please, manually enter URL for \"%s\"", t.Basename()), cui.PromptInput)
 		if len(inputURL) > 0 {
 			if err := p.ValidateURL(inputURL); err == nil {
@@ -1111,19 +1111,19 @@ func subCondManualInputURL(p provider.Provider, e *provider.Entry, t *track.Trac
 }
 
 func subIfSongProcess(t track.Track) bool {
-	return !t.Local || *argFlushMetadata || *argReplaceLocal
+	return !t.Local || argFlushMetadata || argReplaceLocal
 }
 
 func subCondSequentialDo(t *track.Track) {
-	if (t.Local && *argFlushMetadata) || !t.Local {
+	if (t.Local && argFlushMetadata) || !t.Local {
 		subCondLyricsFetch(t)
 		subCondArtworkDownload(t)
 	}
 }
 
 func subCondLyricsFetch(t *track.Track) {
-	if !*argDisableLyrics &&
-		(!*argFlushMissing || (*argFlushMissing && !t.HasID3Frame(track.ID3FrameLyrics))) {
+	if !argDisableLyrics &&
+		(!argFlushMissing || (argFlushMissing && !t.HasID3Frame(track.ID3FrameLyrics))) {
 		ui.Append(fmt.Sprintf("Fetching song \"%s\" lyrics...", t.Basename()), cui.DebugAppend)
 		lyricsErr := t.SearchLyrics()
 		if lyricsErr != nil {
@@ -1136,7 +1136,7 @@ func subCondLyricsFetch(t *track.Track) {
 
 func subCondArtworkDownload(t *track.Track) {
 	if len(t.Image) > 0 && !system.FileExists(t.FilenameArtwork()) &&
-		(!*argFlushMissing || (*argFlushMissing && !t.HasID3Frame(track.ID3FrameArtwork))) {
+		(!argFlushMissing || (argFlushMissing && !t.HasID3Frame(track.ID3FrameArtwork))) {
 		ui.Append(fmt.Sprintf("Downloading song \"%s\" artwork at %s...", t.Basename(), t.Image), cui.DebugAppend)
 		var commandOut bytes.Buffer
 		commandCmd := "ffmpeg"
@@ -1150,7 +1150,7 @@ func subCondArtworkDownload(t *track.Track) {
 }
 
 func subCondTimestampFlush() {
-	if !*argDisableTimestampFlush {
+	if !argDisableTimestampFlush {
 		ui.Append("Flushing files timestamps...")
 		now := time.Now().Local().Add(time.Duration(-1*len(tracks)) * time.Minute)
 		for _, t := range tracks {
@@ -1166,14 +1166,14 @@ func subCondTimestampFlush() {
 }
 
 func subCondPlaylistFileWrite() {
-	if !*argSimulate && !*argDisablePlaylistFile && *argPlaylist != "none" {
+	if !argSimulate && !argDisablePlaylistFile && argPlaylist != "none" {
 		var (
 			playlistFolder  = slug.Make(playlistInfo.Name)
 			playlistFname   = fmt.Sprintf("%s/%s", playlistFolder, playlistInfo.Name)
 			playlistContent string
 		)
 
-		if !*argPlsFile {
+		if !argPlsFile {
 			playlistFname = playlistFname + ".m3u"
 		} else {
 			playlistFname = playlistFname + ".pls"
@@ -1196,7 +1196,7 @@ func subCondPlaylistFileWrite() {
 			os.Remove(playlistFname)
 		}
 
-		if !*argPlsFile {
+		if !argPlsFile {
 			playlistContent = "#EXTM3U\n"
 			for trackIndex := len(tracks) - 1; trackIndex >= 0; trackIndex-- {
 				t := tracks[trackIndex]

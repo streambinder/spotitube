@@ -4,16 +4,15 @@ import (
 	"bytes"
 	"fmt"
 	"math"
-	"net/http"
 	"os/exec"
 	"strconv"
 	"strings"
 
-	"../spotitube"
 	"../track"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/bradfitz/slice"
+	"github.com/streambinder/spotitube/src/spotitube"
 )
 
 const (
@@ -40,28 +39,19 @@ type YouTubeProvider struct {
 
 // Query : query provider for entries related to track
 func (p YouTubeProvider) Query(track *track.Track) ([]*Entry, error) {
-	var (
-		doc         *goquery.Document
-		queryString = fmt.Sprintf(YouTubeQueryPattern,
-			strings.Replace(track.Query(), " ", "+", -1))
-	)
-	request, _ := http.NewRequest("GET", queryString, nil)
-	request.Header.Add("Accept-Language", "en")
-	response, err := http.DefaultClient.Do(request)
-	if err == nil {
-		doc, _ = goquery.NewDocumentFromResponse(response)
-	} else {
-		doc, err = goquery.NewDocument(queryString)
-	}
+	var queryString = fmt.Sprintf(YouTubeQueryPattern, strings.Replace(track.Query(), " ", "+", -1))
+
+	d, err := goquery.NewDocument(queryString)
 	if err != nil {
 		return []*Entry{}, fmt.Errorf(fmt.Sprintf("Cannot retrieve doc from \"%s\": %s", queryString, err.Error()))
 	}
-	html, _ := doc.Html()
-	if strings.Contains(strings.ToLower(html), "unusual traffic") {
+
+	dContent, _ := d.Html()
+	if strings.Contains(strings.ToLower(dContent), "unusual traffic") {
 		return []*Entry{}, fmt.Errorf("YouTube busted you: you'd better wait few minutes before retrying firing thousands video requests")
 	}
 
-	entries, err := pullTracksFromDoc(*track, doc)
+	entries, err := pullTracksFromDoc(*track, d)
 	if err != nil {
 		return []*Entry{}, err
 	}
@@ -76,25 +66,28 @@ func (p YouTubeProvider) Match(e *Entry, t *track.Track) error {
 		return fmt.Errorf(fmt.Sprintf("The duration difference is excessive: | %d - %d | = %d (max tolerated: %d)",
 			t.Duration, e.Duration, int(math.Abs(float64(t.Duration-e.Duration))), DurationTolerance))
 	}
+
 	if strings.Contains(e.URL, "&list=") {
 		return fmt.Errorf("Track is actually pointing to playlist")
 	}
+
 	if strings.Contains(e.URL, "/user/") {
 		return fmt.Errorf("Track is actually pointing to user")
 	}
+
 	return t.Seems(fmt.Sprintf("%s %s", e.User, e.Title))
 }
 
 // Download : delegate youtube-dl call to download entry
 func (p YouTubeProvider) Download(e *Entry, fname string) error {
-	var commandOut bytes.Buffer
-	commandCmd := "youtube-dl"
-	commandArgs := []string{"--format", "bestaudio", "--extract-audio", "--audio-format", spotitube.SongExtension, "--audio-quality", "0", "--output", strings.Replace(fname, fmt.Sprintf(".%s", spotitube.SongExtension), "", -1) + ".%(ext)s", e.URL}
-	commandObj := exec.Command(commandCmd, commandArgs...)
-	commandObj.Stderr = &commandOut
-	if commandErr := commandObj.Run(); commandErr != nil {
-		return fmt.Errorf(fmt.Sprintf("Something went wrong while executing \"%s %s\":\n%s", commandCmd, strings.Join(commandArgs, " "), commandOut.String()))
+	cStderr := new(bytes.Buffer)
+	c := exec.Command("youtube-dl", []string{"--format", "bestaudio", "--extract-audio", "--audio-format", spotitube.SongExtension, "--audio-quality", "0", "--output", strings.Replace(fname, fmt.Sprintf(".%s", spotitube.SongExtension), "", -1) + ".%(ext)s", e.URL}...)
+	c.Stderr = cStderr
+
+	if cErr := c.Run(); cErr != nil {
+		return fmt.Errorf(fmt.Sprintf("Unable to download from YouTube: \n%s", cStderr.String()))
 	}
+
 	return nil
 }
 
@@ -104,67 +97,76 @@ func (p YouTubeProvider) ValidateURL(url string) error {
 		!strings.Contains(strings.ToLower(url), "watch?v=") {
 		return fmt.Errorf(fmt.Sprintf("URL %s doesn't seem to be pointing to any YouTube video.", url))
 	}
+
 	return nil
 }
 
 // IDFromURL : extract YouTube entry ID from input URL
 func IDFromURL(url string) string {
-	var idPart string
+	var id string
+
 	if strings.Contains(strings.ToLower(url), "youtu.be/") {
-		idPart = strings.Split(url, "youtu.be/")[1]
+		id = strings.Split(url, "youtu.be/")[1]
 	} else {
-		idPart = strings.Split(url, "watch?v=")[1]
+		id = strings.Split(url, "watch?v=")[1]
 	}
-	if strings.Contains(idPart, "?") {
-		idPart = strings.Split(idPart, "?")[0]
+
+	if strings.Contains(id, "?") {
+		id = strings.Split(id, "?")[0]
 	}
-	if strings.Contains(idPart, "&list") {
-		idPart = strings.Split(idPart, "&list")[0]
+
+	if strings.Contains(id, "&list") {
+		id = strings.Split(id, "&list")[0]
 	}
-	return idPart
+
+	return id
 }
 
 func pullTracksFromDoc(track track.Track, document *goquery.Document) ([]*Entry, error) {
 	var (
-		entries           = []*Entry{}
-		selection         = document.Find(YouTubeHTMLVideoSelector)
-		selectionDesc     = document.Find(YouTubeHTMLDescSelector)
-		selectionDuration = document.Find(YouTubeHTMLDurationSelector)
-		selectionPointer  int
-		selectionError    error
+		entries  = []*Entry{}
+		elVideo  = document.Find(YouTubeHTMLVideoSelector)
+		elDesc   = document.Find(YouTubeHTMLDescSelector)
+		elLength = document.Find(YouTubeHTMLDurationSelector)
+		elPtr    int
+		elErr    error
 	)
-	for selectionPointer+1 < len(selection.Nodes) {
-		selectionPointer++
+	for elPtr+1 < len(elVideo.Nodes) {
+		elPtr++
 
-		item := selection.Eq(selectionPointer)
+		item := elVideo.Eq(elPtr)
 		itemHref, itemHrefOk := item.Attr("href")
 		itemTitle, itemTitleOk := item.Attr("title")
-		itemUser, _ := "UNKNOWN", false
+		itemUser, _ := "unknown", false
 		itemLength, itemLengthOk := 0, false
-		if selectionPointer < len(selectionDesc.Nodes) {
-			itemDesc := selectionDesc.Eq(selectionPointer)
+
+		if elPtr < len(elDesc.Nodes) {
+			itemDesc := elDesc.Eq(elPtr)
 			itemUser = strings.TrimSpace(itemDesc.Find("a").Text())
 			// itemUserOk = true
 		}
-		if selectionPointer < len(selectionDuration.Nodes) {
+
+		if elPtr < len(elLength.Nodes) {
 			var itemLengthMin, itemLengthSec int
-			itemDuration := selectionDuration.Eq(selectionPointer)
+			itemDuration := elLength.Eq(elPtr)
 			itemLengthSectr := strings.TrimSpace(itemDuration.Text())
 			if strings.Contains(itemLengthSectr, ": ") {
 				itemLengthSectr = strings.Split(itemLengthSectr, ": ")[1]
-				itemLengthMin, selectionError = strconv.Atoi(strings.Split(itemLengthSectr, ":")[0])
-				if selectionError == nil {
-					itemLengthSec, selectionError = strconv.Atoi(strings.Split(itemLengthSectr, ":")[1][:2])
-					if selectionError == nil {
+				itemLengthMin, elErr = strconv.Atoi(strings.Split(itemLengthSectr, ":")[0])
+				if elErr == nil {
+					itemLengthSec, elErr = strconv.Atoi(strings.Split(itemLengthSectr, ":")[1][:2])
+					if elErr == nil {
 						itemLength = itemLengthMin*60 + itemLengthSec
 						itemLengthOk = true
 					}
 				}
 			}
 		}
+
 		if itemHrefOk && itemTitleOk && itemLengthOk &&
-			(strings.Contains(strings.ToLower(itemHref), "youtu.be") || !strings.Contains(strings.ToLower(itemHref), "&list=")) &&
-			(strings.Contains(strings.ToLower(itemHref), "youtu.be") || strings.Contains(strings.ToLower(itemHref), "watch?v=")) {
+			!strings.Contains(strings.ToLower(itemHref), "&list=") &&
+			(strings.Contains(strings.ToLower(itemHref), "youtu.be") ||
+				strings.Contains(strings.ToLower(itemHref), "watch?v=")) {
 			entries = append(entries, &Entry{
 				ID:       IDFromURL(YouTubeVideoPrefix + itemHref),
 				URL:      YouTubeVideoPrefix + itemHref,

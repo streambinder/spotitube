@@ -1,9 +1,0 @@
-bin
-pkg
-out
-*.log
-src/github.com
-src/golang.org
-src/gopkg.in
-src/go4.org
-.vscode

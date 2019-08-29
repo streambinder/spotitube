@@ -3,9 +3,10 @@ PROJECT_ROOT := src/
 
 NAME := spotitube
 CUR_DIR = $(shell pwd)
-BINARY := $(CUR_DIR)/out/$(NAME)
 BINARY_INSTALL_PATH := /usr/local/sbin
 BINARY_INSTALL := $(BINARY_INSTALL_PATH)/$(NAME)
+BINARY_PATH := $(CUR_DIR)/bin
+BINARY := $(BINARY_PATH)/$(NAME)
 VERSION := $(shell awk -F'= ' '/Version / {print $$2}' src/spotitube/common.go | xargs)
 PKG_NAME := $(BINARY)-v$(VERSION)
 GOARCH := amd64
@@ -13,7 +14,7 @@ LDFLAGS := -s -w
 OS := $(shell uname)
 
 include Makefile.gobuild
-include Makefile.packaging
+include Makefile.pkg
 
 .PHONY: install
 install: bin
@@ -28,8 +29,7 @@ install: bin
 clean:
 	@ ( \
 		echo -en "Cleaning...\r"; \
-		(test ! -d $(CUR_DIR)/pkg || rm -rf $(CUR_DIR)/pkg) && \
-		(test ! -d $(CUR_DIR)/out || rm -rf $(CUR_DIR)/out) && \
+		(test ! -d $(BINARY_PATH) || rm -rf $(BINARY_PATH)) && \
 		rm -rf $(BINARY)* && \
 		echo -e "\rCleaned workspace."; \
 	);

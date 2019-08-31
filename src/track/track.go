@@ -40,12 +40,6 @@ type TracksDump struct {
 	Time   time.Time
 }
 
-// TracksIndex : Tracks index keeping ID - filename mapping and eventual filename links
-type TracksIndex struct {
-	Tracks map[string]string
-	Links  map[string][]string
-}
-
 // CountOffline : return offline (local) songs count from Tracks
 func (tracks Tracks) CountOffline() int {
 	return len(tracks) - tracks.CountOnline()

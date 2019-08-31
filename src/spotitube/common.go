@@ -6,28 +6,25 @@ import (
 )
 
 const (
-	// Version : current version
+	// Version is current version
 	Version = 25
-	// VersionRepository : repositoy container
-	VersionRepository = "https://github.com/streambinder/spotitube"
-	// VersionOrigin : API repository latest version URL
-	VersionOrigin = "https://api.github.com/repos/streambinder/spotitube/releases/latest"
-	// VersionURL : latest version for download
-	VersionURL = VersionRepository + "/releases/latest"
-
-	// ConcurrencyLimit : max concurrent jobs
+	// ConcurrencyLimit indicates max concurrent jobs number
 	ConcurrencyLimit = 100
-
-	// SongExtension : default downloaded songs extension
+	// SongExtension is the default songs extension
 	SongExtension = "mp3"
-	// TCPCheckOrigin : default internet connection check origin
-	TCPCheckOrigin = "github.com:443"
-	// HTTPTimeout : default timeout for HTTP calls
-	HTTPTimeout = 3 // second(s)
 )
 
-// LocalConfigPath : get local configuration and cache path
-func LocalConfigPath() string {
+var (
+	// UserBinary indicates the path of the cached and updated application binary
+	UserBinary = fmt.Sprintf("%s/spotitube", UserPath())
+	// UserIndex indicates the path of the library index
+	UserIndex = fmt.Sprintf("%s/index.gob", UserPath())
+	// UserGob indicates the pattern of the path to a generic cache GOB file
+	UserGob = fmt.Sprintf("%s/%s_%s.gob", UserPath(), "%s", "%s")
+)
+
+// UserPath : get local configuration and cache path
+func UserPath() string {
 	currentUser, _ := user.Current()
 	return fmt.Sprintf("%s/.cache/spotitube", currentUser.HomeDir)
 }

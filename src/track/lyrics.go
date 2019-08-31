@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"../spotitube"
+	"../system"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/rainycape/unidecode"
@@ -59,7 +59,7 @@ func searchLyricsGenius(track *Track) (string, error) {
 	}
 
 	lyricsClient := http.Client{
-		Timeout: time.Second * spotitube.HTTPTimeout,
+		Timeout: time.Second * system.HTTPTimeout,
 	}
 
 	encodedURL, lyricsError := url.Parse(fmt.Sprintf(LyricsGeniusAPIURL, url.QueryEscape(track.Title), url.QueryEscape(track.Artist)))
@@ -115,7 +115,7 @@ func searchLyricsOvh(track *Track) (string, error) {
 		Lyrics string `json:"lyrics"`
 	}
 	lyricsClient := http.Client{
-		Timeout: time.Second * spotitube.HTTPTimeout,
+		Timeout: time.Second * system.HTTPTimeout,
 	}
 
 	encodedURL, lyricsError := url.Parse(fmt.Sprintf(LyricsOVHAPIURL, url.QueryEscape(track.Artist), url.QueryEscape(track.Song)))

@@ -131,6 +131,13 @@ func (c *CUI) Shutdown(gui *gocui.Gui, view *gocui.View) error {
 	return gocui.ErrQuit
 }
 
+func (c *CUI) OnShutdown(f func()) {
+	go func() {
+		<-c.CloseChan
+		f()
+	}()
+}
+
 // Append : add input string message to input Options driven space
 func (c *CUI) Append(message string, spreadOptions ...Options) error {
 	var options uint64

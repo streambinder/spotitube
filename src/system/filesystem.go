@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/user"
+	"path/filepath"
+	"strings"
 )
 
 // Dir : return True if input string path is a directory
@@ -29,6 +32,17 @@ func Mkdir(dir string) error {
 		}
 	}
 	return nil
+}
+
+// PrettyPath replaces home directory sequence with a tilde
+func PrettyPath(dir string) string {
+	dir, _ = filepath.Abs(dir)
+
+	if u, err := user.Current(); err == nil {
+		dir = strings.Replace(dir, u.HomeDir, "~", -1)
+	}
+
+	return dir
 }
 
 // FileExists : return True if input string path points to a valid file
@@ -66,6 +80,25 @@ func FileCopy(pathFrom string, pathTo string) error {
 	}
 
 	return pathToOpen.Close()
+}
+
+// FileWildcardDelete deletes files from an array of wildcard strings
+func FileWildcardDelete(path string, wildcards ...string) int {
+	var deletions int
+
+	for _, wildcard := range wildcards {
+		files, err := filepath.Glob(wildcard)
+		if err != nil {
+			continue
+		}
+
+		for _, f := range files {
+			os.Remove(f)
+			deletions++
+		}
+	}
+
+	return deletions
 }
 
 // FileReadLines : open, read and return slice of file lines

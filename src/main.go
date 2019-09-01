@@ -30,9 +30,16 @@ import (
 )
 
 var (
-	// flags
+	// flags for separate flows
+	argCleanJunks bool
+	argVersion    bool
+	// flags for media sources
+	argLibrary   bool
+	argAlbums    system.StringsFlag
+	argPlaylists system.StringsFlag
+	argTracksFix system.StringsFlag
+	// flags for options
 	argFolder                string
-	argPlaylist              string // TODO: it should be an array of strings
 	argFlushCache            bool
 	argFlushLocal            bool
 	argFlushMetadata         bool
@@ -48,23 +55,19 @@ var (
 	argInteractive           bool
 	argManualInput           bool
 	argRemoveDuplicates      bool
-	argCleanJunks            bool
-	argLog                   bool
-	argDisableGui            bool
-	argDebug                 bool
-	argSimulate              bool
-	argVersion               bool
-	argFix                   system.PathsArrayFlag
+	// flags for troubleshooting
+	argLog        bool
+	argDebug      bool
+	argSimulate   bool
+	argDisableGui bool
 
 	// spotify
-	c            *spotify.Client
-	cUsr         string
-	cUsrID       string
-	tracks       track.Tracks
-	tracksFailed track.Tracks
-	tracksIndex  *track.TracksIndex
-	// TODO: drop
-	playlistInfo *spotify.Playlist
+	c           *spotify.Client
+	cUser       string
+	cUserID     string
+	tracks      *track.Tracks
+	tracksIndex *track.TracksIndex
+	playlists   *spotify.Playlists
 
 	// routines
 	waitGroup     sync.WaitGroup
@@ -81,7 +84,9 @@ func main() {
 	mainFlagsParse()
 	mainInit()
 	mainUI()
+	mainAuthenticate()
 	mainFetch()
+	mainSearch()
 	mainExit()
 }
 
@@ -141,8 +146,18 @@ func mainEnvCheck() {
 }
 
 func mainFlagsParse() {
+	// separate flows
+	flag.BoolVar(&argCleanJunks, "clean-junks", false, "Scan for and clean junk files")
+	flag.BoolVar(&argVersion, "version", false, "Print version")
+
+	// media sources
+	flag.BoolVar(&argLibrary, "library", false, "Synchronize user library")
+	flag.Var(&argAlbums, "album", "Album URI to synchronize")
+	flag.Var(&argPlaylists, "playlist", "Playlist URI to synchronize")
+	flag.Var(&argTracksFix, "fix", "Offline song filename(s) which straighten the shot to")
+
+	// options
 	flag.StringVar(&argFolder, "folder", ".", "Folder to sync your tracks collection into")
-	flag.StringVar(&argPlaylist, "playlist", "none", "Playlist URI to synchronize")
 	flag.BoolVar(&argFlushCache, "flush-cache", false, "Force Spotify tracks collection cache flush")
 	flag.BoolVar(&argFlushLocal, "replace-local", false, "Flush already downloaded tracks if better results get encountered")
 	flag.BoolVar(&argFlushMetadata, "flush-metadata", false, "Flush metadata tags to already synchronized songs")
@@ -158,12 +173,11 @@ func mainFlagsParse() {
 	flag.BoolVar(&argInteractive, "interactive", false, "Enable interactive mode")
 	flag.BoolVar(&argManualInput, "manual-input", false, "Always manually insert URL used for songs download")
 	flag.BoolVar(&argRemoveDuplicates, "remove-duplicates", false, "Remove encountered duplicates from online library/playlist")
-	flag.BoolVar(&argCleanJunks, "clean-junks", false, "Scan for junks file and clean them")
+
+	// troubleshooting
 	flag.BoolVar(&argLog, "log", false, "Enable logging into file ./spotitube.log")
 	flag.BoolVar(&argDebug, "debug", false, "Enable debug messages")
 	flag.BoolVar(&argSimulate, "simulate", false, "Simulate process flow, without really altering filesystem")
-	flag.BoolVar(&argVersion, "version", false, "Print version")
-	flag.Var(&argFix, "fix", "Offline song filename(s) which straighten the shot to")
 	// TODO: gocui should work on windows, too
 	if runtime.GOOS != "windows" {
 		flag.BoolVar(&argDisableGui, "disable-gui", false, "Disable GUI to reduce noise and increase readability of program flow")
@@ -172,13 +186,22 @@ func mainFlagsParse() {
 	}
 	flag.Parse()
 
-	if len(argFix.Paths) > 0 {
+	if !(argAlbums.IsSet() || argPlaylists.IsSet() || argTracksFix.IsSet()) {
+		argLibrary = true
+	}
+
+	// TODO: fix this case
+	if len(argTracksFix.Entries) > 0 {
 		argFlushLocal = true
 		argFlushMetadata = true
 	}
 
 	if argManualInput {
 		argInteractive = true
+	}
+
+	if argAuthenticateOutside {
+		argDisableBrowserOpening = true
 	}
 }
 
@@ -207,10 +230,12 @@ func mainInit() {
 		if system.FileExists(spotitube.UserIndex) {
 			system.FetchGob(spotitube.UserIndex, tracksIndex)
 		}
-
 		tracksIndex = track.Index(argFolder)
 	}
 
+	for range [spotitube.ConcurrencyLimit]int{} {
+		waitGroupPool <- true
+	}
 }
 
 func mainUI() {
@@ -254,167 +279,212 @@ func mainUI() {
 	}
 }
 
+func mainAuthenticate() {
+	host := "localhost"
+	if argAuthenticateOutside {
+		host = "spotitube.local"
+		ui.Prompt("Outside authentication enabled: assure \"spotitube.local\" points to this machine.")
+	}
+
+	uri := spotify.BuildAuthURL(host)
+	ui.Append(fmt.Sprintf("Authentication URL: %s", uri.Short), cui.ParagraphAutoReturn)
+	if !argDisableBrowserOpening {
+		ui.Append("Waiting for automatic login process. If wait is too long, manually open that URL.", cui.DebugAppend)
+	}
+
+	var err error
+	if c, err = spotify.Auth(uri.Full, host, !argDisableBrowserOpening); err != nil {
+		ui.Prompt(fmt.Sprintf("Authentication failed: %s", err.Error()), cui.PromptExit)
+	}
+
+	cUser, cUserID = c.User()
+	ui.Append("Authentication completed.")
+	ui.Append(fmt.Sprintf("%s %s", cui.Font("Session user:", cui.StyleBold), cUser), cui.PanelLeftTop)
+}
+
 func mainFetch() {
-	if len(argFix.Paths) == 0 {
-		var spotifyAuthHost string
-		if !argAuthenticateOutside {
-			spotifyAuthHost = "localhost"
-		} else {
-			argDisableBrowserOpening = true
-			spotifyAuthHost = "spotitube.local"
-			ui.Prompt("Outside authentication enabled: assure \"spotitube.local\" points to this machine.")
-		}
-		spotifyAuthURL := spotify.BuildAuthURL(spotifyAuthHost)
-		ui.Append(fmt.Sprintf("Authentication URL: %s", spotifyAuthURL.Short), cui.ParagraphAutoReturn)
-		if !argDisableBrowserOpening {
-			ui.Append("Waiting for automatic login process. If wait is too long, manually open that URL.", cui.DebugAppend)
-		}
-		var err error
-		if c, err = spotify.Auth(spotifyAuthURL.Full, spotifyAuthHost, !argDisableBrowserOpening); err != nil {
-			ui.Prompt("Unable to authenticate to spotify.", cui.PromptExit)
-		}
-		ui.Append("Authentication completed.")
-		cUsr, cUsrID = c.User()
-		ui.Append(fmt.Sprintf("%s %s", cui.Font("Session user:", cui.StyleBold), cUsr), cui.PanelLeftTop)
 
-		var (
-			tracksOnline          []spotify.Track
-			tracksOnlineAlbums    []spotify.Album
-			tracksOnlineAlbumsIds []spotify.ID
-			tracksErr             error
-			gob                   string
-		)
+	mainFetchLibrary()
+	mainFetchAlbums()
+	mainFetchPlaylists()
+	mainFetchTracksToFix()
 
-		if argPlaylist == "none" {
-			gob = fmt.Sprintf(spotitube.UserGob, cUsrID, "library")
-			if argFlushCache {
-				os.Remove(gob)
-			}
-			tracksDump, tracksDumpErr := subFetchGob(gob)
-			if tracksDumpErr != nil {
-				ui.Append(tracksDumpErr.Error(), cui.WarningAppend)
-				ui.Append("Fetching music library...")
-				if tracksOnline, tracksErr = c.LibraryTracks(); tracksErr != nil {
-					ui.Prompt(fmt.Sprintf("Something went wrong while fetching tracks from library: %s.", tracksErr.Error()), cui.PromptExit)
-				}
-			} else {
-				ui.Append(fmt.Sprintf("Tracks loaded from cache."))
-				ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font("Tracks cache lifetime:", cui.StyleBold), int(time.Since(tracksDump.Time).Minutes()), 30), cui.PanelLeftTop)
-				for _, t := range tracksDump.Tracks {
-					tracks = append(tracks, t.FlushLocal())
-				}
-			}
-		} else {
-			ui.Append("Fetching playlist data...")
-			var playlistErr error
-			playlistInfo, playlistErr = c.Playlist(argPlaylist)
-			if playlistErr != nil {
-				ui.Prompt("Something went wrong while fetching playlist info.", cui.PromptExit)
-			} else {
-				ui.Append(fmt.Sprintf("%s %s", cui.Font("Playlist name:", cui.StyleBold), playlistInfo.Name), cui.PanelLeftTop)
-				if len(playlistInfo.Owner.DisplayName) == 0 && len(strings.Split(argPlaylist, ":")) >= 3 {
-					ui.Append(fmt.Sprintf("%s %s", cui.Font("Playlist owner:", cui.StyleBold), strings.Split(argPlaylist, ":")[2]), cui.PanelLeftTop)
-				} else {
-					ui.Append(fmt.Sprintf("%s %s", cui.Font("Playlist owner:", cui.StyleBold), playlistInfo.Owner.DisplayName), cui.PanelLeftTop)
-				}
+	// ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs duplicates:", cui.StyleBold), len(tracksDuplicates)), cui.PanelLeftTop)
+	ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs online:", cui.StyleBold), len(*tracks)), cui.PanelLeftTop)
+	ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs offline:", cui.StyleBold), tracks.CountOffline()), cui.PanelLeftTop)
+	ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs missing:", cui.StyleBold), tracks.CountOnline()), cui.PanelLeftTop)
 
-				gob = fmt.Sprintf(spotitube.UserGob, playlistInfo.Owner.ID, playlistInfo.Name)
-				if argFlushCache {
-					os.Remove(gob)
-				}
-				tracksDump, tracksDumpErr := subFetchGob(gob)
-				if tracksDumpErr != nil {
-					ui.Append(tracksDumpErr.Error(), cui.WarningAppend)
-					ui.Append(fmt.Sprintf("Getting songs from \"%s\" playlist, by \"%s\"...", playlistInfo.Name, playlistInfo.Owner.DisplayName), cui.StyleBold)
-					if tracksOnline, tracksErr = c.PlaylistTracks(argPlaylist); tracksErr != nil {
-						ui.Prompt(fmt.Sprintf("Something went wrong while fetching playlist: %s.", tracksErr.Error()), cui.PromptExit)
-					}
-				} else {
-					ui.Append(fmt.Sprintf("Tracks loaded from cache."))
-					ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font("Tracks cache lifetime:", cui.StyleBold), int(time.Since(tracksDump.Time).Minutes()), 30), cui.PanelLeftTop)
-					for _, t := range tracksDump.Tracks {
-						tracks = append(tracks, t.FlushLocal())
-					}
-				}
-			}
-		}
-		for _, t := range tracksOnline {
-			tracksOnlineAlbumsIds = append(tracksOnlineAlbumsIds, t.Album.ID)
-		}
-		if tracksOnlineAlbums, tracksErr = c.Albums(tracksOnlineAlbumsIds); tracksErr != nil {
-			ui.Prompt(fmt.Sprintf("Something went wrong while fetching album info: %s.", tracksErr.Error()), cui.PromptExit)
-		}
+	track.IndexWait()
 
-		ui.Append("Checking which songs need to be downloaded...")
-		var (
-			tracksDuplicates []spotify.ID
-			tracksMap        = make(map[string]float64)
-		)
-		for trackIndex := len(tracksOnline) - 1; trackIndex >= 0; trackIndex-- {
-			trackID := tracksOnline[trackIndex].SimpleTrack.ID
-			if _, alreadyParsed := tracksMap[trackID.String()]; !alreadyParsed {
-				tracks = append(tracks, track.ParseSpotifyTrack(tracksOnline[trackIndex], tracksOnlineAlbums[trackIndex]))
-				tracksMap[trackID.String()] = 1
-			} else {
-				ui.Append(fmt.Sprintf("Ignored song duplicate \"%s\" by \"%s\".", tracksOnline[trackIndex].SimpleTrack.Name, tracksOnline[trackIndex].SimpleTrack.Artists[0].Name), cui.WarningAppend)
-				tracksDuplicates = append(tracksDuplicates, trackID)
-			}
-		}
-
-		if argRemoveDuplicates && len(tracksDuplicates) > 0 {
-			if argPlaylist == "none" {
-				if removeErr := c.RemoveLibraryTracks(tracksDuplicates); removeErr != nil {
-					ui.Prompt(fmt.Sprintf("Something went wrong while removing %d duplicates: %s.", len(tracksDuplicates), removeErr.Error()))
-				} else {
-					ui.Append(fmt.Sprintf("%d duplicate tracks correctly removed from library.", len(tracksDuplicates)))
-				}
-			} else {
-				if removeErr := c.RemovePlaylistTracks(argPlaylist, tracksDuplicates); removeErr != nil {
-					ui.Prompt(fmt.Sprintf("Something went wrong while removing %d duplicates: %s.", len(tracksDuplicates), removeErr.Error()))
-				} else {
-					ui.Append(fmt.Sprintf("%d duplicate tracks correctly removed from playlist.", len(tracksDuplicates)))
-				}
-			}
-		}
-
-		if dumpErr := system.DumpGob(gob, track.TracksDump{Tracks: tracks, Time: time.Now()}); dumpErr != nil {
-			ui.Append(fmt.Sprintf("Unable to cache tracks: %s", dumpErr.Error()), cui.WarningAppend)
-		}
-
-		ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs duplicates:", cui.StyleBold), len(tracksDuplicates)), cui.PanelLeftTop)
-		ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs online:", cui.StyleBold), len(tracks)), cui.PanelLeftTop)
-		ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs offline:", cui.StyleBold), tracks.CountOffline()), cui.PanelLeftTop)
-		ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs missing:", cui.StyleBold), tracks.CountOnline()), cui.PanelLeftTop)
-
-		track.IndexWait()
-	} else {
-		ui.Append(fmt.Sprintf("%s %d", cui.Font("Fix song(s):", cui.StyleBold), len(argFix.Paths)), cui.PanelLeftTop)
-		for _, fixTrack := range argFix.Paths {
-			if t, trackErr := track.OpenLocalTrack(fixTrack); trackErr != nil {
-				ui.Prompt(fmt.Sprintf("Something went wrong: %s.", trackErr.Error()), cui.PromptExit)
-				mainExit()
-			} else {
-				ui.Append(fmt.Sprintf("%+v\n", t), cui.DebugAppend)
-				tracks = append(tracks, t)
-			}
-		}
-	}
-
-	for range [spotitube.ConcurrencyLimit]int{} {
-		waitGroupPool <- true
-	}
-
-	if len(tracks) > 0 {
-		mainSearch()
-	} else {
+	if len(*tracks) == 0 {
 		ui.Prompt("No song needs to be downloaded.", cui.PromptExit)
 		mainExit()
+	}
+
+}
+
+func mainFetchLibrary() {
+	if !argLibrary {
+		return
+	}
+
+	gob := fmt.Sprintf(spotitube.UserGob, cUserID, "library")
+	if argFlushCache {
+		os.Remove(gob)
+	}
+
+	dump, dumpErr := subFetchGob(gob)
+	if dumpErr == nil {
+		ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font("Tracks cache lifetime:", cui.StyleBold), int(time.Since(dump.Time)), spotitube.TracksCacheDuration), cui.PanelLeftTop)
+		for _, t := range dump.Tracks {
+			*tracks = append(*tracks, t.FlushLocal())
+		}
+		return
+	}
+
+	ui.Append("Fetching music library...")
+	library, err := c.LibraryTracks()
+	if err != nil {
+		ui.Prompt(fmt.Sprintf("Unable to fetch library: %s", err.Error()), cui.PromptExit)
+	}
+
+	if err := system.DumpGob(gob, track.TracksDump{Tracks: library, Time: time.Now()}); err != nil {
+		ui.Append(fmt.Sprintf("Unable to cache tracks: %s", err.Error()), cui.WarningAppend)
+	}
+
+	dup := make(map[spotify.ID]float64)
+	for _, t := range library {
+		if _, isDup := dup[spotify.ID(t.SpotifyID)]; !isDup {
+			*tracks = append(*tracks, *t)
+		}
+		dup[spotify.ID(t.SpotifyID)] = 1
+	}
+
+	if argRemoveDuplicates {
+		ids := []spotify.ID{}
+		for id := range dup {
+			ids = append(ids, id)
+		}
+
+		err := c.RemoveLibraryTracks(ids)
+		if err != nil {
+			ui.Append(fmt.Sprintf("Unable to remove library duplicates: %s", err.Error()), cui.WarningAppend)
+		}
+	}
+}
+
+func mainFetchAlbums() {
+	if !argAlbums.IsSet() {
+		return
+	}
+
+	for _, uri := range argAlbums.Entries {
+		gob := fmt.Sprintf(spotitube.UserGob, cUserID, fmt.Sprintf("album_%s", spotify.IDFromURI(uri)))
+		if argFlushCache {
+			os.Remove(gob)
+		}
+
+		dump, dumpErr := subFetchGob(gob)
+		if dumpErr == nil {
+			ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font("Tracks cache lifetime:", cui.StyleBold), int(time.Since(dump.Time)), spotitube.TracksCacheDuration), cui.PanelLeftTop)
+			for _, t := range dump.Tracks {
+				*tracks = append(*tracks, t.FlushLocal())
+			}
+			continue
+		}
+
+		ui.Append(fmt.Sprintf("Fetching album %s...", spotify.IDFromURI(uri)))
+		album, err := c.AlbumTracks(uri)
+		if err != nil {
+			ui.Prompt(fmt.Sprintf("Unable to fetch album: %s", err.Error()), cui.PromptExit)
+		}
+
+		if err := system.DumpGob(gob, track.TracksDump{Tracks: album, Time: time.Now()}); err != nil {
+			ui.Append(fmt.Sprintf("Unable to cache tracks: %s", err.Error()), cui.WarningAppend)
+		}
+
+		for _, t := range album {
+			*tracks = append(*tracks, *t)
+		}
+	}
+}
+
+func mainFetchPlaylists() {
+	if !argPlaylists.IsSet() {
+		return
+	}
+
+	for _, uri := range argPlaylists.Entries {
+		if p, err := c.Playlist(uri); err == nil {
+			*playlists = append(*playlists, *p)
+		}
+
+		gob := fmt.Sprintf(spotitube.UserGob, cUserID, fmt.Sprintf("playlist_%s", spotify.IDFromURI(uri)))
+		if argFlushCache {
+			os.Remove(gob)
+		}
+
+		dump, dumpErr := subFetchGob(gob)
+		if dumpErr == nil {
+			ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font("Tracks cache lifetime:", cui.StyleBold), int(time.Since(dump.Time)), spotitube.TracksCacheDuration), cui.PanelLeftTop)
+			for _, t := range dump.Tracks {
+				*tracks = append(*tracks, t.FlushLocal())
+			}
+			continue
+		}
+
+		ui.Append(fmt.Sprintf("Fetching playlist %s...", spotify.IDFromURI(uri)))
+		playlist, err := c.PlaylistTracks(uri)
+		if err != nil {
+			ui.Prompt(fmt.Sprintf("Unable to fetch playlist: %s", err.Error()), cui.PromptExit)
+		}
+
+		if err := system.DumpGob(gob, track.TracksDump{Tracks: playlist, Time: time.Now()}); err != nil {
+			ui.Append(fmt.Sprintf("Unable to cache tracks: %s", err.Error()), cui.WarningAppend)
+		}
+
+		for _, t := range playlist {
+			*tracks = append(*tracks, *t)
+		}
+
+		dup := make(map[spotify.ID]float64)
+		for _, t := range playlist {
+			if _, isDup := dup[spotify.ID(t.SpotifyID)]; !isDup {
+				*tracks = append(*tracks, *t)
+			}
+			dup[spotify.ID(t.SpotifyID)] = 1
+		}
+
+		if argRemoveDuplicates {
+			ids := []spotify.ID{}
+			for id := range dup {
+				ids = append(ids, id)
+			}
+
+			err := c.RemovePlaylistTracks(uri, ids)
+			if err != nil {
+				ui.Append(fmt.Sprintf("Unable to remove %s playlist duplicates: %s", uri, err.Error()), cui.WarningAppend)
+			}
+		}
+	}
+}
+
+func mainFetchTracksToFix() {
+	if !argTracksFix.IsSet() {
+		return
+	}
+
+	ui.Append(fmt.Sprintf("%s %d", cui.Font("Fix song(s):", cui.StyleBold), len(argTracksFix.Entries)), cui.PanelLeftTop)
+	for _, tFix := range argTracksFix.Entries {
+		if t, err := track.OpenLocalTrack(tFix); err != nil {
+			ui.Prompt(fmt.Sprintf("Something went wrong: %s", err.Error()))
+		} else {
+			*tracks = append(*tracks, *t)
+		}
 	}
 }
 
 func mainSearch() {
-	defer mainExit()
-
 	ui.ProgressMax = len(tracks)
 
 	songsFetch, songsFlush, songsIgnore := subCountSongs()
@@ -828,7 +898,7 @@ func subFetchGob(path string) (track.TracksDump, error) {
 		return track.TracksDump{}, fmt.Errorf(fmt.Sprintf("Unable to load tracks cache: %s", fetchErr.Error()))
 	}
 
-	if time.Since(tracksDump.Time).Minutes() > 30 {
+	if time.Since(tracksDump.Time) > spotitube.TracksCacheDuration {
 		return track.TracksDump{}, fmt.Errorf("Tracks cache declared obsolete: flushing it from Spotify")
 	}
 
@@ -837,22 +907,24 @@ func subFetchGob(path string) (track.TracksDump, error) {
 
 func subCountSongs() (int, int, int) {
 	var (
-		songsFetch  int
-		songsFlush  int
-		songsIgnore int
+		fetch  int
+		flush  int
+		ignore int
 	)
+
 	if argFlushLocal {
-		songsFetch = len(tracks)
-		songsFlush = songsFetch
+		fetch = len(tracks)
+		flush = fetch
 	} else if argFlushMetadata {
-		songsFetch = tracks.CountOnline()
-		songsFlush = len(tracks)
+		fetch = tracks.CountOnline()
+		flush = len(tracks)
 	} else {
-		songsFetch = tracks.CountOnline()
-		songsFlush = songsFetch
-		songsIgnore = tracks.CountOffline()
+		fetch = tracks.CountOnline()
+		flush = fetch
+		ignore = tracks.CountOffline()
 	}
-	return songsFetch, songsFlush, songsIgnore
+
+	return fetch, flush, ignore
 }
 
 func subMatchResult(p provider.Provider, t *track.Track, e *provider.Entry) (bool, bool) {

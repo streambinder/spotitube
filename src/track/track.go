@@ -36,7 +36,7 @@ type Tracks []Track
 
 // TracksDump : Tracks dumpable object
 type TracksDump struct {
-	Tracks Tracks
+	Tracks []*Track
 	Time   time.Time
 }
 
@@ -57,14 +57,16 @@ func (tracks Tracks) CountOnline() int {
 }
 
 // OpenLocalTrack : parse local filename track informations into a new Track object
-func OpenLocalTrack(filename string) (Track, error) {
+func OpenLocalTrack(filename string) (*Track, error) {
 	if !system.FileExists(filename) {
-		return Track{}, fmt.Errorf(fmt.Sprintf("%s does not exist", filename))
+		return new(Track), fmt.Errorf(fmt.Sprintf("%s does not exist", filename))
 	}
+
 	trackMp3, err := id3v2.Open(filename, id3v2.Options{Parse: true})
 	if err != nil {
-		return Track{}, fmt.Errorf(fmt.Sprintf("Cannot read id3 tags from \"%s\": %s", filename, err.Error()))
+		return new(Track), fmt.Errorf(fmt.Sprintf("Cannot read id3 tags from \"%s\": %s", filename, err.Error()))
 	}
+
 	track := Track{
 		Title:       TagGetFrame(trackMp3, ID3FrameTitle),
 		Song:        TagGetFrame(trackMp3, ID3FrameSong),
@@ -94,11 +96,11 @@ func OpenLocalTrack(filename string) (Track, error) {
 	}
 
 	trackMp3.Close()
-	return track, nil
+	return &track, nil
 }
 
 // ParseSpotifyTrack : parse Spotify track into a new Track object
-func ParseSpotifyTrack(spotifyTrack spotify.FullTrack, spotifyAlbum spotify.FullAlbum) Track {
+func ParseSpotifyTrack(spotifyTrack *spotify.FullTrack, spotifyAlbum *spotify.FullAlbum) *Track {
 	track := Track{
 		Title:  spotifyTrack.SimpleTrack.Name,
 		Artist: (spotifyTrack.SimpleTrack.Artists[0]).Name,
@@ -157,7 +159,7 @@ func ParseSpotifyTrack(spotifyTrack spotify.FullTrack, spotifyAlbum spotify.Full
 		track.Lyrics = track.GetID3Frame(ID3FrameLyrics)
 	}
 
-	return track
+	return &track
 }
 
 func parseTitle(trackTitle string, trackFeaturings []string) (string, string) {

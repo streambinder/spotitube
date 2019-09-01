@@ -3,11 +3,14 @@ package spotitube
 import (
 	"fmt"
 	"os/user"
+	"time"
 )
 
 const (
 	// Version is current version
 	Version = 25
+	// TracksCacheDuration indicates lifetime of tracks cache
+	TracksCacheDuration = 30 * time.Minute
 	// ConcurrencyLimit indicates max concurrent jobs number
 	ConcurrencyLimit = 100
 	// SongExtension is the default songs extension

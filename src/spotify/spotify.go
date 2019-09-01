@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"../track"
+
 	"github.com/thanhpk/randstr"
 	"github.com/zmb3/spotify"
 )
@@ -18,13 +20,14 @@ func (c *Client) User() (string, string) {
 	if user, err := c.CurrentUser(); err == nil {
 		return user.DisplayName, user.ID
 	}
+
 	return "unknown", "unknown"
 }
 
 // LibraryTracks : return array of Spotify FullTrack of all authenticated user library songs
-func (c *Client) LibraryTracks() ([]Track, error) {
+func (c *Client) LibraryTracks() ([]*track.Track, error) {
 	var (
-		tracks     []Track
+		tracks     []*track.Track
 		iterations int
 		options    = defaultOptions()
 	)
@@ -32,16 +35,25 @@ func (c *Client) LibraryTracks() ([]Track, error) {
 		*options.Offset = *options.Limit * iterations
 		chunk, err := c.CurrentUsersTracksOpt(&options)
 		if err != nil {
-			return []Track{}, fmt.Errorf(fmt.Sprintf("Something gone wrong while reading %dth chunk of tracks: %s.", iterations, err.Error()))
+			return []*track.Track{}, fmt.Errorf(fmt.Sprintf("Error in %dth chunk of tracks: %s.", iterations, err.Error()))
 		}
-		for _, track := range chunk.Tracks {
-			tracks = append(tracks, track.FullTrack)
+
+		for _, t := range chunk.Tracks {
+			tAlbum, err := c.Album(t.FullTrack.Album.ID)
+			if err != nil {
+				tAlbum = &Album{}
+			}
+
+			tracks = append(tracks, track.ParseSpotifyTrack(&t.FullTrack, tAlbum))
 		}
+
 		if len(chunk.Tracks) < 50 {
 			break
 		}
+
 		iterations++
 	}
+
 	return tracks, nil
 }
 
@@ -58,52 +70,65 @@ func (c *Client) RemoveLibraryTracks(ids []ID) error {
 		if len(ids) < upperbound {
 			upperbound = lowerbound + (len(ids) - lowerbound)
 		}
+
 		chunk := ids[lowerbound:upperbound]
 		if err := c.RemoveTracksFromLibrary(chunk...); err != nil {
-			return fmt.Errorf(fmt.Sprintf("Something gone wrong while removing %dth chunk of removing tracks: %s.", iterations, err.Error()))
+			return fmt.Errorf(fmt.Sprintf("Error removing %dth chunk of removing tracks: %s.", iterations, err.Error()))
 		}
+
 		if len(chunk) < 50 {
 			break
 		}
+
 		iterations++
 	}
 	return nil
 }
 
 // Playlist : return Spotify FullPlaylist from input string playlistURI
-func (c *Client) Playlist(playlistURI string) (*Playlist, error) {
-	return c.GetPlaylist(PlaylistID(playlistURI))
+func (c *Client) Playlist(uri string) (*Playlist, error) {
+	return c.GetPlaylist(IDFromURI(uri))
 }
 
 // PlaylistTracks : return array of Spotify FullTrack of all input string playlistURI identified playlist
-func (c *Client) PlaylistTracks(playlistURI string) ([]Track, error) {
+func (c *Client) PlaylistTracks(uri string) ([]*track.Track, error) {
 	var (
-		tracks     []Track
+		tracks     []*track.Track
 		iterations int
 		options    = defaultOptions()
 	)
 
 	for true {
 		*options.Offset = *options.Limit * iterations
-		chunk, err := c.GetPlaylistTracksOpt(PlaylistID(playlistURI), &options, "")
+		chunk, err := c.GetPlaylistTracksOpt(IDFromURI(uri), &options, "")
 		if err != nil {
-			return []Track{}, fmt.Errorf(fmt.Sprintf("Something gone wrong while reading %dth chunk of tracks: %s.", iterations, err.Error()))
+			return []*track.Track{}, fmt.Errorf(fmt.Sprintf("Error reading %dth chunk of tracks: %s.", iterations, err.Error()))
 		}
-		for _, track := range chunk.Tracks {
-			if !track.IsLocal {
-				tracks = append(tracks, track.Track)
+
+		for _, t := range chunk.Tracks {
+			if t.IsLocal {
+				continue
 			}
+
+			tAlbum, err := c.Album(t.Track.Album.ID)
+			if err != nil {
+				tAlbum = &Album{}
+			}
+
+			tracks = append(tracks, track.ParseSpotifyTrack(&t.Track, tAlbum))
 		}
+
 		if len(chunk.Tracks) < 50 {
 			break
 		}
+
 		iterations++
 	}
 	return tracks, nil
 }
 
 // RemovePlaylistTracks : remove an array of tracks by their IDs from playlist
-func (c *Client) RemovePlaylistTracks(playlistURI string, ids []ID) error {
+func (c *Client) RemovePlaylistTracks(uri string, ids []ID) error {
 	if len(ids) == 0 {
 		return nil
 	}
@@ -117,60 +142,71 @@ func (c *Client) RemovePlaylistTracks(playlistURI string, ids []ID) error {
 		if len(ids) < upperbound {
 			upperbound = lowerbound + (len(ids) - lowerbound)
 		}
+
 		chunk := ids[lowerbound:upperbound]
-		if _, err := c.RemoveTracksFromPlaylist(PlaylistID(playlistURI), chunk...); err != nil {
-			return fmt.Errorf(fmt.Sprintf("Something gone wrong while removing %dth chunk of removing tracks: %s.", iterations, err.Error()))
+		if _, err := c.RemoveTracksFromPlaylist(IDFromURI(uri), chunk...); err != nil {
+			return fmt.Errorf(fmt.Sprintf("Error removing %dth chunk of removing tracks: %s.", iterations, err.Error()))
 		}
+
 		if len(chunk) < 50 {
 			break
 		}
+
 		iterations++
 	}
 	return nil
 }
 
-// Albums : return array Spotify FullAlbum, specular to the array of Spotify ID
-func (c *Client) Albums(ids []ID) ([]Album, error) {
-	var (
-		albums     []spotify.FullAlbum
-		iterations int
-		upperbound int
-		lowerbound int
-	)
-	for true {
-		lowerbound = iterations * 20
-		if upperbound = lowerbound + 20; upperbound >= len(ids) {
-			upperbound = lowerbound + (len(ids) - lowerbound)
-		}
-		chunk, err := c.GetAlbums(ids[lowerbound:upperbound]...)
-		if err != nil {
-			var chunk []spotify.FullAlbum
-			for _, albumID := range ids[lowerbound:upperbound] {
-				album, err := c.GetAlbum(albumID)
-				if err == nil {
-					chunk = append(chunk, *album)
-				} else {
-					chunk = append(chunk, spotify.FullAlbum{})
-				}
-			}
-		}
-		for _, album := range chunk {
-			albums = append(albums, *album)
-		}
-		if len(chunk) < 20 {
-			break
-		}
-		iterations++
-	}
-	return albums, nil
+// Album returns a Spotify FullAlbum, specular to the array of Spotify ID
+func (c *Client) Album(id ID) (*Album, error) {
+	return c.GetAlbum(id)
 }
 
-// PlaylistID : return a Spotify playlist ID from playlist URI string
-func PlaylistID(playlistURI string) ID {
-	if strings.Count(playlistURI, ":") == 0 {
-		return ID(playlistURI)
+// AlbumTracks returns the array of tracks contained in it
+func (c *Client) AlbumTracks(uri string) ([]*track.Track, error) {
+	var (
+		tracks     []*track.Track
+		iterations int
+		options    = defaultOptions()
+	)
+
+	for true {
+		*options.Offset = *options.Limit * iterations
+		chunk, err := c.GetAlbumTracksOpt(IDFromURI(uri), *options.Limit, *options.Offset)
+		if err != nil {
+			return []*track.Track{}, fmt.Errorf(fmt.Sprintf("Error reading %dth chunk of tracks: %s.", iterations, err.Error()))
+		}
+
+		for _, t := range chunk.Tracks {
+			t, err := c.GetTrack(t.ID)
+			if err != nil {
+				continue
+			}
+
+			tAlbum, err := c.Album(t.Album.ID)
+			if err != nil {
+				tAlbum = &Album{}
+			}
+
+			tracks = append(tracks, track.ParseSpotifyTrack(t, tAlbum))
+		}
+
+		if len(chunk.Tracks) < 50 {
+			break
+		}
+
+		iterations++
 	}
-	parts := strings.Split(playlistURI, ":")
+	return tracks, nil
+}
+
+// IDFromURI return a Spotify ID from URI string
+func IDFromURI(uri string) ID {
+	if strings.Count(uri, ":") == 0 {
+		return ID(uri)
+	}
+
+	parts := strings.Split(uri, ":")
 	return ID(parts[len(parts)-1])
 }
 

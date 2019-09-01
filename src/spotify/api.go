@@ -2,16 +2,19 @@ package spotify
 
 import "github.com/zmb3/spotify"
 
-// Playlist : alias for Spotify FullPlaylist
+// Playlist is an alias for Spotify FullPlaylist
 type Playlist = spotify.FullPlaylist
 
-// Album : alias for Spotify FullAlbum
+// Playlists is an alias for []Playlist
+type Playlists []Playlist
+
+// Album is an alias for Spotify FullAlbum
 type Album = spotify.FullAlbum
 
-// Track : alias for Spotify FullTrack
+// Track is an alias for Spotify FullTrack
 type Track = spotify.FullTrack
 
-// ID : alias for Spotify ID
+// ID is an alias for Spotify ID
 type ID = spotify.ID
 
 const (

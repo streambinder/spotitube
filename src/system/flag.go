@@ -2,29 +2,26 @@ package system
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 )
 
-// PathsArrayFlag : struct containing all the informations about a parsed PathsArrayFlag input flag
-type PathsArrayFlag struct {
-	Paths []string
+// StringsFlag struct is a supported flag to wrap a list of strings
+type StringsFlag struct {
+	Entries []string
 }
 
-// String : string representation for PathsArrayFlag object
-func (flag *PathsArrayFlag) String() string {
-	return fmt.Sprint(flag.Paths)
+// String is the string representation for StringsFlag object
+func (f *StringsFlag) String() string {
+	return fmt.Sprint(f.Entries)
 }
 
-// Set : set value of a PathsArrayFlag object
-func (flag *PathsArrayFlag) Set(value string) error {
-	paths := strings.Split(value, ";")
-	for _, path := range paths {
-		pathAbs, pathErr := filepath.Abs(path)
-		if pathErr != nil {
-			return pathErr
-		}
-		flag.Paths = append(flag.Paths, pathAbs)
-	}
+// Set sets the value of a StringsFlag object
+func (f *StringsFlag) Set(value string) error {
+	f.Entries = append(f.Entries, strings.Split(value, ";")...)
 	return nil
+}
+
+// IsSet returns true if flag has at least a value set
+func (f *StringsFlag) IsSet() bool {
+	return len(f.Entries) > 0
 }

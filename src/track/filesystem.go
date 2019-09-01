@@ -20,6 +20,7 @@ func (track Track) FlushLocal() Track {
 	if system.FileExists(track.Filename()) {
 		track.Local = true
 	}
+
 	return track
 }
 

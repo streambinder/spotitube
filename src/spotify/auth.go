@@ -7,9 +7,9 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
-	"runtime"
 	"strings"
+
+	"../command"
 
 	"github.com/zmb3/spotify"
 )
@@ -139,15 +139,7 @@ func Auth(url string, authHost string, xdgOpen bool) (*Client, error) {
 	}()
 
 	if xdgOpen {
-		var commandCmd string
-		if runtime.GOOS == "windows" {
-			commandCmd = "start"
-		} else {
-			commandCmd = "xdg-open"
-		}
-		commandArgs := []string{url}
-		_, err := exec.Command(commandCmd, commandArgs...).Output()
-		if err != nil {
+		if err := command.XDGOpen().Open(url); err != nil {
 			return &Client{}, err
 		}
 	}

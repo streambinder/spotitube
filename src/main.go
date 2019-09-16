@@ -26,7 +26,6 @@ import (
 	"./track"
 
 	"github.com/bogem/id3v2"
-	"github.com/gosimple/slug"
 )
 
 var (
@@ -65,9 +64,9 @@ var (
 	c           *spotify.Client
 	cUser       string
 	cUserID     string
-	tracks      *track.Tracks
+	tracks      []*track.Track
 	tracksIndex *track.TracksIndex
-	playlists   *spotify.Playlists
+	playlists   []*spotify.Playlist
 
 	// routines
 	waitGroup     sync.WaitGroup
@@ -310,13 +309,13 @@ func mainFetch() {
 	mainFetchTracksToFix()
 
 	// ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs duplicates:", cui.StyleBold), len(tracksDuplicates)), cui.PanelLeftTop)
-	ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs online:", cui.StyleBold), len(*tracks)), cui.PanelLeftTop)
-	ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs offline:", cui.StyleBold), tracks.CountOffline()), cui.PanelLeftTop)
-	ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs missing:", cui.StyleBold), tracks.CountOnline()), cui.PanelLeftTop)
+	ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs online:", cui.StyleBold), len(tracks)), cui.PanelLeftTop)
+	ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs offline:", cui.StyleBold), track.CountOffline(tracks)), cui.PanelLeftTop)
+	ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs missing:", cui.StyleBold), track.CountOnline(tracks)), cui.PanelLeftTop)
 
 	track.IndexWait()
 
-	if len(*tracks) == 0 {
+	if len(tracks) == 0 {
 		ui.Prompt("No song needs to be downloaded.", cui.PromptExit)
 		mainExit()
 	}
@@ -334,10 +333,10 @@ func mainFetchLibrary() {
 	}
 
 	dump, dumpErr := subFetchGob(gob)
-	if dumpErr == nil {
-		ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font("Tracks cache lifetime:", cui.StyleBold), int(time.Since(dump.Time)), spotitube.TracksCacheDuration), cui.PanelLeftTop)
+	if dumpErr == nil && time.Since(dump.Time) < spotitube.TracksCacheDuration {
+		ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font("Library cache expiration:", cui.StyleBold), int(time.Since(dump.Time)), spotitube.TracksCacheDuration), cui.PanelLeftTop)
 		for _, t := range dump.Tracks {
-			*tracks = append(*tracks, t.FlushLocal())
+			tracks = append(tracks, t.FlushLocal())
 		}
 		return
 	}
@@ -355,7 +354,7 @@ func mainFetchLibrary() {
 	dup := make(map[spotify.ID]float64)
 	for _, t := range library {
 		if _, isDup := dup[spotify.ID(t.SpotifyID)]; !isDup {
-			*tracks = append(*tracks, *t)
+			tracks = append(tracks, t)
 		}
 		dup[spotify.ID(t.SpotifyID)] = 1
 	}
@@ -385,10 +384,10 @@ func mainFetchAlbums() {
 		}
 
 		dump, dumpErr := subFetchGob(gob)
-		if dumpErr == nil {
-			ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font("Tracks cache lifetime:", cui.StyleBold), int(time.Since(dump.Time)), spotitube.TracksCacheDuration), cui.PanelLeftTop)
+		if dumpErr == nil && time.Since(dump.Time) < spotitube.TracksCacheDuration {
+			ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font(fmt.Sprintf("Album %s cache expiration:", spotify.IDFromURI(uri)), cui.StyleBold), int(time.Since(dump.Time)), spotitube.TracksCacheDuration), cui.PanelLeftTop)
 			for _, t := range dump.Tracks {
-				*tracks = append(*tracks, t.FlushLocal())
+				tracks = append(tracks, t.FlushLocal())
 			}
 			continue
 		}
@@ -404,7 +403,7 @@ func mainFetchAlbums() {
 		}
 
 		for _, t := range album {
-			*tracks = append(*tracks, *t)
+			tracks = append(tracks, t)
 		}
 	}
 }
@@ -416,7 +415,7 @@ func mainFetchPlaylists() {
 
 	for _, uri := range argPlaylists.Entries {
 		if p, err := c.Playlist(uri); err == nil {
-			*playlists = append(*playlists, *p)
+			playlists = append(playlists, p)
 		}
 
 		gob := fmt.Sprintf(spotitube.UserGob, cUserID, fmt.Sprintf("playlist_%s", spotify.IDFromURI(uri)))
@@ -425,10 +424,10 @@ func mainFetchPlaylists() {
 		}
 
 		dump, dumpErr := subFetchGob(gob)
-		if dumpErr == nil {
-			ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font("Tracks cache lifetime:", cui.StyleBold), int(time.Since(dump.Time)), spotitube.TracksCacheDuration), cui.PanelLeftTop)
+		if dumpErr == nil && time.Since(dump.Time) < spotitube.TracksCacheDuration {
+			ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font(fmt.Sprintf("Playlist %s cache expiration:", spotify.IDFromURI(uri)), cui.StyleBold), int(time.Since(dump.Time)), spotitube.TracksCacheDuration), cui.PanelLeftTop)
 			for _, t := range dump.Tracks {
-				*tracks = append(*tracks, t.FlushLocal())
+				tracks = append(tracks, t.FlushLocal())
 			}
 			continue
 		}
@@ -444,13 +443,13 @@ func mainFetchPlaylists() {
 		}
 
 		for _, t := range playlist {
-			*tracks = append(*tracks, *t)
+			tracks = append(tracks, t)
 		}
 
 		dup := make(map[spotify.ID]float64)
 		for _, t := range playlist {
 			if _, isDup := dup[spotify.ID(t.SpotifyID)]; !isDup {
-				*tracks = append(*tracks, *t)
+				tracks = append(tracks, t)
 			}
 			dup[spotify.ID(t.SpotifyID)] = 1
 		}
@@ -479,7 +478,7 @@ func mainFetchTracksToFix() {
 		if t, err := track.OpenLocalTrack(tFix); err != nil {
 			ui.Prompt(fmt.Sprintf("Something went wrong: %s", err.Error()))
 		} else {
-			*tracks = append(*tracks, *t)
+			tracks = append(tracks, t)
 		}
 	}
 }
@@ -495,15 +494,15 @@ func mainSearch() {
 		ui.Append(fmt.Sprintf("%d/%d: \"%s\"", trackIndex+1, len(tracks), t.Basename()), cui.StyleBold)
 
 		if trackPath, ok := tracksIndex.Tracks[t.SpotifyID]; ok {
-			if trackPath != t.Filename() {
-				ui.Append(fmt.Sprintf("Track %s has been renamed: moving local one to %s", t.SpotifyID, t.Filename()))
-				if err := subTrackRename(&t); err != nil {
+			if !strings.Contains(trackPath, fmt.Sprintf("%c%s", os.PathSeparator, t.Filename())) {
+				ui.Append(fmt.Sprintf("Track %s vs %s has been renamed: moving local one to %s", trackPath, t.Filename(), t.Filename()))
+				if err := subTrackRename(t); err != nil {
 					ui.Append(fmt.Sprintf("Unable to rename: %s", err.Error()), cui.ErrorAppend)
 				}
 			}
 		}
 
-		if subIfSongSearch(t) {
+		if subIfSongSearch(*t) {
 			var (
 				entry    = new(provider.Entry)
 				prov     provider.Provider
@@ -519,10 +518,10 @@ func mainSearch() {
 
 				ui.Append(fmt.Sprintf("Searching entries on %s provider", provName))
 				if !argManualInput {
-					provEntries, provErr = prov.Query(&t)
+					provEntries, provErr = prov.Query(t)
 					if provErr != nil {
 						ui.Append(fmt.Sprintf("Something went wrong while searching for \"%s\" track: %s.", t.Basename(), provErr.Error()), cui.WarningAppend)
-						tracksFailed = append(tracksFailed, t)
+						// FIXME: tracksFailed = append(tracksFailed, t)
 						ui.ProgressHalfIncrease()
 						continue
 					}
@@ -530,7 +529,7 @@ func mainSearch() {
 						ui.Append(fmt.Sprintf("Result met: ID: %s,\nTitle: %s,\nUser: %s,\nDuration: %d.",
 							provEntry.ID, provEntry.Title, provEntry.User, provEntry.Duration), cui.DebugAppend)
 
-						entryPickAuto, entryPick = subMatchResult(prov, &t, provEntry)
+						entryPickAuto, entryPick = subMatchResult(prov, t, provEntry)
 						if subIfPickFromAns(entryPickAuto, entryPick) {
 							ui.Append(fmt.Sprintf("Video \"%s\" is good to go for \"%s\".", provEntry.Title, t.Basename()))
 							entry = provEntry
@@ -539,14 +538,14 @@ func mainSearch() {
 					}
 				}
 
-				subCondManualInputURL(prov, entry, &t)
+				subCondManualInputURL(prov, entry, t)
 				if entry.URL == "" {
 					entry = &provider.Entry{}
 				}
 
 				if entry == (&provider.Entry{}) {
 					ui.Append(fmt.Sprintf("Video for \"%s\" not found.", t.Basename()), cui.ErrorAppend)
-					tracksFailed = append(tracksFailed, t)
+					// FIXME: tracksFailed = append(tracksFailed, t)
 					ui.ProgressHalfIncrease()
 					continue
 				}
@@ -572,7 +571,7 @@ func mainSearch() {
 			err := prov.Download(entry, t.FilenameTemporary())
 			if err != nil {
 				ui.Append(fmt.Sprintf("Something went wrong downloading \"%s\": %s.", t.Basename(), err.Error()), cui.WarningAppend)
-				tracksFailed = append(tracksFailed, t)
+				// FIXME: tracksFailed = append(tracksFailed, t)
 				ui.ProgressHalfIncrease()
 				continue
 			} else {
@@ -580,16 +579,16 @@ func mainSearch() {
 			}
 		}
 
-		if !subIfSongProcess(t) {
+		if !subIfSongProcess(*t) {
 			ui.ProgressHalfIncrease()
 			continue
 		}
 
-		subCondSequentialDo(&t)
+		subCondSequentialDo(t)
 
 		ui.Append(fmt.Sprintf("Launching song processing jobs..."))
 		waitGroup.Add(1)
-		go subParallelSongProcess(t, &waitGroup)
+		go subParallelSongProcess(*t, &waitGroup)
 		if argDebug {
 			waitGroup.Wait()
 		}
@@ -604,12 +603,15 @@ func mainSearch() {
 	waitGroup.Wait()
 	ui.ProgressFill()
 
-	ui.Append(fmt.Sprintf("%d tracks failed to synchronize.", len(tracksFailed)))
-	for _, t := range tracksFailed {
-		ui.Append(fmt.Sprintf(" - \"%s\"", t.Basename()))
-	}
+	// FIXME
+	// ui.Append(fmt.Sprintf("%d tracks failed to synchronize.", len(tracksFailed)))
+	// for _, t := range tracksFailed {
+	// 	ui.Append(fmt.Sprintf(" - \"%s\"", t.Basename()))
+	// }
+	//
+	// system.Notify("SpotiTube", "emblem-downloads", "SpotiTube", fmt.Sprintf("%d track(s) synced, %d failed.", len(tracks)-len(tracksFailed), len(tracksFailed)))
 
-	system.Notify("SpotiTube", "emblem-downloads", "SpotiTube", fmt.Sprintf("%d track(s) synced, %d failed.", len(tracks)-len(tracksFailed), len(tracksFailed)))
+	system.Notify("SpotiTube", "emblem-downloads", "SpotiTube", fmt.Sprintf("%d track(s) synced", len(tracks)))
 	ui.Prompt("Synchronization completed.", cui.PromptExit)
 }
 
@@ -916,12 +918,12 @@ func subCountSongs() (int, int, int) {
 		fetch = len(tracks)
 		flush = fetch
 	} else if argFlushMetadata {
-		fetch = tracks.CountOnline()
+		fetch = track.CountOnline(tracks)
 		flush = len(tracks)
 	} else {
-		fetch = tracks.CountOnline()
+		fetch = track.CountOnline(tracks)
 		flush = fetch
-		ignore = tracks.CountOffline()
+		ignore = track.CountOffline(tracks)
 	}
 
 	return fetch, flush, ignore
@@ -1019,75 +1021,80 @@ func subCondTimestampFlush() {
 }
 
 func subCondPlaylistFileWrite() {
-	if !argSimulate && !argDisablePlaylistFile && argPlaylist != "none" {
-		var (
-			playlistFolder  = slug.Make(playlistInfo.Name)
-			playlistFname   = fmt.Sprintf("%s/%s", playlistFolder, playlistInfo.Name)
-			playlistContent string
-		)
-
-		if !argPlsFile {
-			playlistFname = playlistFname + ".m3u"
-		} else {
-			playlistFname = playlistFname + ".pls"
-		}
-
-		os.RemoveAll(playlistFolder)
-		os.Mkdir(playlistFolder, 0775)
-		os.Chdir(playlistFolder)
-		for _, t := range tracks {
-			if system.FileExists("../" + t.Filename()) {
-				if err := os.Symlink("../"+t.Filename(), t.Filename()); err != nil {
-					ui.Append(fmt.Sprintf("Unable to create symlink for \"%s\" in %s: %s", t.Filename(), playlistFolder, err.Error()), cui.ErrorAppend)
-				}
-			}
-		}
-		os.Chdir("..")
-
-		ui.Append(fmt.Sprintf("Creating playlist file at %s...", playlistFname))
-		if system.FileExists(playlistFname) {
-			os.Remove(playlistFname)
-		}
-
-		if !argPlsFile {
-			playlistContent = "#EXTM3U\n"
-			for trackIndex := len(tracks) - 1; trackIndex >= 0; trackIndex-- {
-				t := tracks[trackIndex]
-				if system.FileExists(t.Filename()) {
-					playlistContent += "#EXTINF:" + strconv.Itoa(t.Duration) + "," + t.Filename() + "\n" +
-						"./" + t.Filename() + "\n"
-				}
-			}
-		} else {
-			ui.Append("Creating playlist PLS file...")
-			if system.FileExists(playlistInfo.Name + ".pls") {
-				os.Remove(playlistInfo.Name + ".pls")
-			}
-			playlistContent = "[" + playlistInfo.Name + "]\n"
-			for trackIndex := len(tracks) - 1; trackIndex >= 0; trackIndex-- {
-				t := tracks[trackIndex]
-				trackInvertedIndex := len(tracks) - trackIndex
-				if system.FileExists(t.Filename()) {
-					playlistContent += "File" + strconv.Itoa(trackInvertedIndex) + "=./" + t.Filename() + "\n" +
-						"Title" + strconv.Itoa(trackInvertedIndex) + "=" + t.Filename() + "\n" +
-						"Length" + strconv.Itoa(trackInvertedIndex) + "=" + strconv.Itoa(t.Duration) + "\n\n"
-				}
-			}
-			playlistContent += "NumberOfEntries=" + strconv.Itoa(len(tracks)) + "\n"
-		}
-
-		playlistFile, playlistErr := os.Create(playlistFname)
-		if playlistErr != nil {
-			ui.Append(fmt.Sprintf("Unable to create M3U file: %s", playlistErr.Error()), cui.WarningAppend)
-		} else {
-			defer playlistFile.Close()
-			_, playlistErr := playlistFile.WriteString(playlistContent)
-			playlistFile.Sync()
-			if playlistErr != nil {
-				ui.Append(fmt.Sprintf("Unable to write M3U file: %s", playlistErr.Error()), cui.WarningAppend)
-			}
-		}
+	if argSimulate || argDisablePlaylistFile || len(argPlaylists.Entries) == 0 {
+		return
 	}
+
+	// FIXME
+	// for _, p := range *playlists {
+	// 	var (
+	// 		playlistFolder  = slug.Make(p.Name)
+	// 		playlistFname   = fmt.Sprintf("%s/%s", playlistFolder, p.Name)
+	// 		playlistContent string
+	// 	)
+
+	// 	if !argPlsFile {
+	// 		playlistFname = playlistFname + ".m3u"
+	// 	} else {
+	// 		playlistFname = playlistFname + ".pls"
+	// 	}
+
+	// 	os.RemoveAll(playlistFolder)
+	// 	os.Mkdir(playlistFolder, 0775)
+	// 	os.Chdir(playlistFolder)
+	// 	for _, t := range tracks {
+	// 		if system.FileExists("../" + t.Filename()) {
+	// 			if err := os.Symlink("../"+t.Filename(), t.Filename()); err != nil {
+	// 				ui.Append(fmt.Sprintf("Unable to create symlink for \"%s\" in %s: %s", t.Filename(), playlistFolder, err.Error()), cui.ErrorAppend)
+	// 			}
+	// 		}
+	// 	}
+	// 	os.Chdir("..")
+
+	// 	ui.Append(fmt.Sprintf("Creating playlist file at %s...", playlistFname))
+	// 	if system.FileExists(playlistFname) {
+	// 		os.Remove(playlistFname)
+	// 	}
+
+	// 	if !argPlsFile {
+	// 		playlistContent = "#EXTM3U\n"
+	// 		for trackIndex := len(tracks) - 1; trackIndex >= 0; trackIndex-- {
+	// 			t := tracks[trackIndex]
+	// 			if system.FileExists(t.Filename()) {
+	// 				playlistContent += "#EXTINF:" + strconv.Itoa(t.Duration) + "," + t.Filename() + "\n" +
+	// 					"./" + t.Filename() + "\n"
+	// 			}
+	// 		}
+	// 	} else {
+	// 		ui.Append("Creating playlist PLS file...")
+	// 		if system.FileExists(p.Name + ".pls") {
+	// 			os.Remove(p.Name + ".pls")
+	// 		}
+	// 		playlistContent = "[" + p.Name + "]\n"
+	// 		for trackIndex := len(tracks) - 1; trackIndex >= 0; trackIndex-- {
+	// 			t := tracks[trackIndex]
+	// 			trackInvertedIndex := len(tracks) - trackIndex
+	// 			if system.FileExists(t.Filename()) {
+	// 				playlistContent += "File" + strconv.Itoa(trackInvertedIndex) + "=./" + t.Filename() + "\n" +
+	// 					"Title" + strconv.Itoa(trackInvertedIndex) + "=" + t.Filename() + "\n" +
+	// 					"Length" + strconv.Itoa(trackInvertedIndex) + "=" + strconv.Itoa(t.Duration) + "\n\n"
+	// 			}
+	// 		}
+	// 		playlistContent += "NumberOfEntries=" + strconv.Itoa(len(tracks)) + "\n"
+	// 	}
+
+	// 	playlistFile, playlistErr := os.Create(playlistFname)
+	// 	if playlistErr != nil {
+	// 		ui.Append(fmt.Sprintf("Unable to create M3U file: %s", playlistErr.Error()), cui.WarningAppend)
+	// 	} else {
+	// 		defer playlistFile.Close()
+	// 		_, playlistErr := playlistFile.WriteString(playlistContent)
+	// 		playlistFile.Sync()
+	// 		if playlistErr != nil {
+	// 			ui.Append(fmt.Sprintf("Unable to write M3U file: %s", playlistErr.Error()), cui.WarningAppend)
+	// 		}
+	// 	}
+	// }
 }
 
 func subTrackRename(t *track.Track) error {

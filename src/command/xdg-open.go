@@ -25,7 +25,7 @@ func (c XDGOpenCommand) Name() string {
 		return "start"
 	}
 
-	return "ffmpeg"
+	return "xdg-open"
 }
 
 // Exists returns true if the command is installed, false otherwise

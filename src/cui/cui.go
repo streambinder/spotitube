@@ -131,6 +131,7 @@ func (c *CUI) Shutdown(gui *gocui.Gui, view *gocui.View) error {
 	return gocui.ErrQuit
 }
 
+// OnShutdown subscribes function f to the shutdown event
 func (c *CUI) OnShutdown(f func()) {
 	go func() {
 		<-c.CloseChan

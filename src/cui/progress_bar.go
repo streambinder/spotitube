@@ -10,6 +10,10 @@ import (
 
 // ProgressHalfIncrease : increase progress bar by half-step
 func (c *CUI) ProgressHalfIncrease() error {
+	if c.hasOption(GuiBareMode) {
+		return nil
+	}
+
 	view, err := c.view(_ProgressBar)
 	if err != nil {
 		return err
@@ -20,6 +24,10 @@ func (c *CUI) ProgressHalfIncrease() error {
 
 // ProgressIncrease : increase progress bar
 func (c *CUI) ProgressIncrease() error {
+	if c.hasOption(GuiBareMode) {
+		return nil
+	}
+
 	view, err := c.view(_ProgressBar)
 	if err != nil {
 		return err
@@ -30,6 +38,10 @@ func (c *CUI) ProgressIncrease() error {
 
 // ProgressFill : fill up the progress bar
 func (c *CUI) ProgressFill() error {
+	if c.hasOption(GuiBareMode) {
+		return nil
+	}
+
 	view, err := c.view(_ProgressBar)
 	if err != nil {
 		return err

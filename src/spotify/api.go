@@ -5,9 +5,6 @@ import "github.com/zmb3/spotify"
 // Playlist is an alias for Spotify FullPlaylist
 type Playlist = spotify.FullPlaylist
 
-// Playlists is an alias for []Playlist
-type Playlists []Playlist
-
 // Album is an alias for Spotify FullAlbum
 type Album = spotify.FullAlbum
 

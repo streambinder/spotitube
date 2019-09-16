@@ -16,7 +16,7 @@ var (
 )
 
 // FlushLocal : recheck - and eventually update it - if track is local
-func (track Track) FlushLocal() Track {
+func (track *Track) FlushLocal() *Track {
 	if system.FileExists(track.Filename()) {
 		track.Local = true
 	}

@@ -31,9 +31,6 @@ type Track struct {
 	Local       bool
 }
 
-// Tracks : Track array
-type Tracks []Track
-
 // TracksDump : Tracks dumpable object
 type TracksDump struct {
 	Tracks []*Track
@@ -41,12 +38,12 @@ type TracksDump struct {
 }
 
 // CountOffline : return offline (local) songs count from Tracks
-func (tracks Tracks) CountOffline() int {
-	return len(tracks) - tracks.CountOnline()
+func CountOffline(tracks []*Track) int {
+	return len(tracks) - CountOnline(tracks)
 }
 
 // CountOnline : return online songs count from Tracks
-func (tracks Tracks) CountOnline() int {
+func CountOnline(tracks []*Track) int {
 	var counter int
 	for _, track := range tracks {
 		if !track.Local {

@@ -28,7 +28,6 @@ type Track struct {
 	URL         string
 	SpotifyID   string
 	Lyrics      string
-	Local       bool
 }
 
 // TracksDump : Tracks dumpable object
@@ -46,7 +45,7 @@ func CountOffline(tracks []*Track) int {
 func CountOnline(tracks []*Track) int {
 	var counter int
 	for _, track := range tracks {
-		if !track.Local {
+		if !track.Local() {
 			counter++
 		}
 	}
@@ -79,7 +78,6 @@ func OpenLocalTrack(filename string) (*Track, error) {
 		URL:         TagGetFrame(trackMp3, ID3FrameOrigin),
 		SpotifyID:   TagGetFrame(trackMp3, ID3FrameSpotifyID),
 		Lyrics:      TagGetFrame(trackMp3, ID3FrameLyrics),
-		Local:       true,
 	}
 
 	if trackNumber, trackNumberErr := strconv.Atoi(TagGetFrame(trackMp3, ID3FrameTrackNumber)); trackNumberErr == nil {
@@ -137,7 +135,6 @@ func ParseSpotifyTrack(spotifyTrack *spotify.FullTrack, spotifyAlbum *spotify.Fu
 		URL:       "",
 		SpotifyID: spotifyTrack.SimpleTrack.ID.String(),
 		Lyrics:    "",
-		Local:     false,
 	}
 
 	track.Title, track.Song = parseTitle(track.Title, track.Featurings)
@@ -147,11 +144,7 @@ func ParseSpotifyTrack(spotifyTrack *spotify.FullTrack, spotifyAlbum *spotify.Fu
 	track.Album = strings.Replace(track.Album, "{", "(", -1)
 	track.Album = strings.Replace(track.Album, "}", ")", -1)
 
-	if system.FileExists(track.Filename()) {
-		track.Local = true
-	}
-
-	if track.Local {
+	if track.Local() {
 		track.URL = track.GetID3Frame(ID3FrameOrigin)
 		track.Lyrics = track.GetID3Frame(ID3FrameLyrics)
 	}

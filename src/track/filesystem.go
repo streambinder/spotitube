@@ -15,13 +15,9 @@ var (
 	JunkSuffixes = []string{".ytdl", ".webm", ".opus", ".part", ".jpg", ".tmp", "-id3v2"}
 )
 
-// FlushLocal : recheck - and eventually update it - if track is local
-func (track *Track) FlushLocal() *Track {
-	if system.FileExists(track.Filename()) {
-		track.Local = true
-	}
-
-	return track
+// Local returns a boolean indicating whether track is on filesystem or not
+func (track *Track) Local() bool {
+	return system.FileExists(track.Filename())
 }
 
 // Basename : return track basename

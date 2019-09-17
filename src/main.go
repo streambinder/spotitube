@@ -26,6 +26,7 @@ import (
 	"./track"
 
 	"github.com/bogem/id3v2"
+	"github.com/gosimple/slug"
 )
 
 var (
@@ -61,12 +62,12 @@ var (
 	argDisableGui bool
 
 	// spotify
-	c           *spotify.Client
-	cUser       string
-	cUserID     string
-	tracks      []*track.Track
-	tracksIndex *track.TracksIndex
-	playlists   []*spotify.Playlist
+	c         *spotify.Client
+	cUser     string
+	cUserID   string
+	tracks    []*track.Track
+	playlists []*track.Playlist
+	index     *track.TracksIndex
 
 	// routines
 	waitGroup     sync.WaitGroup
@@ -227,9 +228,9 @@ func mainInit() {
 
 	if !argDisableIndexing {
 		if system.FileExists(spotitube.UserIndex) {
-			system.FetchGob(spotitube.UserIndex, tracksIndex)
+			system.FetchGob(spotitube.UserIndex, index)
 		}
-		tracksIndex = track.Index(argFolder)
+		index = track.Index(argFolder)
 	}
 
 	for range [spotitube.ConcurrencyLimit]int{} {
@@ -336,7 +337,7 @@ func mainFetchLibrary() {
 	if dumpErr == nil && time.Since(dump.Time) < spotitube.TracksCacheDuration {
 		ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font("Library cache expiration:", cui.StyleBold), int(time.Since(dump.Time)), spotitube.TracksCacheDuration), cui.PanelLeftTop)
 		for _, t := range dump.Tracks {
-			tracks = append(tracks, t.FlushLocal())
+			tracks = append(tracks, t)
 		}
 		return
 	}
@@ -387,7 +388,7 @@ func mainFetchAlbums() {
 		if dumpErr == nil && time.Since(dump.Time) < spotitube.TracksCacheDuration {
 			ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font(fmt.Sprintf("Album %s cache expiration:", spotify.IDFromURI(uri)), cui.StyleBold), int(time.Since(dump.Time)), spotitube.TracksCacheDuration), cui.PanelLeftTop)
 			for _, t := range dump.Tracks {
-				tracks = append(tracks, t.FlushLocal())
+				tracks = append(tracks, t)
 			}
 			continue
 		}
@@ -414,8 +415,10 @@ func mainFetchPlaylists() {
 	}
 
 	for _, uri := range argPlaylists.Entries {
+		playlist := &track.Playlist{}
 		if p, err := c.Playlist(uri); err == nil {
-			playlists = append(playlists, p)
+			playlist.Name = p.Name
+			playlist.Owner = p.Owner.DisplayName
 		}
 
 		gob := fmt.Sprintf(spotitube.UserGob, cUserID, fmt.Sprintf("playlist_%s", spotify.IDFromURI(uri)))
@@ -425,35 +428,35 @@ func mainFetchPlaylists() {
 
 		dump, dumpErr := subFetchGob(gob)
 		if dumpErr == nil && time.Since(dump.Time) < spotitube.TracksCacheDuration {
-			ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font(fmt.Sprintf("Playlist %s cache expiration:", spotify.IDFromURI(uri)), cui.StyleBold), int(time.Since(dump.Time)), spotitube.TracksCacheDuration), cui.PanelLeftTop)
+			ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font(fmt.Sprintf("Playlist %s cache expiration:", playlist.Name), cui.StyleBold), int(time.Since(dump.Time)), spotitube.TracksCacheDuration), cui.PanelLeftTop)
 			for _, t := range dump.Tracks {
-				tracks = append(tracks, t.FlushLocal())
+				tracks = append(tracks, t)
 			}
+			playlist.Tracks = dump.Tracks
+			playlists = append(playlists, playlist)
 			continue
 		}
 
 		ui.Append(fmt.Sprintf("Fetching playlist %s...", spotify.IDFromURI(uri)))
-		playlist, err := c.PlaylistTracks(uri)
+		p, err := c.PlaylistTracks(uri)
 		if err != nil {
 			ui.Prompt(fmt.Sprintf("Unable to fetch playlist: %s", err.Error()), cui.PromptExit)
 		}
 
-		if err := system.DumpGob(gob, track.TracksDump{Tracks: playlist, Time: time.Now()}); err != nil {
+		if err := system.DumpGob(gob, track.TracksDump{Tracks: p, Time: time.Now()}); err != nil {
 			ui.Append(fmt.Sprintf("Unable to cache tracks: %s", err.Error()), cui.WarningAppend)
 		}
 
-		for _, t := range playlist {
-			tracks = append(tracks, t)
-		}
-
 		dup := make(map[spotify.ID]float64)
-		for _, t := range playlist {
+		for _, t := range p {
 			if _, isDup := dup[spotify.ID(t.SpotifyID)]; !isDup {
 				tracks = append(tracks, t)
 			}
 			dup[spotify.ID(t.SpotifyID)] = 1
 		}
 
+		playlist.Tracks = dump.Tracks
+		playlists = append(playlists, playlist)
 		if argRemoveDuplicates {
 			ids := []spotify.ID{}
 			for id := range dup {
@@ -493,7 +496,7 @@ func mainSearch() {
 		ui.ProgressHalfIncrease()
 		ui.Append(fmt.Sprintf("%d/%d: \"%s\"", trackIndex+1, len(tracks), t.Basename()), cui.StyleBold)
 
-		if trackPath, ok := tracksIndex.Tracks[t.SpotifyID]; ok {
+		if trackPath, ok := index.Tracks[t.SpotifyID]; ok {
 			if !strings.Contains(trackPath, fmt.Sprintf("%c%s", os.PathSeparator, t.Filename())) {
 				ui.Append(fmt.Sprintf("Track %s vs %s has been renamed: moving local one to %s", trackPath, t.Filename(), t.Filename()))
 				if err := subTrackRename(t); err != nil {
@@ -562,7 +565,6 @@ func mainSearch() {
 						continue
 					} else {
 						t.URL = ""
-						t.Local = false
 					}
 				}
 			}
@@ -626,8 +628,8 @@ func mainExit(delay ...time.Duration) {
 }
 
 func subWriteIndex() {
-	ui.Append(fmt.Sprintf("Writing %d entries index...", len(tracksIndex.Tracks)), cui.DebugAppend)
-	if writeErr := system.DumpGob(spotitube.UserIndex, tracksIndex); writeErr != nil {
+	ui.Append(fmt.Sprintf("Writing %d entries index...", len(index.Tracks)), cui.DebugAppend)
+	if writeErr := system.DumpGob(spotitube.UserIndex, index); writeErr != nil {
 		ui.Append(fmt.Sprintf("Unable to write tracks index: %s", writeErr.Error()), cui.WarningAppend)
 	}
 }
@@ -637,7 +639,7 @@ func subParallelSongProcess(t track.Track, wg *sync.WaitGroup) {
 	defer wg.Done()
 	<-waitGroupPool
 
-	if !t.Local && !argDisableNormalization {
+	if !t.Local() && !argDisableNormalization {
 		subSongNormalize(t)
 	}
 
@@ -648,7 +650,7 @@ func subParallelSongProcess(t track.Track, wg *sync.WaitGroup) {
 		}
 	}
 
-	if (t.Local && argFlushMetadata) || !t.Local {
+	if (t.Local() && argFlushMetadata) || !t.Local() {
 		subSongFlushMetadata(t)
 	}
 
@@ -661,6 +663,7 @@ func subParallelSongProcess(t track.Track, wg *sync.WaitGroup) {
 	waitGroupPool <- true
 }
 
+// TODO: move to command package
 func subSongNormalize(t track.Track) {
 	var (
 		commandCmd         = "ffmpeg"
@@ -891,7 +894,7 @@ func subCondFlushID3FrameLyrics(t track.Track, trackMp3 *id3v2.Tag) {
 }
 
 func subIfSongSearch(t track.Track) bool {
-	return !t.Local || argFlushLocal || argSimulate
+	return !t.Local() || argFlushLocal || argSimulate
 }
 
 func subFetchGob(path string) (track.TracksDump, error) {
@@ -964,11 +967,11 @@ func subCondManualInputURL(p provider.Provider, e *provider.Entry, t *track.Trac
 }
 
 func subIfSongProcess(t track.Track) bool {
-	return !t.Local || argFlushMetadata || argFlushLocal
+	return !t.Local() || argFlushMetadata || argFlushLocal
 }
 
 func subCondSequentialDo(t *track.Track) {
-	if (t.Local && argFlushMetadata) || !t.Local {
+	if (t.Local() && argFlushMetadata) || !t.Local() {
 		subCondLyricsFetch(t)
 		subCondArtworkDownload(t)
 	}
@@ -1025,88 +1028,65 @@ func subCondPlaylistFileWrite() {
 		return
 	}
 
-	// FIXME
-	// for _, p := range *playlists {
-	// 	var (
-	// 		playlistFolder  = slug.Make(p.Name)
-	// 		playlistFname   = fmt.Sprintf("%s/%s", playlistFolder, p.Name)
-	// 		playlistContent string
-	// 	)
+	for _, p := range playlists {
+		var (
+			pFolder  = slug.Make(p.Name)
+			pFname   = fmt.Sprintf("%s/%s", pFolder, p.Name)
+			pContent string
+		)
 
-	// 	if !argPlsFile {
-	// 		playlistFname = playlistFname + ".m3u"
-	// 	} else {
-	// 		playlistFname = playlistFname + ".pls"
-	// 	}
+		pFname = pFname + ".m3u"
+		if argPlsFile {
+			pFname = pFname + ".pls"
+		}
 
-	// 	os.RemoveAll(playlistFolder)
-	// 	os.Mkdir(playlistFolder, 0775)
-	// 	os.Chdir(playlistFolder)
-	// 	for _, t := range tracks {
-	// 		if system.FileExists("../" + t.Filename()) {
-	// 			if err := os.Symlink("../"+t.Filename(), t.Filename()); err != nil {
-	// 				ui.Append(fmt.Sprintf("Unable to create symlink for \"%s\" in %s: %s", t.Filename(), playlistFolder, err.Error()), cui.ErrorAppend)
-	// 			}
-	// 		}
-	// 	}
-	// 	os.Chdir("..")
+		os.RemoveAll(pFolder)
+		os.Mkdir(pFolder, 0775)
+		os.Chdir(pFolder)
+		for _, t := range tracks {
+			if system.FileExists("../" + t.Filename()) {
+				if err := os.Symlink("../"+t.Filename(), t.Filename()); err != nil {
+					ui.Append(fmt.Sprintf("Unable to create symlink for \"%s\" in %s: %s", t.Filename(), pFolder, err.Error()), cui.ErrorAppend)
+				}
+			}
+		}
+		os.Chdir("..")
 
-	// 	ui.Append(fmt.Sprintf("Creating playlist file at %s...", playlistFname))
-	// 	if system.FileExists(playlistFname) {
-	// 		os.Remove(playlistFname)
-	// 	}
+		ui.Append(fmt.Sprintf("Creating playlist file at %s...", pFname))
+		if system.FileExists(pFname) {
+			os.Remove(pFname)
+		}
 
-	// 	if !argPlsFile {
-	// 		playlistContent = "#EXTM3U\n"
-	// 		for trackIndex := len(tracks) - 1; trackIndex >= 0; trackIndex-- {
-	// 			t := tracks[trackIndex]
-	// 			if system.FileExists(t.Filename()) {
-	// 				playlistContent += "#EXTINF:" + strconv.Itoa(t.Duration) + "," + t.Filename() + "\n" +
-	// 					"./" + t.Filename() + "\n"
-	// 			}
-	// 		}
-	// 	} else {
-	// 		ui.Append("Creating playlist PLS file...")
-	// 		if system.FileExists(p.Name + ".pls") {
-	// 			os.Remove(p.Name + ".pls")
-	// 		}
-	// 		playlistContent = "[" + p.Name + "]\n"
-	// 		for trackIndex := len(tracks) - 1; trackIndex >= 0; trackIndex-- {
-	// 			t := tracks[trackIndex]
-	// 			trackInvertedIndex := len(tracks) - trackIndex
-	// 			if system.FileExists(t.Filename()) {
-	// 				playlistContent += "File" + strconv.Itoa(trackInvertedIndex) + "=./" + t.Filename() + "\n" +
-	// 					"Title" + strconv.Itoa(trackInvertedIndex) + "=" + t.Filename() + "\n" +
-	// 					"Length" + strconv.Itoa(trackInvertedIndex) + "=" + strconv.Itoa(t.Duration) + "\n\n"
-	// 			}
-	// 		}
-	// 		playlistContent += "NumberOfEntries=" + strconv.Itoa(len(tracks)) + "\n"
-	// 	}
+		if argPlsFile {
+			pContent = p.PLS()
+		} else {
+			pContent = p.M3U()
+		}
 
-	// 	playlistFile, playlistErr := os.Create(playlistFname)
-	// 	if playlistErr != nil {
-	// 		ui.Append(fmt.Sprintf("Unable to create M3U file: %s", playlistErr.Error()), cui.WarningAppend)
-	// 	} else {
-	// 		defer playlistFile.Close()
-	// 		_, playlistErr := playlistFile.WriteString(playlistContent)
-	// 		playlistFile.Sync()
-	// 		if playlistErr != nil {
-	// 			ui.Append(fmt.Sprintf("Unable to write M3U file: %s", playlistErr.Error()), cui.WarningAppend)
-	// 		}
-	// 	}
-	// }
+		pFile, err := os.Create(pFname)
+		if err != nil {
+			ui.Append(fmt.Sprintf("Unable to create playlist file: %s", err.Error()), cui.WarningAppend)
+			continue
+		}
+		defer pFile.Close()
+		defer pFile.Sync()
+
+		if _, err := pFile.WriteString(pContent); err != nil {
+			ui.Append(fmt.Sprintf("Unable to write playlist file: %s", err.Error()), cui.WarningAppend)
+		}
+	}
 }
 
 func subTrackRename(t *track.Track) error {
 	var (
 		keyID   = t.SpotifyID
-		keyPath = tracksIndex.Tracks[t.SpotifyID]
+		keyPath = index.Tracks[t.SpotifyID]
 	)
 	if err := os.Rename(keyPath, t.Filename()); err != nil {
 		return err
 	}
 
-	for _, trackLink := range tracksIndex.Links[keyPath] {
+	for _, trackLink := range index.Links[keyPath] {
 		var (
 			trackLinkParts  = strings.Split(trackLink, "/")
 			trackLinkFolder = strings.Join(trackLinkParts[:len(trackLinkParts)-1], "/")
@@ -1141,11 +1121,10 @@ func subTrackRename(t *track.Track) error {
 
 			return nil
 		})
-		tracksIndex.Links[t.Filename()] = append(tracksIndex.Links[t.Filename()], trackLinkNew)
+		index.Links[t.Filename()] = append(index.Links[t.Filename()], trackLinkNew)
 	}
-	t.Local = true
-	delete(tracksIndex.Links, keyPath)
-	tracksIndex.Tracks[keyID] = t.Filename()
+	delete(index.Links, keyPath)
+	index.Tracks[keyID] = t.Filename()
 
 	return nil
 }

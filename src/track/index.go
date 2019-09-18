@@ -3,6 +3,8 @@ package track
 import (
 	"os"
 	"path/filepath"
+
+	"../system"
 )
 
 // TracksIndex : Tracks index keeping ID - filename mapping and eventual filename links
@@ -47,4 +49,9 @@ func Index(path string) *TracksIndex {
 // IndexWait returns as Index(path) function is done
 func IndexWait() {
 	<-ch
+}
+
+// Sync flushes tracks index object on disk at input passed path
+func (index *TracksIndex) Sync(path string) error {
+	return system.DumpGob(path, index)
 }

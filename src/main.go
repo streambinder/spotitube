@@ -487,31 +487,34 @@ func mainFetchTracksToFix() {
 }
 
 func mainSearch() {
-	ui.ProgressMax = len(tracks)
-
 	songsFetch, songsFlush, songsIgnore := subCountSongs()
+
+	ui.ProgressMax = len(tracks)
 	ui.Append(fmt.Sprintf("%d will be downloaded, %d flushed and %d ignored", songsFetch, songsFlush, songsIgnore))
 
-	for trackIndex, t := range tracks {
-		ui.ProgressHalfIncrease()
-		ui.Append(fmt.Sprintf("%d/%d: \"%s\"", trackIndex+1, len(tracks), t.Basename()), cui.StyleBold)
+	for i, t := range tracks {
+		ui.ProgressIncrease()
+		ui.Append(fmt.Sprintf("%d/%d: \"%s\"", i+1, len(tracks), t.Basename()), cui.StyleBold)
 
-		if trackPath, ok := index.Tracks[t.SpotifyID]; ok {
-			if !strings.Contains(trackPath, fmt.Sprintf("%c%s", os.PathSeparator, t.Filename())) {
-				ui.Append(fmt.Sprintf("Track %s vs %s has been renamed: moving local one to %s", trackPath, t.Filename(), t.Filename()))
+		if path, ok := index.Tracks[t.SpotifyID]; ok {
+			if !strings.Contains(path, fmt.Sprintf("%c%s", os.PathSeparator, t.Filename())) {
+				ui.Append(fmt.Sprintf("Track %s vs %s has been renamed: moving local one to %s", path, t.Filename(), t.Filename()))
 				if err := subTrackRename(t); err != nil {
 					ui.Append(fmt.Sprintf("Unable to rename: %s", err.Error()), cui.ErrorAppend)
 				}
 			}
 		}
 
-		if subIfSongSearch(*t) {
+		if !t.Local() || argFlushLocal || argSimulate {
 			var (
 				entry    = new(provider.Entry)
 				prov     provider.Provider
 				provName string
 			)
+
 			for provName, prov = range provider.Providers {
+				ui.Append(fmt.Sprintf("Searching entries on %s provider", provName))
+
 				var (
 					provEntries   = []*provider.Entry{}
 					provErr       error
@@ -519,15 +522,14 @@ func mainSearch() {
 					entryPick     bool
 				)
 
-				ui.Append(fmt.Sprintf("Searching entries on %s provider", provName))
 				if !argManualInput {
 					provEntries, provErr = prov.Query(t)
 					if provErr != nil {
 						ui.Append(fmt.Sprintf("Something went wrong while searching for \"%s\" track: %s.", t.Basename(), provErr.Error()), cui.WarningAppend)
 						// FIXME: tracksFailed = append(tracksFailed, t)
-						ui.ProgressHalfIncrease()
 						continue
 					}
+
 					for _, provEntry := range provEntries {
 						ui.Append(fmt.Sprintf("Result met: ID: %s,\nTitle: %s,\nUser: %s,\nDuration: %d.",
 							provEntry.ID, provEntry.Title, provEntry.User, provEntry.Duration), cui.DebugAppend)
@@ -549,19 +551,16 @@ func mainSearch() {
 				if entry == (&provider.Entry{}) {
 					ui.Append(fmt.Sprintf("Video for \"%s\" not found.", t.Basename()), cui.ErrorAppend)
 					// FIXME: tracksFailed = append(tracksFailed, t)
-					ui.ProgressHalfIncrease()
 					continue
 				}
 
 				if argSimulate {
 					ui.Append(fmt.Sprintf("I would like to download \"%s\" for \"%s\" track, but I'm just simulating.", entry.URL, t.Basename()))
-					ui.ProgressHalfIncrease()
 					continue
 				} else if argFlushLocal {
 					if t.URL == entry.URL && !entryPick {
 						ui.Append(fmt.Sprintf("Track \"%s\" is still the best result I can find.", t.Basename()))
 						ui.Append(fmt.Sprintf("Local track origin URL %s is the same as the chosen one %s.", t.URL, entry.URL), cui.DebugAppend)
-						ui.ProgressHalfIncrease()
 						continue
 					} else {
 						t.URL = ""
@@ -574,7 +573,6 @@ func mainSearch() {
 			if err != nil {
 				ui.Append(fmt.Sprintf("Something went wrong downloading \"%s\": %s.", t.Basename(), err.Error()), cui.WarningAppend)
 				// FIXME: tracksFailed = append(tracksFailed, t)
-				ui.ProgressHalfIncrease()
 				continue
 			} else {
 				t.URL = entry.URL
@@ -582,7 +580,6 @@ func mainSearch() {
 		}
 
 		if !subIfSongProcess(*t) {
-			ui.ProgressHalfIncrease()
 			continue
 		}
 
@@ -599,7 +596,8 @@ func mainSearch() {
 
 	subCondPlaylistFileWrite()
 	subCondTimestampFlush()
-	subWriteIndex()
+
+	index.Sync(spotitube.UserIndex)
 
 	close(waitGroupPool)
 	waitGroup.Wait()
@@ -625,13 +623,6 @@ func mainExit(delay ...time.Duration) {
 	}
 
 	os.Exit(0)
-}
-
-func subWriteIndex() {
-	ui.Append(fmt.Sprintf("Writing %d entries index...", len(index.Tracks)), cui.DebugAppend)
-	if writeErr := system.DumpGob(spotitube.UserIndex, index); writeErr != nil {
-		ui.Append(fmt.Sprintf("Unable to write tracks index: %s", writeErr.Error()), cui.WarningAppend)
-	}
 }
 
 func subParallelSongProcess(t track.Track, wg *sync.WaitGroup) {
@@ -891,10 +882,6 @@ func subCondFlushID3FrameLyrics(t track.Track, trackMp3 *id3v2.Tag) {
 			Lyrics:            t.Lyrics,
 		})
 	}
-}
-
-func subIfSongSearch(t track.Track) bool {
-	return !t.Local() || argFlushLocal || argSimulate
 }
 
 func subFetchGob(path string) (track.TracksDump, error) {

@@ -3,7 +3,7 @@ package track
 import (
 	"strconv"
 
-	"../system"
+	"github.com/streambinder/spotitube/src/system"
 )
 
 // Playlist defines a playlist wrapper

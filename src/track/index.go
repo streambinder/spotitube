@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"../system"
+	"github.com/streambinder/spotitube/src/system"
 )
 
 // TracksIndex : Tracks index keeping ID - filename mapping and eventual filename links

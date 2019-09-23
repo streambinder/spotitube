@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"math"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 
-	"../track"
-
 	"github.com/PuerkitoBio/goquery"
 	"github.com/bradfitz/slice"
-	"github.com/streambinder/spotitube/src/spotitube"
+	"github.com/streambinder/spotitube/src/track"
 )
 
 const (
@@ -81,7 +80,7 @@ func (p YouTubeProvider) Match(e *Entry, t *track.Track) error {
 // Download : delegate youtube-dl call to download entry
 func (p YouTubeProvider) Download(e *Entry, fname string) error {
 	cStderr := new(bytes.Buffer)
-	c := exec.Command("youtube-dl", []string{"--format", "bestaudio", "--extract-audio", "--audio-format", spotitube.SongExtension, "--audio-quality", "0", "--output", strings.Replace(fname, fmt.Sprintf(".%s", spotitube.SongExtension), "", -1) + ".%(ext)s", e.URL}...)
+	c := exec.Command("youtube-dl", []string{"--format", "bestaudio", "--extract-audio", "--audio-format", filepath.Ext(fname), "--audio-quality", "0", "--output", fname + ".%(ext)s", e.URL}...)
 	c.Stderr = cStderr
 
 	if cErr := c.Run(); cErr != nil {

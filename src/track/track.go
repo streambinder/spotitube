@@ -6,9 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"../system"
-
 	"github.com/bogem/id3v2"
+	"github.com/streambinder/spotitube/src/system"
 	"github.com/zmb3/spotify"
 )
 

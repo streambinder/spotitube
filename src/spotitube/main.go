@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -16,17 +17,22 @@ import (
 	"syscall"
 	"time"
 
-	"./command"
-	"./cui"
-	"./logger"
-	"./provider"
-	"./spotify"
-	"./spotitube"
-	"./system"
-	"./track"
-
 	"github.com/bogem/id3v2"
 	"github.com/gosimple/slug"
+	"github.com/streambinder/spotitube/src/command"
+	"github.com/streambinder/spotitube/src/cui"
+	"github.com/streambinder/spotitube/src/logger"
+	"github.com/streambinder/spotitube/src/provider"
+	"github.com/streambinder/spotitube/src/spotify"
+	"github.com/streambinder/spotitube/src/system"
+	"github.com/streambinder/spotitube/src/track"
+	"github.com/streambinder/spotitube/src/upstream"
+)
+
+const (
+	version          = 25
+	cacheDuration    = 30 * time.Minute
+	concurrencyLimit = 100
 )
 
 var (
@@ -71,10 +77,15 @@ var (
 
 	// routines
 	waitGroup     sync.WaitGroup
-	waitGroupPool = make(chan bool, spotitube.ConcurrencyLimit)
+	waitGroupPool = make(chan bool, concurrencyLimit)
 
 	// cli
 	ui *cui.CUI
+
+	// user paths
+	usrBinary = fmt.Sprintf("%s/spotitube", usrPath())
+	usrIndex  = fmt.Sprintf("%s/index.gob", usrPath())
+	usrGob    = fmt.Sprintf("%s/%s_%s.gob", usrPath(), "%s", "%s")
 )
 
 func main() {
@@ -91,14 +102,14 @@ func main() {
 }
 
 func mainSetup() {
-	system.Mkdir(spotitube.UserPath())
+	system.Mkdir(usrPath())
 }
 
 func mainFork() {
-	if system.Proc() != spotitube.UserBinary &&
-		system.FileExists(spotitube.UserBinary) &&
+	if system.Proc() != usrBinary &&
+		system.FileExists(usrBinary) &&
 		os.Getenv("SPOTITUBE_FORKED") != "1" {
-		syscall.Exec(spotitube.UserBinary, os.Args, append(os.Environ(), []string{"SPOTITUBE_FORKED=1"}...))
+		syscall.Exec(usrBinary, os.Args, append(os.Environ(), []string{"SPOTITUBE_FORKED=1"}...))
 		mainExit()
 	}
 }
@@ -134,10 +145,10 @@ func mainEnvCheck() {
 		os.Exit(1)
 	}
 
-	if upstream, err := spotitube.UpstreamVersion(); err == nil &&
-		!argDisableUpdateCheck && upstream != spotitube.Version {
-		fmt.Println(fmt.Sprintf("You're not running latest version (%d). Going to update.", upstream))
-		if err := spotitube.UpstreamDownload(spotitube.UserBinary); err != nil {
+	if upstreamVersion, err := upstream.Version(); err == nil &&
+		!argDisableUpdateCheck && upstreamVersion != version {
+		fmt.Println(fmt.Sprintf("You're not running latest version (%d). Going to update.", upstreamVersion))
+		if err := upstream.Download(usrBinary); err != nil {
 			fmt.Println(fmt.Sprintf("Unable to update: %s", err.Error()))
 		} else {
 			mainFork()
@@ -211,7 +222,7 @@ func mainInit() {
 	})
 
 	if argVersion {
-		fmt.Println(fmt.Sprintf("SpotiTube, version %d.", spotitube.Version))
+		fmt.Println(fmt.Sprintf("SpotiTube, version %d.", version))
 		os.Exit(0)
 	}
 
@@ -227,13 +238,13 @@ func mainInit() {
 	os.Chdir(argFolder)
 
 	if !argDisableIndexing {
-		if system.FileExists(spotitube.UserIndex) {
-			system.FetchGob(spotitube.UserIndex, index)
+		if system.FileExists(usrIndex) {
+			system.FetchGob(usrIndex, index)
 		}
 		index = track.Index(argFolder)
 	}
 
-	for range [spotitube.ConcurrencyLimit]int{} {
+	for range [concurrencyLimit]int{} {
 		waitGroupPool <- true
 	}
 }
@@ -268,10 +279,9 @@ func mainUI() {
 	ui.Append(fmt.Sprintf("%s %s", cui.Font("Folder:", cui.StyleBold), system.PrettyPath(argFolder)), cui.PanelLeftTop)
 	ui.Append(fmt.Sprintf("%s %s", cui.Font(fmt.Sprintf("%s version:", command.YoutubeDL().Name()), cui.StyleBold), command.YoutubeDL().Version()), cui.PanelLeftTop)
 	ui.Append(fmt.Sprintf("%s %s", cui.Font(fmt.Sprintf("%s version:", command.FFmpeg().Name()), cui.StyleBold), command.FFmpeg().Version()), cui.PanelLeftTop)
-	ui.Append(fmt.Sprintf("%s %d", cui.Font("Version:", cui.StyleBold), spotitube.Version), cui.PanelLeftBottom)
+	ui.Append(fmt.Sprintf("%s %d", cui.Font("Version:", cui.StyleBold), version), cui.PanelLeftBottom)
 	ui.Append(fmt.Sprintf("%s %s", cui.Font("Proc:", cui.StyleBold), system.PrettyPath(system.Proc())), cui.PanelLeftBottom)
 	ui.Append(fmt.Sprintf("%s %s", cui.Font("Date:", cui.StyleBold), time.Now().Format("2006-01-02 15:04:05")), cui.PanelLeftBottom)
-	ui.Append(fmt.Sprintf("%s %s", cui.Font("URL:", cui.StyleBold), spotitube.RepositoryURI), cui.PanelLeftBottom)
 	ui.Append(fmt.Sprintf("%s GPL-3.0", cui.Font("License:", cui.StyleBold)), cui.PanelLeftBottom)
 
 	if argLog {
@@ -328,14 +338,14 @@ func mainFetchLibrary() {
 		return
 	}
 
-	gob := fmt.Sprintf(spotitube.UserGob, cUserID, "library")
+	gob := fmt.Sprintf(usrGob, cUserID, "library")
 	if argFlushCache {
 		os.Remove(gob)
 	}
 
 	dump, dumpErr := subFetchGob(gob)
-	if dumpErr == nil && time.Since(dump.Time) < spotitube.TracksCacheDuration {
-		ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font("Library cache expiration:", cui.StyleBold), int(time.Since(dump.Time)), spotitube.TracksCacheDuration), cui.PanelLeftTop)
+	if dumpErr == nil && time.Since(dump.Time) < cacheDuration {
+		ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font("Library cache expiration:", cui.StyleBold), int(time.Since(dump.Time)), cacheDuration), cui.PanelLeftTop)
 		for _, t := range dump.Tracks {
 			tracks = append(tracks, t)
 		}
@@ -379,14 +389,14 @@ func mainFetchAlbums() {
 	}
 
 	for _, uri := range argAlbums.Entries {
-		gob := fmt.Sprintf(spotitube.UserGob, cUserID, fmt.Sprintf("album_%s", spotify.IDFromURI(uri)))
+		gob := fmt.Sprintf(usrGob, cUserID, fmt.Sprintf("album_%s", spotify.IDFromURI(uri)))
 		if argFlushCache {
 			os.Remove(gob)
 		}
 
 		dump, dumpErr := subFetchGob(gob)
-		if dumpErr == nil && time.Since(dump.Time) < spotitube.TracksCacheDuration {
-			ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font(fmt.Sprintf("Album %s cache expiration:", spotify.IDFromURI(uri)), cui.StyleBold), int(time.Since(dump.Time)), spotitube.TracksCacheDuration), cui.PanelLeftTop)
+		if dumpErr == nil && time.Since(dump.Time) < cacheDuration {
+			ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font(fmt.Sprintf("Album %s cache expiration:", spotify.IDFromURI(uri)), cui.StyleBold), int(time.Since(dump.Time)), cacheDuration), cui.PanelLeftTop)
 			for _, t := range dump.Tracks {
 				tracks = append(tracks, t)
 			}
@@ -421,14 +431,14 @@ func mainFetchPlaylists() {
 			playlist.Owner = p.Owner.DisplayName
 		}
 
-		gob := fmt.Sprintf(spotitube.UserGob, cUserID, fmt.Sprintf("playlist_%s", spotify.IDFromURI(uri)))
+		gob := fmt.Sprintf(usrGob, cUserID, fmt.Sprintf("playlist_%s", spotify.IDFromURI(uri)))
 		if argFlushCache {
 			os.Remove(gob)
 		}
 
 		dump, dumpErr := subFetchGob(gob)
-		if dumpErr == nil && time.Since(dump.Time) < spotitube.TracksCacheDuration {
-			ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font(fmt.Sprintf("Playlist %s cache expiration:", playlist.Name), cui.StyleBold), int(time.Since(dump.Time)), spotitube.TracksCacheDuration), cui.PanelLeftTop)
+		if dumpErr == nil && time.Since(dump.Time) < cacheDuration {
+			ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font(fmt.Sprintf("Playlist %s cache expiration:", playlist.Name), cui.StyleBold), int(time.Since(dump.Time)), cacheDuration), cui.PanelLeftTop)
 			for _, t := range dump.Tracks {
 				tracks = append(tracks, t)
 			}
@@ -597,7 +607,7 @@ func mainSearch() {
 	subCondPlaylistFileWrite()
 	subCondTimestampFlush()
 
-	index.Sync(spotitube.UserIndex)
+	index.Sync(usrIndex)
 
 	close(waitGroupPool)
 	waitGroup.Wait()
@@ -662,7 +672,7 @@ func subSongNormalize(t track.Track) {
 		commandOut         bytes.Buffer
 		commandErr         error
 		normalizationDelta string
-		normalizationFile  = strings.Replace(t.FilenameTemporary(), spotitube.SongExtension, fmt.Sprintf("norm.%s", spotitube.SongExtension), -1)
+		normalizationFile  = strings.Replace(t.FilenameTemporary(), filepath.Ext(t.FilenameTemporary()), fmt.Sprintf("norm.%s", filepath.Ext(t.FilenameTemporary())), -1)
 	)
 
 	commandArgs = []string{"-i", t.FilenameTemporary(), "-af", "volumedetect", "-f", "null", "-y", "null"}
@@ -890,7 +900,7 @@ func subFetchGob(path string) (track.TracksDump, error) {
 		return track.TracksDump{}, fmt.Errorf(fmt.Sprintf("Unable to load tracks cache: %s", fetchErr.Error()))
 	}
 
-	if time.Since(tracksDump.Time) > spotitube.TracksCacheDuration {
+	if time.Since(tracksDump.Time) > cacheDuration {
 		return track.TracksDump{}, fmt.Errorf("Tracks cache declared obsolete: flushing it from Spotify")
 	}
 
@@ -1114,4 +1124,9 @@ func subTrackRename(t *track.Track) error {
 	index.Tracks[keyID] = t.Filename()
 
 	return nil
+}
+
+func usrPath() string {
+	currentUser, _ := user.Current()
+	return fmt.Sprintf("%s/.cache/spotitube", currentUser.HomeDir)
 }

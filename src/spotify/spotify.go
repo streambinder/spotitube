@@ -3,9 +3,8 @@ package spotify
 import (
 	"fmt"
 	"strings"
-
-	"../track"
-
+	
+	"github.com/streambinder/spotitube/src/track"
 	"github.com/thanhpk/randstr"
 	"github.com/zmb3/spotify"
 )

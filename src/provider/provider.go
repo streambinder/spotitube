@@ -5,9 +5,9 @@ import (
 	"math"
 	"strings"
 
-	"../track"
 	"github.com/agnivade/levenshtein"
 	"github.com/gosimple/slug"
+	"github.com/streambinder/spotitube/src/track"
 )
 
 const (

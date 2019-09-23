@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"runtime"
 
-	"../system"
+	"github.com/streambinder/spotitube/src/system"
 )
 
 // XDGOpenCommand command wrapper implementation

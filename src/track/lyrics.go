@@ -10,10 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"../system"
-
 	"github.com/PuerkitoBio/goquery"
 	"github.com/rainycape/unidecode"
+	"github.com/streambinder/spotitube/src/system"
 )
 
 const (

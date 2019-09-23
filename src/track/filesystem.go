@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"strings"
 
-	"../spotitube"
-	"../system"
-
 	"github.com/gosimple/slug"
+	"github.com/streambinder/spotitube/src/system"
 )
 
 var (
+	extension = "mp3"
+
 	// JunkSuffixes : array containing every file suffix considered junk
 	JunkSuffixes = []string{".ytdl", ".webm", ".opus", ".part", ".jpg", ".tmp", "-id3v2"}
 )
@@ -33,12 +33,12 @@ func (track Track) Basename() string {
 
 // Filename : return track filename
 func (track Track) Filename() string {
-	return fmt.Sprintf("%s.%s", track.Basename(), spotitube.SongExtension)
+	return fmt.Sprintf("%s.%s", track.Basename(), extension)
 }
 
 // FilenameTemporary : return Track temporary filename
 func (track Track) FilenameTemporary() string {
-	return fmt.Sprintf(".%s.%s", slug.Make(track.Basename()), spotitube.SongExtension)
+	return fmt.Sprintf(".%s.%s", slug.Make(track.Basename()), extension)
 }
 
 // FilenameArtwork : return Track artwork filename

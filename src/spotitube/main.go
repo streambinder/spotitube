@@ -506,12 +506,13 @@ func mainSearch() {
 		ui.ProgressIncrease()
 		ui.Append(fmt.Sprintf("%d/%d: \"%s\"", i+1, len(tracks), t.Basename()), cui.StyleBold)
 
-		if path, ok := index.Tracks[t.SpotifyID]; ok {
-			if !strings.Contains(path, fmt.Sprintf("%c%s", os.PathSeparator, t.Filename())) {
-				ui.Append(fmt.Sprintf("Track %s vs %s has been renamed: moving local one to %s", path, t.Filename(), t.Filename()))
-				if err := subTrackRename(t); err != nil {
-					ui.Append(fmt.Sprintf("Unable to rename: %s", err.Error()), cui.ErrorAppend)
-				}
+		// rename local file if Spotify has renamed it
+		if path, match, err := index.Match(t.SpotifyID, t.Filename()); err != nil && !match {
+			ui.Append(fmt.Sprintf("Track %s has been renamed: moving to %s", t.Filename(), path))
+			if err := os.Rename(path, t.Filename()); err != nil {
+				ui.Append(fmt.Sprintf("Unable to rename: %s", err.Error()), cui.ErrorAppend)
+			} else {
+				index.Rename(t.SpotifyID, t.Filename())
 			}
 		}
 
@@ -1060,58 +1061,6 @@ func subCondPlaylistFileWrite() {
 			ui.Append(fmt.Sprintf("Unable to write playlist file: %s", err.Error()), cui.WarningAppend)
 		}
 	}
-}
-
-func subTrackRename(t *track.Track) error {
-	var (
-		keyID   = t.SpotifyID
-		keyPath = index.Tracks[t.SpotifyID]
-	)
-	if err := os.Rename(keyPath, t.Filename()); err != nil {
-		return err
-	}
-
-	for _, trackLink := range index.Links[keyPath] {
-		var (
-			trackLinkParts  = strings.Split(trackLink, "/")
-			trackLinkFolder = strings.Join(trackLinkParts[:len(trackLinkParts)-1], "/")
-			trackLinkName   = trackLinkParts[len(trackLinkParts)-1]
-			trackLinkNew    = trackLinkFolder + "/" + t.Filename()
-		)
-		os.Rename(trackLink, trackLinkNew)
-		filepath.Walk(trackLinkFolder, func(path string, info os.FileInfo, err error) error {
-			if filepath.Ext(path) != ".m3u" || filepath.Ext(path) != ".pls" {
-				return nil
-			}
-
-			var (
-				playlistLines    = system.FileReadLines(path)
-				playlistLinesNew = make([]string, len(playlistLines))
-				playlistUpdated  = false
-			)
-			for _, line := range playlistLines {
-				if strings.Contains(line, trackLinkName) {
-					line = strings.ReplaceAll(line, trackLinkName, t.Filename())
-					playlistUpdated = true
-				}
-				playlistLinesNew = append(playlistLinesNew, line)
-			}
-
-			if playlistUpdated {
-				err := system.FileWriteLines(path, playlistLinesNew)
-				if err != nil {
-					ui.Append(fmt.Sprintf("Unable to update playlist %s: %s", path, err.Error()), cui.ErrorAppend)
-				}
-			}
-
-			return nil
-		})
-		index.Links[t.Filename()] = append(index.Links[t.Filename()], trackLinkNew)
-	}
-	delete(index.Links, keyPath)
-	index.Tracks[keyID] = t.Filename()
-
-	return nil
 }
 
 func usrPath() string {

@@ -1027,8 +1027,7 @@ func subCondPlaylistFileWrite() {
 
 	for _, p := range playlists {
 		var (
-			pFolder  = slug.Make(p.Name)
-			pFname   = fmt.Sprintf("%s/%s", pFolder, p.Name)
+			pFname   = slug.Make(p.Name)
 			pContent string
 		)
 
@@ -1037,27 +1036,16 @@ func subCondPlaylistFileWrite() {
 			pFname = pFname + ".pls"
 		}
 
-		os.RemoveAll(pFolder)
-		os.Mkdir(pFolder, 0775)
-		os.Chdir(pFolder)
-		for _, t := range tracks {
-			if system.FileExists("../" + t.Filename()) {
-				if err := os.Symlink("../"+t.Filename(), t.Filename()); err != nil {
-					ui.Append(fmt.Sprintf("Unable to create symlink for \"%s\" in %s: %s", t.Filename(), pFolder, err.Error()), cui.ErrorAppend)
-				}
-			}
-		}
-		os.Chdir("..")
-
+		os.Remove(pFname)
 		ui.Append(fmt.Sprintf("Creating playlist file at %s...", pFname))
 		if system.FileExists(pFname) {
 			os.Remove(pFname)
 		}
 
 		if argPlsFile {
-			pContent = p.PLS()
+			pContent = p.PLS(".")
 		} else {
-			pContent = p.M3U()
+			pContent = p.M3U(".")
 		}
 
 		pFile, err := os.Create(pFname)

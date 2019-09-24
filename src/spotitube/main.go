@@ -76,7 +76,7 @@ var (
 	index     *track.TracksIndex
 
 	// routines
-	waitGroup     sync.WaitGroup
+	waitGroup     *sync.WaitGroup
 	waitGroupPool = make(chan bool, concurrencyLimit)
 
 	// cli
@@ -205,10 +205,6 @@ func mainFlagsParse() {
 	if len(argTracksFix.Entries) > 0 {
 		argFlushLocal = true
 		argFlushMetadata = true
-	}
-
-	if argManualInput {
-		argInteractive = true
 	}
 
 	if argAuthenticateOutside {
@@ -517,36 +513,45 @@ func mainSearch() {
 		}
 
 		if !t.Local() || argFlushLocal || argSimulate {
-			var (
-				entry    = new(provider.Entry)
-				prov     provider.Provider
-				provName string
-			)
 
-			for provName, prov = range provider.Providers {
-				ui.Append(fmt.Sprintf("Searching entries on %s provider", provName))
+			entry := new(provider.Entry)
+
+			for _, p := range provider.Providers {
+				ui.Append(fmt.Sprintf("Searching entries on %s provider", p.Name()))
 
 				var (
-					provEntries   = []*provider.Entry{}
-					provErr       error
-					entryPickAuto bool
-					entryPick     bool
+					provEntries = []*provider.Entry{}
+					provErr     error
+					entryPick   bool
 				)
 
 				if !argManualInput {
-					provEntries, provErr = prov.Query(t)
+					provEntries, provErr = p.Query(t)
 					if provErr != nil {
-						ui.Append(fmt.Sprintf("Something went wrong while searching for \"%s\" track: %s.", t.Basename(), provErr.Error()), cui.WarningAppend)
+						ui.Append(
+							fmt.Sprintf("Unable to search %s on %s provider: %s.", t.Basename(), p.Name(), provErr.Error()),
+							cui.WarningAppend)
 						// FIXME: tracksFailed = append(tracksFailed, t)
 						continue
 					}
 
 					for _, provEntry := range provEntries {
-						ui.Append(fmt.Sprintf("Result met: ID: %s,\nTitle: %s,\nUser: %s,\nDuration: %d.",
-							provEntry.ID, provEntry.Title, provEntry.User, provEntry.Duration), cui.DebugAppend)
+						ui.Append(
+							fmt.Sprintf("Result met: ID: %s,\nTitle: %s,\nUser: %s,\nDuration: %d.",
+								provEntry.ID, provEntry.Title, provEntry.User, provEntry.Duration),
+							cui.DebugAppend)
 
-						entryPickAuto, entryPick = subMatchResult(prov, t, provEntry)
-						if subIfPickFromAns(entryPickAuto, entryPick) {
+						entryPick = bool(p.Match(provEntry, t) == nil)
+						if argInteractive {
+							entryPick = ui.Prompt(
+								fmt.Sprintf(
+									"Track: %s\n\nID: %s\nTitle: %s\nUser: %s\nDuration: %d\nURL: %s\nResult is matching: %s",
+									t.Basename(), entry.ID, entry.Title, entry.User,
+									entry.Duration, entry.URL, strconv.FormatBool(entryPick)),
+								cui.PromptBinary)
+						}
+
+						if entryPick {
 							ui.Append(fmt.Sprintf("Video \"%s\" is good to go for \"%s\".", provEntry.Title, t.Basename()))
 							entry = provEntry
 							break
@@ -554,55 +559,64 @@ func mainSearch() {
 					}
 				}
 
-				subCondManualInputURL(prov, entry, t)
-				if entry.URL == "" {
-					entry = &provider.Entry{}
+				if argManualInput && entry.Empty() {
+					if url := ui.PromptInputMessage(fmt.Sprintf("Enter URL for \"%s\"", t.Basename()), cui.PromptInput); len(url) > 0 {
+						if err := p.ValidateURL(url); err == nil {
+							entry.URL = url
+						} else {
+							ui.Prompt(fmt.Sprintf("Something went wrong: %s", err.Error()))
+						}
+					}
 				}
 
-				if entry == (&provider.Entry{}) {
-					ui.Append(fmt.Sprintf("Video for \"%s\" not found.", t.Basename()), cui.ErrorAppend)
+				if entry.Empty() {
+					ui.Append("No entry to download has been found.", cui.ErrorAppend)
 					// FIXME: tracksFailed = append(tracksFailed, t)
 					continue
 				}
 
 				if argSimulate {
-					ui.Append(fmt.Sprintf("I would like to download \"%s\" for \"%s\" track, but I'm just simulating.", entry.URL, t.Basename()))
+					ui.Append(fmt.Sprintf("I would like to download \"%s\" for \"%s\" track, but I'm just simulating.", entry.Repr(), t.Basename()))
 					continue
-				} else if argFlushLocal {
-					if t.URL == entry.URL && !entryPick {
-						ui.Append(fmt.Sprintf("Track \"%s\" is still the best result I can find.", t.Basename()))
-						ui.Append(fmt.Sprintf("Local track origin URL %s is the same as the chosen one %s.", t.URL, entry.URL), cui.DebugAppend)
-						continue
-					} else {
-						t.URL = ""
-					}
+				}
+
+				if argFlushLocal && t.URL == entry.URL {
+					ui.Append("Downloaded track is still the best result I can find.")
+					ui.Append(fmt.Sprintf("Local track origin URL %s is the same as the chosen one %s.", t.URL, entry.URL), cui.DebugAppend)
+					continue
 				}
 			}
 
-			ui.Append(fmt.Sprintf("Going to download \"%s\" from %s...", entry.Title, entry.URL))
-			err := prov.Download(entry, t.FilenameTemporary())
+			ui.Append(fmt.Sprintf("Going to download \"%s\" from %s...", entry.Title, entry.Repr()))
+			p, err := provider.For(entry.URL)
 			if err != nil {
+				continue
+			}
+
+			if err := p.Download(entry, t.FilenameTemporary()); err != nil {
 				ui.Append(fmt.Sprintf("Something went wrong downloading \"%s\": %s.", t.Basename(), err.Error()), cui.WarningAppend)
 				// FIXME: tracksFailed = append(tracksFailed, t)
 				continue
-			} else {
-				t.URL = entry.URL
 			}
+
+			t.URL = entry.URL
 		}
 
-		if !subIfSongProcess(*t) {
+		if t.Local() && !argFlushMetadata && !argFlushLocal {
 			continue
 		}
 
-		subCondSequentialDo(t)
+		subCondLyricsFetch(t)
+		subCondArtworkDownload(t)
 
-		ui.Append(fmt.Sprintf("Launching song processing jobs..."))
+		ui.Append(fmt.Sprintf("Launching track processing jobs..."))
 		waitGroup.Add(1)
-		go subParallelSongProcess(*t, &waitGroup)
+		go subParallelSongProcess(t, waitGroup)
 		if argDebug {
 			waitGroup.Wait()
 		}
 	}
+
 	waitGroup.Wait()
 
 	subCondPlaylistFileWrite()
@@ -636,8 +650,7 @@ func mainExit(delay ...time.Duration) {
 	os.Exit(0)
 }
 
-func subParallelSongProcess(t track.Track, wg *sync.WaitGroup) {
-	defer ui.ProgressHalfIncrease()
+func subParallelSongProcess(t *track.Track, wg *sync.WaitGroup) {
 	defer wg.Done()
 	<-waitGroupPool
 
@@ -666,7 +679,7 @@ func subParallelSongProcess(t track.Track, wg *sync.WaitGroup) {
 }
 
 // TODO: move to command package
-func subSongNormalize(t track.Track) {
+func subSongNormalize(t *track.Track) {
 	var (
 		commandCmd         = "ffmpeg"
 		commandArgs        []string
@@ -709,7 +722,7 @@ func subSongNormalize(t track.Track) {
 	os.Rename(normalizationFile, t.FilenameTemporary())
 }
 
-func subSongFlushMetadata(t track.Track) {
+func subSongFlushMetadata(t *track.Track) {
 	trackMp3, err := id3v2.Open(t.FilenameTemporary(), id3v2.Options{Parse: true})
 	if err != nil {
 		ui.Append(fmt.Sprintf("Something bad happened while opening: %s", err.Error()), cui.WarningAppend)
@@ -735,14 +748,14 @@ func subSongFlushMetadata(t track.Track) {
 	trackMp3.Close()
 }
 
-func subCondFlushID3FrameTitle(t track.Track, trackMp3 *id3v2.Tag) {
+func subCondFlushID3FrameTitle(t *track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Title) > 0 && track.TagGetFrame(trackMp3, track.ID3FrameSong) != track.TagGetFrame(trackMp3, track.ID3FrameTitle) {
 		ui.Append("Inflating title metadata...", cui.DebugAppend)
 		trackMp3.SetTitle(t.Title)
 	}
 }
 
-func subCondFlushID3FrameSong(t track.Track, trackMp3 *id3v2.Tag) {
+func subCondFlushID3FrameSong(t *track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Song) > 0 && t.Song != track.TagGetFrame(trackMp3, track.ID3FrameSong) {
 		ui.Append("Inflating song metadata...", cui.DebugAppend)
 		trackMp3.AddCommentFrame(id3v2.CommentFrame{
@@ -754,35 +767,35 @@ func subCondFlushID3FrameSong(t track.Track, trackMp3 *id3v2.Tag) {
 	}
 }
 
-func subCondFlushID3FrameArtist(t track.Track, trackMp3 *id3v2.Tag) {
+func subCondFlushID3FrameArtist(t *track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Artist) > 0 && t.Artist != track.TagGetFrame(trackMp3, track.ID3FrameArtist) {
 		ui.Append("Inflating artist metadata...", cui.DebugAppend)
 		trackMp3.SetArtist(t.Artist)
 	}
 }
 
-func subCondFlushID3FrameAlbum(t track.Track, trackMp3 *id3v2.Tag) {
+func subCondFlushID3FrameAlbum(t *track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Album) > 0 && t.Album != track.TagGetFrame(trackMp3, track.ID3FrameAlbum) {
 		ui.Append("Inflating album metadata...", cui.DebugAppend)
 		trackMp3.SetAlbum(t.Album)
 	}
 }
 
-func subCondFlushID3FrameGenre(t track.Track, trackMp3 *id3v2.Tag) {
+func subCondFlushID3FrameGenre(t *track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Genre) > 0 && t.Genre != track.TagGetFrame(trackMp3, track.ID3FrameGenre) {
 		ui.Append("Inflating genre metadata...", cui.DebugAppend)
 		trackMp3.SetGenre(t.Genre)
 	}
 }
 
-func subCondFlushID3FrameYear(t track.Track, trackMp3 *id3v2.Tag) {
+func subCondFlushID3FrameYear(t *track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Year) > 0 && t.Year != track.TagGetFrame(trackMp3, track.ID3FrameYear) {
 		ui.Append("Inflating year metadata...", cui.DebugAppend)
 		trackMp3.SetYear(t.Year)
 	}
 }
 
-func subCondFlushID3FrameFeaturings(t track.Track, trackMp3 *id3v2.Tag) {
+func subCondFlushID3FrameFeaturings(t *track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Featurings) > 0 && strings.Join(t.Featurings, "|") != track.TagGetFrame(trackMp3, track.ID3FrameFeaturings) {
 		ui.Append("Inflating featurings metadata...", cui.DebugAppend)
 		trackMp3.AddCommentFrame(id3v2.CommentFrame{
@@ -794,7 +807,7 @@ func subCondFlushID3FrameFeaturings(t track.Track, trackMp3 *id3v2.Tag) {
 	}
 }
 
-func subCondFlushID3FrameTrackNumber(t track.Track, trackMp3 *id3v2.Tag) {
+func subCondFlushID3FrameTrackNumber(t *track.Track, trackMp3 *id3v2.Tag) {
 	if t.TrackNumber > 0 && fmt.Sprintf("%d", t.TrackNumber) != track.TagGetFrame(trackMp3, track.ID3FrameTrackNumber) {
 		ui.Append("Inflating track number metadata...", cui.DebugAppend)
 		trackMp3.AddFrame(trackMp3.CommonID("Track number/Position in set"),
@@ -805,7 +818,7 @@ func subCondFlushID3FrameTrackNumber(t track.Track, trackMp3 *id3v2.Tag) {
 	}
 }
 
-func subCondFlushID3FrameTrackTotals(t track.Track, trackMp3 *id3v2.Tag) {
+func subCondFlushID3FrameTrackTotals(t *track.Track, trackMp3 *id3v2.Tag) {
 	if t.TrackTotals > 0 && fmt.Sprintf("%d", t.TrackTotals) != track.TagGetFrame(trackMp3, track.ID3FrameTrackTotals) {
 		ui.Append("Inflating total tracks number metadata...", cui.DebugAppend)
 		trackMp3.AddCommentFrame(id3v2.CommentFrame{
@@ -817,7 +830,7 @@ func subCondFlushID3FrameTrackTotals(t track.Track, trackMp3 *id3v2.Tag) {
 	}
 }
 
-func subCondFlushID3FrameArtwork(t track.Track, trackMp3 *id3v2.Tag) {
+func subCondFlushID3FrameArtwork(t *track.Track, trackMp3 *id3v2.Tag) {
 	if system.FileExists(t.FilenameArtwork()) && t.Image != track.TagGetFrame(trackMp3, track.ID3FrameArtworkURL) {
 		trackArtworkReader, trackArtworkErr := ioutil.ReadFile(t.FilenameArtwork())
 		if trackArtworkErr != nil {
@@ -835,7 +848,7 @@ func subCondFlushID3FrameArtwork(t track.Track, trackMp3 *id3v2.Tag) {
 	}
 }
 
-func subCondFlushID3FrameArtworkURL(t track.Track, trackMp3 *id3v2.Tag) {
+func subCondFlushID3FrameArtworkURL(t *track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Image) > 0 && t.Image != track.TagGetFrame(trackMp3, track.ID3FrameArtworkURL) {
 		ui.Append("Inflating artwork url metadata...", cui.DebugAppend)
 		trackMp3.AddCommentFrame(id3v2.CommentFrame{
@@ -847,7 +860,7 @@ func subCondFlushID3FrameArtworkURL(t track.Track, trackMp3 *id3v2.Tag) {
 	}
 }
 
-func subCondFlushID3FrameOrigin(t track.Track, trackMp3 *id3v2.Tag) {
+func subCondFlushID3FrameOrigin(t *track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.URL) > 0 && t.URL != track.TagGetFrame(trackMp3, track.ID3FrameOrigin) {
 		ui.Append("Inflating origin url metadata...", cui.DebugAppend)
 		trackMp3.AddCommentFrame(id3v2.CommentFrame{
@@ -859,7 +872,7 @@ func subCondFlushID3FrameOrigin(t track.Track, trackMp3 *id3v2.Tag) {
 	}
 }
 
-func subCondFlushID3FrameDuration(t track.Track, trackMp3 *id3v2.Tag) {
+func subCondFlushID3FrameDuration(t *track.Track, trackMp3 *id3v2.Tag) {
 	if t.Duration > 0 && fmt.Sprintf("%d", t.Duration) != track.TagGetFrame(trackMp3, track.ID3FrameDuration) {
 		ui.Append("Inflating duration metadata...", cui.DebugAppend)
 		trackMp3.AddCommentFrame(id3v2.CommentFrame{
@@ -871,7 +884,7 @@ func subCondFlushID3FrameDuration(t track.Track, trackMp3 *id3v2.Tag) {
 	}
 }
 
-func subCondFlushID3FrameSpotifyID(t track.Track, trackMp3 *id3v2.Tag) {
+func subCondFlushID3FrameSpotifyID(t *track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.SpotifyID) > 0 && t.SpotifyID != track.TagGetFrame(trackMp3, track.ID3FrameSpotifyID) {
 		ui.Append("Inflating Spotify ID metadata...", cui.DebugAppend)
 		trackMp3.AddCommentFrame(id3v2.CommentFrame{
@@ -883,7 +896,7 @@ func subCondFlushID3FrameSpotifyID(t track.Track, trackMp3 *id3v2.Tag) {
 	}
 }
 
-func subCondFlushID3FrameLyrics(t track.Track, trackMp3 *id3v2.Tag) {
+func subCondFlushID3FrameLyrics(t *track.Track, trackMp3 *id3v2.Tag) {
 	if len(t.Lyrics) > 0 && !argDisableLyrics && t.Lyrics != track.TagGetFrame(trackMp3, track.ID3FrameLyrics) {
 		ui.Append("Inflating lyrics metadata...", cui.DebugAppend)
 		trackMp3.AddUnsynchronisedLyricsFrame(id3v2.UnsynchronisedLyricsFrame{
@@ -928,51 +941,6 @@ func subCountSongs() (int, int, int) {
 	}
 
 	return fetch, flush, ignore
-}
-
-func subMatchResult(p provider.Provider, t *track.Track, e *provider.Entry) (bool, bool) {
-	var (
-		ansInput     bool
-		ansAutomated bool
-		ansErr       error
-	)
-	ansErr = p.Match(e, t)
-	ansAutomated = bool(ansErr == nil)
-	if argInteractive {
-		ansInput = ui.Prompt(fmt.Sprintf("Do you want to download the following video for \"%s\"?\n"+
-			"ID: %s\nTitle: %s\nUser: %s\nDuration: %d\nURL: %s\nResult is matching: %s",
-			t.Basename(), e.ID, e.Title, e.User, e.Duration, e.URL, strconv.FormatBool(ansAutomated)), cui.PromptBinary)
-	}
-	return ansAutomated, ansInput
-}
-
-func subIfPickFromAns(ansAutomated bool, ansInput bool) bool {
-	return (!argInteractive && ansAutomated) || (argInteractive && ansInput)
-}
-
-func subCondManualInputURL(p provider.Provider, e *provider.Entry, t *track.Track) {
-	if argInteractive && e.URL == "" {
-		inputURL := ui.PromptInputMessage(fmt.Sprintf("Please, manually enter URL for \"%s\"", t.Basename()), cui.PromptInput)
-		if len(inputURL) > 0 {
-			if err := p.ValidateURL(inputURL); err == nil {
-				e.Title = "input video"
-				e.URL = inputURL
-			} else {
-				ui.Prompt(fmt.Sprintf("Something went wrong: %s", err.Error()))
-			}
-		}
-	}
-}
-
-func subIfSongProcess(t track.Track) bool {
-	return !t.Local() || argFlushMetadata || argFlushLocal
-}
-
-func subCondSequentialDo(t *track.Track) {
-	if (t.Local() && argFlushMetadata) || !t.Local() {
-		subCondLyricsFetch(t)
-		subCondArtworkDownload(t)
-	}
 }
 
 func subCondLyricsFetch(t *track.Track) {

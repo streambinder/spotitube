@@ -24,11 +24,6 @@ const (
 	LyricsOVHAPIURL = "https://api.lyrics.ovh/v1/%s/%s"
 )
 
-// Query : return string used to search song online
-func (track Track) Query() string {
-	return track.Basename()
-}
-
 // SearchLyrics : search Track lyrics, eventually throwing returning error
 func (track *Track) SearchLyrics() error {
 	var (

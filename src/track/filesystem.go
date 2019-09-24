@@ -31,6 +31,12 @@ func (track Track) Basename() string {
 	return strings.TrimSpace(basename)
 }
 
+// Query : return string used to search song online
+func (track Track) Query() string {
+	return track.Basename()
+}
+
+
 // Filename : return track filename
 func (track Track) Filename() string {
 	return fmt.Sprintf("%s.%s", track.Basename(), extension)

@@ -40,6 +40,22 @@ type Entry struct {
 	Duration int
 }
 
+// Empty returns true if entry does not have a URL and it's unusable, then
+func (e *Entry) Empty() bool {
+	return e.URL == ""
+}
+
+// Repr returns a human readable representation of the entry
+func (e *Entry) Repr() string {
+	if e.Title != "" {
+		return e.Title
+	} else if !e.Empty() {
+		return e.URL
+	}
+
+	return ""
+}
+
 // Provider defines the generic interface on which every download provider
 // should be basing its logic
 type Provider interface {

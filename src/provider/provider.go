@@ -16,8 +16,19 @@ const (
 )
 
 // Providers is an exported map of usable providers
-var Providers = map[string]Provider{
-	"YouTube": new(YouTubeProvider),
+var Providers = []Provider{
+	new(YouTubeProvider),
+}
+
+// For returns a provider for a given URL
+func For(URL string) (Provider, error) {
+	for _, p := range Providers {
+		if err := p.ValidateURL(URL); err != nil {
+			return p, nil
+		}
+	}
+
+	return nil, fmt.Errorf("No provider found")
 }
 
 // Entry : single search result struct
@@ -32,6 +43,7 @@ type Entry struct {
 // Provider defines the generic interface on which every download provider
 // should be basing its logic
 type Provider interface {
+	Name() string
 	Query(*track.Track) ([]*Entry, error)
 	Match(*Entry, *track.Track) error
 	Download(*Entry, string) error

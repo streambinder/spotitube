@@ -36,6 +36,11 @@ type YouTubeProvider struct {
 	Scorer
 }
 
+// Name returns a human readable name for the provider
+func (p YouTubeProvider) Name() string {
+	return "YouTube"
+}
+
 // Query : query provider for entries related to track
 func (p YouTubeProvider) Query(track *track.Track) ([]*Entry, error) {
 	var queryString = fmt.Sprintf(YouTubeQueryPattern, strings.Replace(track.Query(), " ", "+", -1))

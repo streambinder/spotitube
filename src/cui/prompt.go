@@ -55,13 +55,18 @@ func (c *CUI) Prompt(message string, spreadOptions ...Options) bool {
 			if hasOption(options, PromptExit) {
 				gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, c.callbackShutdown)
 			} else if hasOption(options, PromptBinary) {
-				view.Title = " Press TAB to cancel, ENTER to confirm "
+				view.Title = " TAB to cancel, ENTER to confirm "
 				gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, c.callbackInputConfirm)
 				gui.SetKeybinding("", gocui.KeyTab, gocui.ModNone, c.callbackInputCancel)
 			} else {
 				gui.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, c.callback)
 			}
-			fmt.Fprintln(view, styleOrientation(message, OrientationCenter, view))
+
+			if strings.Contains(message, "\n") {
+				fmt.Fprintln(view, message)
+			} else {
+				fmt.Fprintln(view, styleOrientation(message, OrientationCenter, view))
+			}
 		}
 		return nil
 	})

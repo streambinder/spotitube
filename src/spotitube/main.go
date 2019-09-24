@@ -22,6 +22,7 @@ import (
 	"github.com/streambinder/spotitube/src/command"
 	"github.com/streambinder/spotitube/src/cui"
 	"github.com/streambinder/spotitube/src/logger"
+	"github.com/streambinder/spotitube/src/lyrics"
 	"github.com/streambinder/spotitube/src/provider"
 	"github.com/streambinder/spotitube/src/spotify"
 	"github.com/streambinder/spotitube/src/system"
@@ -123,11 +124,6 @@ func mainEnvCheck() {
 	if len(spotify.SpotifyClientSecret) != 32 && len(os.Getenv("SPOTIFY_KEY")) != 32 {
 		fmt.Println("SPOTIFY_KEY environment key is unset.")
 		os.Exit(1)
-	}
-
-	if len(track.GeniusAccessToken) != 64 && len(os.Getenv("GENIUS_TOKEN")) != 64 {
-		fmt.Println("GENIUS_TOKEN environment key is unset: you won't be able to fetch lyrics from Genius.")
-		time.Sleep(3 * time.Second)
 	}
 
 	if !command.YoutubeDL().Exists() {
@@ -606,7 +602,7 @@ func mainSearch() {
 			continue
 		}
 
-		subCondLyricsFetch(t)
+		mainSearchLyrics(t)
 		subCondArtworkDownload(t)
 
 		ui.Append(fmt.Sprintf("Launching track processing jobs..."))
@@ -638,6 +634,26 @@ func mainSearch() {
 
 	system.Notify("SpotiTube", "emblem-downloads", "SpotiTube", fmt.Sprintf("%d track(s) synced", len(tracks)))
 	ui.Prompt("Synchronization completed.", cui.PromptExit)
+}
+
+
+func mainSearchLyrics(t *track.Track) {
+	if !argDisableLyrics {
+		return
+	}
+
+	for _, p := range lyrics.Providers {
+		ui.Append(fmt.Sprintf("Searching lyrics using %s provider...", p.Name()))
+
+		text, err := p.Query(t.Song, t.Artist)
+		if err != nil {
+			ui.Append(fmt.Sprintf("Provider encountered an error: %s", err.Error()))
+			continue
+		}
+
+		t.Lyrics = text
+		break
+	}
 }
 
 func mainExit(delay ...time.Duration) {
@@ -941,20 +957,6 @@ func subCountSongs() (int, int, int) {
 	}
 
 	return fetch, flush, ignore
-}
-
-func subCondLyricsFetch(t *track.Track) {
-	if argDisableLyrics {
-		return
-	}
-
-	ui.Append(fmt.Sprintf("Fetching song \"%s\" lyrics...", t.Basename()), cui.DebugAppend)
-	lyricsErr := t.SearchLyrics()
-	if lyricsErr != nil {
-		ui.Append(fmt.Sprintf("Something went wrong while searching for song lyrics: %s", lyricsErr.Error()), cui.WarningAppend)
-	} else {
-		ui.Append(fmt.Sprintf("Song lyrics found."), cui.DebugAppend)
-	}
 }
 
 func subCondArtworkDownload(t *track.Track) {

@@ -15,7 +15,7 @@ const (
 	DurationTolerance = 20 // second(s)
 )
 
-// Providers is an exported map of usable providers
+// Providers is an exported array of usable providers
 var Providers = []Provider{
 	new(YouTubeProvider),
 }

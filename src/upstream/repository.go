@@ -29,8 +29,7 @@ type Check struct {
 	Time    time.Time
 }
 
-// GitHubRelease maps essential GitHub release API objects fields needed in the application flow
-type GitHubRelease struct {
+type gitHubRelease struct {
 	Name string `json:"name"`
 }
 
@@ -56,7 +55,7 @@ func Version() (int, error) {
 		return 0, err
 	}
 
-	rel := new(GitHubRelease)
+	rel := new(gitHubRelease)
 	if err := json.Unmarshal(body, rel); err != nil {
 		return 0, err
 	}

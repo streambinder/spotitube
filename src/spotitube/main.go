@@ -603,7 +603,7 @@ func mainSearch() {
 		}
 
 		mainSearchLyrics(t)
-		subCondArtworkDownload(t)
+		mainDownloadArtwork(t)
 
 		ui.Append(fmt.Sprintf("Launching track processing jobs..."))
 		waitGroup.Add(1)
@@ -636,7 +636,6 @@ func mainSearch() {
 	ui.Prompt("Synchronization completed.", cui.PromptExit)
 }
 
-
 func mainSearchLyrics(t *track.Track) {
 	if !argDisableLyrics {
 		return
@@ -653,6 +652,17 @@ func mainSearchLyrics(t *track.Track) {
 
 		t.Lyrics = text
 		break
+	}
+}
+
+func mainDownloadArtwork(t *track.Track) {
+	if len(t.Image) == 0 || system.FileExists(t.FilenameArtwork()) {
+		return
+	}
+
+	ui.Append(fmt.Sprintf("Downloading track artwork %s...", t.Image), cui.DebugAppend)
+	if err := system.Wget(t.Image, t.FilenameArtwork()); err != nil {
+		ui.Append(fmt.Sprintf("Unable to download artwork: %s", err.Error()), cui.WarningAppend)
 	}
 }
 
@@ -957,22 +967,6 @@ func subCountSongs() (int, int, int) {
 	}
 
 	return fetch, flush, ignore
-}
-
-func subCondArtworkDownload(t *track.Track) {
-	if len(t.Image) == 0 || system.FileExists(t.FilenameArtwork()) {
-		return
-	}
-
-	ui.Append(fmt.Sprintf("Downloading song \"%s\" artwork at %s...", t.Basename(), t.Image), cui.DebugAppend)
-	var commandOut bytes.Buffer
-	commandCmd := "ffmpeg"
-	commandArgs := []string{"-i", t.Image, "-q:v", "1", "-n", t.FilenameArtwork()}
-	commandObj := exec.Command(commandCmd, commandArgs...)
-	commandObj.Stderr = &commandOut
-	if err := commandObj.Run(); err != nil {
-		ui.Append(fmt.Sprintf("Unable to download artwork file \"%s\": %s", t.Image, commandOut.String()), cui.WarningAppend)
-	}
 }
 
 func subCondTimestampFlush() {

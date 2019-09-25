@@ -62,7 +62,7 @@ func FileTouch(path string) error {
 }
 
 // FileCopy : copy file from input string pathFrom to input string pathTo
-func FileCopy(pathFrom string, pathTo string) error {
+func FileCopy(pathFrom, pathTo string) error {
 	pathFromOpen, err := os.Open(pathFrom)
 	if err != nil {
 		return err
@@ -81,6 +81,16 @@ func FileCopy(pathFrom string, pathTo string) error {
 
 	return pathToOpen.Close()
 }
+
+// FileMove : move file from input string pathFrom to input string pathTo
+func FileMove(pathFrom string, pathTo string) error {
+	if err := FileCopy(pathFrom, pathTo); err != nil {
+		return err
+	}
+
+	return os.Remove(pathFrom)
+}
+
 
 // FileWildcardDelete deletes files from an array of wildcard strings
 func FileWildcardDelete(path string, wildcards ...string) int {

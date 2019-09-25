@@ -91,7 +91,6 @@ func FileMove(pathFrom string, pathTo string) error {
 	return os.Remove(pathFrom)
 }
 
-
 // FileWildcardDelete deletes files from an array of wildcard strings
 func FileWildcardDelete(path string, wildcards ...string) int {
 	var deletions int

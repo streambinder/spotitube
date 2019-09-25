@@ -1,15 +1,12 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os"
-	"os/exec"
 	"os/user"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -704,48 +701,21 @@ func subParallelSongProcess(t *track.Track, wg *sync.WaitGroup) {
 	waitGroupPool <- true
 }
 
-// TODO: move to command package
 func subSongNormalize(t *track.Track) {
-	var (
-		commandCmd         = "ffmpeg"
-		commandArgs        []string
-		commandOut         bytes.Buffer
-		commandErr         error
-		normalizationDelta string
-		normalizationFile  = strings.Replace(t.FilenameTemporary(), filepath.Ext(t.FilenameTemporary()), fmt.Sprintf("norm.%s", filepath.Ext(t.FilenameTemporary())), -1)
-	)
-
-	commandArgs = []string{"-i", t.FilenameTemporary(), "-af", "volumedetect", "-f", "null", "-y", "null"}
-	ui.Append(fmt.Sprintf("Getting max_volume value: \"%s %s\"...", commandCmd, strings.Join(commandArgs, " ")), cui.DebugAppend)
-	commandObj := exec.Command(commandCmd, commandArgs...)
-	commandObj.Stderr = &commandOut
-	commandErr = commandObj.Run()
-	if commandErr != nil {
-		ui.Append(fmt.Sprintf("Unable to use ffmpeg to pull max_volume song value: %s.", commandOut.String()), cui.WarningAppend)
-		normalizationDelta = "0.0"
-	} else {
-		commandScanner := bufio.NewScanner(strings.NewReader(commandOut.String()))
-		for commandScanner.Scan() {
-			if strings.Contains(commandScanner.Text(), "max_volume:") {
-				normalizationDelta = strings.Split(strings.Split(commandScanner.Text(), "max_volume:")[1], " ")[1]
-				normalizationDelta = strings.Replace(normalizationDelta, "-", "", -1)
-			}
-		}
+	volume, err := command.FFmpeg().VolumeDetect(t.FilenameTemporary())
+	if err != nil {
+		ui.Append(fmt.Sprintf("Unable to detect max volume value for %s: %s", t.Basename(), err.Error()), cui.WarningAppend)
+		return
 	}
 
-	if _, commandErr = strconv.ParseFloat(normalizationDelta, 64); commandErr != nil {
-		ui.Append(fmt.Sprintf("Unable to pull max_volume delta to be applied along with song volume normalization: %s.", normalizationDelta), cui.WarningAppend)
-		normalizationDelta = "0.0"
+	if volume > 0 {
+		return
 	}
-	commandArgs = []string{"-i", t.FilenameTemporary(), "-af", "volume=+" + normalizationDelta + "dB", "-b:a", "320k", "-y", normalizationFile}
-	ui.Append(fmt.Sprintf("Compensating volume by %sdB...", normalizationDelta), cui.DebugAppend)
-	ui.Append(fmt.Sprintf("Increasing audio quality for: %s...", t.Basename()), cui.DebugAppend)
-	ui.Append(fmt.Sprintf("Firing command: \"%s %s\"...", commandCmd, strings.Join(commandArgs, " ")), cui.DebugAppend)
-	if _, commandErr = exec.Command(commandCmd, commandArgs...).Output(); commandErr != nil {
-		ui.Append(fmt.Sprintf("Something went wrong while normalizing song \"%s\" volume: %s", t.Basename(), commandErr.Error()), cui.WarningAppend)
+
+	volume = math.Abs(volume)
+	if err := command.FFmpeg().VolumeSet(volume, t.FilenameTemporary()); err != nil {
+		ui.Append(fmt.Sprintf("Unable to increase max volume by %f delta for %s: %s", volume, t.Basename(), err.Error()), cui.WarningAppend)
 	}
-	os.Remove(t.FilenameTemporary())
-	os.Rename(normalizationFile, t.FilenameTemporary())
 }
 
 func subSongFlushMetadata(t *track.Track) {

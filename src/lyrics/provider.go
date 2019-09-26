@@ -1,9 +1,11 @@
 package lyrics
 
-// Providers is an exported array of usable providers
-var Providers = []Provider{
-	new(GeniusProvider),
-	new(OVHProvider),
+// All return the array of usable providers
+func All() []Provider {
+	return []Provider{
+		new(GeniusProvider),
+		new(OVHProvider),
+	}
 }
 
 // Provider defines the generic interface on which every lyrics provider

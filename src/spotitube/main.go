@@ -509,7 +509,7 @@ func mainSearch() {
 
 			entry := new(provider.Entry)
 
-			for _, p := range provider.Providers {
+			for _, p := range provider.All() {
 				ui.Append(fmt.Sprintf("Searching entries on %s provider", p.Name()))
 
 				var (
@@ -638,7 +638,7 @@ func mainSearchLyrics(t *track.Track) {
 		return
 	}
 
-	for _, p := range lyrics.Providers {
+	for _, p := range lyrics.All() {
 		ui.Append(fmt.Sprintf("Searching lyrics using %s provider...", p.Name()))
 
 		text, err := p.Query(t.Song, t.Artist)

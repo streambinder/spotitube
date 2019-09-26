@@ -15,14 +15,16 @@ const (
 	DurationTolerance = 20 // second(s)
 )
 
-// Providers is an exported array of usable providers
-var Providers = []Provider{
-	new(YouTubeProvider),
+// All return the array of usable providers
+func All() []Provider {
+	return []Provider{
+		new(YouTubeProvider),
+	}
 }
 
 // For returns a provider for a given URL
 func For(URL string) (Provider, error) {
-	for _, p := range Providers {
+	for _, p := range All() {
 		if err := p.ValidateURL(URL); err != nil {
 			return p, nil
 		}

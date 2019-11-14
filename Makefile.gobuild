@@ -25,16 +25,16 @@ bin:
 			echo -en "Building...\r"; \
 		fi; \
 		cp $(CUR_DIR)/src/spotify/api.go{,.orig} && \
-		cp $(CUR_DIR)/src/track/lyrics.go{,.orig} && \
+		cp $(CUR_DIR)/src/lyrics/genius.go{,.orig} && \
 		( \
 			if [ "$(OS)" == "Darwin" ]; then \
 				sed -i '' 's|:SPOTIFY_CLIENT_ID:|${SPOTIFY_ID}|g' $(CUR_DIR)/src/spotify/api.go && \
 				sed -i '' 's|:SPOTIFY_CLIENT_SECRET:|${SPOTIFY_KEY}|g' $(CUR_DIR)/src/spotify/api.go && \
-				sed -i '' 's|:GENIUS_TOKEN:|${GENIUS_TOKEN}|g' $(CUR_DIR)/src/track/lyrics.go; \
+				sed -i '' 's|:GENIUS_TOKEN:|${GENIUS_TOKEN}|g' $(CUR_DIR)/src/lyrics/genius.go; \
 			else \
 				sed -i 's|:SPOTIFY_CLIENT_ID:|${SPOTIFY_ID}|g' $(CUR_DIR)/src/spotify/api.go && \
 				sed -i 's|:SPOTIFY_CLIENT_SECRET:|${SPOTIFY_KEY}|g' $(CUR_DIR)/src/spotify/api.go && \
-				sed -i 's|:GENIUS_TOKEN:|${GENIUS_TOKEN}|g' $(CUR_DIR)/src/track/lyrics.go; \
+				sed -i 's|:GENIUS_TOKEN:|${GENIUS_TOKEN}|g' $(CUR_DIR)/src/lyrics/genius.go; \
 			fi; \
 		); \
 		( \
@@ -42,7 +42,7 @@ bin:
 			GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BINARY).exe $(CUR_DIR)/src/main.go && \
 			echo -e "\rBuilt at: $(BINARY)" \
 		); \
-		(mv -f $(CUR_DIR)/src/spotify/api.go{.orig,} && mv -f $(CUR_DIR)/src/track/lyrics.go{.orig,}); \
+		(mv -f $(CUR_DIR)/src/spotify/api.go{.orig,} && mv -f $(CUR_DIR)/src/lyrics/genius.go{.orig,}); \
 	);
 
 .PHONY: deps

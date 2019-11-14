@@ -38,8 +38,8 @@ bin:
 			fi; \
 		); \
 		( \
-			GOARCH=386 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BINARY) $(CUR_DIR)/src/main.go && \
-			GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BINARY).exe $(CUR_DIR)/src/main.go && \
+			GOARCH=386 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BINARY) $(CUR_DIR)/src/spotitube/main.go && \
+			GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BINARY).exe $(CUR_DIR)/src/spotitube/main.go && \
 			echo -e "\rBuilt at: $(BINARY)" \
 		); \
 		(mv -f $(CUR_DIR)/src/spotify/api.go{.orig,} && mv -f $(CUR_DIR)/src/lyrics/genius.go{.orig,}); \

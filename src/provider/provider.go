@@ -25,7 +25,7 @@ func All() []Provider {
 // For returns a provider for a given URL
 func For(URL string) (Provider, error) {
 	for _, p := range All() {
-		if err := p.ValidateURL(URL); err != nil {
+		if err := p.ValidateURL(URL); err == nil {
 			return p, nil
 		}
 	}

@@ -74,7 +74,7 @@ var (
 	index     *track.TracksIndex
 
 	// routines
-	waitGroup     *sync.WaitGroup
+	waitGroup     sync.WaitGroup
 	waitGroupPool = make(chan bool, concurrencyLimit)
 
 	// cli
@@ -614,7 +614,7 @@ func mainSearch() {
 
 		ui.Append(fmt.Sprintf("Launching track processing jobs..."))
 		waitGroup.Add(1)
-		go subParallelSongProcess(track, trackOpts, waitGroup)
+		go subParallelSongProcess(track, trackOpts, &waitGroup)
 		if argDebug {
 			waitGroup.Wait()
 		}
@@ -644,7 +644,7 @@ func mainSearch() {
 }
 
 func mainSearchLyrics(t *track.Track) {
-	if !argDisableLyrics {
+	if argDisableLyrics {
 		return
 	}
 
@@ -730,6 +730,7 @@ func subSongNormalize(t *track.Track) {
 
 func subSongFlushMetadata(t *track.Track) {
 	trackMp3, err := id3v2.Open(t.FilenameTemporary(), id3v2.Options{Parse: true})
+	defer trackMp3.Close()
 	if err != nil {
 		ui.Append(fmt.Sprintf("Something bad happened while opening: %s", err.Error()), cui.WarningAppend)
 	} else {
@@ -751,7 +752,6 @@ func subSongFlushMetadata(t *track.Track) {
 		subCondFlushID3FrameLyrics(t, trackMp3)
 		trackMp3.Save()
 	}
-	trackMp3.Close()
 }
 
 func subCondFlushID3FrameTitle(t *track.Track, trackMp3 *id3v2.Tag) {

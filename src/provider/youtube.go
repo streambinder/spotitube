@@ -6,6 +6,7 @@ import (
 	"math"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -27,6 +28,8 @@ const (
 	YouTubeHTMLDescSelector = ".yt-lockup-byline"
 	// YouTubeHTMLDurationSelector : YouTube entry duration selector
 	YouTubeHTMLDurationSelector = ".accessible-description"
+
+	regexURL = `(?m)(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})`
 )
 
 // YouTubeProvider is the provider implementation which uses as source
@@ -84,8 +87,17 @@ func (p YouTubeProvider) Match(e *Entry, t *track.Track) error {
 
 // Download : delegate youtube-dl call to download entry
 func (p YouTubeProvider) Download(e *Entry, fname string) error {
+	var (
+		ext = strings.Replace(filepath.Ext(fname), ".", "", -1)
+		base = fname[0:len(fname)-(len(ext) + 1)]
+	)
+
 	cStderr := new(bytes.Buffer)
-	c := exec.Command("youtube-dl", []string{"--format", "bestaudio", "--extract-audio", "--audio-format", filepath.Ext(fname), "--audio-quality", "0", "--output", fname + ".%(ext)s", e.URL}...)
+	c := exec.Command("youtube-dl", []string{
+		"--format", "bestaudio", "--extract-audio",
+		"--audio-format", ext,
+		"--audio-quality", "0",
+		"--output", base + ".%(ext)s", e.URL}...)
 	c.Stderr = cStderr
 
 	if cErr := c.Run(); cErr != nil {
@@ -97,8 +109,8 @@ func (p YouTubeProvider) Download(e *Entry, fname string) error {
 
 // ValidateURL : return nil error if input URL is a valid YouTube URL
 func (p YouTubeProvider) ValidateURL(url string) error {
-	if !strings.Contains(strings.ToLower(url), "youtu.be/") &&
-		!strings.Contains(strings.ToLower(url), "watch?v=") {
+	re := regexp.MustCompile(regexURL)
+	if re.FindAllString(url, -1) == nil {
 		return fmt.Errorf(fmt.Sprintf("URL %s doesn't seem to be pointing to any YouTube video.", url))
 	}
 

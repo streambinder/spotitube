@@ -69,7 +69,7 @@ var (
 	c         *spotify.Client
 	cUser     string
 	cUserID   string
-	tracks    []*track.Track
+	tracks    = make(map[*track.Track]*track.SyncOptions)
 	playlists []*track.Playlist
 	index     *track.TracksIndex
 
@@ -194,12 +194,6 @@ func mainFlagsParse() {
 		argLibrary = true
 	}
 
-	// TODO: fix this case
-	if len(argTracksFix.Entries) > 0 {
-		argFlushLocal = true
-		argFlushMetadata = true
-	}
-
 	if argAuthenticateOutside {
 		argDisableBrowserOpening = true
 	}
@@ -308,6 +302,17 @@ func mainFetch() {
 	mainFetchPlaylists()
 	mainFetchTracksToFix()
 
+	if argFlushLocal || argFlushMetadata {
+		for _, opts := range tracks {
+			if argFlushLocal {
+				opts.Source = true
+			}
+			if argFlushMetadata {
+				opts.Metadata = true
+			}
+		}
+	}
+
 	// ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs duplicates:", cui.StyleBold), len(tracksDuplicates)), cui.PanelLeftTop)
 	ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs online:", cui.StyleBold), len(tracks)), cui.PanelLeftTop)
 	ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs offline:", cui.StyleBold), track.CountOffline(tracks)), cui.PanelLeftTop)
@@ -319,7 +324,6 @@ func mainFetch() {
 		ui.Prompt("No song needs to be downloaded.", cui.PromptExit)
 		mainExit()
 	}
-
 }
 
 func mainFetchLibrary() {
@@ -336,7 +340,7 @@ func mainFetchLibrary() {
 	if dumpErr == nil && time.Since(dump.Time) < cacheDuration {
 		ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font("Library cache expiration:", cui.StyleBold), int(time.Since(dump.Time)), cacheDuration), cui.PanelLeftTop)
 		for _, t := range dump.Tracks {
-			tracks = append(tracks, t)
+			tracks[t] = track.SyncOptionsDefault()
 		}
 		return
 	}
@@ -354,7 +358,7 @@ func mainFetchLibrary() {
 	dup := make(map[spotify.ID]float64)
 	for _, t := range library {
 		if _, isDup := dup[spotify.ID(t.SpotifyID)]; !isDup {
-			tracks = append(tracks, t)
+			tracks[t] = track.SyncOptionsDefault()
 		}
 		dup[spotify.ID(t.SpotifyID)] = 1
 	}
@@ -387,7 +391,7 @@ func mainFetchAlbums() {
 		if dumpErr == nil && time.Since(dump.Time) < cacheDuration {
 			ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font(fmt.Sprintf("Album %s cache expiration:", spotify.IDFromURI(uri)), cui.StyleBold), int(time.Since(dump.Time)), cacheDuration), cui.PanelLeftTop)
 			for _, t := range dump.Tracks {
-				tracks = append(tracks, t)
+				tracks[t] = track.SyncOptionsDefault()
 			}
 			continue
 		}
@@ -403,7 +407,7 @@ func mainFetchAlbums() {
 		}
 
 		for _, t := range album {
-			tracks = append(tracks, t)
+			tracks[t] = track.SyncOptionsDefault()
 		}
 	}
 }
@@ -429,7 +433,7 @@ func mainFetchPlaylists() {
 		if dumpErr == nil && time.Since(dump.Time) < cacheDuration {
 			ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font(fmt.Sprintf("Playlist %s cache expiration:", playlist.Name), cui.StyleBold), int(time.Since(dump.Time)), cacheDuration), cui.PanelLeftTop)
 			for _, t := range dump.Tracks {
-				tracks = append(tracks, t)
+				tracks[t] = track.SyncOptionsDefault()
 			}
 			playlist.Tracks = dump.Tracks
 			playlists = append(playlists, playlist)
@@ -449,7 +453,7 @@ func mainFetchPlaylists() {
 		dup := make(map[spotify.ID]float64)
 		for _, t := range p {
 			if _, isDup := dup[spotify.ID(t.SpotifyID)]; !isDup {
-				tracks = append(tracks, t)
+				tracks[t] = track.SyncOptionsDefault()
 			}
 			dup[spotify.ID(t.SpotifyID)] = 1
 		}
@@ -480,7 +484,7 @@ func mainFetchTracksToFix() {
 		if t, err := track.OpenLocalTrack(tFix); err != nil {
 			ui.Prompt(fmt.Sprintf("Something went wrong: %s", err.Error()))
 		} else {
-			tracks = append(tracks, t)
+			tracks[t] = track.SyncOptionsFlush()
 		}
 	}
 }
@@ -488,25 +492,25 @@ func mainFetchTracksToFix() {
 func mainSearch() {
 	songsFetch, songsFlush, songsIgnore := subCountSongs()
 
+	i := 0
 	ui.ProgressMax = len(tracks)
 	ui.Append(fmt.Sprintf("%d will be downloaded, %d flushed and %d ignored", songsFetch, songsFlush, songsIgnore))
 
-	for i, t := range tracks {
+	for track, trackOpts := range tracks {
 		ui.ProgressIncrease()
-		ui.Append(fmt.Sprintf("%d/%d: \"%s\"", i+1, len(tracks), t.Basename()), cui.StyleBold)
+		ui.Append(fmt.Sprintf("%d/%d: \"%s\"", i+1, len(tracks), track.Basename()), cui.StyleBold)
 
 		// rename local file if Spotify has renamed it
-		if path, match, err := index.Match(t.SpotifyID, t.Filename()); err != nil && !match {
-			ui.Append(fmt.Sprintf("Track %s has been renamed: moving to %s", t.Filename(), path))
-			if err := os.Rename(path, t.Filename()); err != nil {
+		if path, match, err := index.Match(track.SpotifyID, track.Filename()); err != nil && !match {
+			ui.Append(fmt.Sprintf("Track %s has been renamed: moving to %s", track.Filename(), path))
+			if err := os.Rename(path, track.Filename()); err != nil {
 				ui.Append(fmt.Sprintf("Unable to rename: %s", err.Error()), cui.ErrorAppend)
 			} else {
-				index.Rename(t.SpotifyID, t.Filename())
+				index.Rename(track.SpotifyID, track.Filename())
 			}
 		}
 
-		if !t.Local() || argFlushLocal || argSimulate {
-
+		if !track.Local() || trackOpts.Source || argSimulate {
 			entry := new(provider.Entry)
 
 			for _, p := range provider.All() {
@@ -519,10 +523,10 @@ func mainSearch() {
 				)
 
 				if !argManualInput {
-					provEntries, provErr = p.Query(t)
+					provEntries, provErr = p.Query(track)
 					if provErr != nil {
 						ui.Append(
-							fmt.Sprintf("Unable to search %s on %s provider: %s.", t.Basename(), p.Name(), provErr.Error()),
+							fmt.Sprintf("Unable to search %s on %s provider: %s.", track.Basename(), p.Name(), provErr.Error()),
 							cui.WarningAppend)
 						// FIXME: tracksFailed = append(tracksFailed, t)
 						continue
@@ -534,18 +538,18 @@ func mainSearch() {
 								provEntry.ID, provEntry.Title, provEntry.User, provEntry.Duration),
 							cui.DebugAppend)
 
-						entryPick = bool(p.Match(provEntry, t) == nil)
+						entryPick = bool(p.Match(provEntry, track) == nil)
 						if argInteractive {
 							entryPick = ui.Prompt(
 								fmt.Sprintf(
 									"Track: %s\n\nID: %s\nTitle: %s\nUser: %s\nDuration: %d\nURL: %s\nResult is matching: %s",
-									t.Basename(), entry.ID, entry.Title, entry.User,
+									track.Basename(), entry.ID, entry.Title, entry.User,
 									entry.Duration, entry.URL, strconv.FormatBool(entryPick)),
 								cui.PromptBinary)
 						}
 
 						if entryPick {
-							ui.Append(fmt.Sprintf("Video \"%s\" is good to go for \"%s\".", provEntry.Title, t.Basename()))
+							ui.Append(fmt.Sprintf("Video \"%s\" is good to go for \"%s\".", provEntry.Title, track.Basename()))
 							entry = provEntry
 							break
 						}
@@ -553,7 +557,7 @@ func mainSearch() {
 				}
 
 				if argManualInput && entry.Empty() {
-					if url := ui.PromptInputMessage(fmt.Sprintf("Enter URL for \"%s\"", t.Basename()), cui.PromptInput); len(url) > 0 {
+					if url := ui.PromptInputMessage(fmt.Sprintf("Enter URL for \"%s\"", track.Basename()), cui.PromptInput); len(url) > 0 {
 						if err := p.ValidateURL(url); err == nil {
 							entry.URL = url
 						} else {
@@ -569,13 +573,13 @@ func mainSearch() {
 				}
 
 				if argSimulate {
-					ui.Append(fmt.Sprintf("I would like to download \"%s\" for \"%s\" track, but I'm just simulating.", entry.Repr(), t.Basename()))
+					ui.Append(fmt.Sprintf("I would like to download \"%s\" for \"%s\" track, but I'm just simulating.", entry.Repr(), track.Basename()))
 					continue
 				}
 
-				if argFlushLocal && t.URL == entry.URL {
+				if trackOpts.Source && track.URL == entry.URL {
 					ui.Append("Downloaded track is still the best result I can find.")
-					ui.Append(fmt.Sprintf("Local track origin URL %s is the same as the chosen one %s.", t.URL, entry.URL), cui.DebugAppend)
+					ui.Append(fmt.Sprintf("Local track origin URL %s is the same as the chosen one %s.", track.URL, entry.URL), cui.DebugAppend)
 					continue
 				}
 			}
@@ -586,25 +590,25 @@ func mainSearch() {
 				continue
 			}
 
-			if err := p.Download(entry, t.FilenameTemporary()); err != nil {
-				ui.Append(fmt.Sprintf("Something went wrong downloading \"%s\": %s.", t.Basename(), err.Error()), cui.WarningAppend)
+			if err := p.Download(entry, track.FilenameTemporary()); err != nil {
+				ui.Append(fmt.Sprintf("Something went wrong downloading \"%s\": %s.", track.Basename(), err.Error()), cui.WarningAppend)
 				// FIXME: tracksFailed = append(tracksFailed, t)
 				continue
 			}
 
-			t.URL = entry.URL
+			track.URL = entry.URL
 		}
 
-		if t.Local() && !argFlushMetadata && !argFlushLocal {
+		if track.Local() && !trackOpts.Metadata {
 			continue
 		}
 
-		mainSearchLyrics(t)
-		mainDownloadArtwork(t)
+		mainSearchLyrics(track)
+		mainDownloadArtwork(track)
 
 		ui.Append(fmt.Sprintf("Launching track processing jobs..."))
 		waitGroup.Add(1)
-		go subParallelSongProcess(t, waitGroup)
+		go subParallelSongProcess(track, trackOpts, waitGroup)
 		if argDebug {
 			waitGroup.Wait()
 		}
@@ -673,27 +677,27 @@ func mainExit(delay ...time.Duration) {
 	os.Exit(0)
 }
 
-func subParallelSongProcess(t *track.Track, wg *sync.WaitGroup) {
+func subParallelSongProcess(track *track.Track, trackOpts *track.SyncOptions, wg *sync.WaitGroup) {
 	defer wg.Done()
 	<-waitGroupPool
 
-	if !t.Local() && !argDisableNormalization {
-		subSongNormalize(t)
+	if !track.Local() && !argDisableNormalization {
+		subSongNormalize(track)
 	}
 
-	if !system.FileExists(t.FilenameTemporary()) && system.FileExists(t.Filename()) {
-		if err := system.FileCopy(t.Filename(), t.FilenameTemporary()); err != nil {
+	if !system.FileExists(track.FilenameTemporary()) && system.FileExists(track.Filename()) {
+		if err := system.FileCopy(track.Filename(), track.FilenameTemporary()); err != nil {
 			ui.Append(fmt.Sprintf("Unable to prepare song for getting its metadata flushed: %s", err.Error()), cui.WarningAppend)
 			return
 		}
 	}
 
-	if (t.Local() && argFlushMetadata) || !t.Local() {
-		subSongFlushMetadata(t)
+	if !track.Local() || trackOpts.Metadata {
+		subSongFlushMetadata(track)
 	}
 
-	os.Remove(t.Filename())
-	err := os.Rename(t.FilenameTemporary(), t.Filename())
+	os.Remove(track.Filename())
+	err := os.Rename(track.FilenameTemporary(), track.Filename())
 	if err != nil {
 		ui.Append(fmt.Sprintf("Unable to move song to its final path: %s", err.Error()), cui.WarningAppend)
 	}
@@ -943,12 +947,12 @@ func subCondTimestampFlush() {
 	if !argDisableTimestampFlush {
 		ui.Append("Flushing files timestamps...")
 		now := time.Now().Local().Add(time.Duration(-1*len(tracks)) * time.Minute)
-		for _, t := range tracks {
-			if !system.FileExists(t.Filename()) {
+		for track := range tracks {
+			if !system.FileExists(track.Filename()) {
 				continue
 			}
-			if err := os.Chtimes(t.Filename(), now, now); err != nil {
-				ui.Append(fmt.Sprintf("Unable to flush timestamp on %s", t.Filename()), cui.WarningAppend)
+			if err := os.Chtimes(track.Filename(), now, now); err != nil {
+				ui.Append(fmt.Sprintf("Unable to flush timestamp on %s", track.Filename()), cui.WarningAppend)
 			}
 			now = now.Add(1 * time.Minute)
 		}

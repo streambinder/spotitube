@@ -36,14 +36,14 @@ type TracksDump struct {
 }
 
 // CountOffline : return offline (local) songs count from Tracks
-func CountOffline(tracks []*Track) int {
+func CountOffline(tracks map[*Track]*SyncOptions) int {
 	return len(tracks) - CountOnline(tracks)
 }
 
 // CountOnline : return online songs count from Tracks
-func CountOnline(tracks []*Track) int {
+func CountOnline(tracks map[*Track]*SyncOptions) int {
 	var counter int
-	for _, track := range tracks {
+	for track := range tracks {
 		if !track.Local() {
 			counter++
 		}

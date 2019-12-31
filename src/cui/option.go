@@ -69,6 +69,12 @@ const (
 	GuiDebugMode
 )
 
+// Options is an alias to uint64
+type Options = uint64
+
+// Option is an alias to Options, used only for readability purposes
+type Option = Options
+
 func hasOption(options Options, option Option) bool {
 	return (options & option) != 0
 }

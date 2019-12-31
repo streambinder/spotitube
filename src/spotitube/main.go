@@ -490,18 +490,19 @@ func mainFetchTracksToFix() {
 }
 
 func mainSearch() {
+	ctr := 0
 	songsFetch, songsFlush, songsIgnore := subCountSongs()
 
-	i := 0
 	ui.ProgressMax = len(tracks)
 	ui.Append(fmt.Sprintf("%d will be downloaded, %d flushed and %d ignored", songsFetch, songsFlush, songsIgnore))
 
 	for track, trackOpts := range tracks {
+		ctr++
 		ui.ProgressIncrease()
-		ui.Append(fmt.Sprintf("%d/%d: \"%s\"", i+1, len(tracks), track.Basename()), cui.StyleBold)
+		ui.Append(fmt.Sprintf("%d/%d: \"%s\"", ctr, len(tracks), track.Basename()), cui.StyleBold)
 
 		// rename local file if Spotify has renamed it
-		if path, match, err := index.Match(track.SpotifyID, track.Filename()); err != nil && !match {
+		if path, match, err := index.Match(track.SpotifyID, track.Filename()); err == nil && !match {
 			ui.Append(fmt.Sprintf("Track %s has been renamed: moving to %s", track.Filename(), path))
 			if err := os.Rename(path, track.Filename()); err != nil {
 				ui.Append(fmt.Sprintf("Unable to rename: %s", err.Error()), cui.ErrorAppend)
@@ -584,9 +585,14 @@ func mainSearch() {
 				}
 			}
 
+			if entry.Empty() {
+				continue
+			}
+
 			ui.Append(fmt.Sprintf("Going to download \"%s\" from %s...", entry.Title, entry.Repr()))
 			p, err := provider.For(entry.URL)
 			if err != nil {
+				ui.Append(fmt.Sprintf("Unable to reconstruct provider for \"%s\"", entry.URL), cui.ErrorAppend)
 				continue
 			}
 

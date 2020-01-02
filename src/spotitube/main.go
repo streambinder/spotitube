@@ -458,7 +458,7 @@ func mainFetchPlaylists() {
 			dup[spotify.ID(t.SpotifyID)] = 1
 		}
 
-		playlist.Tracks = dump.Tracks
+		playlist.Tracks = p
 		playlists = append(playlists, playlist)
 		if argRemoveDuplicates {
 			ids := []spotify.ID{}
@@ -976,9 +976,10 @@ func subCondPlaylistFileWrite() {
 			pContent string
 		)
 
-		pFname = pFname + ".m3u"
 		if argPlsFile {
 			pFname = pFname + ".pls"
+		} else {
+			pFname = pFname + ".m3u"
 		}
 
 		os.Remove(pFname)

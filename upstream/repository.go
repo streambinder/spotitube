@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/streambinder/spotitube/src/system"
+	"github.com/streambinder/spotitube/system"
 )
 
 const (

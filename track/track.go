@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/bogem/id3v2"
-	"github.com/streambinder/spotitube/src/system"
+	"github.com/streambinder/spotitube/system"
 	"github.com/zmb3/spotify"
 )
 

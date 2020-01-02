@@ -16,7 +16,7 @@ type ID = spotify.ID
 
 const (
 	// SpotifyClientID : Spotify app client ID
-	SpotifyClientID = ":SPOTIFY_CLIENT_ID:"
+	SpotifyClientID = ""
 	// SpotifyClientSecret : Spotify app client secret key
-	SpotifyClientSecret = ":SPOTIFY_CLIENT_SECRET:"
+	SpotifyClientSecret = ""
 )

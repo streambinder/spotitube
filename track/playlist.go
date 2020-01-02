@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/streambinder/spotitube/src/system"
+	"github.com/streambinder/spotitube/system"
 )
 
 // Playlist defines a playlist wrapper

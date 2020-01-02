@@ -32,6 +32,7 @@ github.com/nsf/termbox-go v0.0.0-20190817171036-93860e161317 h1:hhGN4SFXgXo61Q4S
 github.com/nsf/termbox-go v0.0.0-20190817171036-93860e161317/go.mod h1:IuKpRQcYE1Tfu+oAQqaLisqDeXgjyyltCfsaoYN18NQ=
 github.com/rainycape/unidecode v0.0.0-20150907023854-cb7f23ec59be h1:ta7tUOvsPHVHGom5hKW5VXNc2xZIkfCKP8iaqOyYtUQ=
 github.com/rainycape/unidecode v0.0.0-20150907023854-cb7f23ec59be/go.mod h1:MIDFMn7db1kT65GmV94GzpX9Qdi7N/pQlwb+AN8wh+Q=
+github.com/streambinder/spotitube v0.0.0-20200102175842-751b7a6751b1 h1:SbcSGd2RYSDCk2CAz/9s6J+F7zUHUohoaEoHR52w8kg=
 github.com/thanhpk/randstr v1.0.4 h1:IN78qu/bR+My+gHCvMEXhR/i5oriVHcTB/BJJIRTsNo=
 github.com/thanhpk/randstr v1.0.4/go.mod h1:M/H2P1eNLZzlDwAzpkkkUvoyNNMbzRGhESZuEQk3r0U=
 github.com/zmb3/spotify v0.0.0-20190725171427-5159bf56b13d h1:BxvzZUWx/u37fizMhI7jjppaXft5t1ku48Tq62YhppA=

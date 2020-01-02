@@ -12,7 +12,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/bradfitz/slice"
-	"github.com/streambinder/spotitube/src/track"
+	"github.com/streambinder/spotitube/track"
 )
 
 const (

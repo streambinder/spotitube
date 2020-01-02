@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/gosimple/slug"
-	"github.com/streambinder/spotitube/src/system"
+	"github.com/streambinder/spotitube/system"
 )
 
 var (

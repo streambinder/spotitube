@@ -5,7 +5,7 @@ import (
 	"os/exec"
 	"regexp"
 
-	"github.com/streambinder/spotitube/src/system"
+	"github.com/streambinder/spotitube/system"
 )
 
 // YoutubeDLCommand command wrapper implementation

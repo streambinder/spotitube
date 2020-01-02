@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/rainycape/unidecode"
-	"github.com/streambinder/spotitube/src/system"
+	"github.com/streambinder/spotitube/system"
 )
 
 const (

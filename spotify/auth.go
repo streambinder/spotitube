@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/streambinder/spotitube/src/command"
+	"github.com/streambinder/spotitube/command"
 	"github.com/zmb3/spotify"
 )
 

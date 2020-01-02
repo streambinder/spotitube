@@ -11,11 +11,11 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/rainycape/unidecode"
-	"github.com/streambinder/spotitube/src/system"
+	"github.com/streambinder/spotitube/system"
 )
 
 const (
-	geniusToken = ":GENIUS_TOKEN:"
+	geniusToken = ""
 	geniusAPI   = "https://api.genius.com/search?q=%s+%s"
 )
 

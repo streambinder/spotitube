@@ -7,7 +7,7 @@ import (
 
 	"github.com/agnivade/levenshtein"
 	"github.com/gosimple/slug"
-	"github.com/streambinder/spotitube/src/track"
+	"github.com/streambinder/spotitube/track"
 )
 
 const (

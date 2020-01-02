@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 	
-	"github.com/streambinder/spotitube/src/track"
+	"github.com/streambinder/spotitube/track"
 	"github.com/thanhpk/randstr"
 	"github.com/zmb3/spotify"
 )

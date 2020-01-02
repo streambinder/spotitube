@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/jroimartin/gocui"
-	"github.com/streambinder/spotitube/src/system"
+	"github.com/streambinder/spotitube/system"
 )
 
 // Prompt : show a prompt containing input string message, driven with input Options

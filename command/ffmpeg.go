@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/streambinder/spotitube/src/system"
+	"github.com/streambinder/spotitube/system"
 )
 
 // FFmpegCommand command wrapper implementation

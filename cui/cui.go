@@ -11,7 +11,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/jroimartin/gocui"
-	"github.com/streambinder/spotitube/src/logger"
+	"github.com/streambinder/spotitube/logger"
 )
 
 // CUI : struct object containing all the informations to handle CUI

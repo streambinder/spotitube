@@ -16,15 +16,15 @@ import (
 
 	"github.com/bogem/id3v2"
 	"github.com/gosimple/slug"
-	"github.com/streambinder/spotitube/src/command"
-	"github.com/streambinder/spotitube/src/cui"
-	"github.com/streambinder/spotitube/src/logger"
-	"github.com/streambinder/spotitube/src/lyrics"
-	"github.com/streambinder/spotitube/src/provider"
-	"github.com/streambinder/spotitube/src/spotify"
-	"github.com/streambinder/spotitube/src/system"
-	"github.com/streambinder/spotitube/src/track"
-	"github.com/streambinder/spotitube/src/upstream"
+	"github.com/streambinder/spotitube/command"
+	"github.com/streambinder/spotitube/cui"
+	"github.com/streambinder/spotitube/logger"
+	"github.com/streambinder/spotitube/lyrics"
+	"github.com/streambinder/spotitube/provider"
+	"github.com/streambinder/spotitube/spotify"
+	"github.com/streambinder/spotitube/system"
+	"github.com/streambinder/spotitube/track"
+	"github.com/streambinder/spotitube/upstream"
 )
 
 const (

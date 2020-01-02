@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := all
-PROJECT_ROOT := src/
+PROJECT_ROOT := 
 
 NAME := spotitube
 CUR_DIR = $(shell pwd)
@@ -7,7 +7,7 @@ BINARY_INSTALL_PATH := /usr/local/sbin
 BINARY_INSTALL := $(BINARY_INSTALL_PATH)/$(NAME)
 BINARY_PATH := $(CUR_DIR)/bin
 BINARY := $(BINARY_PATH)/$(NAME)
-VERSION := $(shell awk -F'= ' '/Version / {print $$2}' src/spotitube/main.go | xargs)
+VERSION := $(shell awk -F'= ' '/Version / {print $$2}' main.go | xargs)
 PKG_NAME := $(BINARY)-v$(VERSION)
 GOARCH := amd64
 LDFLAGS := -s -w

@@ -24,37 +24,23 @@ bin:
 		else \
 			echo -en "Building...\r"; \
 		fi; \
-		cp $(CUR_DIR)/src/spotify/api.go{,.orig} && \
-		cp $(CUR_DIR)/src/lyrics/genius.go{,.orig} && \
+		cp $(CUR_DIR)/spotify/api.go{,.orig} && \
+		cp $(CUR_DIR)/lyrics/genius.go{,.orig} && \
 		( \
 			if [ "$(OS)" == "Darwin" ]; then \
-				sed -i '' 's|:SPOTIFY_CLIENT_ID:|${SPOTIFY_ID}|g' $(CUR_DIR)/src/spotify/api.go && \
-				sed -i '' 's|:SPOTIFY_CLIENT_SECRET:|${SPOTIFY_KEY}|g' $(CUR_DIR)/src/spotify/api.go && \
-				sed -i '' 's|:GENIUS_TOKEN:|${GENIUS_TOKEN}|g' $(CUR_DIR)/src/lyrics/genius.go; \
+				sed -i '' 's|:SPOTIFY_CLIENT_ID:|${SPOTIFY_ID}|g' $(CUR_DIR)/spotify/api.go && \
+				sed -i '' 's|:SPOTIFY_CLIENT_SECRET:|${SPOTIFY_KEY}|g' $(CUR_DIR)/spotify/api.go && \
+				sed -i '' 's|:GENIUS_TOKEN:|${GENIUS_TOKEN}|g' $(CUR_DIR)/lyrics/genius.go; \
 			else \
-				sed -i 's|:SPOTIFY_CLIENT_ID:|${SPOTIFY_ID}|g' $(CUR_DIR)/src/spotify/api.go && \
-				sed -i 's|:SPOTIFY_CLIENT_SECRET:|${SPOTIFY_KEY}|g' $(CUR_DIR)/src/spotify/api.go && \
-				sed -i 's|:GENIUS_TOKEN:|${GENIUS_TOKEN}|g' $(CUR_DIR)/src/lyrics/genius.go; \
+				sed -i 's|:SPOTIFY_CLIENT_ID:|${SPOTIFY_ID}|g' $(CUR_DIR)/spotify/api.go && \
+				sed -i 's|:SPOTIFY_CLIENT_SECRET:|${SPOTIFY_KEY}|g' $(CUR_DIR)/spotify/api.go && \
+				sed -i 's|:GENIUS_TOKEN:|${GENIUS_TOKEN}|g' $(CUR_DIR)/lyrics/genius.go; \
 			fi; \
 		); \
 		( \
-			GOARCH=386 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BINARY) $(CUR_DIR)/src/spotitube/main.go && \
-			GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BINARY).exe $(CUR_DIR)/src/spotitube/main.go && \
+			GOARCH=386 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BINARY) $(CUR_DIR)/spotitube/main.go && \
+			GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BINARY).exe $(CUR_DIR)/spotitube/main.go && \
 			echo -e "\rBuilt at: $(BINARY)" \
 		); \
-		(mv -f $(CUR_DIR)/src/spotify/api.go{.orig,} && mv -f $(CUR_DIR)/src/lyrics/genius.go{.orig,}); \
-	);
-
-.PHONY: deps
-deps:
-	@ ( \
-		regex_domain='(([a-zA-Z](-?[a-zA-Z0-9])*)\.)*[a-zA-Z](-?[a-zA-Z0-9])+\.[a-zA-Z]{2,}'; \
-		find src -type f  \
-			| xargs egrep '\"'$$regex_domain'\/.*\/.*\"' \
-			| awk '{ print $$NF }' | grep -v ^$$ | sort -u | sed 's/"//g' | while read dep; do \
-			if [ ! -d $(GOPATH)/src/$$dep ]; then \
-				echo "Fetching $$dep dependency..."; \
-			fi; \
-			go get $$dep || exit 1; \
-		done; \
+		(mv -f $(CUR_DIR)/spotify/api.go{.orig,} && mv -f $(CUR_DIR)/lyrics/genius.go{.orig,}); \
 	);

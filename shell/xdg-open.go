@@ -34,22 +34,16 @@ func (c XDGOpenCommand) Exists() bool {
 }
 
 // Version returns the command installed version
-func (c XDGOpenCommand) Version() string {
+func (c XDGOpenCommand) Version() (version string) {
 	var (
-		cmdOut    bytes.Buffer
-		cmdErr    error
-		cmdReg    *regexp.Regexp
-		cmdRegStr = "\\d+\\.\\d+\\.\\d+"
+		cmdOut bytes.Buffer
+		cmdReg = regexp.MustCompile("\\d+\\.\\d+\\.\\d+")
 	)
 
 	cmd := exec.Command(c.Name(), []string{"--version"}...)
 	cmd.Stdout = &cmdOut
-	if cmdErr = cmd.Run(); cmdErr != nil {
-		return ""
-	}
-
-	if cmdReg, cmdErr = regexp.Compile(cmdRegStr); cmdErr != nil {
-		return ""
+	if err := cmd.Run(); err != nil {
+		return
 	}
 
 	return cmdReg.FindString(cmdOut.String())
@@ -57,10 +51,5 @@ func (c XDGOpenCommand) Version() string {
 
 // Open triggers a variable input string opening
 func (c XDGOpenCommand) Open(input string) error {
-	cmd := exec.Command(c.Name(), input)
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-
-	return nil
+	return exec.Command(c.Name(), input).Run()
 }

@@ -1,5 +1,6 @@
 bin
 zeus/data.yml
+zeus/dumps
 zeus/.history
 *.log
 .vscode

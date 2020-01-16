@@ -29,23 +29,27 @@ func (c YoutubeDLCommand) Exists() bool {
 }
 
 // Version returns the command installed version
-func (c YoutubeDLCommand) Version() string {
+func (c YoutubeDLCommand) Version() (version string) {
 	var (
-		cmdOut    bytes.Buffer
-		cmdErr    error
-		cmdReg    *regexp.Regexp
-		cmdRegStr = "\\d{4}\\.\\d{2}\\.\\d{2}"
+		cmdOut bytes.Buffer
+		cmdReg = regexp.MustCompile("\\d+\\.\\d+\\.\\d+")
 	)
 
 	cmd := exec.Command(c.Name(), []string{"--version"}...)
 	cmd.Stdout = &cmdOut
-	if cmdErr = cmd.Run(); cmdErr != nil {
-		return ""
-	}
-
-	if cmdReg, cmdErr = regexp.Compile(cmdRegStr); cmdErr != nil {
-		return ""
+	if err := cmd.Run(); err != nil {
+		return
 	}
 
 	return cmdReg.FindString(cmdOut.String())
+}
+
+// Download attempts to download asset at given url
+// to given filename using given extension
+func (c YoutubeDLCommand) Download(url, filename, extension string) error {
+	return exec.Command("youtube-dl", []string{
+		"--format", "bestaudio", "--extract-audio",
+		"--audio-format", extension,
+		"--audio-quality", "0",
+		"--output", filename + ".%(ext)s", url}...).Run()
 }

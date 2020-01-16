@@ -1,10 +1,8 @@
 package provider
 
 import (
-	"bytes"
 	"fmt"
 	"math"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -12,6 +10,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/bradfitz/slice"
+	"github.com/streambinder/spotitube/shell"
 	"github.com/streambinder/spotitube/track"
 )
 
@@ -88,23 +87,11 @@ func (p YouTubeProvider) Match(e *Entry, t *track.Track) error {
 // Download : delegate youtube-dl call to download entry
 func (p YouTubeProvider) Download(e *Entry, fname string) error {
 	var (
-		ext = strings.Replace(filepath.Ext(fname), ".", "", -1)
-		base = fname[0:len(fname)-(len(ext) + 1)]
+		ext  = strings.Replace(filepath.Ext(fname), ".", "", -1)
+		base = fname[0 : len(fname)-(len(ext)+1)]
 	)
 
-	cStderr := new(bytes.Buffer)
-	c := exec.Command("youtube-dl", []string{
-		"--format", "bestaudio", "--extract-audio",
-		"--audio-format", ext,
-		"--audio-quality", "0",
-		"--output", base + ".%(ext)s", e.URL}...)
-	c.Stderr = cStderr
-
-	if cErr := c.Run(); cErr != nil {
-		return fmt.Errorf(fmt.Sprintf("Unable to download from YouTube: \n%s", cStderr.String()))
-	}
-
-	return nil
+	return shell.YoutubeDL().Download(e.URL, base, ext)
 }
 
 // ValidateURL : return nil error if input URL is a valid YouTube URL

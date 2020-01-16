@@ -1,40 +1,45 @@
-package command
+package shell
 
 import (
 	"bytes"
 	"os/exec"
 	"regexp"
+	"runtime"
 
 	"github.com/streambinder/spotitube/system"
 )
 
-// YoutubeDLCommand command wrapper implementation
-type YoutubeDLCommand struct {
+// XDGOpenCommand command wrapper implementation
+type XDGOpenCommand struct {
 	Command
 }
 
-// YoutubeDL returns a new YoutubeDLCommand instance
-func YoutubeDL() YoutubeDLCommand {
-	return YoutubeDLCommand{}
+// XDGOpen returns a new FFmpegCommand instance
+func XDGOpen() XDGOpenCommand {
+	return XDGOpenCommand{}
 }
 
 // Name returns the effective name of the command
-func (c YoutubeDLCommand) Name() string {
-	return "youtube-dl"
+func (c XDGOpenCommand) Name() string {
+	if runtime.GOOS == "windows" {
+		return "start"
+	}
+
+	return "xdg-open"
 }
 
 // Exists returns true if the command is installed, false otherwise
-func (c YoutubeDLCommand) Exists() bool {
+func (c XDGOpenCommand) Exists() bool {
 	return system.Which(c.Name())
 }
 
 // Version returns the command installed version
-func (c YoutubeDLCommand) Version() string {
+func (c XDGOpenCommand) Version() string {
 	var (
 		cmdOut    bytes.Buffer
 		cmdErr    error
 		cmdReg    *regexp.Regexp
-		cmdRegStr = "\\d{4}\\.\\d{2}\\.\\d{2}"
+		cmdRegStr = "\\d+\\.\\d+\\.\\d+"
 	)
 
 	cmd := exec.Command(c.Name(), []string{"--version"}...)
@@ -48,4 +53,14 @@ func (c YoutubeDLCommand) Version() string {
 	}
 
 	return cmdReg.FindString(cmdOut.String())
+}
+
+// Open triggers a variable input string opening
+func (c XDGOpenCommand) Open(input string) error {
+	cmd := exec.Command(c.Name(), input)
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	return nil
 }

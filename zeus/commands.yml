@@ -1,8 +1,8 @@
 language: bash
 
 globals:
-    binaryName: spotitube
-    buildDir: bin
+    bin_name: spotitube
+    bin_dir: bin
     ldflags: -s -w
     version: 25
 
@@ -18,12 +18,12 @@ commands:
     build-linux:
         description: Build binary for Linux
         exec: |
-            GOARCH=386 CGO_ENABLED=0 go build -ldflags="${ldflags}" -o ${buildDir}/${binaryName}
+            GOARCH=386 CGO_ENABLED=0 go build -ldflags="${ldflags}" -o ${bin_dir}/${bin_name}
 
     build-windows:
         description: Build binary for Windows
         exec: |
-            GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags="${ldflags}" -o ${buildDir}/${binaryName}.exe
+            GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags="${ldflags}" -o ${bin_dir}/${bin_name}.exe
 
     clean:
         description: Clean up
@@ -44,8 +44,8 @@ commands:
             - keys-deflate
         description: Launch release procedure
         exec: |
-            cp ${buildDir}/${binaryName} ${buildDir}/${binaryName}-v${version}
-            cp ${buildDir}/${binaryName}.exe ${buildDir}/${binaryName}-v${version}.exe
+            cp ${bin_dir}/${bin_name} ${bin_dir}/${bin_name}-v${version}
+            cp ${bin_dir}/${bin_name}.exe ${bin_dir}/${bin_name}-v${version}.exe
     
     keys-inflate:
         description: Fill sources with available API keys

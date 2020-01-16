@@ -1,14 +1,14 @@
 source "zeus/scripts/package-common.sh"
 
-pathSrc="/tmp/spotitube.eopkg"
-pathPkg="${buildDir}/${binaryName}-v${version}.eopkg"
+src_dir="/tmp/spotitube.eopkg"
+pkg_dir="${bin_dir}/${bin_name}-v${version}.eopkg"
 
-rm -rf "${pathSrc}"
+rm -rf "${src_dir}"
 sudo solbuild update
-cp -rf "${pathAssets}/eopkg" "${pathSrc}"
+cp -rf "${assets_dir}/eopkg" "${src_dir}"
 sed "s|:VERSION:|${version}|g" \
-    "${pathAssets}/eopkg/pspec.xml" > "${pathSrc}/pspec.xml"
-cp "${buildDir}/${binaryName}" "${pathSrc}/files"
-sudo solbuild build "${pathSrc}/pspec.xml"
-mv spotitube-*.eopkg "${pathPkg}"
-rm -rf "${pathSrc}"
+    "${assets_dir}/eopkg/pspec.xml" > "${src_dir}/pspec.xml"
+cp "${bin_dir}/${bin_name}" "${src_dir}/files"
+sudo solbuild build "${src_dir}/pspec.xml"
+mv spotitube-*.eopkg "${pkg_dir}"
+rm -rf "${src_dir}"

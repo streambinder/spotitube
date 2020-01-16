@@ -1,5 +1,5 @@
 #!/bin/bash
 
-pathRoot="$(pwd)"
-pathAssets="${pathRoot}/zeus/scripts/package"
-buildDir="${pathRoot}/${buildDir}"
+root_dir="$(pwd)"
+assets_dir="${root_dir}/zeus/scripts/package"
+bin_dir="${root_dir}/${bin_dir}"

@@ -1,13 +1,13 @@
 source "zeus/scripts/package-common.sh"
 
-pathSrc="/tmp/spotitube.deb"
-pathPkg="${buildDir}/${binaryName}-v${version}.deb"
+src_dir="/tmp/spotitube.deb"
+pkg_dir="${bin_dir}/${bin_name}-v${version}.deb"
 
-rm -rf "${pathSrc}"
-cp -rf "${pathAssets}/deb" "${pathSrc}"
+rm -rf "${src_dir}"
+cp -rf "${assets_dir}/deb" "${src_dir}"
 sed "s|:VERSION:|${version}|g" \
-    "${pathAssets}/deb/DEBIAN/control" > "${pathSrc}/DEBIAN/control"
-mkdir -p "${pathSrc}/usr/sbin"
-cp "${buildDir}/${binaryName}" "${pathSrc}/usr/sbin"
-dpkg-deb --build "${pathSrc}" "${pathPkg}"
-rm -rf "${pathSrc}"
+    "${assets_dir}/deb/DEBIAN/control" > "${src_dir}/DEBIAN/control"
+mkdir -p "${src_dir}/usr/sbin"
+cp "${bin_dir}/${bin_name}" "${src_dir}/usr/sbin"
+dpkg-deb --build "${src_dir}" "${pkg_dir}"
+rm -rf "${src_dir}"

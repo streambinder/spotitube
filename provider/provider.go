@@ -25,7 +25,7 @@ func All() []Provider {
 // For returns a provider for a given URL
 func For(URL string) (Provider, error) {
 	for _, p := range All() {
-		if err := p.ValidateURL(URL); err == nil {
+		if err := p.Support(URL); err == nil {
 			return p, nil
 		}
 	}
@@ -65,7 +65,7 @@ type Provider interface {
 	Query(*track.Track) ([]*Entry, error)
 	Match(*Entry, *track.Track) error
 	Download(*Entry, string) error
-	ValidateURL(url string) error
+	Support(url string) error
 }
 
 // Scorable defines the functions needed to apply a score over results

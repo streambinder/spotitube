@@ -90,8 +90,8 @@ func (p YouTubeProvider) Download(e *Entry, fname string) error {
 	return shell.YoutubeDL().Download(e.URL, base, ext)
 }
 
-// ValidateURL returns nil error if input URL is a valid YouTube URL
-func (p YouTubeProvider) ValidateURL(url string) error {
+// Support returns nil error if input URL is a valid YouTube URL
+func (p YouTubeProvider) Support(url string) error {
 	if regURL.FindAllString(url, -1) == nil {
 		return fmt.Errorf(fmt.Sprintf("URL %s doesn't seem to be pointing to any YouTube video.", url))
 	}

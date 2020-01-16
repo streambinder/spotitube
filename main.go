@@ -17,7 +17,6 @@ import (
 	"github.com/bogem/id3v2"
 	"github.com/gosimple/slug"
 	"github.com/streambinder/spotitube/cui"
-	"github.com/streambinder/spotitube/logger"
 	"github.com/streambinder/spotitube/lyrics"
 	"github.com/streambinder/spotitube/provider"
 	"github.com/streambinder/spotitube/shell"
@@ -266,10 +265,6 @@ func mainUI() {
 	ui.Append(fmt.Sprintf("%s %s", cui.Font("Proc:", cui.StyleBold), system.PrettyPath(system.Proc())), cui.PanelLeftBottom)
 	ui.Append(fmt.Sprintf("%s %s", cui.Font("Date:", cui.StyleBold), time.Now().Format("2006-01-02 15:04:05")), cui.PanelLeftBottom)
 	ui.Append(fmt.Sprintf("%s GPL-3.0", cui.Font("License:", cui.StyleBold)), cui.PanelLeftBottom)
-
-	if argLog {
-		ui.Append(fmt.Sprintf("%s %s", cui.Font("Log:", cui.StyleBold), logger.LogFilename), cui.PanelLeftTop)
-	}
 }
 
 func mainAuthenticate() {

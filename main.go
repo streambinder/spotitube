@@ -16,11 +16,11 @@ import (
 
 	"github.com/bogem/id3v2"
 	"github.com/gosimple/slug"
-	"github.com/streambinder/spotitube/command"
 	"github.com/streambinder/spotitube/cui"
 	"github.com/streambinder/spotitube/logger"
 	"github.com/streambinder/spotitube/lyrics"
 	"github.com/streambinder/spotitube/provider"
+	"github.com/streambinder/spotitube/shell"
 	"github.com/streambinder/spotitube/spotify"
 	"github.com/streambinder/spotitube/system"
 	"github.com/streambinder/spotitube/track"
@@ -123,13 +123,13 @@ func mainEnvCheck() {
 		os.Exit(1)
 	}
 
-	if !command.YoutubeDL().Exists() {
-		fmt.Println(fmt.Sprintf("%s command is not installed.", command.YoutubeDL().Name()))
+	if !shell.YoutubeDL().Exists() {
+		fmt.Println(fmt.Sprintf("%s command is not installed.", shell.YoutubeDL().Name()))
 		os.Exit(1)
 	}
 
-	if !command.FFmpeg().Exists() {
-		fmt.Println(fmt.Sprintf("%s command is not installed.", command.FFmpeg().Name()))
+	if !shell.FFmpeg().Exists() {
+		fmt.Println(fmt.Sprintf("%s command is not installed.", shell.FFmpeg().Name()))
 		os.Exit(1)
 	}
 
@@ -260,8 +260,8 @@ func mainUI() {
 	})
 
 	ui.Append(fmt.Sprintf("%s %s", cui.Font("Folder:", cui.StyleBold), system.PrettyPath(argFolder)), cui.PanelLeftTop)
-	ui.Append(fmt.Sprintf("%s %s", cui.Font(fmt.Sprintf("%s version:", command.YoutubeDL().Name()), cui.StyleBold), command.YoutubeDL().Version()), cui.PanelLeftTop)
-	ui.Append(fmt.Sprintf("%s %s", cui.Font(fmt.Sprintf("%s version:", command.FFmpeg().Name()), cui.StyleBold), command.FFmpeg().Version()), cui.PanelLeftTop)
+	ui.Append(fmt.Sprintf("%s %s", cui.Font(fmt.Sprintf("%s version:", shell.YoutubeDL().Name()), cui.StyleBold), shell.YoutubeDL().Version()), cui.PanelLeftTop)
+	ui.Append(fmt.Sprintf("%s %s", cui.Font(fmt.Sprintf("%s version:", shell.FFmpeg().Name()), cui.StyleBold), shell.FFmpeg().Version()), cui.PanelLeftTop)
 	ui.Append(fmt.Sprintf("%s %d", cui.Font("Version:", cui.StyleBold), version), cui.PanelLeftBottom)
 	ui.Append(fmt.Sprintf("%s %s", cui.Font("Proc:", cui.StyleBold), system.PrettyPath(system.Proc())), cui.PanelLeftBottom)
 	ui.Append(fmt.Sprintf("%s %s", cui.Font("Date:", cui.StyleBold), time.Now().Format("2006-01-02 15:04:05")), cui.PanelLeftBottom)
@@ -559,7 +559,7 @@ func mainSearch() {
 
 				if argManualInput && entry.Empty() {
 					if url := ui.PromptInputMessage(fmt.Sprintf("Enter URL for \"%s\"", track.Basename()), cui.PromptInput); len(url) > 0 {
-						if err := p.ValidateURL(url); err == nil {
+						if err := p.Support(url); err == nil {
 							entry.URL = url
 						} else {
 							ui.Prompt(fmt.Sprintf("Something went wrong: %s", err.Error()))
@@ -712,7 +712,7 @@ func subParallelSongProcess(track *track.Track, trackOpts *track.SyncOptions, wg
 }
 
 func subSongNormalize(t *track.Track) {
-	volume, err := command.FFmpeg().VolumeDetect(t.FilenameTemporary())
+	volume, err := shell.FFmpeg().VolumeDetect(t.FilenameTemporary())
 	if err != nil {
 		ui.Append(fmt.Sprintf("Unable to detect max volume value for %s: %s", t.Basename(), err.Error()), cui.WarningAppend)
 		return
@@ -723,7 +723,7 @@ func subSongNormalize(t *track.Track) {
 	}
 
 	volume = math.Abs(volume)
-	if err := command.FFmpeg().VolumeSet(volume, t.FilenameTemporary()); err != nil {
+	if err := shell.FFmpeg().VolumeSet(volume, t.FilenameTemporary()); err != nil {
 		ui.Append(fmt.Sprintf("Unable to increase max volume by %f delta for %s: %s", volume, t.Basename(), err.Error()), cui.WarningAppend)
 	}
 }

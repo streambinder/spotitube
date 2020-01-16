@@ -63,21 +63,16 @@ func (p YouTubeProvider) Query(track *track.Track) ([]*Entry, error) {
 }
 
 // Match returns nil error if YouTube entry is matching with track
-func (p YouTubeProvider) Match(e *Entry, t *track.Track) error {
-	if int(math.Abs(float64(t.Duration-e.Duration))) > DurationTolerance {
-		return fmt.Errorf(fmt.Sprintf("The duration difference is excessive: | %d - %d | = %d (max tolerated: %d)",
-			t.Duration, e.Duration, int(math.Abs(float64(t.Duration-e.Duration))), DurationTolerance))
+func (p YouTubeProvider) Match(entry *Entry, track *track.Track) error {
+	if err := p.Support(entry.URL); err != nil {
+		return err
 	}
 
-	if strings.Contains(e.URL, "&list=") {
-		return fmt.Errorf("Track is actually pointing to playlist")
+	if int(math.Abs(float64(track.Duration-entry.Duration))) > DurationTolerance {
+		return fmt.Errorf("The duration delta too high")
 	}
 
-	if strings.Contains(e.URL, "/user/") {
-		return fmt.Errorf("Track is actually pointing to user")
-	}
-
-	return t.Seems(fmt.Sprintf("%s %s", e.User, e.Title))
+	return track.Seems(fmt.Sprintf("%s %s", entry.User, entry.Title))
 }
 
 // Download handles the youtube-dl call to download entry
@@ -101,23 +96,12 @@ func (p YouTubeProvider) Support(url string) error {
 
 // IDFromURL extracts YouTube entry ID from input URL
 func IDFromURL(url string) string {
-	var id string
-
-	if strings.Contains(strings.ToLower(url), "youtu.be/") {
-		id = strings.Split(url, "youtu.be/")[1]
-	} else {
-		id = strings.Split(url, "watch?v=")[1]
+	for _, group := range regURL.FindAllStringSubmatch(url, -1) {
+		if len(group) > 1 {
+			return group[1]
+		}
 	}
-
-	if strings.Contains(id, "?") {
-		id = strings.Split(id, "?")[0]
-	}
-
-	if strings.Contains(id, "&list") {
-		id = strings.Split(id, "&list")[0]
-	}
-
-	return id
+	return ""
 }
 
 func pullTracksFromDoc(track track.Track, document *goquery.Document) ([]*Entry, error) {

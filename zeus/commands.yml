@@ -1,0 +1,77 @@
+language: bash
+
+globals:
+    binaryName: spotitube
+    buildDir: bin
+    ldflags: -s -w
+    version: 25
+
+commands:
+
+    build:
+        description: Build binary
+        dependencies:
+            - build-linux
+            - build-windows
+        exec: echo -n
+
+    build-linux:
+        description: Build binary for Linux
+        exec: |
+            GOARCH=386 CGO_ENABLED=0 go build -ldflags="${ldflags}" -o ${buildDir}/${binaryName}
+
+    build-windows:
+        description: Build binary for Windows
+        exec: |
+            GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags="${ldflags}" -o ${buildDir}/${binaryName}.exe
+
+    clean:
+        description: Clean up
+        exec: rm -rf bin
+    
+    install:
+        dependencies:
+            - build
+        description: Install binary
+        exec: |
+            go install
+
+    release:
+        dependencies:
+            - keys-inflate
+            - build
+            - package
+            - keys-deflate
+        description: Launch release procedure
+        exec: |
+            cp ${buildDir}/${binaryName} ${buildDir}/${binaryName}-v${version}
+            cp ${buildDir}/${binaryName}.exe ${buildDir}/${binaryName}-v${version}.exe
+    
+    keys-inflate:
+        description: Fill sources with available API keys
+
+    keys-deflate:
+        description: Unfill sources with available API keys
+
+    package:
+        dependencies:
+            - package-deb
+            - package-rpm
+            - package-eopkg
+        description: Package binary
+        exec: echo -n
+
+    package-deb:
+        dependencies:
+            - build-linux
+        description: DEB Package binary
+
+    package-rpm:
+        dependencies:
+            - build-linux
+        description: RPM Package binary
+
+    package-eopkg:
+        dependencies:
+            - build-linux
+        description: Eopkg Package binary

@@ -15,20 +15,16 @@ import (
 )
 
 const (
-	// YouTubeVideoPrefix : YouTube video prefix
-	YouTubeVideoPrefix = "https://www.youtube.com"
-	// YouTubeQueryURL : YouTube query URL
-	YouTubeQueryURL = YouTubeVideoPrefix + "/results"
-	// YouTubeQueryPattern : YouTube query URL parseable with *printf functions
-	YouTubeQueryPattern = YouTubeQueryURL + "?q=%s"
-	// YouTubeHTMLVideoSelector : YouTube entry video selector
-	YouTubeHTMLVideoSelector = ".yt-uix-tile-link"
-	// YouTubeHTMLDescSelector : YouTube entry description selector
-	YouTubeHTMLDescSelector = ".yt-lockup-byline"
-	// YouTubeHTMLDurationSelector : YouTube entry duration selector
-	YouTubeHTMLDurationSelector = ".accessible-description"
+	youTubeVideoPrefix          = "https://www.youtube.com"
+	youTubeQueryURL             = youTubeVideoPrefix + "/results"
+	youTubeQueryPattern         = youTubeQueryURL + "?q=%s"
+	youTubeHTMLVideoSelector    = ".yt-uix-tile-link"
+	youTubeHTMLDescSelector     = ".yt-lockup-byline"
+	youTubeHTMLDurationSelector = ".accessible-description"
+)
 
-	regexURL = `(?m)(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})`
+var (
+	regURL = regexp.MustCompile(`(?m)(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})`)
 )
 
 // YouTubeProvider is the provider implementation which uses as source
@@ -43,9 +39,9 @@ func (p YouTubeProvider) Name() string {
 	return "YouTube"
 }
 
-// Query : query provider for entries related to track
+// Query searches provider for entries related to track
 func (p YouTubeProvider) Query(track *track.Track) ([]*Entry, error) {
-	var queryString = fmt.Sprintf(YouTubeQueryPattern, strings.Replace(track.Query(), " ", "+", -1))
+	var queryString = fmt.Sprintf(youTubeQueryPattern, strings.Replace(track.Query(), " ", "+", -1))
 
 	d, err := goquery.NewDocument(queryString)
 	if err != nil {
@@ -66,7 +62,7 @@ func (p YouTubeProvider) Query(track *track.Track) ([]*Entry, error) {
 	return entries, nil
 }
 
-// Match : return nil error if YouTube entry is matching with track
+// Match returns nil error if YouTube entry is matching with track
 func (p YouTubeProvider) Match(e *Entry, t *track.Track) error {
 	if int(math.Abs(float64(t.Duration-e.Duration))) > DurationTolerance {
 		return fmt.Errorf(fmt.Sprintf("The duration difference is excessive: | %d - %d | = %d (max tolerated: %d)",
@@ -84,7 +80,7 @@ func (p YouTubeProvider) Match(e *Entry, t *track.Track) error {
 	return t.Seems(fmt.Sprintf("%s %s", e.User, e.Title))
 }
 
-// Download : delegate youtube-dl call to download entry
+// Download handles the youtube-dl call to download entry
 func (p YouTubeProvider) Download(e *Entry, fname string) error {
 	var (
 		ext  = strings.Replace(filepath.Ext(fname), ".", "", -1)
@@ -94,17 +90,16 @@ func (p YouTubeProvider) Download(e *Entry, fname string) error {
 	return shell.YoutubeDL().Download(e.URL, base, ext)
 }
 
-// ValidateURL : return nil error if input URL is a valid YouTube URL
+// ValidateURL returns nil error if input URL is a valid YouTube URL
 func (p YouTubeProvider) ValidateURL(url string) error {
-	re := regexp.MustCompile(regexURL)
-	if re.FindAllString(url, -1) == nil {
+	if regURL.FindAllString(url, -1) == nil {
 		return fmt.Errorf(fmt.Sprintf("URL %s doesn't seem to be pointing to any YouTube video.", url))
 	}
 
 	return nil
 }
 
-// IDFromURL : extract YouTube entry ID from input URL
+// IDFromURL extracts YouTube entry ID from input URL
 func IDFromURL(url string) string {
 	var id string
 
@@ -128,9 +123,9 @@ func IDFromURL(url string) string {
 func pullTracksFromDoc(track track.Track, document *goquery.Document) ([]*Entry, error) {
 	var (
 		entries  = []*Entry{}
-		elVideo  = document.Find(YouTubeHTMLVideoSelector)
-		elDesc   = document.Find(YouTubeHTMLDescSelector)
-		elLength = document.Find(YouTubeHTMLDurationSelector)
+		elVideo  = document.Find(youTubeHTMLVideoSelector)
+		elDesc   = document.Find(youTubeHTMLDescSelector)
+		elLength = document.Find(youTubeHTMLDurationSelector)
 		elPtr    int
 		elErr    error
 	)
@@ -171,8 +166,8 @@ func pullTracksFromDoc(track track.Track, document *goquery.Document) ([]*Entry,
 			(strings.Contains(strings.ToLower(itemHref), "youtu.be") ||
 				strings.Contains(strings.ToLower(itemHref), "watch?v=")) {
 			entries = append(entries, &Entry{
-				ID:       IDFromURL(YouTubeVideoPrefix + itemHref),
-				URL:      YouTubeVideoPrefix + itemHref,
+				ID:       IDFromURL(youTubeVideoPrefix + itemHref),
+				URL:      youTubeVideoPrefix + itemHref,
 				Title:    itemTitle,
 				User:     itemUser,
 				Duration: itemLength,

@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/streambinder/spotitube/command"
+	"github.com/streambinder/spotitube/shell"
 	"github.com/zmb3/spotify"
 )
 
@@ -138,7 +138,7 @@ func Auth(url string, authHost string, xdgOpen bool) (*Client, error) {
 	}()
 
 	if xdgOpen {
-		if err := command.XDGOpen().Open(url); err != nil {
+		if err := shell.XDGOpen().Open(url); err != nil {
 			return &Client{}, err
 		}
 	}

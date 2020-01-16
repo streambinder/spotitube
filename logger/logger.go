@@ -11,41 +11,51 @@ import (
 )
 
 var (
-	// LogFilename : default log filename
-	LogFilename = fmt.Sprintf("spotitube_%s.log", time.Now().Format("2006-01-02_15.04.05"))
+	filePath = fmt.Sprintf("spotitube_%s.log", time.Now().Format("2006-01-02_15.04.05"))
 )
 
-// Logger : struct containing all the informations kept to handle logging
+// Logger contains all the information kept to handle logging
 type Logger struct {
-	File  string
-	Mutex sync.Mutex
+	filePath   string
+	fileHandle *os.File
+	mutex      sync.Mutex
 }
 
-// Build : Logger struct object constructor
+// Build returns a new logger
 func Build() *Logger {
 	return &Logger{
-		File: LogFilename,
+		filePath: filePath,
 	}
 }
 
-// Append : make Logger object log input message string, eventually throwing a returning error
-func (logger *Logger) Append(message string) error {
+// Append writes a new log line with given message
+func (log *Logger) Append(message string) {
 	go func() error {
-		logger.Mutex.Lock()
-		defer logger.Mutex.Unlock()
+		log.mutex.Lock()
+		defer log.mutex.Unlock()
 
-		loggerFile, err := os.OpenFile(logger.File, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
-		if err != nil {
-			return err
+		if log.fileHandle == nil {
+			fileHandle, err := os.OpenFile(log.filePath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+			if err != nil {
+				return err
+			}
+			log.fileHandle = fileHandle
 		}
-		defer loggerFile.Close()
 
-		if _, err = loggerFile.WriteString(fmt.Sprintf("[%s] %s\n", time.Now().Format("2006-01-02 15:04:05"),
-			vtclean.Clean(strings.Replace(message, "\n", " ", -1), false))); err != nil {
+		if _, err := log.fileHandle.WriteString(
+			fmt.Sprintf("[%s] %s\n", time.Now().Format("2006-01-02 15:04:05"),
+				vtclean.Clean(strings.Replace(message, "\n", " ", -1), false))); err != nil {
 			return err
 		}
 
 		return nil
 	}()
+}
+
+// Destroy close the file descriptor corresponding to the log
+func (log *Logger) Destroy() error {
+	if log.fileHandle != nil {
+		return log.fileHandle.Close()
+	}
 	return nil
 }

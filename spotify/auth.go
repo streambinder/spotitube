@@ -86,8 +86,8 @@ const (
 // BuildAuthURL generates new authentication URL
 func BuildAuthURL(callbackHost string) *AuthURL {
 	var (
-		spotifyID  = os.Getenv("SPOTIFY_ID")
-		spotifyKey = os.Getenv("SPOTIFY_KEY")
+		spotifyID  = os.Getenv(clientIDEnvKey)
+		spotifyKey = os.Getenv(clientSecretEnvKey)
 	)
 	if len(spotifyID) == 0 {
 		spotifyID = clientID

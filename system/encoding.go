@@ -7,13 +7,11 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-// Asciify : transform eventually unicoded string to ASCII
+// Asciify transforms eventually unicoded string to ASCII
 func Asciify(dirty string) string {
-	t := transform.Chain(norm.NFD, transform.RemoveFunc(isNonspacingMark), norm.NFC)
+	t := transform.Chain(norm.NFD, transform.RemoveFunc(func(r rune) bool {
+		return unicode.Is(unicode.Mn, r)
+	}), norm.NFC)
 	clean, _, _ := transform.String(t, dirty)
 	return clean
-}
-
-func isNonspacingMark(r rune) bool {
-	return unicode.Is(unicode.Mn, r)
 }

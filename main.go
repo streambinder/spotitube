@@ -64,13 +64,14 @@ var (
 	argDisableGui bool
 
 	// spotify
-	c         *spotify.Client
-	cUser     string
-	cUserID   string
-	tracks    = make(map[*track.Track]*track.SyncOptions)
-	artworks  = make(map[string]*[]byte)
-	playlists []*track.Playlist
-	index     *track.TracksIndex
+	c            *spotify.Client
+	cUser        string
+	cUserID      string
+	tracks       = make(map[*track.Track]*track.SyncOptions)
+	artworks     = make(map[string]*[]byte)
+	playlists    []*track.Playlist
+	tracksFailed []*track.Track
+	index        *track.TracksIndex
 
 	// routines
 	waitGroup     sync.WaitGroup
@@ -517,7 +518,6 @@ func mainSearch() {
 						ui.Append(
 							fmt.Sprintf("Unable to search %s on %s provider: %s.", track.Basename(), p.Name(), provErr.Error()),
 							cui.WarningAppend)
-						// FIXME: tracksFailed = append(tracksFailed, t)
 						continue
 					}
 
@@ -557,7 +557,7 @@ func mainSearch() {
 
 				if entry.Empty() {
 					ui.Append("No entry to download has been found.", cui.ErrorAppend)
-					// FIXME: tracksFailed = append(tracksFailed, t)
+					tracksFailed = append(tracksFailed, track)
 					continue
 				}
 
@@ -586,7 +586,7 @@ func mainSearch() {
 
 			if err := p.Download(entry, track.FilenameTemporary()); err != nil {
 				ui.Append(fmt.Sprintf("Something went wrong downloading \"%s\": %s.", track.Basename(), err.Error()), cui.WarningAppend)
-				// FIXME: tracksFailed = append(tracksFailed, t)
+				tracksFailed = append(tracksFailed, track)
 				continue
 			}
 
@@ -623,15 +623,16 @@ func mainSearch() {
 	waitGroup.Wait()
 	ui.ProgressFill()
 
-	// FIXME
-	// ui.Append(fmt.Sprintf("%d tracks failed to synchronize.", len(tracksFailed)))
-	// for _, t := range tracksFailed {
-	// 	ui.Append(fmt.Sprintf(" - \"%s\"", t.Basename()))
-	// }
-	//
-	// system.Notify("SpotiTube", "emblem-downloads", "SpotiTube", fmt.Sprintf("%d track(s) synced, %d failed.", len(tracks)-len(tracksFailed), len(tracksFailed)))
+	if len(tracksFailed) > 0 {
+		ui.Append(fmt.Sprintf("%d tracks failed to synchronize.", len(tracksFailed)))
+		for _, t := range tracksFailed {
+			ui.Append(" - " + t.Basename())
+		}
+		system.Notify("SpotiTube", "emblem-downloads", "SpotiTube", fmt.Sprintf("%d track(s) synced, %d failed.", len(tracks)-len(tracksFailed), len(tracksFailed)))
+	} else {
+		system.Notify("SpotiTube", "emblem-downloads", "SpotiTube", fmt.Sprintf("%d track(s) synced", len(tracks)))
+	}
 
-	system.Notify("SpotiTube", "emblem-downloads", "SpotiTube", fmt.Sprintf("%d track(s) synced", len(tracks)))
 	ui.Prompt("Synchronization completed.", cui.PromptExit)
 }
 

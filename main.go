@@ -50,7 +50,6 @@ var (
 	argDisablePlaylistFile   bool
 	argPlsFile               bool
 	argDisableLyrics         bool
-	argDisableTimestampFlush bool
 	argDisableUpdateCheck    bool
 	argDisableBrowserOpening bool
 	argDisableIndexing       bool
@@ -164,7 +163,6 @@ func mainFlagsParse() {
 	flag.BoolVar(&argDisablePlaylistFile, "disable-playlist-file", false, "Disable automatic creation of playlists file")
 	flag.BoolVar(&argPlsFile, "pls-file", false, "Generate playlist file with .pls instead of .m3u")
 	flag.BoolVar(&argDisableLyrics, "disable-lyrics", false, "Disable download of songs lyrics and their application into mp3")
-	flag.BoolVar(&argDisableTimestampFlush, "disable-timestamp-flush", false, "Disable automatic songs files timestamps flush")
 	flag.BoolVar(&argDisableUpdateCheck, "disable-update-check", false, "Disable automatic update check at startup")
 	flag.BoolVar(&argDisableBrowserOpening, "disable-browser-opening", false, "Disable automatic browser opening for authentication")
 	flag.BoolVar(&argDisableIndexing, "disable-indexing", false, "Disable automatic library indexing (used to keep track of tracks names modifications)")
@@ -618,7 +616,6 @@ func mainSearch() {
 	waitGroup.Wait()
 
 	subCondPlaylistFileWrite()
-	subCondTimestampFlush()
 
 	index.Sync(usrIndex)
 
@@ -791,22 +788,6 @@ func subCountSongs() (int, int, int) {
 	}
 
 	return fetch, flush, ignore
-}
-
-func subCondTimestampFlush() {
-	if !argDisableTimestampFlush {
-		ui.Append("Flushing files timestamps...")
-		now := time.Now().Local().Add(time.Duration(-1*len(tracks)) * time.Minute)
-		for track := range tracks {
-			if !system.FileExists(track.Filename()) {
-				continue
-			}
-			if err := os.Chtimes(track.Filename(), now, now); err != nil {
-				ui.Append(fmt.Sprintf("Unable to flush timestamp on %s", track.Filename()), cui.WarningAppend)
-			}
-			now = now.Add(1 * time.Minute)
-		}
-	}
 }
 
 func subCondPlaylistFileWrite() {

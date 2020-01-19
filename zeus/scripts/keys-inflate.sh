@@ -1,6 +1,6 @@
 if [ -n "${SPOTIFY_ID}" ] || [ -n "${SPOTIFY_KEY}" ]; then
-    sed -i'.bak' 's|SpotifyClientID = ""|SpotifyClientID = "'"${SPOTIFY_ID}"'"|g;
-                  s|SpotifyClientSecret = ""|SpotifyClientSecret = "'"${SPOTIFY_KEY}"'"|g' spotify/api.go
+    sed -i'.bak' 's|clientID = ""|clientID = "'"${SPOTIFY_ID}"'"|g;
+                  s|clientSecret = ""|clientSecret = "'"${SPOTIFY_KEY}"'"|g' spotify/api.go
 fi
 
 if [ -n "${GENIUS_TOKEN}" ]; then

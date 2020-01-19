@@ -14,7 +14,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bogem/id3v2"
 	"github.com/gosimple/slug"
 	"github.com/streambinder/spotitube/cui"
 	"github.com/streambinder/spotitube/lyrics"
@@ -748,13 +747,7 @@ func songMetadataFlush(track *track.Track, opts *track.SyncOptions) error {
 		return nil
 	}
 
-	tag, err := id3v2.Open(track.FilenameTemporary(), id3v2.Options{Parse: true})
-	if err != nil {
-		return err
-	}
-	defer tag.Close()
-
-	return track.Flush(tag)
+	return track.Flush()
 }
 
 func fetchDump(path string) (dump track.TracksDump, err error) {

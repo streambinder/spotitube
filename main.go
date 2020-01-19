@@ -713,7 +713,7 @@ func subSongNormalize(t *track.Track) {
 	}
 
 	volume = math.Abs(volume)
-	if err := shell.FFmpeg().VolumeSet(volume, t.FilenameTemporary()); err != nil {
+	if err := shell.FFmpeg().VolumeIncrease(volume, t.FilenameTemporary()); err != nil {
 		ui.Append(fmt.Sprintf("Unable to increase max volume by %f delta for %s: %s", volume, t.Basename(), err.Error()), cui.WarningAppend)
 	}
 }

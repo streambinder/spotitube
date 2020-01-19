@@ -329,7 +329,11 @@ func mainFetchLibrary() {
 	if dumpErr == nil && time.Since(dump.Time) < cacheDuration {
 		ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font("Library cache expiration:", cui.StyleBold), int(time.Since(dump.Time)), cacheDuration), cui.PanelLeftTop)
 		for _, t := range dump.Tracks {
-			tracks[t] = track.SyncOptionsDefault()
+			if t.Local() {
+				tracks[t] = track.SyncOptionsDefault()
+			} else {
+				tracks[t] = track.SyncOptionsFlush()
+			}
 		}
 		return
 	}
@@ -384,7 +388,11 @@ func mainFetchAlbums() {
 		if dumpErr == nil && time.Since(dump.Time) < cacheDuration {
 			ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font(fmt.Sprintf("Album %s cache expiration:", spotify.IDFromURI(uri)), cui.StyleBold), int(time.Since(dump.Time)), cacheDuration), cui.PanelLeftTop)
 			for _, t := range dump.Tracks {
-				tracks[t] = track.SyncOptionsDefault()
+				if t.Local() {
+					tracks[t] = track.SyncOptionsDefault()
+				} else {
+					tracks[t] = track.SyncOptionsFlush()
+				}
 			}
 			continue
 		}
@@ -430,7 +438,11 @@ func mainFetchPlaylists() {
 		if dumpErr == nil && time.Since(dump.Time) < cacheDuration {
 			ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font(fmt.Sprintf("Playlist %s cache expiration:", playlist.Name), cui.StyleBold), int(time.Since(dump.Time)), cacheDuration), cui.PanelLeftTop)
 			for _, t := range dump.Tracks {
-				tracks[t] = track.SyncOptionsDefault()
+				if t.Local() {
+					tracks[t] = track.SyncOptionsDefault()
+				} else {
+					tracks[t] = track.SyncOptionsFlush()
+				}
 			}
 			playlist.Tracks = dump.Tracks
 			playlists = append(playlists, playlist)
@@ -544,8 +556,8 @@ func mainSearch() {
 							entryPick = ui.Prompt(
 								fmt.Sprintf(
 									"Track: %s\n\nID: %s\nTitle: %s\nUser: %s\nDuration: %d\nURL: %s\nResult is matching: %s",
-									track.Basename(), entry.ID, entry.Title, entry.User,
-									entry.Duration, entry.URL, strconv.FormatBool(entryPick)),
+									track.Basename(), provEntry.ID, provEntry.Title, provEntry.User,
+									provEntry.Duration, provEntry.URL, strconv.FormatBool(entryPick)),
 								cui.PromptBinary)
 						}
 

@@ -11,8 +11,7 @@ import (
 )
 
 const (
-	// DurationTolerance : max result duration difference tolerance
-	DurationTolerance = 20 // second(s)
+	durationDeltaTolerance = 20 // second(s)
 )
 
 // All return the array of usable providers
@@ -33,7 +32,7 @@ func For(URL string) (Provider, error) {
 	return nil, fmt.Errorf("No provider found")
 }
 
-// Entry : single search result struct
+// Entry represent a single search result
 type Entry struct {
 	ID       string
 	URL      string
@@ -82,9 +81,9 @@ type Scorer struct {
 func (s Scorer) Score(e *Entry, t *track.Track) int {
 	var score = 0 - levenshtein.ComputeDistance(t.Query(), fmt.Sprintf("%s %s", e.User, e.Title))
 
-	if math.Abs(float64(t.Duration-e.Duration)) <= float64(DurationTolerance/2) {
+	if math.Abs(float64(t.Duration-e.Duration)) <= float64(durationDeltaTolerance/2) {
 		score += 20
-	} else if math.Abs(float64(t.Duration-e.Duration)) <= float64(DurationTolerance) {
+	} else if math.Abs(float64(t.Duration-e.Duration)) <= float64(durationDeltaTolerance) {
 		score += 10
 	}
 

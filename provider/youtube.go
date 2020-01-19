@@ -68,7 +68,7 @@ func (p YouTubeProvider) Match(entry *Entry, track *track.Track) error {
 		return err
 	}
 
-	if int(math.Abs(float64(track.Duration-entry.Duration))) > DurationTolerance {
+	if int(math.Abs(float64(track.Duration-entry.Duration))) > durationDeltaTolerance {
 		return fmt.Errorf("The duration delta too high")
 	}
 

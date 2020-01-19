@@ -158,7 +158,7 @@ func mainFlagsParse() {
 	// options
 	flag.StringVar(&argFolder, "folder", ".", "Folder to sync your tracks collection into")
 	flag.BoolVar(&argFlushCache, "flush-cache", false, "Force Spotify tracks collection cache flush")
-	flag.BoolVar(&argFlushLocal, "replace-local", false, "Flush already downloaded tracks if better results get encountered")
+	flag.BoolVar(&argFlushLocal, "flush-local", false, "Flush already downloaded tracks if better results get encountered")
 	flag.BoolVar(&argFlushMetadata, "flush-metadata", false, "Flush metadata tags to already synchronized songs")
 	flag.BoolVar(&argDisableNormalization, "disable-normalization", false, "Disable songs volume normalization")
 	flag.BoolVar(&argDisablePlaylistFile, "disable-playlist-file", false, "Disable automatic creation of playlists file")

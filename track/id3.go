@@ -1,7 +1,12 @@
 package track
 
 import (
+	"io/ioutil"
+	"strconv"
+	"strings"
+
 	"github.com/bogem/id3v2"
+	"github.com/streambinder/spotitube/system"
 )
 
 const (
@@ -36,6 +41,70 @@ const (
 	// ID3FrameSpotifyID is the ID3 Spotify ID frame tag identifier
 	ID3FrameSpotifyID
 )
+
+// Flush persists tracks frames into given open Tag
+func (track Track) Flush(tag *id3v2.Tag) error {
+	defer tag.Save()
+
+	// official metadata fields
+	tag.SetTitle(track.Title)
+	tag.SetArtist(track.Artist)
+	tag.SetAlbum(track.Album)
+	tag.SetGenre(track.Genre)
+	tag.SetYear(track.Year)
+	tag.AddFrame(
+		tag.CommonID("Track number/Position in set"),
+		id3v2.TextFrame{
+			Encoding: id3v2.EncodingUTF8,
+			Text:     strconv.Itoa(track.TrackNumber),
+		},
+	)
+	tag.AddUnsynchronisedLyricsFrame(id3v2.UnsynchronisedLyricsFrame{
+		Encoding:          id3v2.EncodingUTF8,
+		Language:          "eng",
+		ContentDescriptor: track.Title,
+		Lyrics:            track.Lyrics,
+	})
+
+	// unofficial metadata fields
+	for key, value := range map[string]string{
+		"song":        track.Song,
+		"featurings":  strings.Join(track.Featurings, "|"),
+		"trackTotals": strconv.Itoa(track.TrackTotals),
+		"artwork":     track.Image,
+		"origin":      track.URL,
+		"duration":    strconv.Itoa(track.Duration),
+		"spotifyid":   track.SpotifyID,
+	} {
+		tag.AddCommentFrame(id3v2.CommentFrame{
+			Encoding:    id3v2.EncodingUTF8,
+			Language:    "eng",
+			Description: key,
+			Text:        value,
+		})
+	}
+
+	// artwork
+	// TODO: carry artwork as byte[] in track object
+	if !system.FileExists(track.FilenameArtwork()) {
+		return nil
+	}
+
+	artwork, err := ioutil.ReadFile(track.FilenameArtwork())
+	if err != nil {
+		return err
+	}
+
+	tag.AddAttachedPicture(id3v2.PictureFrame{
+		Encoding:    id3v2.EncodingUTF8,
+		MimeType:    "image/jpeg",
+		PictureType: id3v2.PTFrontCover,
+		Description: "Front cover",
+		Picture:     artwork,
+	})
+
+	return nil
+}
 
 // GetTag opens, parses and returns given path's given frame tag
 func GetTag(path string, frame int) string {

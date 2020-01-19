@@ -10,7 +10,7 @@ import (
 	"github.com/streambinder/spotitube/system"
 )
 
-// Prompt : show a prompt containing input string message, driven with input Options
+// Prompt shows a prompt containing given message, driven with given Options
 func (c *CUI) Prompt(message string, spreadOptions ...Options) bool {
 	var options uint64
 	if len(spreadOptions) > 0 {
@@ -73,7 +73,7 @@ func (c *CUI) Prompt(message string, spreadOptions ...Options) bool {
 	return <-c.PromptDismissChan
 }
 
-// PromptInputMessage : show an input prompt containing input string message, driven with input Options
+// PromptInputMessage shows an input prompt containing given message, driven with given Options
 func (c *CUI) PromptInputMessage(message string, spreadOptions ...Options) string {
 	if c.hasOption(GuiBareMode) {
 		return system.InputString(message)

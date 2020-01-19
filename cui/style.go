@@ -7,7 +7,8 @@ import (
 	"github.com/jroimartin/gocui"
 )
 
-// Font : apply font styling defined via fontConst param over a supplied message string
+// Font applies font styling defined via given fontConst
+// over given message
 func Font(message string, fontConst uint64) string {
 	return applyFont(message, map[uint64]color.Attribute{
 		StyleBold:      color.Bold,
@@ -31,7 +32,8 @@ func styleFont(message string, options Option) string {
 	return message
 }
 
-// Color : apply colorization defined via colorConst param over a supplied message string
+// Color applies colorization defined via given colorConst
+// over given message
 func Color(message string, colorConst uint64) string {
 	return applyColor(message, map[uint64]color.Attribute{
 		ColorBlack:   color.FgBlack,

@@ -8,7 +8,7 @@ import (
 	"github.com/jroimartin/gocui"
 )
 
-// ProgressHalfIncrease : increase progress bar by half-step
+// ProgressHalfIncrease increases progress bar by half-step
 func (c *CUI) ProgressHalfIncrease() error {
 	if c.hasOption(GuiBareMode) {
 		return nil
@@ -22,7 +22,7 @@ func (c *CUI) ProgressHalfIncrease() error {
 	return c.progressIncrease(int(math.Floor(c.ProgressOffset))*100/c.ProgressMax, int(math.Floor(c.ProgressOffset))*width/c.ProgressMax, 0.5)
 }
 
-// ProgressIncrease : increase progress bar
+// ProgressIncrease increases progress bar
 func (c *CUI) ProgressIncrease() error {
 	if c.hasOption(GuiBareMode) {
 		return nil
@@ -36,7 +36,7 @@ func (c *CUI) ProgressIncrease() error {
 	return c.progressIncrease(int(math.Floor(c.ProgressOffset))*100/c.ProgressMax, int(math.Floor(c.ProgressOffset))*width/c.ProgressMax, 1)
 }
 
-// ProgressFill : fill up the progress bar
+// ProgressFill fills up the progress bar
 func (c *CUI) ProgressFill() error {
 	if c.hasOption(GuiBareMode) {
 		return nil

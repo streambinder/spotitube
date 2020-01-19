@@ -1,71 +1,71 @@
 package cui
 
 const (
-	// PromptExit : identifier for exiting prompt
+	// PromptExit is the identifier for exiting prompt
 	PromptExit = 1 << iota
-	// PromptBinary : identifier for prompt with binary input
+	// PromptBinary is the identifier for prompt with binary input
 	PromptBinary
-	// PromptInput : identifier for prompt with textual input
+	// PromptInput is the identifier for prompt with textual input
 	PromptInput
 	_
-	// ClearAppend : identifier for pre-append panel clearing
+	// ClearAppend is the identifier for pre-append panel clearing
 	ClearAppend
-	// ErrorAppend : identifier for error mode append
+	// ErrorAppend is the identifier for error mode append
 	ErrorAppend
-	// WarningAppend : identifier for warning mode append
+	// WarningAppend is the identifier for warning mode append
 	WarningAppend
-	// DebugAppend : identifier for debug mode append
+	// DebugAppend is the identifier for debug mode append
 	DebugAppend
 	_
-	// PanelLeftTop : identifier for panel at left-top
+	// PanelLeftTop is the identifier for panel at left-top
 	PanelLeftTop
-	// PanelLeftBottom : identifier for panel at left-bottom
+	// PanelLeftBottom is the identifier for panel at left-bottom
 	PanelLeftBottom
-	// PanelRight : identifier for panel at right
+	// PanelRight is the identifier for panel at right
 	PanelRight
 	_ProgressBar
 	_Prompt
 	_
-	// OrientationLeft : identifier for text left orientation
+	// OrientationLeft is the identifier for text left orientation
 	OrientationLeft
-	// OrientationCenter : identifier for text center orientation
+	// OrientationCenter is the identifier for text center orientation
 	OrientationCenter
-	// OrientationRight : identifier for text right orientation
+	// OrientationRight is the identifier for text right orientation
 	OrientationRight
 	_
-	// ColorBlack : identifier for text black color
+	// ColorBlack is the identifier for text black color
 	ColorBlack
-	// ColorRed : identifier for text red color
+	// ColorRed is the identifier for text red color
 	ColorRed
-	// ColorGreen : identifier for text green color
+	// ColorGreen is the identifier for text green color
 	ColorGreen
-	// ColorYellow : identifier for text yellow color
+	// ColorYellow is the identifier for text yellow color
 	ColorYellow
-	// ColorBlue : identifier for text blue color
+	// ColorBlue is the identifier for text blue color
 	ColorBlue
-	// ColorMagenta : identifier for text magenta color
+	// ColorMagenta is the identifier for text magenta color
 	ColorMagenta
-	// ColorCyan : identifier for text cyan color
+	// ColorCyan is the identifier for text cyan color
 	ColorCyan
-	// ColorWhite : identifier for text white color
+	// ColorWhite is the identifier for text white color
 	ColorWhite
 	_
-	// StyleBold : identifier for text bold style
+	// StyleBold is the identifier for text bold style
 	StyleBold
-	// StyleItalic : identifier for text italic style
+	// StyleItalic is the identifier for text italic style
 	StyleItalic
-	// StyleUnderline : identifier for text underline style
+	// StyleUnderline is the identifier for text underline style
 	StyleUnderline
 	_
-	// ParagraphAutoReturn : identifier for text autoreturning paragraph format, to fit words in lines
+	// ParagraphAutoReturn is the identifier for text autoreturning paragraph format, to fit words in lines
 	ParagraphAutoReturn
 	_
-	// LogEnable : identifier for log writing flag
+	// LogEnable is the identifier for log writing flag
 	LogEnable
 	_
-	// GuiBareMode : identifier for make gui as bare as possible
+	// GuiBareMode is the identifier for make gui as bare as possible
 	GuiBareMode
-	// GuiDebugMode : identifier for enabling debug mode
+	// GuiDebugMode is the identifier for enabling debug mode
 	GuiDebugMode
 )
 

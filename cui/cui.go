@@ -14,7 +14,7 @@ import (
 	"github.com/streambinder/spotitube/logger"
 )
 
-// CUI : struct object containing all the informations to handle CUI
+// CUI represents the graphical UI handler
 type CUI struct {
 	*gocui.Gui
 	Options           Options
@@ -30,13 +30,13 @@ type CUI struct {
 	CloseChan         chan bool
 }
 
-// Operation : enqueued GUI operation (append)
+// Operation is an enqueued UI operation
 type Operation struct {
 	Message string
 	Options Options
 }
 
-// Startup : generate a Gui object
+// Startup generates a new UI handler
 func Startup(options Options) (*CUI, error) {
 	c := &CUI{
 		Gui:            nil,
@@ -120,7 +120,7 @@ func Startup(options Options) (*CUI, error) {
 	return c, nil
 }
 
-// Shutdown : shut down the interface
+// Shutdown gracefully closes the graphical UI
 func (c *CUI) Shutdown(gui *gocui.Gui, view *gocui.View) error {
 	if c.hasOption(LogEnable) {
 		c.Logger.Destroy()
@@ -143,7 +143,7 @@ func (c *CUI) OnShutdown(f func()) {
 	}()
 }
 
-// Append : add input string message to input Options driven space
+// Append adds given message to given Options driven space
 func (c *CUI) Append(message string, spreadOptions ...Options) error {
 	var options uint64
 	if len(spreadOptions) > 0 {

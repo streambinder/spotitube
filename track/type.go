@@ -30,7 +30,7 @@ var (
 	}
 )
 
-// Type : return track variant
+// Type returns track variant
 func (track Track) Type() int {
 	for _, songType := range types {
 		if IsType(track.Title, songType) {
@@ -40,7 +40,7 @@ func (track Track) Type() int {
 	return typeAlbum
 }
 
-// IsType : return True if input sequence matches with selected input songType variant
+// IsType returns True if given sequence matches with selected given songType variant
 func IsType(sequence string, songType int) (match bool) {
 	var regexes []string
 	switch songType {

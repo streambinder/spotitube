@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-// Dir : return True if input string path is a directory
+// Dir returns True if given path is a directory
 func Dir(path string) bool {
 	file, err := os.Open(path)
 	if err != nil {
@@ -23,7 +23,7 @@ func Dir(path string) bool {
 	return fileStat.IsDir()
 }
 
-// Mkdir : create directory dir if not already existing
+// Mkdir creates directory dir if not already existing
 func Mkdir(dir string) error {
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		err = os.MkdirAll(dir, 0755)
@@ -45,13 +45,13 @@ func PrettyPath(dir string) string {
 	return dir
 }
 
-// FileExists : return True if input string path points to a valid file
+// FileExists returns True if given path points to a valid file
 func FileExists(path string) bool {
 	_, err := os.Stat(path)
 	return !os.IsNotExist(err)
 }
 
-// FileTouch : create file in input string path
+// FileTouch creates file to given path
 func FileTouch(path string) error {
 	file, err := os.Create(path)
 	if err != nil {
@@ -61,7 +61,7 @@ func FileTouch(path string) error {
 	return nil
 }
 
-// FileCopy : copy file from input string pathFrom to input string pathTo
+// FileCopy copies file from given pathFrom to given pathTo
 func FileCopy(pathFrom, pathTo string) error {
 	pathFromOpen, err := os.Open(pathFrom)
 	if err != nil {
@@ -82,7 +82,7 @@ func FileCopy(pathFrom, pathTo string) error {
 	return pathToOpen.Close()
 }
 
-// FileMove : move file from input string pathFrom to input string pathTo
+// FileMove moves file from given pathFrom to given pathTo
 func FileMove(pathFrom string, pathTo string) error {
 	if err := FileCopy(pathFrom, pathTo); err != nil {
 		return err
@@ -110,15 +110,11 @@ func FileWildcardDelete(path string, wildcards ...string) int {
 	return deletions
 }
 
-// FileReadLines : open, read and return slice of file lines
-func FileReadLines(path string) []string {
-	var (
-		lines     = make([]string, 0)
-		file, err = os.Open(path)
-	)
-
+// FileReadLines returns slice of file lines for given path file
+func FileReadLines(path string) (lines []string) {
+	file, err := os.Open(path)
 	if err != nil {
-		return lines
+		return
 	}
 	defer file.Close()
 
@@ -127,10 +123,10 @@ func FileReadLines(path string) []string {
 		lines = append(lines, scanner.Text())
 	}
 
-	return lines
+	return
 }
 
-// FileWriteLines : open and write slice of lines into file
+// FileWriteLines writes given slice of lines into given path file
 func FileWriteLines(path string, lines []string) error {
 	if err := os.Remove(path); err != nil {
 		return err

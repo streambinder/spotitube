@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// InputConfirm : ask for user confirmation over a given message
+// InputConfirm asks for user confirmation over a given message
 func InputConfirm(message string) bool {
 	reader := bufio.NewReader(os.Stdin)
 	for {
@@ -24,7 +24,7 @@ func InputConfirm(message string) bool {
 	}
 }
 
-// InputString : ask for user input over a given message
+// InputString asks for user input over a given message
 func InputString(message string) string {
 	reader := bufio.NewReader(os.Stdin)
 	for {

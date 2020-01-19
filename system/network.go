@@ -7,14 +7,9 @@ import (
 	"time"
 )
 
-const (
-	// HTTPTimeout is the default timeout used for HTTP calls
-	HTTPTimeout = 3 // second(s)
-)
-
 var (
 	// Client is a generic HTTP Client usable widely
-	Client = http.Client{Timeout: time.Second * HTTPTimeout}
+	Client = http.Client{Timeout: time.Second * 3}
 )
 
 // IsOnline checks internet connection coherently returning a boolean value

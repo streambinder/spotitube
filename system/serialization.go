@@ -5,9 +5,9 @@ import (
 	"os"
 )
 
-// DumpGob : serialize and dump to disk given object to give filePath path
-func DumpGob(filePath string, object interface{}) error {
-	file, err := os.Create(filePath)
+// DumpGob serializes and dumps to disk given object to given path
+func DumpGob(path string, object interface{}) error {
+	file, err := os.Create(path)
 	if err == nil {
 		encoder := gob.NewEncoder(file)
 		encoder.Encode(object)
@@ -16,9 +16,9 @@ func DumpGob(filePath string, object interface{}) error {
 	return err
 }
 
-// FetchGob : load previously dumped object from filePath to given object
-func FetchGob(filePath string, object interface{}) error {
-	file, err := os.Open(filePath)
+// FetchGob loads dumped object from given file to given object
+func FetchGob(path string, object interface{}) error {
+	file, err := os.Open(path)
 	if err == nil {
 		decoder := gob.NewDecoder(file)
 		err = decoder.Decode(object)

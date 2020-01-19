@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// StringsFlag struct is a supported flag to wrap a list of strings
+// StringsFlag represents a flag to wrap an array of strings
 type StringsFlag struct {
 	Entries []string
 }

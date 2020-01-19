@@ -17,10 +17,12 @@ import (
 )
 
 const (
-	repositoryURI         = "https://github.com/streambinder/spotitube"
-	repositoryUpstreamAPI = "https://api.github.com/repos/streambinder/spotitube/releases/latest"
-	repositoryUpstreamURI = repositoryURI + "/releases/latest"
-	usrUpstreamCheckGob   = "/tmp/upstream.gob"
+	cacheGob      = "/tmp/upstream.gob"
+	cacheDuration = 24 * time.Hour
+
+	repositoryURI  = "https://github.com/streambinder/spotitube"
+	upstreamAPI    = "https://api.github.com/repos/streambinder/spotitube/releases/latest"
+	upstreamAPIURI = repositoryURI + "/releases/latest"
 )
 
 // Check contains last time an upstream version check has been done
@@ -36,11 +38,11 @@ type gitHubRelease struct {
 // Version returns latest Spotitube version by interacting with GitHub release APIs
 func Version() (int, error) {
 	last := new(Check)
-	if err := system.FetchGob(usrUpstreamCheckGob, last); err == nil && time.Since(last.Time).Hours() < 24 {
+	if err := system.FetchGob(cacheGob, last); err == nil && time.Since(last.Time) < cacheDuration {
 		return last.Version, nil
 	}
 
-	req, err := http.NewRequest(http.MethodGet, repositoryUpstreamAPI, nil)
+	req, err := http.NewRequest(http.MethodGet, upstreamAPI, nil)
 	if err != nil {
 		return 0, err
 	}
@@ -70,13 +72,13 @@ func Version() (int, error) {
 		return 0, err
 	}
 
-	system.DumpGob(usrUpstreamCheckGob, Check{Version: v, Time: time.Now()})
+	system.DumpGob(cacheGob, Check{Version: v, Time: time.Now()})
 	return v, nil
 }
 
 // Download downloads latest Spotitube version binary into given path
 func Download(path string) error {
-	req, err := http.NewRequest(http.MethodGet, repositoryUpstreamAPI, nil)
+	req, err := http.NewRequest(http.MethodGet, upstreamAPI, nil)
 	if err != nil {
 		return err
 	}

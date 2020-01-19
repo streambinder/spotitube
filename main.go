@@ -599,7 +599,10 @@ func mainSearch() {
 			continue
 		}
 
-		mainSearchLyrics(track)
+		if err := mainSearchLyrics(track); err != nil {
+			ui.Append(err.Error(), cui.WarningAppend)
+		}
+
 		if err := mainDownloadArtwork(track); err != nil {
 			ui.Append(err.Error(), cui.WarningAppend)
 		}
@@ -635,13 +638,13 @@ func mainSearch() {
 	ui.Prompt("Synchronization completed.", cui.PromptExit)
 }
 
-func mainSearchLyrics(t *track.Track) {
+func mainSearchLyrics(t *track.Track) error {
 	if argDisableLyrics {
-		return
+		return nil
 	}
 
 	for _, p := range lyrics.All() {
-		ui.Append(fmt.Sprintf("Searching lyrics using %s provider...", p.Name()))
+		ui.Append(fmt.Sprintf("Searching lyrics using %s provider...", p.Name()), cui.DebugAppend)
 
 		text, err := p.Query(t.Song, t.Artist)
 		if err != nil {
@@ -650,8 +653,10 @@ func mainSearchLyrics(t *track.Track) {
 		}
 
 		t.Lyrics = text
-		break
+		return nil
 	}
+
+	return fmt.Errorf("Lyrics not found")
 }
 
 func mainDownloadArtwork(t *track.Track) error {

@@ -11,7 +11,7 @@ import (
 	"github.com/zmb3/spotify"
 )
 
-// Track : struct containing all the informations about a track
+// Track represents a track
 type Track struct {
 	Title       string
 	Song        string
@@ -29,18 +29,20 @@ type Track struct {
 	Lyrics      string
 }
 
-// TracksDump : Tracks dumpable object
+// TracksDump represents dumpable tracks
 type TracksDump struct {
 	Tracks []*Track
 	Time   time.Time
 }
 
-// CountOffline : return offline (local) songs count from Tracks
+// CountOffline returns the number of offline (local) songs
+// from given tracks
 func CountOffline(tracks map[*Track]*SyncOptions) int {
 	return len(tracks) - CountOnline(tracks)
 }
 
-// CountOnline : return online songs count from Tracks
+// CountOnline returns the number of online songs
+// from given tracks
 func CountOnline(tracks map[*Track]*SyncOptions) int {
 	var counter int
 	for track := range tracks {
@@ -51,15 +53,15 @@ func CountOnline(tracks map[*Track]*SyncOptions) int {
 	return counter
 }
 
-// OpenLocalTrack : parse local filename track informations into a new Track object
-func OpenLocalTrack(filename string) (*Track, error) {
-	if !system.FileExists(filename) {
-		return new(Track), fmt.Errorf(fmt.Sprintf("%s does not exist", filename))
+// OpenLocalTrack parses a local given path into a new Track object
+func OpenLocalTrack(path string) (*Track, error) {
+	if !system.FileExists(path) {
+		return nil, fmt.Errorf(fmt.Sprintf("%s does not exist", path))
 	}
 
-	trackMp3, err := id3v2.Open(filename, id3v2.Options{Parse: true})
+	trackMp3, err := id3v2.Open(path, id3v2.Options{Parse: true})
 	if err != nil {
-		return new(Track), fmt.Errorf(fmt.Sprintf("Cannot read id3 tags from \"%s\": %s", filename, err.Error()))
+		return nil, err
 	}
 
 	track := Track{
@@ -93,7 +95,7 @@ func OpenLocalTrack(filename string) (*Track, error) {
 	return &track, nil
 }
 
-// ParseSpotifyTrack : parse Spotify track into a new Track object
+// ParseSpotifyTrack parses Spotify track into a new Track object
 func ParseSpotifyTrack(spotifyTrack *spotify.FullTrack, spotifyAlbum *spotify.FullAlbum) *Track {
 	track := Track{
 		Title:  spotifyTrack.SimpleTrack.Name,
@@ -144,8 +146,8 @@ func ParseSpotifyTrack(spotifyTrack *spotify.FullTrack, spotifyAlbum *spotify.Fu
 	track.Album = strings.Replace(track.Album, "}", ")", -1)
 
 	if track.Local() {
-		track.URL = track.GetID3Frame(ID3FrameOrigin)
-		track.Lyrics = track.GetID3Frame(ID3FrameLyrics)
+		track.URL = track.getID3Frame(ID3FrameOrigin)
+		track.Lyrics = track.getID3Frame(ID3FrameLyrics)
 	}
 
 	return &track

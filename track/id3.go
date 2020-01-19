@@ -5,39 +5,39 @@ import (
 )
 
 const (
-	// ID3FrameTitle : ID3 title frame tag identifier
+	// ID3FrameTitle is the ID3 title frame tag identifier
 	ID3FrameTitle = iota
-	// ID3FrameSong : ID3 song frame tag identifier
+	// ID3FrameSong is the ID3 song frame tag identifier
 	ID3FrameSong
-	// ID3FrameArtist : ID3 artist frame tag identifier
+	// ID3FrameArtist is the ID3 artist frame tag identifier
 	ID3FrameArtist
-	// ID3FrameAlbum : ID3 album frame tag identifier
+	// ID3FrameAlbum is the ID3 album frame tag identifier
 	ID3FrameAlbum
-	// ID3FrameGenre : ID3 genre frame tag identifier
+	// ID3FrameGenre is the ID3 genre frame tag identifier
 	ID3FrameGenre
-	// ID3FrameYear : ID3 year frame tag identifier
+	// ID3FrameYear is the ID3 year frame tag identifier
 	ID3FrameYear
-	// ID3FrameFeaturings : ID3 featurings frame tag identifier
+	// ID3FrameFeaturings is the ID3 featurings frame tag identifier
 	ID3FrameFeaturings
-	// ID3FrameTrackNumber : ID3 track number frame tag identifier
+	// ID3FrameTrackNumber is the ID3 track number frame tag identifier
 	ID3FrameTrackNumber
-	// ID3FrameTrackTotals : ID3 total tracks number frame tag identifier
+	// ID3FrameTrackTotals is the ID3 total tracks number frame tag identifier
 	ID3FrameTrackTotals
-	// ID3FrameArtwork : ID3 artwork frame tag identifier
+	// ID3FrameArtwork is the ID3 artwork frame tag identifier
 	ID3FrameArtwork
-	// ID3FrameArtworkURL : ID3 artwork URL frame tag identifier
+	// ID3FrameArtworkURL is the ID3 artwork URL frame tag identifier
 	ID3FrameArtworkURL
-	// ID3FrameLyrics : ID3 lyrics frame tag identifier
+	// ID3FrameLyrics is the ID3 lyrics frame tag identifier
 	ID3FrameLyrics
-	// ID3FrameOrigin : ID3 origin frame tag identifier
+	// ID3FrameOrigin is the ID3 origin frame tag identifier
 	ID3FrameOrigin
-	// ID3FrameDuration : ID3 duration frame tag identifier
+	// ID3FrameDuration is the ID3 duration frame tag identifier
 	ID3FrameDuration
-	// ID3FrameSpotifyID : ID3 Spotify ID frame tag identifier
+	// ID3FrameSpotifyID is the ID3 Spotify ID frame tag identifier
 	ID3FrameSpotifyID
 )
 
-// GetTag : open, parse and return filename ID3 tag
+// GetTag opens, parses and returns given path's given frame tag
 func GetTag(path string, frame int) string {
 	tag, err := id3v2.Open(path, id3v2.Options{Parse: true})
 	if err != nil {
@@ -48,13 +48,13 @@ func GetTag(path string, frame int) string {
 	return TagGetFrame(tag, frame)
 }
 
-// TagGetFrame : get input frame from open input Tag
+// TagGetFrame gets given frame from given open Tag
 func TagGetFrame(tag *id3v2.Tag, frame int) string {
 	switch frame {
 	case ID3FrameTitle:
 		return tag.Title()
 	case ID3FrameSong:
-		return TagGetFrameSong(tag)
+		return tagGetFrameSong(tag)
 	case ID3FrameArtist:
 		return tag.Artist()
 	case ID3FrameAlbum:
@@ -64,29 +64,28 @@ func TagGetFrame(tag *id3v2.Tag, frame int) string {
 	case ID3FrameYear:
 		return tag.Year()
 	case ID3FrameFeaturings:
-		return TagGetFrameFeaturings(tag)
+		return tagGetFrameFeaturings(tag)
 	case ID3FrameTrackNumber:
-		return TagGetFrameTrackNumber(tag)
+		return tagGetFrameTrackNumber(tag)
 	case ID3FrameTrackTotals:
-		return TagGetFrameTrackTotals(tag)
+		return tagGetFrameTrackTotals(tag)
 	case ID3FrameArtwork:
-		return TagGetFrameArtwork(tag)
+		return tagGetFrameArtwork(tag)
 	case ID3FrameArtworkURL:
-		return TagGetFrameArtworkURL(tag)
+		return tagGetFrameArtworkURL(tag)
 	case ID3FrameLyrics:
-		return TagGetFrameLyrics(tag)
+		return tagGetFrameLyrics(tag)
 	case ID3FrameOrigin:
-		return TagGetFrameOrigin(tag)
+		return tagGetFrameOrigin(tag)
 	case ID3FrameDuration:
-		return TagGetFrameDuration(tag)
+		return tagGetFrameDuration(tag)
 	case ID3FrameSpotifyID:
-		return TagGetFrameSpotifyID(tag)
+		return tagGetFrameSpotifyID(tag)
 	}
 	return ""
 }
 
-// TagGetFrameSong : get track song title frame from input Tag
-func TagGetFrameSong(tag *id3v2.Tag) string {
+func tagGetFrameSong(tag *id3v2.Tag) string {
 	if len(tag.GetFrames(tag.CommonID("Comments"))) > 0 {
 		for _, frameComment := range tag.GetFrames(tag.CommonID("Comments")) {
 			comment, ok := frameComment.(id3v2.CommentFrame)
@@ -98,8 +97,7 @@ func TagGetFrameSong(tag *id3v2.Tag) string {
 	return ""
 }
 
-// TagGetFrameFeaturings : get track featurings frame from input Tag
-func TagGetFrameFeaturings(tag *id3v2.Tag) string {
+func tagGetFrameFeaturings(tag *id3v2.Tag) string {
 	if len(tag.GetFrames(tag.CommonID("Comments"))) > 0 {
 		for _, frameComment := range tag.GetFrames(tag.CommonID("Comments")) {
 			comment, ok := frameComment.(id3v2.CommentFrame)
@@ -111,8 +109,7 @@ func TagGetFrameFeaturings(tag *id3v2.Tag) string {
 	return ""
 }
 
-// TagGetFrameTrackNumber : get track number frame from input Tag
-func TagGetFrameTrackNumber(tag *id3v2.Tag) string {
+func tagGetFrameTrackNumber(tag *id3v2.Tag) string {
 	if len(tag.GetFrames(tag.CommonID("Track number/Position in set"))) > 0 {
 		for _, frameText := range tag.GetFrames(tag.CommonID("Track number/Position in set")) {
 			text, ok := frameText.(id3v2.TextFrame)
@@ -124,8 +121,7 @@ func TagGetFrameTrackNumber(tag *id3v2.Tag) string {
 	return ""
 }
 
-// TagGetFrameTrackTotals : get total tracks number frame from input Tag
-func TagGetFrameTrackTotals(tag *id3v2.Tag) string {
+func tagGetFrameTrackTotals(tag *id3v2.Tag) string {
 	if len(tag.GetFrames(tag.CommonID("Comments"))) > 0 {
 		for _, frameComment := range tag.GetFrames(tag.CommonID("Comments")) {
 			comment, ok := frameComment.(id3v2.CommentFrame)
@@ -137,8 +133,7 @@ func TagGetFrameTrackTotals(tag *id3v2.Tag) string {
 	return ""
 }
 
-// TagGetFrameArtwork : get artwork frame from input Tag
-func TagGetFrameArtwork(tag *id3v2.Tag) string {
+func tagGetFrameArtwork(tag *id3v2.Tag) string {
 	if len(tag.GetFrames(tag.CommonID("Attached picture"))) > 0 {
 		for _, framePicture := range tag.GetFrames(tag.CommonID("Attached picture")) {
 			picture, ok := framePicture.(id3v2.PictureFrame)
@@ -150,8 +145,7 @@ func TagGetFrameArtwork(tag *id3v2.Tag) string {
 	return ""
 }
 
-// TagGetFrameArtworkURL : get artwork URL frame from input Tag
-func TagGetFrameArtworkURL(tag *id3v2.Tag) string {
+func tagGetFrameArtworkURL(tag *id3v2.Tag) string {
 	if len(tag.GetFrames(tag.CommonID("Comments"))) > 0 {
 		for _, frameComment := range tag.GetFrames(tag.CommonID("Comments")) {
 			comment, ok := frameComment.(id3v2.CommentFrame)
@@ -163,8 +157,7 @@ func TagGetFrameArtworkURL(tag *id3v2.Tag) string {
 	return ""
 }
 
-// TagGetFrameLyrics : get lyrics frame from input Tag
-func TagGetFrameLyrics(tag *id3v2.Tag) string {
+func tagGetFrameLyrics(tag *id3v2.Tag) string {
 	if len(tag.GetFrames(tag.CommonID("Unsynchronised lyrics/text transcription"))) > 0 {
 		for _, frameLyrics := range tag.GetFrames(tag.CommonID("Unsynchronised lyrics/text transcription")) {
 			lyrics, ok := frameLyrics.(id3v2.UnsynchronisedLyricsFrame)
@@ -176,8 +169,7 @@ func TagGetFrameLyrics(tag *id3v2.Tag) string {
 	return ""
 }
 
-// TagGetFrameOrigin : get origin frame from input Tag
-func TagGetFrameOrigin(tag *id3v2.Tag) string {
+func tagGetFrameOrigin(tag *id3v2.Tag) string {
 	if len(tag.GetFrames(tag.CommonID("Comments"))) > 0 {
 		for _, frameComment := range tag.GetFrames(tag.CommonID("Comments")) {
 			comment, ok := frameComment.(id3v2.CommentFrame)
@@ -189,8 +181,7 @@ func TagGetFrameOrigin(tag *id3v2.Tag) string {
 	return ""
 }
 
-// TagGetFrameDuration : get duration frame from input Tag
-func TagGetFrameDuration(tag *id3v2.Tag) string {
+func tagGetFrameDuration(tag *id3v2.Tag) string {
 	if len(tag.GetFrames(tag.CommonID("Comments"))) > 0 {
 		for _, frameComment := range tag.GetFrames(tag.CommonID("Comments")) {
 			comment, ok := frameComment.(id3v2.CommentFrame)
@@ -202,8 +193,7 @@ func TagGetFrameDuration(tag *id3v2.Tag) string {
 	return ""
 }
 
-// TagGetFrameSpotifyID : get Spotify ID frame from input Tag
-func TagGetFrameSpotifyID(tag *id3v2.Tag) string {
+func tagGetFrameSpotifyID(tag *id3v2.Tag) string {
 	if len(tag.GetFrames(tag.CommonID("Comments"))) > 0 {
 		for _, frameComment := range tag.GetFrames(tag.CommonID("Comments")) {
 			comment, ok := frameComment.(id3v2.CommentFrame)
@@ -215,22 +205,11 @@ func TagGetFrameSpotifyID(tag *id3v2.Tag) string {
 	return ""
 }
 
-// TagHasFrame : return True if open input Tag has valued input frame
-func TagHasFrame(tag *id3v2.Tag, frame int) bool {
-	return TagGetFrame(tag, frame) != ""
-}
-
-// GetID3Frame : get Track ID3 input frame string value
-func (track Track) GetID3Frame(frame int) string {
+func (track Track) getID3Frame(frame int) string {
 	tag, err := id3v2.Open(track.Filename(), id3v2.Options{Parse: true})
 	if tag == nil || err != nil {
 		return ""
 	}
 	defer tag.Close()
 	return TagGetFrame(tag, frame)
-}
-
-// HasID3Frame : return True if Track has input ID3 frame
-func (track *Track) HasID3Frame(frame int) bool {
-	return track.GetID3Frame(frame) != ""
 }

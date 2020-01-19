@@ -9,64 +9,72 @@ import (
 )
 
 const (
-	// SongTypeAlbum : identifier for Song in its album variant
-	SongTypeAlbum = iota
-	// SongTypeLive : identifier for Song in its live variant
-	SongTypeLive
-	// SongTypeCover : identifier for Song in its cover variant
-	SongTypeCover
-	// SongTypeRemix : identifier for Song in its remix variant
-	SongTypeRemix
-	// SongTypeAcoustic : identifier for Song in its acoustic variant
-	SongTypeAcoustic
-	// SongTypeKaraoke : identifier for Song in its karaoke variant
-	SongTypeKaraoke
-	// SongTypeParody : identifier for Song in its parody variant
-	SongTypeParody
-	// SongTypeReverse : identifier for Song in its reverse variant
-	SongTypeReverse
+	typeAlbum = iota
+	typeLive
+	typeCover
+	typeRemix
+	typeAcoustic
+	typeKaraoke
+	typeParody
+	typeReverse
 )
 
 var (
-	// SongTypes : array containing every song variant identifier
-	SongTypes = []int{SongTypeLive, SongTypeCover, SongTypeRemix,
-		SongTypeAcoustic, SongTypeKaraoke, SongTypeParody}
+	types = []int{
+		typeLive,
+		typeCover,
+		typeRemix,
+		typeAcoustic,
+		typeKaraoke,
+		typeParody,
+	}
 )
 
 // Type : return track variant
 func (track Track) Type() int {
-	for _, songType := range SongTypes {
+	for _, songType := range types {
 		if IsType(track.Title, songType) {
 			return songType
 		}
 	}
-	return SongTypeAlbum
+	return typeAlbum
 }
 
 // IsType : return True if input sequence matches with selected input songType variant
-func IsType(sequence string, songType int) bool {
+func IsType(sequence string, songType int) (match bool) {
 	var regexes []string
-	if songType == SongTypeLive {
+	switch songType {
+	case typeLive:
 		regexes = []string{slug.Make("@"), slug.Make("live"), slug.Make("perform"), slug.Make("tour"), "[1-2]{1}[0-9]{3}"}
-	} else if songType == SongTypeCover {
+		break
+	case typeCover:
 		regexes = []string{slug.Make("cover"), slug.Make("vs"), slug.Make("amateur")}
-	} else if songType == SongTypeRemix {
+		break
+	case typeRemix:
 		regexes = []string{slug.Make("remix"), slug.Make("radio-edit")}
-	} else if songType == SongTypeAcoustic {
+		break
+	case typeAcoustic:
 		regexes = []string{slug.Make("acoustic")}
-	} else if songType == SongTypeKaraoke {
+		break
+	case typeKaraoke:
 		regexes = []string{slug.Make("karaoke"), slug.Make("instrumental")}
-	} else if songType == SongTypeParody {
+		break
+	case typeParody:
 		regexes = []string{slug.Make("parody")}
-	} else if songType == SongTypeReverse {
+		break
+	case typeReverse:
 		regexes = []string{slug.Make("reverse")}
+		break
 	}
 
-	match, _ := regexp.MatchString(fmt.Sprintf(`(\A|-)(%s)(-|\z)`, strings.Join(regexes, "|")), slug.Make(sequence))
-	return match
+	match, _ = regexp.MatchString(
+		fmt.Sprintf(`(\A|-)(%s)(-|\z)`, strings.Join(regexes, "|")),
+		slug.Make(sequence))
+	return
 }
 
-// Seems : return nil error if sequence is input sequence string matches with Track
+// Seems returns an error if given sequence does not match
+// with track
 func (track Track) Seems(sequence string) error {
 	if err := track.SeemsByWordMatch(sequence); err != nil {
 		return err
@@ -74,7 +82,7 @@ func (track Track) Seems(sequence string) error {
 	if strings.Contains(strings.ToLower(sequence), "full album") {
 		return fmt.Errorf("Item seems to be pointing to an album, not to a song")
 	}
-	for _, songType := range SongTypes {
+	for _, songType := range types {
 		if IsType(sequence, songType) && track.Type() != songType {
 			return fmt.Errorf("Songs seem to be of different types")
 		}
@@ -82,7 +90,8 @@ func (track Track) Seems(sequence string) error {
 	return nil
 }
 
-// SeemsByWordMatch : return nil error if Track song name, artist and featurings are contained in sequence
+// SeemsByWordMatch returns and error if given sequence
+// contains track song name, artist and featurings
 func (track Track) SeemsByWordMatch(sequence string) error {
 	sequence = slug.Make(strings.ToLower(sequence))
 	for _, trackItem := range append([]string{track.Song, track.Artist}, track.Featurings...) {

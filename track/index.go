@@ -8,7 +8,9 @@ import (
 	"github.com/streambinder/spotitube/system"
 )
 
-// TracksIndex : Tracks index keeping ID - filename mapping and eventual filename links
+// TracksIndex represens a mapping between ID and path
+// It's used to keep track of synchronized filenames and follow
+// possible Spotify tracks renamings.
 type TracksIndex struct {
 	Tracks map[string]string
 }
@@ -64,7 +66,7 @@ func (index *TracksIndex) Match(id string, filename string) (string, bool, error
 	return "", false, fmt.Errorf(fmt.Sprintf("Element with key %s does not exist", id))
 }
 
-// Rename replace input id element with input filename
+// Rename replaces input id element with input filename
 func (index *TracksIndex) Rename(id string, filename string) {
 	if path, ok := index.Tracks[id]; ok {
 		index.Tracks[id] = path

@@ -61,6 +61,7 @@ var (
 	argDebug      bool
 	argSimulate   bool
 	argDisableGui bool
+	// TODO: add config file for aliasing IDs
 
 	// spotify
 	c            *spotify.Client
@@ -286,6 +287,7 @@ func mainAuthenticate() {
 }
 
 func mainFetch() {
+	// TODO: check cache restore
 	mainFetchLibrary()
 	mainFetchAlbums()
 	mainFetchPlaylists()
@@ -302,7 +304,6 @@ func mainFetch() {
 		}
 	}
 
-	// ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs duplicates:", cui.StyleBold), len(tracksDuplicates)), cui.PanelLeftTop)
 	ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs online:", cui.StyleBold), len(tracks)), cui.PanelLeftTop)
 	ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs offline:", cui.StyleBold), track.CountOffline(tracks)), cui.PanelLeftTop)
 	ui.Append(fmt.Sprintf("%s %d", cui.Font("Songs missing:", cui.StyleBold), track.CountOnline(tracks)), cui.PanelLeftTop)
@@ -492,6 +493,8 @@ func mainFetchTracksToFix() {
 		return
 	}
 
+	// TODO: input tracks to fix are not relative
+	// to the input folder
 	ui.Append(fmt.Sprintf("%s %d", cui.Font("Fix song(s):", cui.StyleBold), len(argTracksFix.Entries)), cui.PanelLeftTop)
 	for _, tFix := range argTracksFix.Entries {
 		if t, err := track.OpenLocalTrack(tFix); err != nil {
@@ -512,6 +515,7 @@ func mainSearch() {
 	for track, trackOpts := range tracks {
 		ctr++
 		ui.ProgressIncrease()
+		// TODO: check why it's not rendered as bold
 		ui.Append(fmt.Sprintf("%d/%d: \"%s\"", ctr, len(tracks), track.Basename()), cui.StyleBold)
 
 		// rename local file if Spotify has renamed it

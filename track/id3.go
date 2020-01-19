@@ -41,7 +41,12 @@ const (
 )
 
 // Flush persists tracks frames into given open Tag
-func (track Track) Flush(tag *id3v2.Tag) error {
+func (track Track) Flush() error {
+	tag, err := id3v2.Open(track.FilenameTemporary(), id3v2.Options{Parse: true})
+	if err != nil {
+		return err
+	}
+	defer tag.Close()
 	defer tag.Save()
 
 	// official metadata fields

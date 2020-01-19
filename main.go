@@ -324,7 +324,7 @@ func mainFetchLibrary() {
 		os.Remove(gob)
 	}
 
-	dump, dumpErr := subFetchGob(gob)
+	dump, dumpErr := fetchDump(gob)
 	if dumpErr == nil && time.Since(dump.Time) < cacheDuration {
 		ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font("Library cache expiration:", cui.StyleBold), int(time.Since(dump.Time)), cacheDuration), cui.PanelLeftTop)
 		for _, t := range dump.Tracks {
@@ -375,7 +375,7 @@ func mainFetchAlbums() {
 			os.Remove(gob)
 		}
 
-		dump, dumpErr := subFetchGob(gob)
+		dump, dumpErr := fetchDump(gob)
 		if dumpErr == nil && time.Since(dump.Time) < cacheDuration {
 			ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font(fmt.Sprintf("Album %s cache expiration:", spotify.IDFromURI(uri)), cui.StyleBold), int(time.Since(dump.Time)), cacheDuration), cui.PanelLeftTop)
 			for _, t := range dump.Tracks {
@@ -417,7 +417,7 @@ func mainFetchPlaylists() {
 			os.Remove(gob)
 		}
 
-		dump, dumpErr := subFetchGob(gob)
+		dump, dumpErr := fetchDump(gob)
 		if dumpErr == nil && time.Since(dump.Time) < cacheDuration {
 			ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font(fmt.Sprintf("Playlist %s cache expiration:", playlist.Name), cui.StyleBold), int(time.Since(dump.Time)), cacheDuration), cui.PanelLeftTop)
 			for _, t := range dump.Tracks {
@@ -479,7 +479,7 @@ func mainFetchTracksToFix() {
 
 func mainSearch() {
 	ctr := 0
-	songsFetch, songsFlush, songsIgnore := subCountSongs()
+	songsFetch, songsFlush, songsIgnore := countSongs()
 
 	ui.ProgressMax = len(tracks)
 	ui.Append(fmt.Sprintf("%d will be downloaded, %d flushed and %d ignored", songsFetch, songsFlush, songsIgnore))
@@ -597,17 +597,17 @@ func mainSearch() {
 			continue
 		}
 
-		if err := mainSearchLyrics(track); err != nil {
+		if err := songFetchLyrics(track); err != nil {
 			ui.Append(err.Error(), cui.WarningAppend)
 		}
 
-		if err := mainDownloadArtwork(track); err != nil {
+		if err := songFetchArtwork(track); err != nil {
 			ui.Append(err.Error(), cui.WarningAppend)
 		}
 
 		ui.Append(fmt.Sprintf("Launching track processing jobs..."))
 		waitGroup.Add(1)
-		go mainSongProcess(track, trackOpts, &waitGroup)
+		go songProcess(track, trackOpts, &waitGroup)
 		if argDebug {
 			waitGroup.Wait()
 		}
@@ -615,7 +615,7 @@ func mainSearch() {
 
 	waitGroup.Wait()
 
-	subCondPlaylistFileWrite()
+	flushPlaylists()
 
 	index.Sync(usrIndex)
 
@@ -635,7 +635,17 @@ func mainSearch() {
 	ui.Prompt("Synchronization completed.", cui.PromptExit)
 }
 
-func mainSearchLyrics(t *track.Track) error {
+func mainExit(delay ...time.Duration) {
+	system.FileWildcardDelete(argFolder, track.JunkWildcards()...)
+
+	if len(delay) > 0 {
+		time.Sleep(delay[0])
+	}
+
+	os.Exit(0)
+}
+
+func songFetchLyrics(t *track.Track) error {
 	if argDisableLyrics {
 		return nil
 	}
@@ -656,7 +666,7 @@ func mainSearchLyrics(t *track.Track) error {
 	return fmt.Errorf("Lyrics not found")
 }
 
-func mainDownloadArtwork(t *track.Track) error {
+func songFetchArtwork(t *track.Track) error {
 	if len(t.ArtworkURL) == 0 {
 		return nil
 	}
@@ -682,17 +692,7 @@ func mainDownloadArtwork(t *track.Track) error {
 	return nil
 }
 
-func mainExit(delay ...time.Duration) {
-	system.FileWildcardDelete(argFolder, track.JunkWildcards()...)
-
-	if len(delay) > 0 {
-		time.Sleep(delay[0])
-	}
-
-	os.Exit(0)
-}
-
-func mainSongProcess(track *track.Track, opts *track.SyncOptions, wg *sync.WaitGroup) {
+func songProcess(track *track.Track, opts *track.SyncOptions, wg *sync.WaitGroup) {
 	defer wg.Done()
 	<-waitGroupPool
 	defer func() {
@@ -755,20 +755,19 @@ func songMetadataFlush(track *track.Track, opts *track.SyncOptions) error {
 	return track.Flush(tag)
 }
 
-func subFetchGob(path string) (track.TracksDump, error) {
-	var tracksDump = new(track.TracksDump)
-	if fetchErr := system.FetchGob(path, tracksDump); fetchErr != nil {
-		return track.TracksDump{}, fmt.Errorf(fmt.Sprintf("Unable to load tracks cache: %s", fetchErr.Error()))
+func fetchDump(path string) (dump track.TracksDump, err error) {
+	if err := system.FetchGob(path, dump); err != nil {
+		return dump, err
 	}
 
-	if time.Since(tracksDump.Time) > cacheDuration {
-		return track.TracksDump{}, fmt.Errorf("Tracks cache declared obsolete: flushing it from Spotify")
+	if time.Since(dump.Time) > cacheDuration {
+		return dump, fmt.Errorf("Tracks cache is obsolete")
 	}
 
-	return *tracksDump, nil
+	return dump, nil
 }
 
-func subCountSongs() (int, int, int) {
+func countSongs() (int, int, int) {
 	var (
 		fetch  int
 		flush  int
@@ -790,7 +789,7 @@ func subCountSongs() (int, int, int) {
 	return fetch, flush, ignore
 }
 
-func subCondPlaylistFileWrite() {
+func flushPlaylists() {
 	if argSimulate || argDisablePlaylistFile || len(argPlaylists.Entries) == 0 {
 		return
 	}

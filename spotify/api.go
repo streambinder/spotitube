@@ -15,8 +15,6 @@ type Track = spotify.FullTrack
 type ID = spotify.ID
 
 const (
-	// SpotifyClientID : Spotify app client ID
-	SpotifyClientID = ""
-	// SpotifyClientSecret : Spotify app client secret key
-	SpotifyClientSecret = ""
+	clientID     = ""
+	clientSecret = ""
 )

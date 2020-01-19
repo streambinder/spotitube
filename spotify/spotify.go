@@ -3,7 +3,7 @@ package spotify
 import (
 	"fmt"
 	"strings"
-	
+
 	"github.com/streambinder/spotitube/track"
 	"github.com/thanhpk/randstr"
 	"github.com/zmb3/spotify"
@@ -14,7 +14,7 @@ var (
 	clientAuthenticator spotify.Authenticator
 )
 
-// User : get authenticated username from authenticated client
+// User returns session authenticated user
 func (c *Client) User() (string, string) {
 	if user, err := c.CurrentUser(); err == nil {
 		return user.DisplayName, user.ID
@@ -23,7 +23,7 @@ func (c *Client) User() (string, string) {
 	return "unknown", "unknown"
 }
 
-// LibraryTracks : return array of Spotify FullTrack of all authenticated user library songs
+// LibraryTracks returns library tracks
 func (c *Client) LibraryTracks() ([]*track.Track, error) {
 	var (
 		tracks     []*track.Track
@@ -56,7 +56,7 @@ func (c *Client) LibraryTracks() ([]*track.Track, error) {
 	return tracks, nil
 }
 
-// RemoveLibraryTracks : remove an array of tracks by their IDs from library
+// RemoveLibraryTracks removes an array of tracks by their IDs from library
 func (c *Client) RemoveLibraryTracks(ids []ID) error {
 	if len(ids) == 0 {
 		return nil
@@ -84,12 +84,12 @@ func (c *Client) RemoveLibraryTracks(ids []ID) error {
 	return nil
 }
 
-// Playlist : return Spotify FullPlaylist from input string playlistURI
+// Playlist returns a Playlist object from given URI
 func (c *Client) Playlist(uri string) (*Playlist, error) {
 	return c.GetPlaylist(IDFromURI(uri))
 }
 
-// PlaylistTracks : return array of Spotify FullTrack of all input string playlistURI identified playlist
+// PlaylistTracks returns playlist tracks from given URI
 func (c *Client) PlaylistTracks(uri string) ([]*track.Track, error) {
 	var (
 		tracks     []*track.Track
@@ -126,7 +126,7 @@ func (c *Client) PlaylistTracks(uri string) ([]*track.Track, error) {
 	return tracks, nil
 }
 
-// RemovePlaylistTracks : remove an array of tracks by their IDs from playlist
+// RemovePlaylistTracks removes an array of tracks by their IDs from playlist
 func (c *Client) RemovePlaylistTracks(uri string, ids []ID) error {
 	if len(ids) == 0 {
 		return nil
@@ -156,12 +156,12 @@ func (c *Client) RemovePlaylistTracks(uri string, ids []ID) error {
 	return nil
 }
 
-// Album returns a Spotify FullAlbum, specular to the array of Spotify ID
+// Album returns a Album object from given URI
 func (c *Client) Album(id ID) (*Album, error) {
 	return c.GetAlbum(id)
 }
 
-// AlbumTracks returns the array of tracks contained in it
+// AlbumTracks returns album tracks from given URI
 func (c *Client) AlbumTracks(uri string) ([]*track.Track, error) {
 	var (
 		tracks     []*track.Track
@@ -199,7 +199,7 @@ func (c *Client) AlbumTracks(uri string) ([]*track.Track, error) {
 	return tracks, nil
 }
 
-// IDFromURI return a Spotify ID from URI string
+// IDFromURI returns a Spotify ID from URI string
 func IDFromURI(uri string) ID {
 	if strings.Count(uri, ":") == 0 {
 		return ID(uri)

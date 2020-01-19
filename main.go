@@ -112,13 +112,8 @@ func mainFork() {
 }
 
 func mainEnvCheck() {
-	if len(spotify.SpotifyClientID) != 32 && len(os.Getenv("SPOTIFY_ID")) != 32 {
-		fmt.Println("SPOTIFY_ID environment key is unset.")
-		os.Exit(1)
-	}
-
-	if len(spotify.SpotifyClientSecret) != 32 && len(os.Getenv("SPOTIFY_KEY")) != 32 {
-		fmt.Println("SPOTIFY_KEY environment key is unset.")
+	if err := spotify.Ready(); err != nil {
+		fmt.Println(err)
 		os.Exit(1)
 	}
 

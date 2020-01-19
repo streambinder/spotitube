@@ -104,6 +104,7 @@ func mainSetup() {
 }
 
 func mainFork() {
+	// TODO: fork only if upstream version -gt than actual
 	if system.Proc() != usrBinary &&
 		system.FileExists(usrBinary) &&
 		os.Getenv("SPOTITUBE_FORKED") != "1" {

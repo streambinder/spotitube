@@ -122,11 +122,15 @@ func Startup(options Options) (*CUI, error) {
 
 // Shutdown : shut down the interface
 func (c *CUI) Shutdown(gui *gocui.Gui, view *gocui.View) error {
-	c.Logger.Destroy()
+	if c.hasOption(LogEnable) {
+		c.Logger.Destroy()
+	}
+
 	c.CloseChan <- true
 	if c.Gui == nil {
 		return nil
 	}
+
 	c.Gui.DeleteKeybinding("", gocui.KeyCtrlC, gocui.ModNone)
 	return gocui.ErrQuit
 }

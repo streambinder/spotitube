@@ -33,8 +33,8 @@ func (p GeniusProvider) Name() string {
 // Query returns a lyrics text for give title and artist
 func (p GeniusProvider) Query(title, artist string) (string, error) {
 	var token = geniusToken
-	if envToken := os.Getenv("GENIUS_TOKEN"); len(envToken) != 64 {
-		token = os.Getenv(envToken)
+	if len(token) != 64 {
+		token = os.Getenv("GENIUS_TOKEN")
 	}
 	if len(token) != 64 {
 		return "", fmt.Errorf("Cannot fetch lyrics from Genius without a valid token")

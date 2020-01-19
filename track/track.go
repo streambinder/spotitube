@@ -13,20 +13,21 @@ import (
 
 // Track represents a track
 type Track struct {
-	Title       string
-	Song        string
-	Artist      string
 	Album       string
-	Year        string
+	Artist      string
+	Artwork     *[]byte
+	ArtworkURL  string
+	Duration    int
 	Featurings  []string
 	Genre       string
+	Lyrics      string
+	Song        string
+	SpotifyID   string
+	Title       string
 	TrackNumber int
 	TrackTotals int
-	Duration    int
-	Image       string
 	URL         string
-	SpotifyID   string
-	Lyrics      string
+	Year        string
 }
 
 // TracksDump represents dumpable tracks
@@ -75,7 +76,7 @@ func OpenLocalTrack(path string) (*Track, error) {
 		TrackNumber: 0,
 		TrackTotals: 0,
 		Duration:    0,
-		Image:       TagGetFrame(trackMp3, ID3FrameArtworkURL),
+		ArtworkURL:  TagGetFrame(trackMp3, ID3FrameArtworkURL),
 		URL:         TagGetFrame(trackMp3, ID3FrameOrigin),
 		SpotifyID:   TagGetFrame(trackMp3, ID3FrameSpotifyID),
 		Lyrics:      TagGetFrame(trackMp3, ID3FrameLyrics),
@@ -127,7 +128,7 @@ func ParseSpotifyTrack(spotifyTrack *spotify.FullTrack, spotifyAlbum *spotify.Fu
 		TrackNumber: spotifyTrack.SimpleTrack.TrackNumber,
 		TrackTotals: len(spotifyAlbum.Tracks.Tracks),
 		Duration:    spotifyTrack.SimpleTrack.Duration / 1000,
-		Image: func() string {
+		ArtworkURL: func() string {
 			if len(spotifyTrack.Album.Images) > 0 {
 				return spotifyTrack.Album.Images[0].URL
 			}

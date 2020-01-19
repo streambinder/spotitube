@@ -44,11 +44,6 @@ func (track Track) FilenameTemporary() string {
 	return fmt.Sprintf(".%s.%s", slug.Make(track.Basename()), extension)
 }
 
-// FilenameArtwork returns track artwork filename
-func (track Track) FilenameArtwork() string {
-	return fmt.Sprintf(".%s.jpg", strings.Split(track.Image, "/")[len(strings.Split(track.Image, "/"))-1])
-}
-
 // JunkWildcards returns strings array containing junk filenames wilcards
 func JunkWildcards() (wildcards []string) {
 	wildcards = append(wildcards, ".*.mp3")

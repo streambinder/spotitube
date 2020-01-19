@@ -1,12 +1,10 @@
 package track
 
 import (
-	"io/ioutil"
 	"strconv"
 	"strings"
 
 	"github.com/bogem/id3v2"
-	"github.com/streambinder/spotitube/system"
 )
 
 const (
@@ -65,13 +63,20 @@ func (track Track) Flush(tag *id3v2.Tag) error {
 		ContentDescriptor: track.Title,
 		Lyrics:            track.Lyrics,
 	})
+	tag.AddAttachedPicture(id3v2.PictureFrame{
+		Encoding:    id3v2.EncodingUTF8,
+		MimeType:    "image/jpeg",
+		PictureType: id3v2.PTFrontCover,
+		Description: "Front cover",
+		Picture:     *track.Artwork,
+	})
 
 	// unofficial metadata fields
 	for key, value := range map[string]string{
 		"song":        track.Song,
 		"featurings":  strings.Join(track.Featurings, "|"),
 		"trackTotals": strconv.Itoa(track.TrackTotals),
-		"artwork":     track.Image,
+		"artwork":     track.ArtworkURL,
 		"origin":      track.URL,
 		"duration":    strconv.Itoa(track.Duration),
 		"spotifyid":   track.SpotifyID,
@@ -83,25 +88,6 @@ func (track Track) Flush(tag *id3v2.Tag) error {
 			Text:        value,
 		})
 	}
-
-	// artwork
-	// TODO: carry artwork as byte[] in track object
-	if !system.FileExists(track.FilenameArtwork()) {
-		return nil
-	}
-
-	artwork, err := ioutil.ReadFile(track.FilenameArtwork())
-	if err != nil {
-		return err
-	}
-
-	tag.AddAttachedPicture(id3v2.PictureFrame{
-		Encoding:    id3v2.EncodingUTF8,
-		MimeType:    "image/jpeg",
-		PictureType: id3v2.PTFrontCover,
-		Description: "Front cover",
-		Picture:     artwork,
-	})
 
 	return nil
 }

@@ -3,15 +3,25 @@ package spotify
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/streambinder/spotitube/track"
 	"github.com/thanhpk/randstr"
 	"github.com/zmb3/spotify"
 )
 
+const (
+	// RateLimitDelay is the amount of time before
+	// retrying with an API request that have
+	// been blocked due to API rate limit
+	RateLimitDelay = 5 * time.Second
+)
+
 var (
 	clientState         = randstr.Hex(20)
 	clientAuthenticator spotify.Authenticator
+
+	rateLimitFactor = 1
 )
 
 // User returns session authenticated user
@@ -33,8 +43,12 @@ func (c *Client) LibraryTracks() ([]*track.Track, error) {
 	for true {
 		*options.Offset = *options.Limit * iterations
 		chunk, err := c.CurrentUsersTracksOpt(&options)
-		if err != nil {
-			return []*track.Track{}, fmt.Errorf(fmt.Sprintf("Error in %dth chunk of tracks: %s.", iterations, err.Error()))
+		if err != nil && err.Error() == "API rate limit exceeded." {
+			time.Sleep(time.Duration(rateLimitFactor) * RateLimitDelay)
+			rateLimitFactor++
+			continue
+		} else if err != nil {
+			return nil, err
 		}
 
 		for _, t := range chunk.Tracks {
@@ -72,7 +86,7 @@ func (c *Client) RemoveLibraryTracks(ids []ID) error {
 
 		chunk := ids[lowerbound:upperbound]
 		if err := c.RemoveTracksFromLibrary(chunk...); err != nil {
-			return fmt.Errorf(fmt.Sprintf("Error removing %dth chunk of removing tracks: %s.", iterations, err.Error()))
+			return err
 		}
 
 		if len(chunk) < 50 {
@@ -100,8 +114,13 @@ func (c *Client) PlaylistTracks(uri string) ([]*track.Track, error) {
 	for true {
 		*options.Offset = *options.Limit * iterations
 		chunk, err := c.GetPlaylistTracksOpt(IDFromURI(uri), &options, "")
-		if err != nil {
-			return []*track.Track{}, fmt.Errorf(fmt.Sprintf("Error reading %dth chunk of tracks: %s.", iterations, err.Error()))
+		if err != nil && err.Error() == "API rate limit exceeded." {
+			fmt.Println("entered")
+			time.Sleep(time.Duration(rateLimitFactor) * RateLimitDelay)
+			rateLimitFactor++
+			continue
+		} else if err != nil {
+			return nil, err
 		}
 
 		for _, t := range chunk.Tracks {
@@ -144,7 +163,7 @@ func (c *Client) RemovePlaylistTracks(uri string, ids []ID) error {
 
 		chunk := ids[lowerbound:upperbound]
 		if _, err := c.RemoveTracksFromPlaylist(IDFromURI(uri), chunk...); err != nil {
-			return fmt.Errorf(fmt.Sprintf("Error removing %dth chunk of removing tracks: %s.", iterations, err.Error()))
+			return err
 		}
 
 		if len(chunk) < 50 {
@@ -172,8 +191,12 @@ func (c *Client) AlbumTracks(uri string) ([]*track.Track, error) {
 	for true {
 		*options.Offset = *options.Limit * iterations
 		chunk, err := c.GetAlbumTracksOpt(IDFromURI(uri), *options.Limit, *options.Offset)
-		if err != nil {
-			return []*track.Track{}, fmt.Errorf(fmt.Sprintf("Error reading %dth chunk of tracks: %s.", iterations, err.Error()))
+		if err != nil && err.Error() == "API rate limit exceeded." {
+			time.Sleep(time.Duration(rateLimitFactor) * RateLimitDelay)
+			rateLimitFactor++
+			continue
+		} else if err != nil {
+			return nil, err
 		}
 
 		for _, t := range chunk.Tracks {

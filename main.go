@@ -3,7 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"math"
+	"net/http"
 	"os"
 	"os/user"
 	"runtime"
@@ -67,6 +69,7 @@ var (
 	cUser     string
 	cUserID   string
 	tracks    = make(map[*track.Track]*track.SyncOptions)
+	artworks  = make(map[string]*[]byte)
 	playlists []*track.Playlist
 	index     *track.TracksIndex
 
@@ -284,7 +287,6 @@ func mainAuthenticate() {
 }
 
 func mainFetch() {
-
 	mainFetchLibrary()
 	mainFetchAlbums()
 	mainFetchPlaylists()
@@ -598,11 +600,13 @@ func mainSearch() {
 		}
 
 		mainSearchLyrics(track)
-		mainDownloadArtwork(track)
+		if err := mainDownloadArtwork(track); err != nil {
+			ui.Append(err.Error(), cui.WarningAppend)
+		}
 
 		ui.Append(fmt.Sprintf("Launching track processing jobs..."))
 		waitGroup.Add(1)
-		go songProcess(track, trackOpts, &waitGroup)
+		go mainSongProcess(track, trackOpts, &waitGroup)
 		if argDebug {
 			waitGroup.Wait()
 		}
@@ -650,15 +654,30 @@ func mainSearchLyrics(t *track.Track) {
 	}
 }
 
-func mainDownloadArtwork(t *track.Track) {
-	if len(t.Image) == 0 || system.FileExists(t.FilenameArtwork()) {
-		return
+func mainDownloadArtwork(t *track.Track) error {
+	if len(t.ArtworkURL) == 0 {
+		return nil
 	}
 
-	ui.Append(fmt.Sprintf("Downloading track artwork %s...", t.Image), cui.DebugAppend)
-	if err := system.Wget(t.Image, t.FilenameArtwork()); err != nil {
-		ui.Append(fmt.Sprintf("Unable to download artwork: %s", err.Error()), cui.WarningAppend)
+	if val, ok := artworks[t.ArtworkURL]; ok {
+		t.Artwork = val
+		return nil
 	}
+
+	resp, err := http.Get(t.ArtworkURL)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	artworks[t.ArtworkURL] = &body
+	t.Artwork = &body
+	return nil
 }
 
 func mainExit(delay ...time.Duration) {
@@ -671,7 +690,7 @@ func mainExit(delay ...time.Duration) {
 	os.Exit(0)
 }
 
-func songProcess(track *track.Track, opts *track.SyncOptions, wg *sync.WaitGroup) {
+func mainSongProcess(track *track.Track, opts *track.SyncOptions, wg *sync.WaitGroup) {
 	defer wg.Done()
 	<-waitGroupPool
 	defer func() {

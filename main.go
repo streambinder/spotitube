@@ -585,7 +585,7 @@ func mainSearch() {
 				}
 			}
 
-			if entry.Empty() {
+			if entry.Empty() || track.URL == entry.URL {
 				continue
 			}
 

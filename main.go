@@ -3,13 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"os"
 	"os/user"
 	"runtime"
 	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -604,7 +602,7 @@ func mainSearch() {
 
 		ui.Append(fmt.Sprintf("Launching track processing jobs..."))
 		waitGroup.Add(1)
-		go subParallelSongProcess(track, trackOpts, &waitGroup)
+		go songProcess(track, trackOpts, &waitGroup)
 		if argDebug {
 			waitGroup.Wait()
 		}
@@ -673,235 +671,67 @@ func mainExit(delay ...time.Duration) {
 	os.Exit(0)
 }
 
-func subParallelSongProcess(track *track.Track, trackOpts *track.SyncOptions, wg *sync.WaitGroup) {
+func songProcess(track *track.Track, opts *track.SyncOptions, wg *sync.WaitGroup) {
 	defer wg.Done()
 	<-waitGroupPool
+	defer func() {
+		waitGroupPool <- true
+	}()
 
-	if !track.Local() && !argDisableNormalization {
-		subSongNormalize(track)
-	}
-
-	if !system.FileExists(track.FilenameTemporary()) && system.FileExists(track.Filename()) {
+	// moving to temporary song
+	if !system.FileExists(track.FilenameTemporary()) {
 		if err := system.FileCopy(track.Filename(), track.FilenameTemporary()); err != nil {
-			ui.Append(fmt.Sprintf("Unable to prepare song for getting its metadata flushed: %s", err.Error()), cui.WarningAppend)
+			ui.Append(err.Error(), cui.ErrorAppend)
 			return
 		}
 	}
 
-	if !track.Local() || trackOpts.Metadata {
-		subSongFlushMetadata(track)
+	// volume normalization
+	if err := songNormalize(track, opts); err != nil {
+		ui.Append(err.Error(), cui.ErrorAppend)
 	}
 
+	// metadata flush
+	if err := songMetadataFlush(track, opts); err != nil {
+		ui.Append(err.Error(), cui.ErrorAppend)
+	}
+
+	// track rename
 	os.Remove(track.Filename())
-	err := os.Rename(track.FilenameTemporary(), track.Filename())
-	if err != nil {
+	if err := os.Rename(track.FilenameTemporary(), track.Filename()); err != nil {
 		ui.Append(fmt.Sprintf("Unable to move song to its final path: %s", err.Error()), cui.WarningAppend)
 	}
-
-	waitGroupPool <- true
 }
 
-func subSongNormalize(t *track.Track) {
-	volume, err := shell.FFmpeg().VolumeDetect(t.FilenameTemporary())
+func songNormalize(track *track.Track, opts *track.SyncOptions) error {
+	if !opts.Normalization {
+		return nil
+	}
+
+	volume, err := shell.FFmpeg().VolumeDetect(track.FilenameTemporary())
 	if err != nil {
-		ui.Append(fmt.Sprintf("Unable to detect max volume value for %s: %s", t.Basename(), err.Error()), cui.WarningAppend)
-		return
+		return err
 	}
 
 	if volume > 0 {
-		return
+		return nil
 	}
 
-	volume = math.Abs(volume)
-	if err := shell.FFmpeg().VolumeIncrease(volume, t.FilenameTemporary()); err != nil {
-		ui.Append(fmt.Sprintf("Unable to increase max volume by %f delta for %s: %s", volume, t.Basename(), err.Error()), cui.WarningAppend)
-	}
+	return shell.FFmpeg().VolumeIncrease(math.Abs(volume), track.FilenameTemporary())
 }
 
-func subSongFlushMetadata(t *track.Track) {
-	trackMp3, err := id3v2.Open(t.FilenameTemporary(), id3v2.Options{Parse: true})
-	defer trackMp3.Close()
+func songMetadataFlush(track *track.Track, opts *track.SyncOptions) error {
+	if !opts.Metadata {
+		return nil
+	}
+
+	tag, err := id3v2.Open(track.FilenameTemporary(), id3v2.Options{Parse: true})
 	if err != nil {
-		ui.Append(fmt.Sprintf("Something bad happened while opening: %s", err.Error()), cui.WarningAppend)
-	} else {
-		ui.Append(fmt.Sprintf("Fixing metadata for \"%s\"...", t.Basename()), cui.DebugAppend)
-		subCondFlushID3FrameTitle(t, trackMp3)
-		subCondFlushID3FrameSong(t, trackMp3)
-		subCondFlushID3FrameArtist(t, trackMp3)
-		subCondFlushID3FrameAlbum(t, trackMp3)
-		subCondFlushID3FrameGenre(t, trackMp3)
-		subCondFlushID3FrameYear(t, trackMp3)
-		subCondFlushID3FrameFeaturings(t, trackMp3)
-		subCondFlushID3FrameTrackNumber(t, trackMp3)
-		subCondFlushID3FrameTrackTotals(t, trackMp3)
-		subCondFlushID3FrameArtwork(t, trackMp3)
-		subCondFlushID3FrameArtworkURL(t, trackMp3)
-		subCondFlushID3FrameOrigin(t, trackMp3)
-		subCondFlushID3FrameDuration(t, trackMp3)
-		subCondFlushID3FrameSpotifyID(t, trackMp3)
-		subCondFlushID3FrameLyrics(t, trackMp3)
-		trackMp3.Save()
+		return err
 	}
-}
+	defer tag.Close()
 
-func subCondFlushID3FrameTitle(t *track.Track, trackMp3 *id3v2.Tag) {
-	if len(t.Title) > 0 && track.TagGetFrame(trackMp3, track.ID3FrameSong) != track.TagGetFrame(trackMp3, track.ID3FrameTitle) {
-		ui.Append("Inflating title metadata...", cui.DebugAppend)
-		trackMp3.SetTitle(t.Title)
-	}
-}
-
-func subCondFlushID3FrameSong(t *track.Track, trackMp3 *id3v2.Tag) {
-	if len(t.Song) > 0 && t.Song != track.TagGetFrame(trackMp3, track.ID3FrameSong) {
-		ui.Append("Inflating song metadata...", cui.DebugAppend)
-		trackMp3.AddCommentFrame(id3v2.CommentFrame{
-			Encoding:    id3v2.EncodingUTF8,
-			Language:    "eng",
-			Description: "song",
-			Text:        t.Song,
-		})
-	}
-}
-
-func subCondFlushID3FrameArtist(t *track.Track, trackMp3 *id3v2.Tag) {
-	if len(t.Artist) > 0 && t.Artist != track.TagGetFrame(trackMp3, track.ID3FrameArtist) {
-		ui.Append("Inflating artist metadata...", cui.DebugAppend)
-		trackMp3.SetArtist(t.Artist)
-	}
-}
-
-func subCondFlushID3FrameAlbum(t *track.Track, trackMp3 *id3v2.Tag) {
-	if len(t.Album) > 0 && t.Album != track.TagGetFrame(trackMp3, track.ID3FrameAlbum) {
-		ui.Append("Inflating album metadata...", cui.DebugAppend)
-		trackMp3.SetAlbum(t.Album)
-	}
-}
-
-func subCondFlushID3FrameGenre(t *track.Track, trackMp3 *id3v2.Tag) {
-	if len(t.Genre) > 0 && t.Genre != track.TagGetFrame(trackMp3, track.ID3FrameGenre) {
-		ui.Append("Inflating genre metadata...", cui.DebugAppend)
-		trackMp3.SetGenre(t.Genre)
-	}
-}
-
-func subCondFlushID3FrameYear(t *track.Track, trackMp3 *id3v2.Tag) {
-	if len(t.Year) > 0 && t.Year != track.TagGetFrame(trackMp3, track.ID3FrameYear) {
-		ui.Append("Inflating year metadata...", cui.DebugAppend)
-		trackMp3.SetYear(t.Year)
-	}
-}
-
-func subCondFlushID3FrameFeaturings(t *track.Track, trackMp3 *id3v2.Tag) {
-	if len(t.Featurings) > 0 && strings.Join(t.Featurings, "|") != track.TagGetFrame(trackMp3, track.ID3FrameFeaturings) {
-		ui.Append("Inflating featurings metadata...", cui.DebugAppend)
-		trackMp3.AddCommentFrame(id3v2.CommentFrame{
-			Encoding:    id3v2.EncodingUTF8,
-			Language:    "eng",
-			Description: "featurings",
-			Text:        strings.Join(t.Featurings, "|"),
-		})
-	}
-}
-
-func subCondFlushID3FrameTrackNumber(t *track.Track, trackMp3 *id3v2.Tag) {
-	if t.TrackNumber > 0 && fmt.Sprintf("%d", t.TrackNumber) != track.TagGetFrame(trackMp3, track.ID3FrameTrackNumber) {
-		ui.Append("Inflating track number metadata...", cui.DebugAppend)
-		trackMp3.AddFrame(trackMp3.CommonID("Track number/Position in set"),
-			id3v2.TextFrame{
-				Encoding: id3v2.EncodingUTF8,
-				Text:     strconv.Itoa(t.TrackNumber),
-			})
-	}
-}
-
-func subCondFlushID3FrameTrackTotals(t *track.Track, trackMp3 *id3v2.Tag) {
-	if t.TrackTotals > 0 && fmt.Sprintf("%d", t.TrackTotals) != track.TagGetFrame(trackMp3, track.ID3FrameTrackTotals) {
-		ui.Append("Inflating total tracks number metadata...", cui.DebugAppend)
-		trackMp3.AddCommentFrame(id3v2.CommentFrame{
-			Encoding:    id3v2.EncodingUTF8,
-			Language:    "eng",
-			Description: "trackTotals",
-			Text:        fmt.Sprintf("%d", t.TrackTotals),
-		})
-	}
-}
-
-func subCondFlushID3FrameArtwork(t *track.Track, trackMp3 *id3v2.Tag) {
-	if system.FileExists(t.FilenameArtwork()) && t.Image != track.TagGetFrame(trackMp3, track.ID3FrameArtworkURL) {
-		trackArtworkReader, trackArtworkErr := ioutil.ReadFile(t.FilenameArtwork())
-		if trackArtworkErr != nil {
-			ui.Append(fmt.Sprintf("Unable to read artwork file: %s", trackArtworkErr.Error()), cui.WarningAppend)
-		} else {
-			ui.Append("Inflating artwork metadata...", cui.DebugAppend)
-			trackMp3.AddAttachedPicture(id3v2.PictureFrame{
-				Encoding:    id3v2.EncodingUTF8,
-				MimeType:    "image/jpeg",
-				PictureType: id3v2.PTFrontCover,
-				Description: "Front cover",
-				Picture:     trackArtworkReader,
-			})
-		}
-	}
-}
-
-func subCondFlushID3FrameArtworkURL(t *track.Track, trackMp3 *id3v2.Tag) {
-	if len(t.Image) > 0 && t.Image != track.TagGetFrame(trackMp3, track.ID3FrameArtworkURL) {
-		ui.Append("Inflating artwork url metadata...", cui.DebugAppend)
-		trackMp3.AddCommentFrame(id3v2.CommentFrame{
-			Encoding:    id3v2.EncodingUTF8,
-			Language:    "eng",
-			Description: "artwork",
-			Text:        t.Image,
-		})
-	}
-}
-
-func subCondFlushID3FrameOrigin(t *track.Track, trackMp3 *id3v2.Tag) {
-	if len(t.URL) > 0 && t.URL != track.TagGetFrame(trackMp3, track.ID3FrameOrigin) {
-		ui.Append("Inflating origin url metadata...", cui.DebugAppend)
-		trackMp3.AddCommentFrame(id3v2.CommentFrame{
-			Encoding:    id3v2.EncodingUTF8,
-			Language:    "eng",
-			Description: "origin",
-			Text:        t.URL,
-		})
-	}
-}
-
-func subCondFlushID3FrameDuration(t *track.Track, trackMp3 *id3v2.Tag) {
-	if t.Duration > 0 && fmt.Sprintf("%d", t.Duration) != track.TagGetFrame(trackMp3, track.ID3FrameDuration) {
-		ui.Append("Inflating duration metadata...", cui.DebugAppend)
-		trackMp3.AddCommentFrame(id3v2.CommentFrame{
-			Encoding:    id3v2.EncodingUTF8,
-			Language:    "eng",
-			Description: "duration",
-			Text:        fmt.Sprintf("%d", t.Duration),
-		})
-	}
-}
-
-func subCondFlushID3FrameSpotifyID(t *track.Track, trackMp3 *id3v2.Tag) {
-	if len(t.SpotifyID) > 0 && t.SpotifyID != track.TagGetFrame(trackMp3, track.ID3FrameSpotifyID) {
-		ui.Append("Inflating Spotify ID metadata...", cui.DebugAppend)
-		trackMp3.AddCommentFrame(id3v2.CommentFrame{
-			Encoding:    id3v2.EncodingUTF8,
-			Language:    "eng",
-			Description: "spotifyid",
-			Text:        t.SpotifyID,
-		})
-	}
-}
-
-func subCondFlushID3FrameLyrics(t *track.Track, trackMp3 *id3v2.Tag) {
-	if len(t.Lyrics) > 0 && !argDisableLyrics && t.Lyrics != track.TagGetFrame(trackMp3, track.ID3FrameLyrics) {
-		ui.Append("Inflating lyrics metadata...", cui.DebugAppend)
-		trackMp3.AddUnsynchronisedLyricsFrame(id3v2.UnsynchronisedLyricsFrame{
-			Encoding:          id3v2.EncodingUTF8,
-			Language:          "eng",
-			ContentDescriptor: t.Title,
-			Lyrics:            t.Lyrics,
-		})
-	}
+	return track.Flush(tag)
 }
 
 func subFetchGob(path string) (track.TracksDump, error) {

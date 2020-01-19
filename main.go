@@ -347,7 +347,11 @@ func mainFetchLibrary() {
 	dup := make(map[spotify.ID]float64)
 	for _, t := range library {
 		if _, isDup := dup[spotify.ID(t.SpotifyID)]; !isDup {
-			tracks[t] = track.SyncOptionsDefault()
+			if t.Local() {
+				tracks[t] = track.SyncOptionsDefault()
+			} else {
+				tracks[t] = track.SyncOptionsFlush()
+			}
 		}
 		dup[spotify.ID(t.SpotifyID)] = 1
 	}
@@ -396,7 +400,11 @@ func mainFetchAlbums() {
 		}
 
 		for _, t := range album {
-			tracks[t] = track.SyncOptionsDefault()
+			if t.Local() {
+				tracks[t] = track.SyncOptionsDefault()
+			} else {
+				tracks[t] = track.SyncOptionsFlush()
+			}
 		}
 	}
 }
@@ -442,7 +450,11 @@ func mainFetchPlaylists() {
 		dup := make(map[spotify.ID]float64)
 		for _, t := range p {
 			if _, isDup := dup[spotify.ID(t.SpotifyID)]; !isDup {
-				tracks[t] = track.SyncOptionsDefault()
+				if t.Local() {
+					tracks[t] = track.SyncOptionsDefault()
+				} else {
+					tracks[t] = track.SyncOptionsFlush()
+				}
 			}
 			dup[spotify.ID(t.SpotifyID)] = 1
 		}
@@ -504,7 +516,7 @@ func mainSearch() {
 			entry := new(provider.Entry)
 
 			for _, p := range provider.All() {
-				ui.Append(fmt.Sprintf("Searching entries on %s provider", p.Name()))
+				ui.Append(fmt.Sprintf("Searching entries on %s provider", p.Name()), cui.DebugAppend)
 
 				var (
 					provEntries = []*provider.Entry{}
@@ -577,7 +589,7 @@ func mainSearch() {
 				continue
 			}
 
-			ui.Append(fmt.Sprintf("Going to download \"%s\" from %s...", entry.Title, entry.Repr()))
+			ui.Append(fmt.Sprintf("Going to download %s...", entry.URL))
 			p, err := provider.For(entry.URL)
 			if err != nil {
 				ui.Append(fmt.Sprintf("Unable to reconstruct provider for \"%s\"", entry.URL), cui.ErrorAppend)

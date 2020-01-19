@@ -75,8 +75,8 @@ func (c FFmpegCommand) VolumeDetect(filename string) (volume float64, err error)
 	return 0.0, fmt.Errorf("Max volume value not found")
 }
 
-// VolumeSet increases max volume value by a given delta for a fiven filename
-func (c FFmpegCommand) VolumeSet(delta float64, filename string) (err error) {
+// VolumeIncrease increases max volume value by a given delta for a fiven filename
+func (c FFmpegCommand) VolumeIncrease(delta float64, filename string) (err error) {
 	var (
 		cmdOut      bytes.Buffer
 		tmpFilename = fmt.Sprintf("/tmp/%s", filepath.Base(filename))

@@ -19,7 +19,7 @@ type Playlist struct {
 func (p *Playlist) M3U(prefix string) string {
 	content := "#EXTM3U\n"
 	for _, t := range p.Tracks {
-		fname := filepath.Join(prefix, t.Filename())
+		fname := prefix + string(filepath.Separator) + t.Filename()
 		if system.FileExists(fname) {
 			content += fmt.Sprintf("#EXTINF:%s,%s\n%s\n",
 				strconv.Itoa(t.Duration),
@@ -35,7 +35,7 @@ func (p *Playlist) M3U(prefix string) string {
 func (p *Playlist) PLS(prefix string) string {
 	content := fmt.Sprintf("[%s]\n", p.Name)
 	for i, t := range p.Tracks {
-		fname := filepath.Join(prefix, t.Filename())
+		fname := prefix + string(filepath.Separator) + t.Filename()
 		if system.FileExists(fname) {
 			content += fmt.Sprintf("File%s=%s\nTitle%s=%s\nLength%s=%s\n\n",
 				strconv.Itoa(i+1),

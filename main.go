@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/user"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"sync"
@@ -187,6 +188,18 @@ func mainFlagsParse() {
 
 	if !(argAlbums.IsSet() || argPlaylists.IsSet() || argTracksFix.IsSet()) {
 		argLibrary = true
+	}
+
+	if argTracksFix.IsSet() {
+		for index, track := range argTracksFix.Entries {
+			trackAbs, err := filepath.Abs(track)
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+
+			argTracksFix.Entries[index] = trackAbs
+		}
 	}
 
 	if argAuthenticateOutside {
@@ -493,8 +506,6 @@ func mainFetchTracksToFix() {
 		return
 	}
 
-	// TODO: input tracks to fix are not relative
-	// to the input folder
 	ui.Append(fmt.Sprintf("%s %d", cui.Font("Fix song(s):", cui.StyleBold), len(argTracksFix.Entries)), cui.PanelLeftTop)
 	for _, tFix := range argTracksFix.Entries {
 		if t, err := track.OpenLocalTrack(tFix); err != nil {

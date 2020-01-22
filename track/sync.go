@@ -2,8 +2,8 @@ package track
 
 // SyncOptions wraps settings for a single track synchronization
 type SyncOptions struct {
-	Source bool	
-	Metadata    bool  
+	Source        bool
+	Metadata      bool
 	Normalization bool
 }
 

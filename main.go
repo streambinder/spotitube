@@ -17,6 +17,7 @@ import (
 
 	"github.com/gosimple/slug"
 	"github.com/hako/durafmt"
+	"github.com/streambinder/spotitube/config"
 	"github.com/streambinder/spotitube/cui"
 	"github.com/streambinder/spotitube/lyrics"
 	"github.com/streambinder/spotitube/provider"
@@ -63,7 +64,6 @@ var (
 	argDebug      bool
 	argSimulate   bool
 	argDisableGui bool
-	// TODO: add config file for aliasing IDs
 
 	// spotify
 	c            *spotify.Client
@@ -81,6 +81,9 @@ var (
 
 	// cli
 	ui *cui.CUI
+
+	// config
+	cfg *config.Config
 
 	// user paths
 	usrBinary = fmt.Sprintf("%s/spotitube", usrPath())
@@ -228,6 +231,14 @@ func mainInit() {
 		os.Exit(1)
 	}
 	os.Chdir(argFolder)
+
+	// create configuration instance
+	var err error
+	cfg, err = config.Parse(cfgPath())
+	if err != nil {
+		fmt.Println(fmt.Sprintf("Unable to read config file: %s", err.Error()))
+		os.Exit(1)
+	}
 
 	if !argDisableIndexing {
 		if system.FileExists(usrIndex) {
@@ -398,6 +409,11 @@ func mainFetchAlbums() {
 	}
 
 	for _, uri := range argAlbums.Entries {
+		alias := cfg.URI(uri)
+		if len(alias) > 0 {
+			uri = alias
+		}
+
 		gob := fmt.Sprintf(usrGob, cUserID, fmt.Sprintf("album_%s", spotify.IDFromURI(uri)))
 		if argFlushCache {
 			os.Remove(gob)
@@ -448,6 +464,11 @@ func mainFetchPlaylists() {
 	}
 
 	for _, uri := range argPlaylists.Entries {
+		alias := cfg.URI(uri)
+		if len(alias) > 0 {
+			uri = alias
+		}
+
 		playlist := &track.Playlist{}
 		if p, err := c.Playlist(uri); err == nil {
 			playlist.Name = p.Name
@@ -885,4 +906,9 @@ func flushPlaylists() {
 func usrPath() string {
 	currentUser, _ := user.Current()
 	return fmt.Sprintf("%s/.cache/spotitube", currentUser.HomeDir)
+}
+
+func cfgPath() string {
+	currentUser, _ := user.Current()
+	return fmt.Sprintf("%s/.config/spotitube", currentUser.HomeDir)
 }

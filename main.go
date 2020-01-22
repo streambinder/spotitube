@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/gosimple/slug"
+	"github.com/hako/durafmt"
 	"github.com/streambinder/spotitube/cui"
 	"github.com/streambinder/spotitube/lyrics"
 	"github.com/streambinder/spotitube/provider"
@@ -340,7 +341,12 @@ func mainFetchLibrary() {
 
 	dump, dumpErr := fetchDump(gob)
 	if dumpErr == nil && time.Since(dump.Time) < cacheDuration {
-		ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font("Library cache expiration:", cui.StyleBold), int(time.Since(dump.Time)), cacheDuration), cui.PanelLeftTop)
+		ui.Append(
+			fmt.Sprintf("%s %s / %s",
+				cui.Font("Library cache:", cui.StyleBold),
+				durafmt.ParseShort(time.Since(dump.Time)).String(),
+				durafmt.ParseShort(cacheDuration).String()),
+			cui.PanelLeftTop)
 		for _, t := range dump.Tracks {
 			if t.Local() {
 				tracks[t] = track.SyncOptionsDefault()
@@ -399,7 +405,13 @@ func mainFetchAlbums() {
 
 		dump, dumpErr := fetchDump(gob)
 		if dumpErr == nil && time.Since(dump.Time) < cacheDuration {
-			ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font(fmt.Sprintf("Album %s cache expiration:", spotify.IDFromURI(uri)), cui.StyleBold), int(time.Since(dump.Time)), cacheDuration), cui.PanelLeftTop)
+			ui.Append(
+				fmt.Sprintf("%s %s / %s",
+					cui.Font(fmt.Sprintf("%s cache:",
+						spotify.IDFromURI(uri)), cui.StyleBold),
+					durafmt.ParseShort(time.Since(dump.Time)).String(),
+					durafmt.ParseShort(cacheDuration).String()),
+				cui.PanelLeftTop)
 			for _, t := range dump.Tracks {
 				if t.Local() {
 					tracks[t] = track.SyncOptionsDefault()
@@ -449,7 +461,12 @@ func mainFetchPlaylists() {
 
 		dump, dumpErr := fetchDump(gob)
 		if dumpErr == nil && time.Since(dump.Time) < cacheDuration {
-			ui.Append(fmt.Sprintf("%s %d/%d (min)", cui.Font(fmt.Sprintf("Playlist %s cache expiration:", playlist.Name), cui.StyleBold), int(time.Since(dump.Time)), cacheDuration), cui.PanelLeftTop)
+			ui.Append(
+				fmt.Sprintf("%s %s / %s",
+					cui.Font(fmt.Sprintf("%s cache:", playlist.Name), cui.StyleBold),
+					durafmt.ParseShort(time.Since(dump.Time)).String(),
+					durafmt.ParseShort(cacheDuration).String()),
+				cui.PanelLeftTop)
 			for _, t := range dump.Tracks {
 				if t.Local() {
 					tracks[t] = track.SyncOptionsDefault()

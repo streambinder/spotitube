@@ -300,7 +300,6 @@ func mainAuthenticate() {
 }
 
 func mainFetch() {
-	// TODO: check cache restore
 	mainFetchLibrary()
 	mainFetchAlbums()
 	mainFetchPlaylists()
@@ -790,7 +789,7 @@ func songMetadataFlush(track *track.Track, opts *track.SyncOptions) error {
 }
 
 func fetchDump(path string) (dump track.TracksDump, err error) {
-	if err := system.FetchGob(path, dump); err != nil {
+	if err := system.FetchGob(path, &dump); err != nil {
 		return dump, err
 	}
 

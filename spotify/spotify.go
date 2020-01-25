@@ -33,6 +33,8 @@ func (c *Client) User() (string, string) {
 	return "unknown", "unknown"
 }
 
+// TODO implement proper throttling
+
 // LibraryTracks returns library tracks
 func (c *Client) LibraryTracks() ([]*track.Track, error) {
 	var (

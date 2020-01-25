@@ -7,8 +7,8 @@ import (
 	"math"
 	"net/http"
 	"os"
-	"os/user"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"sync"
@@ -86,9 +86,9 @@ var (
 	cfg *config.Config
 
 	// user paths
-	usrBinary = fmt.Sprintf("%s/spotitube", usrPath())
-	usrIndex  = fmt.Sprintf("%s/index.gob", usrPath())
-	usrGob    = fmt.Sprintf("%s/%s_%s.gob", usrPath(), "%s", "%s")
+	usrGob       = config.RelativeTo("%s_%s.gob", config.CachePath)
+	usrIndex     = config.RelativeTo("index.gob", config.CachePath)
+	regUsrBinary = regexp.MustCompile(`spotitube\.[0-9]+`)
 )
 
 func main() {
@@ -105,15 +105,25 @@ func main() {
 }
 
 func mainSetup() {
-	system.Mkdir(usrPath())
+	system.Mkdir(config.CacheDir())
 }
 
 func mainFork() {
-	// TODO: fork only if upstream version -gt than actual
-	if system.Proc() != usrBinary &&
-		system.FileExists(usrBinary) &&
-		os.Getenv("SPOTITUBE_FORKED") != "1" {
-		syscall.Exec(usrBinary, os.Args, append(os.Environ(), []string{"SPOTITUBE_FORKED=1"}...))
+	var binVersion int
+	filepath.Walk(config.CacheDir(), func(path string, fileInfo os.FileInfo, _ error) error {
+		if fileInfo == nil || fileInfo.IsDir() ||
+			!regUsrBinary.MatchString(fileInfo.Name()) {
+			return nil
+		}
+
+		if subVersion, err := strconv.Atoi(filepath.Ext(fileInfo.Name())[1:]); err == nil && subVersion > binVersion {
+			binVersion = subVersion
+		}
+		return nil
+	})
+
+	if binVersion > version && os.Getenv("SPOTITUBE_FORK") != "1" {
+		syscall.Exec(config.CacheBin(binVersion), os.Args, append(os.Environ(), []string{"SPOTITUBE_FORK=1"}...))
 		mainExit()
 	}
 }
@@ -142,7 +152,7 @@ func mainEnvCheck() {
 	if upstreamVersion, err := upstream.Version(); err == nil &&
 		!argDisableUpdateCheck && upstreamVersion != version {
 		fmt.Println(fmt.Sprintf("You're not running latest version (%d). Going to update.", upstreamVersion))
-		if err := upstream.Download(usrBinary); err != nil {
+		if err := upstream.Download(config.CacheBin(upstreamVersion)); err != nil {
 			fmt.Println(fmt.Sprintf("Unable to update: %s", err.Error()))
 		} else {
 			mainFork()
@@ -234,7 +244,7 @@ func mainInit() {
 
 	// create configuration instance
 	var err error
-	cfg, err = config.Parse(cfgPath())
+	cfg, err = config.Parse()
 	if err != nil {
 		fmt.Println(fmt.Sprintf("Unable to read config file: %s", err.Error()))
 		os.Exit(1)
@@ -901,14 +911,4 @@ func flushPlaylists() {
 			ui.Append(fmt.Sprintf("Unable to write playlist file: %s", err.Error()), cui.WarningAppend)
 		}
 	}
-}
-
-func usrPath() string {
-	currentUser, _ := user.Current()
-	return fmt.Sprintf("%s/.cache/spotitube", currentUser.HomeDir)
-}
-
-func cfgPath() string {
-	currentUser, _ := user.Current()
-	return fmt.Sprintf("%s/.config/spotitube", currentUser.HomeDir)
 }

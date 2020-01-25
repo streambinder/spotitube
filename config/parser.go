@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v2"
 )
@@ -24,5 +25,13 @@ func Parse() (*Config, error) {
 		return nil, err
 	}
 
-	return config, nil
+	return process(config)
+}
+
+func process(cfg *Config) (*Config, error) {
+	if strings.Contains(cfg.Folder, "~/") {
+		cfg.Folder = RelativeTo(strings.ReplaceAll(cfg.Folder, "~/", ""), HomePath)
+	}
+
+	return cfg, nil
 }

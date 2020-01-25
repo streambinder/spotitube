@@ -3,6 +3,7 @@ package config
 // Config represents the abstraction of the parsed
 // configuration file
 type Config struct {
+	Folder  string              `yaml:"folder"`
 	Aliases []map[string]string `yaml:"aliases"`
 }
 

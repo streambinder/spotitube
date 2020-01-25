@@ -8,13 +8,13 @@ import (
 
 // Parse generates a new Config instance
 // starting from a configuration file path
-func Parse(fname string) (*Config, error) {
+func Parse() (*Config, error) {
 	config := new(Config)
-	if _, err := os.Stat(fname); os.IsNotExist(err) {
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		return config, nil
 	}
 
-	file, err := os.Open(fname)
+	file, err := os.Open(configPath)
 	if err != nil {
 		return nil, err
 	}

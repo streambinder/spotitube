@@ -293,6 +293,7 @@ func mainUI() {
 	ui.Append(fmt.Sprintf("%s %s", cui.Font(fmt.Sprintf("%s version:", shell.YoutubeDL().Name()), cui.StyleBold), shell.YoutubeDL().Version()), cui.PanelLeftTop)
 	ui.Append(fmt.Sprintf("%s %s", cui.Font(fmt.Sprintf("%s version:", shell.FFmpeg().Name()), cui.StyleBold), shell.FFmpeg().Version()), cui.PanelLeftTop)
 	ui.Append(fmt.Sprintf("%s %d", cui.Font("Version:", cui.StyleBold), version), cui.PanelLeftBottom)
+	// TODO fix
 	ui.Append(fmt.Sprintf("%s %s", cui.Font("Proc:", cui.StyleBold), system.PrettyPath(system.Proc())), cui.PanelLeftBottom)
 	ui.Append(fmt.Sprintf("%s %s", cui.Font("Date:", cui.StyleBold), time.Now().Format("2006-01-02 15:04:05")), cui.PanelLeftBottom)
 	ui.Append(fmt.Sprintf("%s GPL-3.0", cui.Font("License:", cui.StyleBold)), cui.PanelLeftBottom)

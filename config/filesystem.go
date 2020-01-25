@@ -40,6 +40,11 @@ func CacheDir() string {
 	return RelativeTo(cacheDir, HomePath)
 }
 
+// Path returns config path
+func Path() string {
+	return RelativeTo(configPath, HomePath)
+}
+
 // CacheBin returns a cached binary dir
 // by its given version
 func CacheBin(version int) string {

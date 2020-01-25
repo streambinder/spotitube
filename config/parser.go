@@ -10,11 +10,11 @@ import (
 // starting from a configuration file path
 func Parse() (*Config, error) {
 	config := new(Config)
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+	if _, err := os.Stat(Path()); os.IsNotExist(err) {
 		return config, nil
 	}
 
-	file, err := os.Open(configPath)
+	file, err := os.Open(Path())
 	if err != nil {
 		return nil, err
 	}

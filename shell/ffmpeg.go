@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/streambinder/spotitube/config"
 	"github.com/streambinder/spotitube/system"
 )
 
@@ -79,7 +80,7 @@ func (c FFmpegCommand) VolumeDetect(filename string) (volume float64, err error)
 func (c FFmpegCommand) VolumeIncrease(delta float64, filename string) (err error) {
 	var (
 		cmdOut      bytes.Buffer
-		tmpFilename = fmt.Sprintf("/tmp/%s", filepath.Base(filename))
+		tmpFilename = config.RelativeTo(filepath.Base(filename), config.CachePath)
 	)
 
 	cmd := exec.Command(c.Name(), []string{

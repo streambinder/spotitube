@@ -236,12 +236,6 @@ func mainInit() {
 		os.Exit(0)
 	}
 
-	if !(system.Dir(argFolder)) {
-		fmt.Println(fmt.Sprintf("Chosen music folder does not exist: %s", argFolder))
-		os.Exit(1)
-	}
-	os.Chdir(argFolder)
-
 	// create configuration instance
 	var err error
 	cfg, err = config.Parse()
@@ -249,6 +243,15 @@ func mainInit() {
 		fmt.Println(fmt.Sprintf("Unable to read config file: %s", err.Error()))
 		os.Exit(1)
 	}
+
+	if argFolder == "." && cfg.Folder != "" {
+		argFolder = cfg.Folder
+	}
+	if !(system.Dir(argFolder)) {
+		fmt.Println(fmt.Sprintf("Chosen music folder does not exist: %s", argFolder))
+		os.Exit(1)
+	}
+	os.Chdir(argFolder)
 
 	if !argDisableIndexing {
 		if system.FileExists(usrIndex) {

@@ -13,16 +13,20 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/streambinder/spotitube/config"
 	"github.com/streambinder/spotitube/system"
 )
 
 const (
-	cacheGob      = "/tmp/upstream.gob"
 	cacheDuration = 24 * time.Hour
 
 	repositoryURI  = "https://github.com/streambinder/spotitube"
 	upstreamAPI    = "https://api.github.com/repos/streambinder/spotitube/releases/latest"
 	upstreamAPIURI = repositoryURI + "/releases/latest"
+)
+
+var (
+	cacheGob = config.RelativeTo("upstream.gob", config.CachePath)
 )
 
 // Check contains last time an upstream version check has been done

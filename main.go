@@ -149,7 +149,7 @@ func mainEnvCheck() {
 	}
 
 	if upstreamVersion, err := upstream.Version(); err == nil &&
-		!argDisableUpdateCheck && upstreamVersion != version {
+		!argDisableUpdateCheck && upstreamVersion > version {
 		fmt.Println(fmt.Sprintf("You're not running latest version (%d). Going to update.", upstreamVersion))
 		if err := upstream.Download(config.CacheBin(upstreamVersion)); err != nil {
 			fmt.Println(fmt.Sprintf("Unable to update: %s", err.Error()))

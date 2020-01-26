@@ -11,6 +11,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/jroimartin/gocui"
+	"github.com/lunixbochs/vtclean"
 	"github.com/streambinder/spotitube/logger"
 )
 
@@ -194,7 +195,7 @@ func (c *CUI) opWorker(operation Operation) error {
 	}
 
 	if c.hasOption(GuiBareMode) {
-		fmt.Println(styleColor(styleFont(operation.Message, operation.Options), operation.Options))
+		fmt.Println(vtclean.Clean(operation.Message, false))
 		return nil
 	}
 

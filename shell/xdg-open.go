@@ -48,7 +48,8 @@ func (c XDGOpenCommand) Version() (version string) {
 // Open triggers a variable input string opening
 func (c XDGOpenCommand) Open(input string) error {
 	if runtime.GOOS == "windows" {
-		return exec.Command("cmd", "/c", "start", input).Run()
+		exec.Command("cmd", "/c", "start", input).Run()
+		return nil
 	}
 	return exec.Command(c.Name(), input).Run()
 }

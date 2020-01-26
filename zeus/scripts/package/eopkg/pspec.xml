@@ -7,8 +7,8 @@
 			<Email>posta@davidepucci.it</Email>
 		</Packager>
 		<License>GPLv2</License>
-		<Summary xml:lang="en">Shell go-lang application to incrementally download from Spotify into local folder.</Summary>
-		<Description xml:lang="en">Shell go-lang application to incrementally download from Spotify into local folder.</Description>
+		<Summary xml:lang="en">Synchronize your Spotify collections downloading from external providers.</Summary>
+		<Description xml:lang="en">Synchronize your Spotify collections downloading from external providers.</Description>
 		<Archive type="binary" sha1sum="7966b5c633729a3d997538946bef31dac6fc598a">https://davidepucci.it/favicon.ico</Archive>
 		<AdditionalFiles>
 			<AdditionalFile owner="root" permission="0755" target="spotitube">spotitube</AdditionalFile>
@@ -16,8 +16,8 @@
 	</Source>
 	<Package>
 		<Name>spotitube</Name>
-		<Summary xml:lang="en">Shell go-lang application to incrementally download from Spotify into local folder.</Summary>
-		<Description xml:lang="en">Shell go-lang application to incrementally download from Spotify into local folder.</Description>
+		<Summary xml:lang="en">Synchronize your Spotify collections downloading from external providers.</Summary>
+		<Description xml:lang="en">Synchronize your Spotify collections downloading from external providers.</Description>
 		<Files>
 			<Path fileType="executable">/usr/sbin/spotitube</Path>
 		</Files>

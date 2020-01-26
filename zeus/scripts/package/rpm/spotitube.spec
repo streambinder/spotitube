@@ -1,14 +1,14 @@
 Name:      spotitube
 Version:   :VERSION:
 Release:   :VERSION:%{?dist}
-Summary:   Shell go-lang application to incrementally download from Spotify into local folder.
+Summary:   Synchronize your Spotify collections downloading from external providers.
 Group:     SpotiTube
 License:   GPL
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 Requires:  ffmpeg, youtube-dl
 
 %description
-Shell go-lang application to incrementally download from Spotify into local folder.
+Synchronize your Spotify collections downloading from external providers.
 
 %prep
 exit 0

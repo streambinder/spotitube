@@ -7,67 +7,46 @@ import (
 	"github.com/jroimartin/gocui"
 )
 
-// Font applies font styling defined via given fontConst
-// over given message
-func Font(message string, fontConst uint64) string {
-	return applyFont(message, map[uint64]color.Attribute{
-		StyleBold:      color.Bold,
-		StyleItalic:    color.Italic,
-		StyleUnderline: color.Underline,
-	}[fontConst])
-}
-
 func applyFont(message string, fontAttribute color.Attribute) string {
 	return color.New(fontAttribute).Sprintf(message)
 }
 
-func styleFont(message string, options Option) string {
+// Font applies font styling defined via given fontConst
+// over given message
+func Font(message string, options Option) string {
 	if hasOption(options, StyleBold) {
-		return Font(message, StyleBold)
+		return applyFont(message, color.Bold)
 	} else if hasOption(options, StyleItalic) {
-		return Font(message, StyleItalic)
+		return applyFont(message, color.Italic)
 	} else if hasOption(options, StyleUnderline) {
-		return Font(message, StyleUnderline)
+		return applyFont(message, color.Underline)
 	}
 	return message
-}
-
-// Color applies colorization defined via given colorConst
-// over given message
-func Color(message string, colorConst uint64) string {
-	return applyColor(message, map[uint64]color.Attribute{
-		ColorBlack:   color.FgBlack,
-		ColorRed:     color.FgRed,
-		ColorGreen:   color.FgGreen,
-		ColorYellow:  color.FgYellow,
-		ColorBlue:    color.FgBlue,
-		ColorMagenta: color.FgMagenta,
-		ColorCyan:    color.FgCyan,
-		ColorWhite:   color.FgWhite,
-	}[colorConst])
 }
 
 func applyColor(message string, colorAttribute color.Attribute) string {
 	return color.New(colorAttribute).Sprintf(message)
 }
 
-func styleColor(message string, options Options) string {
+// Color applies colorization defined via given colorConst
+// over given message
+func Color(message string, options Options) string {
 	if hasOption(options, ColorBlack) {
-		return Color(message, ColorBlack)
+		return applyColor(message, color.FgBlack)
 	} else if hasOption(options, ColorRed) {
-		return Color(message, ColorRed)
+		return applyColor(message, color.FgRed)
 	} else if hasOption(options, ColorGreen) {
-		return Color(message, ColorGreen)
+		return applyColor(message, color.FgGreen)
 	} else if hasOption(options, ColorYellow) {
-		return Color(message, ColorYellow)
+		return applyColor(message, color.FgYellow)
 	} else if hasOption(options, ColorBlue) {
-		return Color(message, ColorBlue)
+		return applyColor(message, color.FgBlue)
 	} else if hasOption(options, ColorMagenta) {
-		return Color(message, ColorMagenta)
+		return applyColor(message, color.FgMagenta)
 	} else if hasOption(options, ColorCyan) {
-		return Color(message, ColorCyan)
+		return applyColor(message, color.FgCyan)
 	} else if hasOption(options, ColorWhite) {
-		return Color(message, ColorWhite)
+		return applyColor(message, color.FgWhite)
 	}
 	return message
 }

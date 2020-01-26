@@ -571,7 +571,6 @@ func mainSearch() {
 	for track, trackOpts := range tracks {
 		ctr++
 		ui.ProgressIncrease()
-		// TODO: check why it's not rendered as bold
 		ui.Append(fmt.Sprintf("%d/%d: \"%s\"", ctr, len(tracks), track.Basename()), cui.StyleBold)
 
 		// rename local file if Spotify has renamed it

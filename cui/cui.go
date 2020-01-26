@@ -207,10 +207,11 @@ func (c *CUI) opWorker(operation Operation) error {
 		view.Clear()
 	}
 	c.Update(func(gui *gocui.Gui) error {
-		var message = styleParagraph(operation.Message, operation.Options, view)
-		message = styleFont(operation.Message, operation.Options)
-		message = styleOrientation(operation.Message, operation.Options, view)
-		message = styleColor(operation.Message, operation.Options)
+		var message = operation.Message
+		message = Font(message, operation.Options)
+		message = Color(message, operation.Options)
+		message = styleParagraph(message, operation.Options, view)
+		message = styleOrientation(message, operation.Options, view)
 		fmt.Fprintln(view, " "+message)
 		return nil
 	})

@@ -4,7 +4,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"path/filepath"
 
 	"github.com/0xAX/notificator"
 )
@@ -19,12 +18,6 @@ func Notify(app string, appIcon string, title string, content string) error {
 	}
 
 	return nil
-}
-
-// Proc returns process path
-func Proc() string {
-	path, _ := filepath.Abs(os.Args[0])
-	return path
 }
 
 // Which returns true if command is found, false otherwise

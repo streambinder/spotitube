@@ -4,7 +4,7 @@ globals:
     bin_name: spotitube
     bin_dir: bin
     ldflags: -s -w
-    version: 25
+    version: 26
 
 commands:
 

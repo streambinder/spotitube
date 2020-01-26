@@ -44,7 +44,7 @@ commands:
             - keys-deflate
         description: Launch release procedure
         exec: |
-            cp ${bin_dir}/${bin_name} ${bin_dir}/${bin_name}-v${version}
+            cp ${bin_dir}/${bin_name} ${bin_dir}/${bin_name}-v${version}.bin
             cp ${bin_dir}/${bin_name}.exe ${bin_dir}/${bin_name}-v${version}.exe
     
     keys-inflate:

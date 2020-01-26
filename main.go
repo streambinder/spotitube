@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strconv"
 	"sync"
 	"syscall"
@@ -192,12 +191,7 @@ func mainFlagsParse() {
 	flag.BoolVar(&argLog, "log", false, "Enable logging into file ./spotitube.log")
 	flag.BoolVar(&argDebug, "debug", false, "Enable debug messages")
 	flag.BoolVar(&argSimulate, "simulate", false, "Simulate process flow, without really altering filesystem")
-	// TODO: gocui should work on windows, too
-	if runtime.GOOS != "windows" {
-		flag.BoolVar(&argDisableGui, "disable-gui", false, "Disable GUI to reduce noise and increase readability of program flow")
-	} else {
-		argDisableGui = true
-	}
+	flag.BoolVar(&argDisableGui, "disable-gui", false, "Disable GUI to reduce noise and increase readability of program flow")
 	flag.Parse()
 
 	if !(argAlbums.IsSet() || argPlaylists.IsSet() || argTracksFix.IsSet()) {

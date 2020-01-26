@@ -21,10 +21,6 @@ func XDGOpen() XDGOpenCommand {
 
 // Name returns the effective name of the command
 func (c XDGOpenCommand) Name() string {
-	if runtime.GOOS == "windows" {
-		return "start"
-	}
-
 	return "xdg-open"
 }
 
@@ -51,5 +47,8 @@ func (c XDGOpenCommand) Version() (version string) {
 
 // Open triggers a variable input string opening
 func (c XDGOpenCommand) Open(input string) error {
+	if runtime.GOOS == "windows" {
+		return exec.Command("cmd", "/c", "start", input).Run()
+	}
 	return exec.Command(c.Name(), input).Run()
 }

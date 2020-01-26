@@ -56,7 +56,7 @@ var (
 	argDisableIndexing       bool
 	argAuthenticateOutside   bool
 	argInteractive           bool
-	argManualInput           bool
+	argInput                 bool
 	argRemoveDuplicates      bool
 	// flags for troubleshooting
 	argLog        bool
@@ -184,7 +184,7 @@ func mainFlagsParse() {
 	flag.BoolVar(&argDisableIndexing, "disable-indexing", false, "Disable automatic library indexing (used to keep track of tracks names modifications)")
 	flag.BoolVar(&argAuthenticateOutside, "authenticate-outside", false, "Enable authentication flow to be handled outside this machine")
 	flag.BoolVar(&argInteractive, "interactive", false, "Enable interactive mode")
-	flag.BoolVar(&argManualInput, "manual-input", false, "Always manually insert URL used for songs download")
+	flag.BoolVar(&argInput, "input", false, "Always manually insert URL used for songs download")
 	flag.BoolVar(&argRemoveDuplicates, "remove-duplicates", false, "Remove encountered duplicates from online library/playlist")
 
 	// troubleshooting
@@ -596,7 +596,7 @@ func mainSearch() {
 					entryPick   bool
 				)
 
-				if !argManualInput {
+				if !argInput {
 					provEntries, provErr = p.Query(track)
 					if provErr != nil {
 						ui.Append(
@@ -629,7 +629,7 @@ func mainSearch() {
 					}
 				}
 
-				if argManualInput && entry.Empty() {
+				if argInput && entry.Empty() {
 					if url := ui.PromptInputMessage(fmt.Sprintf("Enter URL for \"%s\"", track.Basename()), cui.PromptInput); len(url) > 0 {
 						if err := p.Support(url); err == nil {
 							entry.URL = url

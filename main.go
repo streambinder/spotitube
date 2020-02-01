@@ -578,7 +578,9 @@ func mainSearch() {
 				ui.Append(fmt.Sprintf("Unable to rename: %s", err.Error()), cui.ErrorAppend)
 			} else {
 				index.Rename(track.SpotifyID, track.Filename())
-				trackOpts.Source = false
+				if !argFlushLocal {
+					trackOpts.Source = false
+				}
 			}
 		}
 

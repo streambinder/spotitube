@@ -325,11 +325,9 @@ func mainFetch() {
 
 	if argFlushLocal || argFlushMetadata {
 		for _, opts := range tracks {
+			opts.Metadata = true
 			if argFlushLocal {
 				opts.Source = true
-			}
-			if argFlushMetadata {
-				opts.Metadata = true
 			}
 		}
 	}

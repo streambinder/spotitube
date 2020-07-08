@@ -1,6 +1,3 @@
-bin
-zeus/data.yml
-zeus/dumps
-zeus/.history
+build
 *.log
 .vscode

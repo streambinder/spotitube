@@ -5,13 +5,14 @@ import (
 	"math"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/bradfitz/slice"
 	"github.com/streambinder/spotitube/shell"
+	"github.com/streambinder/spotitube/system"
 	"github.com/streambinder/spotitube/track"
+	"github.com/tidwall/gjson"
 )
 
 const (
@@ -53,7 +54,7 @@ func (p YouTubeProvider) Query(track *track.Track) ([]*Entry, error) {
 		return []*Entry{}, fmt.Errorf("YouTube busted you: you'd better wait few minutes before retrying firing thousands video requests")
 	}
 
-	entries, err := pullTracksFromDoc(*track, d)
+	entries, err := pullTracksFromDoc(*track, dContent)
 	if err != nil {
 		return []*Entry{}, err
 	}
@@ -104,60 +105,25 @@ func IDFromURL(url string) string {
 	return ""
 }
 
-func pullTracksFromDoc(track track.Track, document *goquery.Document) ([]*Entry, error) {
+func pullTracksFromDoc(track track.Track, document string) ([]*Entry, error) {
 	var (
-		entries  = []*Entry{}
-		elVideo  = document.Find(youTubeHTMLVideoSelector)
-		elDesc   = document.Find(youTubeHTMLDescSelector)
-		elLength = document.Find(youTubeHTMLDurationSelector)
-		elPtr    int
-		elErr    error
+		entries = []*Entry{}
+		json    = strings.Split(strings.Split(string(document), "window[\"ytInitialData\"] = ")[1], ";")[0]
 	)
-	for elPtr+1 < len(elVideo.Nodes) {
-		elPtr++
 
-		item := elVideo.Eq(elPtr)
-		itemHref, itemHrefOk := item.Attr("href")
-		itemTitle, itemTitleOk := item.Attr("title")
-		itemUser, _ := "unknown", false
-		itemLength, itemLengthOk := 0, false
-
-		if elPtr < len(elDesc.Nodes) {
-			itemDesc := elDesc.Eq(elPtr)
-			itemUser = strings.TrimSpace(itemDesc.Find("a").Text())
-			// itemUserOk = true
+	gjson.Get(json, "contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents.0.itemSectionRenderer.contents").ForEach(func(key, value gjson.Result) bool {
+		e := &Entry{
+			gjson.Get(value.String(), "videoRenderer.videoId").String(),
+			"https://youtu.be/" + gjson.Get(value.String(), "videoRenderer.videoId").String(),
+			gjson.Get(value.String(), "videoRenderer.title.runs.0.text").String(),
+			gjson.Get(value.String(), "videoRenderer.ownerText.runs.0.text").String(),
+			system.ColonDuration(gjson.Get(value.String(), "videoRenderer.lengthText.simpleText").String()),
 		}
-
-		if elPtr < len(elLength.Nodes) {
-			var itemLengthMin, itemLengthSec int
-			itemDuration := elLength.Eq(elPtr)
-			itemLengthSectr := strings.TrimSpace(itemDuration.Text())
-			if strings.Contains(itemLengthSectr, ": ") {
-				itemLengthSectr = strings.Split(itemLengthSectr, ": ")[1]
-				itemLengthMin, elErr = strconv.Atoi(strings.Split(itemLengthSectr, ":")[0])
-				if elErr == nil {
-					itemLengthSec, elErr = strconv.Atoi(strings.Split(itemLengthSectr, ":")[1][:2])
-					if elErr == nil {
-						itemLength = itemLengthMin*60 + itemLengthSec
-						itemLengthOk = true
-					}
-				}
-			}
+		if e.ID != "" && e.Title != "" && e.User != "" && e.Duration > 0 {
+			entries = append(entries, e)
 		}
-
-		if itemHrefOk && itemTitleOk && itemLengthOk &&
-			!strings.Contains(strings.ToLower(itemHref), "&list=") &&
-			(strings.Contains(strings.ToLower(itemHref), "youtu.be") ||
-				strings.Contains(strings.ToLower(itemHref), "watch?v=")) {
-			entries = append(entries, &Entry{
-				ID:       IDFromURL(youTubeVideoPrefix + itemHref),
-				URL:      youTubeVideoPrefix + itemHref,
-				Title:    itemTitle,
-				User:     itemUser,
-				Duration: itemLength,
-			})
-		}
-	}
+		return true
+	})
 
 	return entries, nil
 }

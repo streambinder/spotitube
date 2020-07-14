@@ -16,12 +16,9 @@ import (
 )
 
 const (
-	youTubeVideoPrefix          = "https://www.youtube.com"
-	youTubeQueryURL             = youTubeVideoPrefix + "/results"
-	youTubeQueryPattern         = youTubeQueryURL + "?q=%s"
-	youTubeHTMLVideoSelector    = ".yt-uix-tile-link"
-	youTubeHTMLDescSelector     = ".yt-lockup-byline"
-	youTubeHTMLDurationSelector = ".accessible-description"
+	youTubeVideoPrefix  = "https://www.youtube.com"
+	youTubeQueryURL     = youTubeVideoPrefix + "/results"
+	youTubeQueryPattern = youTubeQueryURL + "?q=%s"
 )
 
 var (

@@ -36,7 +36,7 @@ func (c FFmpegCommand) Exists() bool {
 func (c FFmpegCommand) Version() (version string) {
 	var (
 		cmdOut bytes.Buffer
-		cmdReg = regexp.MustCompile("\\d+\\.\\d+\\.\\d+")
+		cmdReg = regexp.MustCompile("\\d+\\.(\\d+\\.)?\\d+")
 	)
 
 	cmd := exec.Command(c.Name(), []string{"-version"}...)

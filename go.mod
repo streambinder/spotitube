@@ -31,6 +31,7 @@ require (
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/streambinder/solbump v0.0.0-20200118010142-5f84694f3c56
 	github.com/thanhpk/randstr v1.0.4
+	github.com/tidwall/gjson v1.6.0
 	github.com/zmb3/spotify v0.0.0-20200112163645-71a4c67d18db
 	go4.org v0.0.0-20200104003542-c7e774b10ea0 // indirect
 	golang.org/x/sys v0.0.0-20200124204421-9fbb57f87de9 // indirect

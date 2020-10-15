@@ -16,9 +16,10 @@ import (
 )
 
 const (
-	youTubeVideoPrefix  = "https://www.youtube.com"
-	youTubeQueryURL     = youTubeVideoPrefix + "/results"
-	youTubeQueryPattern = youTubeQueryURL + "?q=%s"
+	youTubeVideoPrefix       = "https://www.youtube.com"
+	youTubeQueryURL          = youTubeVideoPrefix + "/results"
+	youTubeQueryPattern      = youTubeQueryURL + "?q=%s"
+	youTubeResultsLinePrefix = "window[\"ytInitialData\"] = "
 )
 
 var (
@@ -86,7 +87,7 @@ func (p YouTubeProvider) Download(e *Entry, fname string) error {
 // Support returns nil error if input URL is a valid YouTube URL
 func (p YouTubeProvider) Support(url string) error {
 	if regURL.FindAllString(url, -1) == nil {
-		return fmt.Errorf(fmt.Sprintf("URL %s doesn't seem to be pointing to any YouTube video.", url))
+		return fmt.Errorf(fmt.Sprintf("URL %s doesn't seem to be pointing to any YouTube video", url))
 	}
 
 	return nil
@@ -103,11 +104,12 @@ func IDFromURL(url string) string {
 }
 
 func pullTracksFromDoc(track track.Track, document string) ([]*Entry, error) {
-	var (
-		entries = []*Entry{}
-		json    = strings.Split(strings.Split(string(document), "window[\"ytInitialData\"] = ")[1], ";")[0]
-	)
+	var entries = []*Entry{}
+	if !strings.Contains(document, youTubeResultsLinePrefix) {
+		return entries, fmt.Errorf("No results found")
+	}
 
+	var json = strings.Split(strings.Split(document, youTubeResultsLinePrefix)[1], "\n")[0]
 	gjson.Get(json, "contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents.0.itemSectionRenderer.contents").ForEach(func(key, value gjson.Result) bool {
 		e := &Entry{
 			gjson.Get(value.String(), "videoRenderer.videoId").String(),

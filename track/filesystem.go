@@ -11,6 +11,7 @@ import (
 var (
 	extension    = "mp3"
 	junkSuffixes = []string{".ytdl", ".webm", ".opus", ".part", ".jpg", ".tmp", "-id3v2"}
+	symbolsStrip = []string{"/", "\\", ".", "?", "<", ">", ":", "*", "\"", "'"}
 )
 
 // Local returns a boolean indicating whether track is on filesystem or not
@@ -21,7 +22,7 @@ func (track *Track) Local() bool {
 // Basename returns track basename
 func (track Track) Basename() string {
 	basename := track.Artist + " - " + track.Title
-	for _, symbol := range []string{"/", "\\", ".", "?", "<", ">", ":", "*"} {
+	for _, symbol := range symbolsStrip {
 		basename = strings.Replace(basename, symbol, "", -1)
 	}
 	basename = strings.Replace(basename, "  ", " ", -1)

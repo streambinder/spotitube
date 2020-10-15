@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	version          = 28
+	version          = 29
 	cacheDuration    = 30 * time.Minute
 	concurrencyLimit = 100
 )

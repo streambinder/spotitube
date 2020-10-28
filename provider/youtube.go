@@ -2,6 +2,7 @@ package provider
 
 import (
 	"fmt"
+	"io/ioutil"
 	"math"
 	"path/filepath"
 	"regexp"
@@ -19,7 +20,7 @@ const (
 	youTubeVideoPrefix       = "https://www.youtube.com"
 	youTubeQueryURL          = youTubeVideoPrefix + "/results"
 	youTubeQueryPattern      = youTubeQueryURL + "?q=%s"
-	youTubeResultsLinePrefix = "window[\"ytInitialData\"] = "
+	youTubeResultsLinePrefix = "scraper_data_begin"
 )
 
 var (
@@ -105,11 +106,15 @@ func IDFromURL(url string) string {
 
 func pullTracksFromDoc(track track.Track, document string) ([]*Entry, error) {
 	var entries = []*Entry{}
+	ioutil.WriteFile("/tmp/query.html", []byte(document), 0644)
 	if !strings.Contains(document, youTubeResultsLinePrefix) {
 		return entries, fmt.Errorf("No results found")
 	}
 
-	var json = strings.Split(strings.Split(document, youTubeResultsLinePrefix)[1], "\n")[0]
+	var (
+		jsonParts = strings.Split(strings.Split(strings.Split(document, youTubeResultsLinePrefix)[1], "\n")[1], "=")
+		json      = strings.Join(jsonParts[1:], "=")
+	)
 	gjson.Get(json, "contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents.0.itemSectionRenderer.contents").ForEach(func(key, value gjson.Result) bool {
 		e := &Entry{
 			gjson.Get(value.String(), "videoRenderer.videoId").String(),

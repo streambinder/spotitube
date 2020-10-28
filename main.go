@@ -57,7 +57,6 @@ var (
 	argAuthenticateOutside   bool
 	argInteractive           bool
 	argInput                 bool
-	argRemoveDuplicates      bool
 	// flags for troubleshooting
 	argLog        bool
 	argDebug      bool
@@ -185,7 +184,6 @@ func mainFlagsParse() {
 	flag.BoolVar(&argAuthenticateOutside, "authenticate-outside", false, "Enable authentication flow to be handled outside this machine")
 	flag.BoolVar(&argInteractive, "interactive", false, "Enable interactive mode")
 	flag.BoolVar(&argInput, "input", false, "Always manually insert URL used for songs download")
-	flag.BoolVar(&argRemoveDuplicates, "remove-duplicates", false, "Remove encountered duplicates from online library/playlist")
 
 	// troubleshooting
 	flag.BoolVar(&argLog, "log", false, "Enable logging into file ./spotitube.log")
@@ -382,27 +380,11 @@ func mainFetchLibrary() {
 		ui.Append(fmt.Sprintf("Unable to cache tracks: %s", err.Error()), cui.WarningAppend)
 	}
 
-	dup := make(map[spotify.ID]float64)
 	for _, t := range library {
-		if _, isDup := dup[spotify.ID(t.SpotifyID)]; !isDup {
-			if t.Local() {
-				tracks[t] = track.SyncOptionsDefault()
-			} else {
-				tracks[t] = track.SyncOptionsFlush()
-			}
-		}
-		dup[spotify.ID(t.SpotifyID)] = 1
-	}
-
-	if argRemoveDuplicates {
-		ids := []spotify.ID{}
-		for id := range dup {
-			ids = append(ids, id)
-		}
-
-		err := c.RemoveLibraryTracks(ids)
-		if err != nil {
-			ui.Append(fmt.Sprintf("Unable to remove library duplicates: %s", err.Error()), cui.WarningAppend)
+		if t.Local() {
+			tracks[t] = track.SyncOptionsDefault()
+		} else {
+			tracks[t] = track.SyncOptionsFlush()
 		}
 	}
 }
@@ -514,31 +496,16 @@ func mainFetchPlaylists() {
 			ui.Append(fmt.Sprintf("Unable to cache tracks: %s", err.Error()), cui.WarningAppend)
 		}
 
-		dup := make(map[spotify.ID]float64)
 		for _, t := range p {
-			if _, isDup := dup[spotify.ID(t.SpotifyID)]; !isDup {
-				if t.Local() {
-					tracks[t] = track.SyncOptionsDefault()
-				} else {
-					tracks[t] = track.SyncOptionsFlush()
-				}
+			if t.Local() {
+				tracks[t] = track.SyncOptionsDefault()
+			} else {
+				tracks[t] = track.SyncOptionsFlush()
 			}
-			dup[spotify.ID(t.SpotifyID)] = 1
 		}
 
 		playlist.Tracks = p
 		playlists = append(playlists, playlist)
-		if argRemoveDuplicates {
-			ids := []spotify.ID{}
-			for id := range dup {
-				ids = append(ids, id)
-			}
-
-			err := c.RemovePlaylistTracks(uri, ids)
-			if err != nil {
-				ui.Append(fmt.Sprintf("Unable to remove %s playlist duplicates: %s", uri, err.Error()), cui.WarningAppend)
-			}
-		}
 	}
 }
 

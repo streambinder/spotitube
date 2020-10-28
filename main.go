@@ -68,6 +68,7 @@ var (
 	cUser        string
 	cUserID      string
 	tracks       = make(map[*track.Track]*track.SyncOptions)
+	tracksIndex  = make(map[string]uint64)
 	artworks     = make(map[string]*[]byte)
 	playlists    []*track.Playlist
 	tracksFailed []*track.Track
@@ -361,11 +362,7 @@ func mainFetchLibrary() {
 				durafmt.ParseShort(cacheDuration).String()),
 			cui.PanelLeftTop)
 		for _, t := range dump.Tracks {
-			if t.Local() {
-				tracks[t] = track.SyncOptionsDefault()
-			} else {
-				tracks[t] = track.SyncOptionsFlush()
-			}
+			tracksInflate(t)
 		}
 		return
 	}
@@ -381,11 +378,7 @@ func mainFetchLibrary() {
 	}
 
 	for _, t := range library {
-		if t.Local() {
-			tracks[t] = track.SyncOptionsDefault()
-		} else {
-			tracks[t] = track.SyncOptionsFlush()
-		}
+		tracksInflate(t)
 	}
 }
 
@@ -415,11 +408,7 @@ func mainFetchAlbums() {
 					durafmt.ParseShort(cacheDuration).String()),
 				cui.PanelLeftTop)
 			for _, t := range dump.Tracks {
-				if t.Local() {
-					tracks[t] = track.SyncOptionsDefault()
-				} else {
-					tracks[t] = track.SyncOptionsFlush()
-				}
+				tracksInflate(t)
 			}
 			continue
 		}
@@ -435,11 +424,7 @@ func mainFetchAlbums() {
 		}
 
 		for _, t := range album {
-			if t.Local() {
-				tracks[t] = track.SyncOptionsDefault()
-			} else {
-				tracks[t] = track.SyncOptionsFlush()
-			}
+			tracksInflate(t)
 		}
 	}
 }
@@ -475,11 +460,7 @@ func mainFetchPlaylists() {
 					durafmt.ParseShort(cacheDuration).String()),
 				cui.PanelLeftTop)
 			for _, t := range dump.Tracks {
-				if t.Local() {
-					tracks[t] = track.SyncOptionsDefault()
-				} else {
-					tracks[t] = track.SyncOptionsFlush()
-				}
+				tracksInflate(t)
 			}
 			playlist.Tracks = dump.Tracks
 			playlists = append(playlists, playlist)
@@ -497,11 +478,7 @@ func mainFetchPlaylists() {
 		}
 
 		for _, t := range p {
-			if t.Local() {
-				tracks[t] = track.SyncOptionsDefault()
-			} else {
-				tracks[t] = track.SyncOptionsFlush()
-			}
+			tracksInflate(t)
 		}
 
 		playlist.Tracks = p
@@ -519,7 +496,7 @@ func mainFetchTracksToFix() {
 		if t, err := track.OpenLocalTrack(tFix); err != nil {
 			ui.Prompt(fmt.Sprintf("Something went wrong: %s", err.Error()))
 		} else {
-			tracks[t] = track.SyncOptionsFlush()
+			tracksInflateWithOption(t, track.SyncOptionsFlush())
 		}
 	}
 }
@@ -693,6 +670,24 @@ func mainExit(delay ...time.Duration) {
 	}
 
 	os.Exit(0)
+}
+
+func tracksInflate(t *track.Track) {
+	var opts *track.SyncOptions = track.SyncOptionsFlush()
+	if t.Local() {
+		opts = track.SyncOptionsDefault()
+	}
+	tracksInflateWithOption(t, opts)
+}
+
+func tracksInflateWithOption(t *track.Track, opts *track.SyncOptions) {
+	var indexKey = t.FilenameTemporary()
+	if _, isDup := tracksIndex[indexKey]; isDup {
+		return
+	}
+
+	tracks[t] = opts
+	tracksIndex[indexKey] = 1
 }
 
 func songFetchLyrics(t *track.Track) error {

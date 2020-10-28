@@ -2,7 +2,6 @@ package provider
 
 import (
 	"fmt"
-	"io/ioutil"
 	"math"
 	"path/filepath"
 	"regexp"
@@ -106,7 +105,6 @@ func IDFromURL(url string) string {
 
 func pullTracksFromDoc(track track.Track, document string) ([]*Entry, error) {
 	var entries = []*Entry{}
-	ioutil.WriteFile("/tmp/query.html", []byte(document), 0644)
 	if !strings.Contains(document, youTubeResultsLinePrefix) {
 		return entries, fmt.Errorf("No results found")
 	}

@@ -50,6 +50,9 @@ func (c XDGOpenCommand) Open(input string) error {
 	if runtime.GOOS == "windows" {
 		exec.Command("rundll32", "url.dll,FileProtocolHandler", input).Run()
 		return nil
+	} else if runtime.GOOS == "darwin" {
+		exec.Command("open", input).Run()
+		return nil
 	}
 	return exec.Command(c.Name(), input).Run()
 }

@@ -19,7 +19,8 @@ const (
 	youTubeVideoPrefix       = "https://www.youtube.com"
 	youTubeQueryURL          = youTubeVideoPrefix + "/results"
 	youTubeQueryPattern      = youTubeQueryURL + "?q=%s"
-	youTubeResultsLinePrefix = "scraper_data_begin"
+	youTubeResultsLinePrefix = "var ytInitialData ="
+	youTubeResultsLineSuffix = ";"
 )
 
 var (
@@ -105,14 +106,11 @@ func IDFromURL(url string) string {
 
 func pullTracksFromDoc(track track.Track, document string) ([]*Entry, error) {
 	var entries = []*Entry{}
-	if !strings.Contains(document, youTubeResultsLinePrefix) {
+	if !strings.Contains(document, youTubeResultsLinePrefix) || !strings.Contains(document, youTubeResultsLineSuffix) {
 		return entries, fmt.Errorf("No results found")
 	}
 
-	var (
-		jsonParts = strings.Split(strings.Split(strings.Split(document, youTubeResultsLinePrefix)[1], "\n")[1], "=")
-		json      = strings.Join(jsonParts[1:], "=")
-	)
+	var json = strings.Split(strings.Split(document, youTubeResultsLinePrefix)[1], youTubeResultsLinePrefix)[0]
 	gjson.Get(json, "contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents.0.itemSectionRenderer.contents").ForEach(func(key, value gjson.Result) bool {
 		e := &Entry{
 			gjson.Get(value.String(), "videoRenderer.videoId").String(),

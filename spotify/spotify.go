@@ -216,7 +216,7 @@ func (c *Client) AlbumTracks(uri string) ([]*track.Track, error) {
 
 	for true {
 		*options.Offset = *options.Limit * iterations
-		chunk, err := c.GetAlbumTracksOpt(IDFromURI(uri), *options.Limit, *options.Offset)
+		chunk, err := c.GetAlbumTracksOpt(IDFromURI(uri), &options)
 		if err != nil {
 			switch c.handleError(err) {
 			case errorStrict:

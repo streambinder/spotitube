@@ -3,9 +3,9 @@ package spotify
 import (
 	"testing"
 
-	"github.com/matryer/is"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestID(t *testing.T) {
-	is.New(t).True(ID("id") == "id")
+	assert.True(t, ID("id") == "id")
 }

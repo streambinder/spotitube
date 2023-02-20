@@ -3,7 +3,7 @@ package cmd
 import (
 	"testing"
 
-	"github.com/matryer/is"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCmdSync(t *testing.T) {
@@ -13,10 +13,10 @@ func TestCmdSync(t *testing.T) {
 		"-a", "ID", "--album", "ID",
 		"-t", "ID", "--track", "ID",
 	)
-	is.New(t).NoErr(err)
+	assert.Nil(t, err)
 }
 
 func TestCmdSyncWrong(t *testing.T) {
 	_, err := testExecute(cmdSync, "sync", "--LIBRARY")
-	is.New(t).True(err != nil)
+	assert.NotNil(t, err)
 }

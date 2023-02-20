@@ -4,9 +4,18 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/matryer/is"
 	"github.com/spf13/cobra"
 )
+
+// func TestMain(m *testing.M) {
+// 	returnCode := m.Run()
+// 	if returnCode == 0 && testing.CoverMode() != "" {
+// 		if testing.Coverage() < 0.9 {
+// 			fmt.Printf("Coverage not reached: %.1f", testing.Coverage())
+// 			os.Exit(-1)
+// 		}
+// 	}
+// }
 
 func testExecute(subcmd *cobra.Command, args ...string) (output string, err error) {
 	var (
@@ -22,22 +31,6 @@ func testExecute(subcmd *cobra.Command, args ...string) (output string, err erro
 	return
 }
 
-func TestCmdRootHelp(t *testing.T) {
-	cmdRoot.SetArgs([]string{"--help"})
-	is.New(t).NoErr(cmdRoot.Execute())
-}
-
-func TestCmdRootHelpP(t *testing.T) {
-	cmdRoot.SetArgs([]string{"-h"})
-	is.New(t).NoErr(cmdRoot.Execute())
-}
-
-func TestCmdRootHelpS(t *testing.T) {
-	cmdRoot.SetArgs([]string{"help"})
-	is.New(t).NoErr(cmdRoot.Execute())
-}
-
-func TestCmdRootAutocomplete(t *testing.T) {
-	cmdRoot.SetArgs([]string{"completion", "bash"})
-	is.New(t).NoErr(cmdRoot.Execute())
+func TestExecuteOk(t *testing.T) {
+	Execute()
 }

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -12,11 +13,8 @@ var cmdRoot = &cobra.Command{
 }
 
 func Execute() {
-	if cmdRoot.Execute() != nil {
+	if err := cmdRoot.Execute(); err != nil {
+		fmt.Println(err)
 		os.Exit(1)
 	}
-}
-
-func init() {
-	// cmdRoot.PersistentFlags().BoolP("debug", "d", false, "Enable debug mode")
 }

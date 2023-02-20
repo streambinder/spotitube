@@ -68,7 +68,7 @@ var (
 			if len(playlists)+len(albums)+len(tracks) == 0 {
 				cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
 					if f.Name == "library" {
-						f.Value.Set("true")
+						_ = f.Value.Set("true")
 					}
 				})
 			}

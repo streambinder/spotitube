@@ -21,5 +21,4 @@ jobs:
         with:
           fetch-depth: 0
       - uses: golangci/golangci-lint-action@v3
-        with:
-          only-new-issues: true
+      - uses: wagoid/commitlint-github-action@v5

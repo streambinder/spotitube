@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"log"
-	"time"
 
 	"github.com/arunsworld/nursery"
 	"github.com/spf13/cobra"
@@ -49,7 +48,6 @@ var (
 				playlists []string
 				albums    []string
 				tracks    []string
-				fixes     []string
 			)
 
 			playlists, err = cmd.Flags().GetStringArray("playlist")
@@ -67,12 +65,7 @@ var (
 				return
 			}
 
-			fixes, err = cmd.Flags().GetStringArray("fix")
-			if err != nil {
-				return
-			}
-
-			if len(playlists)+len(albums)+len(tracks)+len(fixes) == 0 {
+			if len(playlists)+len(albums)+len(tracks) == 0 {
 				cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
 					if f.Name == "library" {
 						f.Value.Set("true")
@@ -90,7 +83,6 @@ func init() {
 	cmdSync.Flags().StringArrayP("playlist", "p", []string{}, "Synchronize playlist")
 	cmdSync.Flags().StringArrayP("album", "a", []string{}, "Synchronize album")
 	cmdSync.Flags().StringArrayP("track", "t", []string{}, "Synchronize track")
-	cmdSync.Flags().StringArrayP("fix", "f", []string{}, "Fix track")
 }
 
 // indexer scans a possible local music library
@@ -100,7 +92,6 @@ func indexer(context.Context, chan error) {
 	defer close(queues[fetch])
 
 	log.Println("[indexer]\tindexing")
-	time.Sleep(2 * time.Second)
 	log.Println("[indexer]\tindexed")
 }
 
@@ -114,9 +105,6 @@ func fetcher(context.Context, chan error) {
 
 	log.Println("[fetcher]\tfetching")
 	queues[download] <- spotify.ID("6rqhFgbbKwnb9MLmUQDhG6")
-	time.Sleep(2 * time.Second)
-	queues[download] <- spotify.ID("adfuh8234nkjncw83jkans")
-	time.Sleep(1 * time.Second)
 	log.Println("[fetcher]\tfetched")
 }
 
@@ -128,7 +116,6 @@ func downloader(context.Context, chan error) {
 
 	for track := range queues[download] {
 		log.Println("[download]\t" + track)
-		time.Sleep(5 * time.Second)
 		queues[paint] <- track
 	}
 }
@@ -141,7 +128,6 @@ func painter(context.Context, chan error) {
 
 	for track := range queues[paint] {
 		log.Println("[painter]\t" + track)
-		time.Sleep(2 * time.Second)
 		queues[compose] <- track
 	}
 }
@@ -154,7 +140,6 @@ func composer(context.Context, chan error) {
 
 	for track := range queues[compose] {
 		log.Println("[composer]\t" + track)
-		time.Sleep(1 * time.Second)
 		queues[process] <- track
 	}
 }

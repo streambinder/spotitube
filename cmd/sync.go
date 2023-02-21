@@ -52,15 +52,9 @@ var (
 				tracks    []string
 			)
 
-			if playlists, err = cmd.Flags().GetStringArray("playlist"); err != nil {
-				return
-			}
-			if albums, err = cmd.Flags().GetStringArray("album"); err != nil {
-				return
-			}
-			if tracks, err = cmd.Flags().GetStringArray("track"); err != nil {
-				return
-			}
+			playlists, _ = cmd.Flags().GetStringArray("playlist")
+			albums, _ = cmd.Flags().GetStringArray("album")
+			tracks, _ = cmd.Flags().GetStringArray("track")
 
 			if len(playlists)+len(albums)+len(tracks) == 0 {
 				cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {

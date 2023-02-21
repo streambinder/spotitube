@@ -2,10 +2,21 @@ package cmd
 
 import (
 	"bytes"
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+func TestMain(m *testing.M) {
+	test_exit_code := m.Run()
+	if test_exit_code == 0 && testing.CoverMode() != "" && testing.Coverage() < 1 {
+		fmt.Println("FAIL\tcoverage")
+		test_exit_code = -1
+	}
+	os.Exit(test_exit_code)
+}
 
 func testExecute(args ...string) (stdout, stderr string, err error) {
 	var (
@@ -21,6 +32,6 @@ func testExecute(args ...string) (stdout, stderr string, err error) {
 	return
 }
 
-func TestExecuteOk(t *testing.T) {
+func TestExecute(t *testing.T) {
 	assert.Nil(t, Execute())
 }

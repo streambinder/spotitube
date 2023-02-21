@@ -4,33 +4,23 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
 )
 
-// func TestMain(m *testing.M) {
-// 	returnCode := m.Run()
-// 	if returnCode == 0 && testing.CoverMode() != "" {
-// 		if testing.Coverage() < 0.9 {
-// 			fmt.Printf("Coverage not reached: %.1f", testing.Coverage())
-// 			os.Exit(-1)
-// 		}
-// 	}
-// }
-
-func testExecute(subcmd *cobra.Command, args ...string) (output string, err error) {
+func testExecute(args ...string) (stdout, stderr string, err error) {
 	var (
-		outputBuffer = new(bytes.Buffer)
-		command      = &cobra.Command{}
+		stdoutBuffer = new(bytes.Buffer)
+		stderrBuffer = new(bytes.Buffer)
 	)
-	command.SetOutput(outputBuffer)
-	command.SetErr(outputBuffer)
-	command.SetArgs(args)
-	command.AddCommand(subcmd)
-	err = command.Execute()
-	output = outputBuffer.String()
+	cmdRoot.SetArgs(args)
+	cmdRoot.SetErr(stderrBuffer)
+	cmdRoot.SetOutput(stdoutBuffer)
+	err = cmdRoot.Execute()
+	stderr = stderrBuffer.String()
+	stdout = stdoutBuffer.String()
 	return
 }
 
 func TestExecuteOk(t *testing.T) {
-	Execute()
+	assert.Nil(t, Execute())
 }

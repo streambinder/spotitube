@@ -7,7 +7,7 @@ import (
 )
 
 func TestCmdSync(t *testing.T) {
-	_, err := testExecute(cmdSync, "sync",
+	_, _, err := testExecute("sync",
 		"-l", "--library",
 		"-p", "ID", "--playlist", "ID",
 		"-a", "ID", "--album", "ID",
@@ -16,7 +16,10 @@ func TestCmdSync(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestCmdSyncWrong(t *testing.T) {
-	_, err := testExecute(cmdSync, "sync", "--LIBRARY")
-	assert.NotNil(t, err)
+func TestCmdSyncLibraryDynamicallySet(t *testing.T) {
+	_, _, err := testExecute("sync")
+	assert.Nil(t, err)
+	library, err := cmdSync.Flags().GetBool("library")
+	assert.Nil(t, err)
+	assert.True(t, library)
 }

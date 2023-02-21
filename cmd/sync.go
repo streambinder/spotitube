@@ -21,14 +21,7 @@ const (
 )
 
 var (
-	queues map[int](chan spotify.ID) = map[int](chan spotify.ID){
-		fetch:    make(chan spotify.ID),
-		download: make(chan spotify.ID),
-		paint:    make(chan spotify.ID),
-		compose:  make(chan spotify.ID),
-		process:  make(chan spotify.ID),
-		install:  make(chan spotify.ID),
-	}
+	queues  map[int](chan spotify.ID)
 	cmdSync = &cobra.Command{
 		Use:   "sync",
 		Short: "Synchronize collections",
@@ -44,24 +37,28 @@ var (
 			)
 		},
 		PreRunE: func(cmd *cobra.Command, args []string) (err error) {
+			queues = map[int](chan spotify.ID){
+				fetch:    make(chan spotify.ID),
+				download: make(chan spotify.ID),
+				paint:    make(chan spotify.ID),
+				compose:  make(chan spotify.ID),
+				process:  make(chan spotify.ID),
+				install:  make(chan spotify.ID),
+			}
+
 			var (
 				playlists []string
 				albums    []string
 				tracks    []string
 			)
 
-			playlists, err = cmd.Flags().GetStringArray("playlist")
-			if err != nil {
+			if playlists, err = cmd.Flags().GetStringArray("playlist"); err != nil {
 				return
 			}
-
-			albums, err = cmd.Flags().GetStringArray("album")
-			if err != nil {
+			if albums, err = cmd.Flags().GetStringArray("album"); err != nil {
 				return
 			}
-
-			tracks, err = cmd.Flags().GetStringArray("track")
-			if err != nil {
+			if tracks, err = cmd.Flags().GetStringArray("track"); err != nil {
 				return
 			}
 

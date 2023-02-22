@@ -6,8 +6,13 @@ import (
 	"runtime"
 )
 
-func Open(url string) (err error) {
-	switch runtime.GOOS {
+func Open(url string, oses ...string) (err error) {
+	os := runtime.GOOS
+	if len(oses) > 0 {
+		os = oses[0]
+	}
+
+	switch os {
 	case "linux":
 		err = exec.Command("xdg-open", url).Start()
 	case "windows":

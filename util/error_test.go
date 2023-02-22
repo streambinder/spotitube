@@ -14,3 +14,7 @@ func TestUtilErrorWrapTrue(t *testing.T) {
 func TestUtilErrorWrapFalse(t *testing.T) {
 	assert.True(t, !ErrWrap(true)(func() (bool, error) { return false, nil }()))
 }
+
+func TestUtilErrorOnly(t *testing.T) {
+	assert.Nil(t, ErrOnly(func() (string, error) { return "", nil }()))
+}

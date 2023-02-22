@@ -1,10 +1,17 @@
 package cmd
 
 import (
+	"errors"
 	"testing"
 
+	"bou.ke/monkey"
+	"github.com/streambinder/spotitube/spotify"
 	"github.com/stretchr/testify/assert"
 )
+
+func init() {
+	monkey.Patch(spotify.Authenticate, func(...string) (*spotify.Client, error) { return nil, errors.New("failure") })
+}
 
 func TestCmdSync(t *testing.T) {
 	_, _, err := testExecute("sync")

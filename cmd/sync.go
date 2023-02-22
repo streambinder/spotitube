@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/streambinder/spotitube/spotify"
-	"github.com/streambinder/spotitube/util"
 )
 
 const (
@@ -83,10 +82,8 @@ func indexer(context.Context, chan error) {
 	// remember to signal fetcher
 	defer close(queues[fetch])
 
-	if client, err := spotify.Authenticate(); err != nil {
+	if _, err := spotify.Authenticate(); err != nil {
 		log.Printf("[indexer]\t%s", err.Error())
-	} else {
-		log.Printf("[indexer]\t%s", util.ErrWrap("null")(client.DisplayName()))
 	}
 
 	log.Println("[indexer]\tindexing")

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sync"
 
 	"github.com/arunsworld/nursery"
 	"github.com/streambinder/spotitube/util/cmd"
@@ -14,25 +15,21 @@ import (
 
 const port = 8080
 
+var register sync.Once
+
 type Client struct {
 	spotify.Client
 	authenticator spotify.Authenticator
 	state         string
-	cache         userCache
-}
-
-type userCache struct {
-	username    string
-	displayName string
 }
 
 func Authenticate(callbacks ...string) (*Client, error) {
 	var (
 		client   Client
-		server   = http.Server{Addr: fmt.Sprintf("0.0.0.0:%d", port)}
+		server   = &http.Server{Addr: fmt.Sprintf("0.0.0.0:%d", port)}
 		state    = randstr.Hex(20)
 		callback = "127.0.0.1"
-		channel  = make(chan spotify.Client, 1)
+		channel  = make(chan *spotify.Client, 1)
 	)
 	defer close(channel)
 
@@ -54,69 +51,48 @@ func Authenticate(callbacks ...string) (*Client, error) {
 		os.Getenv("SPOTIFY_KEY"),
 	)
 
-	http.HandleFunc("/callback", func(writer http.ResponseWriter, request *http.Request) {
-		token, err := authenticator.Token(state, request)
-		if err != nil {
-			http.Error(writer, "could not get token: "+err.Error(), http.StatusForbidden)
-			return
-		} else if requestState := request.FormValue("state"); requestState != state {
-			http.NotFound(writer, request)
-			return
-		}
-		channel <- authenticator.NewClient(token)
-		fmt.Fprintf(writer, "login completed")
+	register.Do(func() {
+		http.HandleFunc("/callback", func(writer http.ResponseWriter, request *http.Request) {
+			token, err := authenticator.Token(state, request)
+			if err != nil {
+				http.Error(writer, "could not get token: "+err.Error(), http.StatusForbidden)
+				return
+			} else if requestState := request.FormValue("state"); requestState != state {
+				http.NotFound(writer, request)
+				return
+			}
+			client := authenticator.NewClient(token)
+			channel <- &client
+			fmt.Fprintf(writer, "login completed")
+		})
 	})
 
 	if err := nursery.RunConcurrently(
+		// spawn web server to handle login redirection
 		func(ctx context.Context, errChannel chan error) {
 			if err := server.ListenAndServe(); err != http.ErrServerClosed {
 				errChannel <- err
+				channel <- nil
 			}
 		},
+		// auto-launch web browser with authentication URL
 		func(ctx context.Context, errChannel chan error) {
-			if err := cmd.Open(authenticator.AuthURL(state)); err != nil {
-				errChannel <- err
-			}
+			errChannel <- cmd.Open(authenticator.AuthURL(state))
 		},
+		// wait to obtain a valid client from global channel
 		func(ctx context.Context, errChannel chan error) {
-			client = Client{
-				<-channel,
-				authenticator,
-				state,
-				userCache{},
+			c := <-channel
+			if c != nil {
+				client = Client{
+					*c,
+					authenticator,
+					state,
+				}
 			}
-			errChannel <- server.Shutdown(context.Background())
+			errChannel <- server.Shutdown(ctx)
 		}); err != nil {
 		return nil, err
 	}
 
-	if err := client.precache(); err != nil {
-		return nil, err
-	}
 	return &client, nil
-}
-
-func (client *Client) precache() error {
-	user, err := client.CurrentUser()
-	if err != nil {
-		return err
-	}
-
-	client.cache.username = user.ID
-	client.cache.displayName = user.DisplayName
-	return nil
-}
-
-func (client *Client) Username() (username string, err error) {
-	if len(client.cache.username) == 0 {
-		err = client.precache()
-	}
-	return client.cache.username, err
-}
-
-func (client *Client) DisplayName() (displayName string, err error) {
-	if len(client.cache.displayName) == 0 {
-		err = client.precache()
-	}
-	return client.cache.displayName, err
 }

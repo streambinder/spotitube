@@ -10,14 +10,12 @@ require (
 	github.com/bradfitz/slice v0.0.0-20180809154707-2b758aa73013
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fatih/color v1.13.0
-	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/gosimple/slug v1.12.0
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
 	github.com/jroimartin/gocui v0.5.0
 	github.com/lunixbochs/vtclean v1.0.0
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
-	github.com/nsf/termbox-go v1.1.1 // indirect
 	github.com/rainycape/unidecode v0.0.0-20150907023854-cb7f23ec59be
 	github.com/rivo/uniseg v0.4.2 // indirect
 	github.com/thanhpk/randstr v1.0.4
@@ -27,8 +25,7 @@ require (
 	golang.org/x/net v0.0.0-20220927171203-f486391704dc // indirect
 	golang.org/x/oauth2 v0.0.0-20220909003341-f21342109be1 // indirect
 	golang.org/x/sys v0.0.0-20220928140112-f11e5e49a4ec // indirect
-	golang.org/x/text v0.3.7
-	google.golang.org/appengine v1.6.7 // indirect
+	golang.org/x/text v0.3.8
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 )

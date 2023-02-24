@@ -7,12 +7,14 @@ import (
 	"github.com/arunsworld/nursery"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/spotify"
+	"github.com/streambinder/spotitube/util"
 )
 
 const (
 	index int = iota
-	fetch
+	authenticate
 	download
 	paint
 	compose
@@ -21,29 +23,35 @@ const (
 )
 
 var (
-	queues  map[int](chan spotify.ID)
-	cmdSync = &cobra.Command{
+	client     *spotify.Client
+	semaphores map[int](chan bool)
+	queues     map[int](chan *entity.Track)
+	cmdSync    = &cobra.Command{
 		Use:   "sync",
 		Short: "Synchronize collections",
-		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			return nursery.RunConcurrently(
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return util.ErrSuppress(nursery.RunConcurrently(
 				indexer,
+				authenticator,
 				fetcher,
 				downloader,
 				painter,
 				composer,
 				processor,
 				installer,
-			)
+			))
 		},
 		PreRunE: func(cmd *cobra.Command, args []string) (err error) {
-			queues = map[int](chan spotify.ID){
-				fetch:    make(chan spotify.ID),
-				download: make(chan spotify.ID),
-				paint:    make(chan spotify.ID),
-				compose:  make(chan spotify.ID),
-				process:  make(chan spotify.ID),
-				install:  make(chan spotify.ID),
+			semaphores = map[int](chan bool){
+				index:        make(chan bool, 1),
+				authenticate: make(chan bool, 1),
+			}
+			queues = map[int](chan *entity.Track){
+				download: make(chan *entity.Track),
+				paint:    make(chan *entity.Track),
+				compose:  make(chan *entity.Track),
+				process:  make(chan *entity.Track),
+				install:  make(chan *entity.Track),
 			}
 
 			var (
@@ -51,11 +59,9 @@ var (
 				albums    []string
 				tracks    []string
 			)
-
 			playlists, _ = cmd.Flags().GetStringArray("playlist")
 			albums, _ = cmd.Flags().GetStringArray("album")
 			tracks, _ = cmd.Flags().GetStringArray("track")
-
 			if len(playlists)+len(albums)+len(tracks) == 0 {
 				cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
 					if f.Name == "library" {
@@ -80,27 +86,48 @@ func init() {
 // to be considered as already synchronized
 func indexer(context.Context, chan error) {
 	// remember to signal fetcher
-	defer close(queues[fetch])
+	defer close(semaphores[index])
 
-	if _, err := spotify.Authenticate(); err != nil {
-		log.Printf("[indexer]\t%s", err.Error())
+	log.Printf("[indexer]\tindexing")
+	// TODO: implement indexing
+	log.Printf("[indexer]\tindexed")
+}
+
+func authenticator(ctx context.Context, ch chan error) {
+	// remember to close authenticate semaphore
+	defer close(semaphores[authenticate])
+
+	var err error
+	client, err = spotify.Authenticate()
+	if err != nil {
+		log.Printf("[auth]\t%s", err)
+		semaphores[authenticate] <- false
+		ch <- err
+		return
 	}
 
-	log.Println("[indexer]\tindexing")
-	log.Println("[indexer]\tindexed")
+	// once authenticated, signal fetcher
+	semaphores[authenticate] <- true
 }
 
 // fetcher pulls data from the upstream
 // provider, i.e. Spotify
-func fetcher(context.Context, chan error) {
+func fetcher(ctx context.Context, ch chan error) {
 	// remember to stop passing data to downloader
 	defer close(queues[download])
-	// block until indexig is done
-	<-queues[fetch]
+	// block until indexing and authentication is done
+	<-semaphores[index]
+	if !<-semaphores[authenticate] {
+		return
+	}
 
-	log.Println("[fetcher]\tfetching")
-	queues[download] <- spotify.ID("6rqhFgbbKwnb9MLmUQDhG6")
-	log.Println("[fetcher]\tfetched")
+	log.Printf("[fetcher]\tfetching playlist")
+	playlist, err := client.Playlist("1GFthetX3IYw6bjisEpuYA", queues[download])
+	if err != nil {
+		ch <- err
+		return
+	}
+	log.Printf("[fetcher]\tdone fetching playlist %s", playlist.Name)
 }
 
 // downloader pulls a track blob corresponding
@@ -110,7 +137,7 @@ func downloader(context.Context, chan error) {
 	defer close(queues[paint])
 
 	for track := range queues[download] {
-		log.Println("[download]\t" + track)
+		log.Println("[download]\t" + track.Title)
 		queues[paint] <- track
 	}
 }
@@ -122,7 +149,7 @@ func painter(context.Context, chan error) {
 	defer close(queues[compose])
 
 	for track := range queues[paint] {
-		log.Println("[painter]\t" + track)
+		log.Println("[painter]\t" + track.Title)
 		queues[compose] <- track
 	}
 }
@@ -134,7 +161,7 @@ func composer(context.Context, chan error) {
 	defer close(queues[process])
 
 	for track := range queues[compose] {
-		log.Println("[composer]\t" + track)
+		log.Println("[composer]\t" + track.Title)
 		queues[process] <- track
 	}
 }
@@ -147,7 +174,7 @@ func processor(context.Context, chan error) {
 	defer close(queues[install])
 
 	for track := range queues[process] {
-		log.Println("[processor]\t" + track)
+		log.Println("[processor]\t" + track.Title)
 		queues[install] <- track
 	}
 }
@@ -155,6 +182,6 @@ func processor(context.Context, chan error) {
 // installer move the blob to its final destination
 func installer(context.Context, chan error) {
 	for track := range queues[install] {
-		log.Println("[installer]\t" + track)
+		log.Println("[installer]\t" + track.Title)
 	}
 }

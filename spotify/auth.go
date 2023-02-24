@@ -2,10 +2,10 @@ package spotify
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
-	"sync"
 
 	"github.com/arunsworld/nursery"
 	"github.com/streambinder/spotitube/util/cmd"
@@ -13,9 +13,10 @@ import (
 	"github.com/zmb3/spotify"
 )
 
-const port = 8080
-
-var register sync.Once
+const (
+	port         = 8080
+	closeTabHTML = "<!DOCTYPE html><html><head><script>open(location, '_self').close();</script></head></html>"
+)
 
 type Client struct {
 	spotify.Client
@@ -25,13 +26,16 @@ type Client struct {
 
 func Authenticate(callbacks ...string) (*Client, error) {
 	var (
-		client   Client
-		server   = &http.Server{Addr: fmt.Sprintf("0.0.0.0:%d", port)}
-		state    = randstr.Hex(20)
-		callback = "127.0.0.1"
-		channel  = make(chan *spotify.Client, 1)
+		client        Client
+		serverMux     = http.NewServeMux()
+		server        = &http.Server{Addr: fmt.Sprintf("0.0.0.0:%d", port), Handler: serverMux}
+		state         = randstr.Hex(20)
+		callback      = "127.0.0.1"
+		clientChannel = make(chan *spotify.Client, 1)
+		errChannel    = make(chan error, 1)
 	)
-	defer close(channel)
+	defer close(clientChannel)
+	defer close(errChannel)
 
 	if len(callbacks) > 0 {
 		callback = callbacks[0]
@@ -46,50 +50,48 @@ func Authenticate(callbacks ...string) (*Client, error) {
 		spotify.ScopePlaylistModifyPublic,
 		spotify.ScopePlaylistModifyPrivate,
 	)
-	authenticator.SetAuthInfo(
-		os.Getenv("SPOTIFY_ID"),
-		os.Getenv("SPOTIFY_KEY"),
-	)
+	authenticator.SetAuthInfo(os.Getenv("SPOTIFY_ID"), os.Getenv("SPOTIFY_KEY"))
 
-	register.Do(func() {
-		http.HandleFunc("/callback", func(writer http.ResponseWriter, request *http.Request) {
-			token, err := authenticator.Token(state, request)
-			if err != nil {
-				http.Error(writer, "could not get token: "+err.Error(), http.StatusForbidden)
-				return
-			} else if requestState := request.FormValue("state"); requestState != state {
-				http.NotFound(writer, request)
-				return
-			}
+	serverMux.HandleFunc("/callback", func(writer http.ResponseWriter, request *http.Request) {
+		fmt.Fprintln(writer, closeTabHTML)
+		token, err := authenticator.Token(state, request)
+		if err != nil {
+			clientChannel <- nil
+			errChannel <- errors.New(http.StatusText(http.StatusForbidden))
+		} else if requestState := request.FormValue("state"); requestState != state {
+			clientChannel <- nil
+			errChannel <- errors.New(http.StatusText(http.StatusNotFound))
+		} else {
 			client := authenticator.NewClient(token)
-			channel <- &client
-			fmt.Fprintf(writer, "login completed")
-		})
+			clientChannel <- &client
+			errChannel <- nil
+		}
 	})
 
 	if err := nursery.RunConcurrently(
 		// spawn web server to handle login redirection
-		func(ctx context.Context, errChannel chan error) {
+		func(ctx context.Context, ch chan error) {
 			if err := server.ListenAndServe(); err != http.ErrServerClosed {
+				ch <- err
+				clientChannel <- nil
 				errChannel <- err
-				channel <- nil
 			}
 		},
 		// auto-launch web browser with authentication URL
-		func(ctx context.Context, errChannel chan error) {
-			errChannel <- cmd.Open(authenticator.AuthURL(state))
+		func(ctx context.Context, ch chan error) {
+			if err := cmd.Open(authenticator.AuthURL(state)); err != nil {
+				ch <- err
+			}
 		},
 		// wait to obtain a valid client from global channel
-		func(ctx context.Context, errChannel chan error) {
-			c := <-channel
-			if c != nil {
-				client = Client{
-					*c,
-					authenticator,
-					state,
-				}
+		func(ctx context.Context, ch chan error) {
+			c, err := <-clientChannel, <-errChannel
+			if err != nil {
+				ch <- err
+			} else {
+				client = Client{*c, authenticator, state}
 			}
-			errChannel <- server.Shutdown(ctx)
+			ch <- server.Shutdown(ctx)
 		}); err != nil {
 		return nil, err
 	}

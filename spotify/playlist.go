@@ -1,6 +1,8 @@
 package spotify
 
 import (
+	"errors"
+
 	"github.com/streambinder/spotitube/entity"
 	"github.com/zmb3/spotify"
 )
@@ -15,9 +17,7 @@ func playlistEntity(playlist *spotify.FullPlaylist) *entity.Playlist {
 
 func (client *Client) Playlist(id string, channels ...chan *entity.Track) (*entity.Playlist, error) {
 	fullPlaylist, err := client.GetPlaylist(spotify.ID(id))
-	if wrapThrottling(err) == errThrottle {
-		return client.Playlist(id)
-	} else if err != nil {
+	if err != nil {
 		return nil, err
 	}
 
@@ -30,9 +30,10 @@ func (client *Client) Playlist(id string, channels ...chan *entity.Track) (*enti
 				ch <- track
 			}
 		}
-		if err := wrapThrottling(client.NextPage(&fullPlaylist.Tracks)); err == spotify.ErrNoMorePages {
+
+		if err := client.NextPage(&fullPlaylist.Tracks); errors.Is(err, spotify.ErrNoMorePages) {
 			break
-		} else if err != errThrottle && err != nil {
+		} else if err != nil {
 			return nil, err
 		}
 	}

@@ -51,6 +51,7 @@ func TestAuthenticate(t *testing.T) {
 					time.Sleep(100 * time.Millisecond)
 					continue
 				}
+				response.Body.Close()
 				break
 			}
 			assert.Equal(t, http.StatusOK, response.StatusCode)
@@ -75,6 +76,7 @@ func TestAuthenticateNotFound(t *testing.T) {
 					time.Sleep(100 * time.Millisecond)
 					continue
 				}
+				response.Body.Close()
 				break
 			}
 			assert.Equal(t, http.StatusOK, response.StatusCode)
@@ -104,6 +106,7 @@ func TestAuthenticateForbidden(t *testing.T) {
 					time.Sleep(100 * time.Millisecond)
 					continue
 				}
+				response.Body.Close()
 				break
 			}
 			assert.Equal(t, http.StatusOK, response.StatusCode)
@@ -129,6 +132,7 @@ func TestAuthenticateOpenFailure(t *testing.T) {
 					time.Sleep(100 * time.Millisecond)
 					continue
 				}
+				response.Body.Close()
 				break
 			}
 			assert.Equal(t, http.StatusOK, response.StatusCode)

@@ -3,8 +3,6 @@ package cmd
 import (
 	"bytes"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func testExecute(args ...string) (stdout, stderr string, err error) {
@@ -22,5 +20,5 @@ func testExecute(args ...string) (stdout, stderr string, err error) {
 }
 
 func TestExecute(t *testing.T) {
-	assert.Nil(t, Execute())
+	Execute()
 }

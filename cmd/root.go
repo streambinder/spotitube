@@ -9,6 +9,6 @@ var cmdRoot = &cobra.Command{
 	Short: "Synchronize Spotify collections downloading from external providers",
 }
 
-func Execute() error {
-	return cmdRoot.Execute()
+func Execute() {
+	_ = cmdRoot.Execute()
 }

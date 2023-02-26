@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/spotify"
-	"github.com/streambinder/spotitube/util"
 )
 
 const (
@@ -30,7 +29,7 @@ var (
 		Use:   "sync",
 		Short: "Synchronize collections",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return util.ErrSuppress(nursery.RunConcurrently(
+			return nursery.RunConcurrently(
 				indexer,
 				authenticator,
 				fetcher,
@@ -39,7 +38,7 @@ var (
 				composer,
 				processor,
 				installer,
-			))
+			)
 		},
 		PreRunE: func(cmd *cobra.Command, args []string) (err error) {
 			semaphores = map[int](chan bool){

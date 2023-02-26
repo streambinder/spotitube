@@ -7,14 +7,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestUtilErrorWrapTrue(t *testing.T) {
+func TestUtilErrWrap(t *testing.T) {
 	assert.True(t, ErrWrap(true)(func() (bool, error) { return false, errors.New("test") }()))
-}
-
-func TestUtilErrorWrapFalse(t *testing.T) {
 	assert.True(t, !ErrWrap(true)(func() (bool, error) { return false, nil }()))
 }
 
-func TestUtilErrorOnly(t *testing.T) {
+func TestUtilErrOnly(t *testing.T) {
+	assert.Nil(t, ErrOnly())
 	assert.Nil(t, ErrOnly(func() (string, error) { return "", nil }()))
+	assert.EqualError(t, ErrOnly(func() (string, error) { return "", errors.New("failure") }()), "failure")
 }

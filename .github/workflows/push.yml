@@ -13,20 +13,38 @@ permissions:
   pull-requests: read
 
 jobs:
-  lint:
+  commitlint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - uses: golangci/golangci-lint-action@v3
       - uses: wagoid/commitlint-github-action@v5
+  golangci-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: golangci/golangci-lint-action@v3
+  gofumpt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+      - run: |
+          export PATH=$PATH:$(go env GOPATH)/bin
+          go install mvdan.cc/gofumpt@latest
+          if gofumpt -l -e . | grep '^' -q; then exit 1; fi
   test:
     runs-on: ubuntu-latest
-    needs: [lint]
+    needs: [commitlint, golangci-lint, gofumpt]
     if: success()
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
       - run: go test -v -cover ./...
+  build:
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: success()
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
       - run: go build -v ./...

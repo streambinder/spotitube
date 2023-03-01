@@ -29,10 +29,17 @@ var (
 		Use:   "sync",
 		Short: "Synchronize collections",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			var (
+				library, _   = cmd.Flags().GetBool("library")
+				playlists, _ = cmd.Flags().GetStringArray("playlist")
+				albums, _    = cmd.Flags().GetStringArray("album")
+				tracks, _    = cmd.Flags().GetStringArray("track")
+			)
+
 			return nursery.RunConcurrently(
 				indexer,
 				authenticator,
-				fetcher,
+				fetcher(library, playlists, albums, tracks),
 				downloader,
 				painter,
 				composer,
@@ -111,22 +118,34 @@ func authenticator(ctx context.Context, ch chan error) {
 
 // fetcher pulls data from the upstream
 // provider, i.e. Spotify
-func fetcher(ctx context.Context, ch chan error) {
-	// remember to stop passing data to downloader
-	defer close(queues[download])
-	// block until indexing and authentication is done
-	<-semaphores[index]
-	if !<-semaphores[authenticate] {
-		return
-	}
+func fetcher(library bool, playlists []string, albums []string, tracks []string) func(ctx context.Context, ch chan error) {
+	return func(ctx context.Context, ch chan error) {
+		// remember to stop passing data to downloader
+		defer close(queues[download])
+		// block until indexing and authentication is done
+		<-semaphores[index]
+		if !<-semaphores[authenticate] {
+			return
+		}
 
-	log.Printf("[fetcher]\tfetching playlist")
-	playlist, err := client.Playlist("1GFthetX3IYw6bjisEpuYA", queues[download])
-	if err != nil {
-		ch <- err
-		return
+		if library {
+			log.Printf("[fetcher]\tfetching library")
+			if err := client.Library(queues[download]); err != nil {
+				ch <- err
+				return
+			}
+			log.Printf("[fetcher]\tdone fetching library")
+		}
+		for _, playlist := range playlists {
+			log.Printf("[fetcher]\tfetching playlist")
+			playlist, err := client.Playlist(playlist, queues[download])
+			if err != nil {
+				ch <- err
+				return
+			}
+			log.Printf("[fetcher]\tdone fetching playlist %s", playlist.Name)
+		}
 	}
-	log.Printf("[fetcher]\tdone fetching playlist %s", playlist.Name)
 }
 
 // downloader pulls a track blob corresponding

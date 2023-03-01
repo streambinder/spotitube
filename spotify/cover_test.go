@@ -7,12 +7,10 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	test_exit_code := m.Run()
-	if test_exit_code == 0 && testing.CoverMode() != "" && testing.Coverage() < 1 {
-		fmt.Println("FAIL\tcoverage")
-		test_exit_code = -1
-	} else {
-		fmt.Println("PASS\tcoverage")
+	if m.Run() == 0 &&
+		testing.CoverMode() != "" &&
+		testing.Coverage() != 1.0 {
+		fmt.Printf("FAIL\tcoverage %.1f\n", testing.Coverage())
+		os.Exit(-1)
 	}
-	os.Exit(test_exit_code)
 }

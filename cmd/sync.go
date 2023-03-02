@@ -136,23 +136,32 @@ func fetcher(library bool, playlists []string, albums []string, tracks []string)
 			}
 			log.Printf("[fetcher]\tdone fetching library")
 		}
-		for _, playlist := range playlists {
+		for _, id := range playlists {
 			log.Printf("[fetcher]\tfetching playlist")
-			playlist, err := client.Playlist(playlist, queues[download])
+			playlist, err := client.Playlist(id, queues[download])
 			if err != nil {
 				ch <- err
 				return
 			}
 			log.Printf("[fetcher]\tdone fetching playlist %s", playlist.Name)
 		}
-		for _, album := range albums {
+		for _, id := range albums {
 			log.Printf("[fetcher]\tfetching album")
-			album, err := client.Album(album, queues[download])
+			album, err := client.Album(id, queues[download])
 			if err != nil {
 				ch <- err
 				return
 			}
 			log.Printf("[fetcher]\tdone fetching album %s", album.Name)
+		}
+		for _, id := range tracks {
+			log.Printf("[fetcher]\tfetching track")
+			track, err := client.Track(id, queues[download])
+			if err != nil {
+				ch <- err
+				return
+			}
+			log.Printf("[fetcher]\tdone fetching track %s", track.Title)
 		}
 	}
 }

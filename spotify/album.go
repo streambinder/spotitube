@@ -29,7 +29,10 @@ func (client *Client) Album(id string, channels ...chan *entity.Track) (*entity.
 	album := albumEntity(fullAlbum)
 	for {
 		for _, albumTrack := range fullAlbum.Tracks.Tracks {
-			track := trackEntity(&albumTrack)
+			track := trackEntity(&spotify.FullTrack{
+				SimpleTrack: albumTrack,
+				Album:       fullAlbum.SimpleAlbum,
+			})
 			album.Tracks = append(album.Tracks, track)
 			for _, ch := range channels {
 				ch <- track

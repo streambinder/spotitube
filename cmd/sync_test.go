@@ -35,10 +35,15 @@ func init() {
 			channels[0] <- &track
 			return &entity.Album{}, nil
 		})
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Track",
+		func(client *spotify.Client, id string, channels ...chan *entity.Track) (*entity.Track, error) {
+			channels[0] <- &track
+			return &entity.Track{}, nil
+		})
 }
 
 func TestCmdSync(t *testing.T) {
-	assert.Nil(t, util.ErrOnly(testExecute("sync", "-l", "-p", "123", "-a", "123")))
+	assert.Nil(t, util.ErrOnly(testExecute("sync", "-l", "-p", "123", "-a", "123", "-t", "123")))
 }
 
 func TestCmdSyncLibraryAutoEnabled(t *testing.T) {
@@ -76,4 +81,12 @@ func TestCmdSyncAlbumFailure(t *testing.T) {
 			return nil, errors.New("failure")
 		})
 	assert.EqualError(t, util.ErrOnly(testExecute("sync", "-a", "123")), "failure")
+}
+
+func TestCmdSyncTrackFailure(t *testing.T) {
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Track",
+		func(*spotify.Client, string, ...chan *entity.Track) (*entity.Track, error) {
+			return nil, errors.New("failure")
+		})
+	assert.EqualError(t, util.ErrOnly(testExecute("sync", "-t", "123")), "failure")
 }

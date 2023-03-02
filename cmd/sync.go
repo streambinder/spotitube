@@ -14,6 +14,7 @@ import (
 const (
 	index int = iota
 	authenticate
+	decide
 	download
 	paint
 	compose
@@ -40,6 +41,7 @@ var (
 				indexer,
 				authenticator,
 				fetcher(library, playlists, albums, tracks),
+				decider,
 				downloader,
 				painter,
 				composer,
@@ -53,6 +55,7 @@ var (
 				authenticate: make(chan bool, 1),
 			}
 			queues = map[int](chan *entity.Track){
+				decide:   make(chan *entity.Track),
 				download: make(chan *entity.Track),
 				paint:    make(chan *entity.Track),
 				compose:  make(chan *entity.Track),
@@ -120,8 +123,8 @@ func authenticator(ctx context.Context, ch chan error) {
 // provider, i.e. Spotify
 func fetcher(library bool, playlists []string, albums []string, tracks []string) func(ctx context.Context, ch chan error) {
 	return func(ctx context.Context, ch chan error) {
-		// remember to stop passing data to downloader
-		defer close(queues[download])
+		// remember to stop passing data to decider
+		defer close(queues[decide])
 		// block until indexing and authentication is done
 		<-semaphores[index]
 		if !<-semaphores[authenticate] {
@@ -129,40 +132,49 @@ func fetcher(library bool, playlists []string, albums []string, tracks []string)
 		}
 
 		if library {
-			log.Printf("[fetcher]\tfetching library")
-			if err := client.Library(queues[download]); err != nil {
+			if err := client.Library(queues[decide]); err != nil {
 				ch <- err
 				return
 			}
-			log.Printf("[fetcher]\tdone fetching library")
 		}
 		for _, id := range playlists {
-			log.Printf("[fetcher]\tfetching playlist")
-			playlist, err := client.Playlist(id, queues[download])
-			if err != nil {
+			if _, err := client.Playlist(id, queues[decide]); err != nil {
 				ch <- err
 				return
 			}
-			log.Printf("[fetcher]\tdone fetching playlist %s", playlist.Name)
 		}
 		for _, id := range albums {
-			log.Printf("[fetcher]\tfetching album")
-			album, err := client.Album(id, queues[download])
-			if err != nil {
+			if _, err := client.Album(id, queues[decide]); err != nil {
 				ch <- err
 				return
 			}
-			log.Printf("[fetcher]\tdone fetching album %s", album.Name)
 		}
 		for _, id := range tracks {
-			log.Printf("[fetcher]\tfetching track")
-			track, err := client.Track(id, queues[download])
-			if err != nil {
+			if _, err := client.Track(id, queues[decide]); err != nil {
 				ch <- err
 				return
 			}
-			log.Printf("[fetcher]\tdone fetching track %s", track.Title)
 		}
+	}
+}
+
+// decider finds the right asset to download
+// for a given track
+func decider(context.Context, chan error) {
+	// remember to stop passing data to the downloader
+	defer close(queues[download])
+
+	cache := make(map[string]bool)
+	for track := range queues[decide] {
+		if _, ok := cache[track.ID]; ok {
+			log.Println("[decider]\tignoring duplicate " + track.Title)
+			continue
+		}
+
+		log.Println("[decider]\t" + track.Title)
+		track.UpstreamURL = "http://whatev.er/blob.mp3"
+		queues[download] <- track
+		cache[track.ID] = true
 	}
 }
 

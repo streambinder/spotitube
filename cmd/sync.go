@@ -145,6 +145,15 @@ func fetcher(library bool, playlists []string, albums []string, tracks []string)
 			}
 			log.Printf("[fetcher]\tdone fetching playlist %s", playlist.Name)
 		}
+		for _, album := range albums {
+			log.Printf("[fetcher]\tfetching album")
+			album, err := client.Album(album, queues[download])
+			if err != nil {
+				ch <- err
+				return
+			}
+			log.Printf("[fetcher]\tdone fetching album %s", album.Name)
+		}
 	}
 }
 

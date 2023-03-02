@@ -15,7 +15,7 @@ func (client *Client) Library(channels ...chan *entity.Track) error {
 
 	for {
 		for _, libraryTrack := range library.Tracks {
-			track := trackEntity(&libraryTrack.FullTrack)
+			track := trackEntity(&libraryTrack.FullTrack.SimpleTrack)
 			for _, ch := range channels {
 				ch <- track
 			}

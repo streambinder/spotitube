@@ -5,10 +5,10 @@ import (
 	"github.com/zmb3/spotify"
 )
 
-func trackEntity(fullTrack *spotify.FullTrack) *entity.Track {
+func trackEntity(track *spotify.SimpleTrack) *entity.Track {
 	return &entity.Track{
-		ID:          fullTrack.ID.String(),
-		Title:       fullTrack.Name,
+		ID:          track.ID.String(),
+		Title:       track.Name,
 		Artists:     []string{},
 		Album:       "",
 		ArtworkURL:  "",

@@ -1,8 +1,8 @@
 package entity
 
 type Album struct {
-	ID     string
-	Name   string
-	Artist string
-	Tracks []*Track
+	ID      string
+	Name    string
+	Artists []string
+	Tracks  []*Track
 }

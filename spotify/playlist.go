@@ -24,7 +24,7 @@ func (client *Client) Playlist(id string, channels ...chan *entity.Track) (*enti
 	playlist := playlistEntity(fullPlaylist)
 	for {
 		for _, playlistTrack := range fullPlaylist.Tracks.Tracks {
-			track := trackEntity(&playlistTrack.Track)
+			track := trackEntity(&playlistTrack.Track.SimpleTrack)
 			playlist.Tracks = append(playlist.Tracks, track)
 			for _, ch := range channels {
 				ch <- track

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"bou.ke/monkey"
-	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/zmb3/spotify"
@@ -38,7 +37,7 @@ func init() {
 }
 
 func TestTrack(t *testing.T) {
-	channel := make(chan *entity.Track, 1)
+	channel := make(chan interface{}, 1)
 	defer close(channel)
 
 	track, err := (&Client{}).Track(fullTrack.ID.String(), channel)

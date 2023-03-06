@@ -20,12 +20,13 @@ const (
 	compose
 	process
 	install
+	mix
 )
 
 var (
 	client     *spotify.Client
 	semaphores map[int](chan bool)
-	queues     map[int](chan *entity.Track)
+	queues     map[int](chan interface{})
 	cmdSync    = &cobra.Command{
 		Use:   "sync",
 		Short: "Synchronize collections",
@@ -47,20 +48,23 @@ var (
 				composer,
 				processor,
 				installer,
+				mixer,
 			)
 		},
 		PreRunE: func(cmd *cobra.Command, args []string) (err error) {
 			semaphores = map[int](chan bool){
 				index:        make(chan bool, 1),
 				authenticate: make(chan bool, 1),
+				mix:          make(chan bool, 1),
 			}
-			queues = map[int](chan *entity.Track){
-				decide:   make(chan *entity.Track),
-				download: make(chan *entity.Track),
-				paint:    make(chan *entity.Track),
-				compose:  make(chan *entity.Track),
-				process:  make(chan *entity.Track),
-				install:  make(chan *entity.Track),
+			queues = map[int](chan interface{}){
+				decide:   make(chan interface{}),
+				download: make(chan interface{}),
+				paint:    make(chan interface{}),
+				compose:  make(chan interface{}),
+				process:  make(chan interface{}),
+				install:  make(chan interface{}),
+				mix:      make(chan interface{}),
 			}
 
 			var (
@@ -123,8 +127,9 @@ func authenticator(ctx context.Context, ch chan error) {
 // provider, i.e. Spotify
 func fetcher(library bool, playlists []string, albums []string, tracks []string) func(ctx context.Context, ch chan error) {
 	return func(ctx context.Context, ch chan error) {
-		// remember to stop passing data to decider
+		// remember to stop passing data to decider and mixer
 		defer close(queues[decide])
+		defer close(queues[mix])
 		// block until indexing and authentication is done
 		<-semaphores[index]
 		if !<-semaphores[authenticate] {
@@ -133,12 +138,6 @@ func fetcher(library bool, playlists []string, albums []string, tracks []string)
 
 		if library {
 			if err := client.Library(queues[decide]); err != nil {
-				ch <- err
-				return
-			}
-		}
-		for _, id := range playlists {
-			if _, err := client.Playlist(id, queues[decide]); err != nil {
 				ch <- err
 				return
 			}
@@ -155,6 +154,16 @@ func fetcher(library bool, playlists []string, albums []string, tracks []string)
 				return
 			}
 		}
+
+		// some special treatment for playlists
+		for _, id := range playlists {
+			playlist, err := client.Playlist(id, queues[decide])
+			if err != nil {
+				ch <- err
+				return
+			}
+			queues[mix] <- playlist
+		}
 	}
 }
 
@@ -165,7 +174,9 @@ func decider(context.Context, chan error) {
 	defer close(queues[download])
 
 	cache := make(map[string]bool)
-	for track := range queues[decide] {
+	for event := range queues[decide] {
+		track := event.(*entity.Track)
+
 		if _, ok := cache[track.ID]; ok {
 			log.Println("[decider]\tignoring duplicate " + track.Title)
 			continue
@@ -184,7 +195,8 @@ func downloader(context.Context, chan error) {
 	// remember to stop passing data to painter
 	defer close(queues[paint])
 
-	for track := range queues[download] {
+	for event := range queues[download] {
+		track := event.(*entity.Track)
 		log.Println("[download]\t" + track.Title)
 		queues[paint] <- track
 	}
@@ -196,7 +208,8 @@ func painter(context.Context, chan error) {
 	// remember to stop passing data to composer
 	defer close(queues[compose])
 
-	for track := range queues[paint] {
+	for event := range queues[paint] {
+		track := event.(*entity.Track)
 		log.Println("[painter]\t" + track.Title)
 		queues[compose] <- track
 	}
@@ -208,7 +221,8 @@ func composer(context.Context, chan error) {
 	// remember to stop passing data to processor
 	defer close(queues[process])
 
-	for track := range queues[compose] {
+	for event := range queues[compose] {
+		track := event.(*entity.Track)
 		log.Println("[composer]\t" + track.Title)
 		queues[process] <- track
 	}
@@ -221,7 +235,8 @@ func processor(context.Context, chan error) {
 	// remember to stop passing data to installer
 	defer close(queues[install])
 
-	for track := range queues[process] {
+	for event := range queues[process] {
+		track := event.(*entity.Track)
 		log.Println("[processor]\t" + track.Title)
 		queues[install] <- track
 	}
@@ -229,7 +244,22 @@ func processor(context.Context, chan error) {
 
 // installer move the blob to its final destination
 func installer(context.Context, chan error) {
-	for track := range queues[install] {
+	// remember to signal mixer
+	defer close(semaphores[mix])
+
+	for event := range queues[install] {
+		track := event.(*entity.Track)
 		log.Println("[installer]\t" + track.Title)
+	}
+}
+
+// mixer wraps playlists to their final destination
+func mixer(context.Context, chan error) {
+	// block until installation is done
+	<-semaphores[index]
+
+	for event := range queues[mix] {
+		playlist := event.(*entity.Playlist)
+		log.Println("[mixer]\t" + playlist.Name)
 	}
 }

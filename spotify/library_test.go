@@ -30,12 +30,12 @@ func init() {
 }
 
 func TestLibrary(t *testing.T) {
-	channel := make(chan *entity.Track, 1)
+	channel := make(chan interface{}, 1)
 	defer close(channel)
 
 	err := (&Client{}).Library(channel)
 	assert.Nil(t, err)
-	assert.Equal(t, library.Tracks[0].Name, (<-channel).Title)
+	assert.Equal(t, library.Tracks[0].Name, ((<-channel).(*entity.Track)).Title)
 }
 
 func TestLibraryFailure(t *testing.T) {

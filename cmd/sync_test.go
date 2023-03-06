@@ -45,22 +45,22 @@ func init() {
 	monkey.Patch(cmd.Open, func(string, ...string) error { return nil })
 	monkey.Patch(spotify.Authenticate, func(...string) (*spotify.Client, error) { return &spotify.Client{}, nil })
 	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Library",
-		func(client *spotify.Client, channels ...chan *entity.Track) error {
+		func(client *spotify.Client, channels ...chan interface{}) error {
 			channels[0] <- track
 			return nil
 		})
 	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Playlist",
-		func(client *spotify.Client, id string, channels ...chan *entity.Track) (*entity.Playlist, error) {
+		func(client *spotify.Client, id string, channels ...chan interface{}) (*entity.Playlist, error) {
 			channels[0] <- track
 			return playlist, nil
 		})
 	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Album",
-		func(client *spotify.Client, id string, channels ...chan *entity.Track) (*entity.Album, error) {
+		func(client *spotify.Client, id string, channels ...chan interface{}) (*entity.Album, error) {
 			channels[0] <- track
 			return album, nil
 		})
 	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Track",
-		func(client *spotify.Client, id string, channels ...chan *entity.Track) (*entity.Track, error) {
+		func(client *spotify.Client, id string, channels ...chan interface{}) (*entity.Track, error) {
 			channels[0] <- track
 			return track, nil
 		})
@@ -85,7 +85,7 @@ func TestCmdSyncAuthFailure(t *testing.T) {
 
 func TestCmdSyncLibraryFailure(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Library",
-		func(client *spotify.Client, channels ...chan *entity.Track) error {
+		func(client *spotify.Client, channels ...chan interface{}) error {
 			return errors.New("failure")
 		})
 	assert.EqualError(t, util.ErrOnly(testExecute("sync")), "failure")
@@ -93,7 +93,7 @@ func TestCmdSyncLibraryFailure(t *testing.T) {
 
 func TestCmdSyncPlaylistFailure(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Playlist",
-		func(*spotify.Client, string, ...chan *entity.Track) (*entity.Playlist, error) {
+		func(*spotify.Client, string, ...chan interface{}) (*entity.Playlist, error) {
 			return nil, errors.New("failure")
 		})
 	assert.EqualError(t, util.ErrOnly(testExecute("sync", "-p", "123")), "failure")
@@ -101,7 +101,7 @@ func TestCmdSyncPlaylistFailure(t *testing.T) {
 
 func TestCmdSyncAlbumFailure(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Album",
-		func(*spotify.Client, string, ...chan *entity.Track) (*entity.Album, error) {
+		func(*spotify.Client, string, ...chan interface{}) (*entity.Album, error) {
 			return nil, errors.New("failure")
 		})
 	assert.EqualError(t, util.ErrOnly(testExecute("sync", "-a", "123")), "failure")
@@ -109,7 +109,7 @@ func TestCmdSyncAlbumFailure(t *testing.T) {
 
 func TestCmdSyncTrackFailure(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Track",
-		func(*spotify.Client, string, ...chan *entity.Track) (*entity.Track, error) {
+		func(*spotify.Client, string, ...chan interface{}) (*entity.Track, error) {
 			return nil, errors.New("failure")
 		})
 	assert.EqualError(t, util.ErrOnly(testExecute("sync", "-t", "123")), "failure")

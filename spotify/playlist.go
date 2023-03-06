@@ -15,7 +15,7 @@ func playlistEntity(playlist *spotify.FullPlaylist) *entity.Playlist {
 	}
 }
 
-func (client *Client) Playlist(id string, channels ...chan *entity.Track) (*entity.Playlist, error) {
+func (client *Client) Playlist(id string, channels ...chan interface{}) (*entity.Playlist, error) {
 	fullPlaylist, err := client.GetPlaylist(spotify.ID(id))
 	if err != nil {
 		return nil, err

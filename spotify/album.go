@@ -20,7 +20,7 @@ func albumEntity(album *spotify.FullAlbum) *entity.Album {
 	}
 }
 
-func (client *Client) Album(id string, channels ...chan *entity.Track) (*entity.Album, error) {
+func (client *Client) Album(id string, channels ...chan interface{}) (*entity.Album, error) {
 	fullAlbum, err := client.GetAlbum(spotify.ID(id))
 	if err != nil {
 		return nil, err

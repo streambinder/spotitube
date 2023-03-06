@@ -3,11 +3,10 @@ package spotify
 import (
 	"errors"
 
-	"github.com/streambinder/spotitube/entity"
 	"github.com/zmb3/spotify"
 )
 
-func (client *Client) Library(channels ...chan *entity.Track) error {
+func (client *Client) Library(channels ...chan interface{}) error {
 	library, err := client.CurrentUsersTracks()
 	if err != nil {
 		return err

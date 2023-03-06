@@ -34,7 +34,7 @@ func trackEntity(track *spotify.FullTrack) *entity.Track {
 	}
 }
 
-func (client *Client) Track(id string, channels ...chan *entity.Track) (*entity.Track, error) {
+func (client *Client) Track(id string, channels ...chan interface{}) (*entity.Track, error) {
 	fullTrack, err := client.GetTrack(spotify.ID(id))
 	if err != nil {
 		return nil, err

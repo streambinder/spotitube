@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"testing"
@@ -156,4 +157,28 @@ func TestCmdSyncTrackFailure(t *testing.T) {
 
 	// testing
 	assert.EqualError(t, util.ErrOnly(testExecute("sync", "-t", "123")), err.Error())
+}
+
+func TestCmdSyncCollectFailure(t *testing.T) {
+	// monkey patching
+	monkey.Patch(spotify.Authenticate, func(...string) (*spotify.Client, error) { return &spotify.Client{}, nil })
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Library",
+		func(c *spotify.Client, ch ...chan interface{}) error {
+			ch[0] <- track
+			return nil
+		})
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Playlist",
+		func(*spotify.Client, string, ...chan interface{}) (*entity.Playlist, error) { return playlist, nil })
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Album",
+		func(*spotify.Client, string, ...chan interface{}) (*entity.Album, error) { return album, nil })
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Track",
+		func(*spotify.Client, string, ...chan interface{}) (*entity.Track, error) { return track, nil })
+	monkey.Patch(painter, func(track *entity.Track) func(context.Context, chan error) {
+		return func(ctx context.Context, ch chan error) {
+			ch <- err
+		}
+	})
+
+	// testing
+	assert.EqualError(t, util.ErrOnly(testExecute("sync")), err.Error())
 }

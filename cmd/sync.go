@@ -15,9 +15,7 @@ const (
 	index int = iota
 	auth
 	decide
-	download
-	paint
-	compose
+	collect
 	process
 	install
 	mix
@@ -43,9 +41,7 @@ var (
 				authenticator,
 				fetcher(library, playlists, albums, tracks),
 				decider,
-				downloader,
-				painter,
-				composer,
+				collector,
 				processor,
 				installer,
 				mixer,
@@ -58,13 +54,11 @@ var (
 				mix:   make(chan bool, 1),
 			}
 			queues = map[int](chan interface{}){
-				decide:   make(chan interface{}),
-				download: make(chan interface{}),
-				paint:    make(chan interface{}),
-				compose:  make(chan interface{}),
-				process:  make(chan interface{}),
-				install:  make(chan interface{}),
-				mix:      make(chan interface{}),
+				decide:  make(chan interface{}),
+				collect: make(chan interface{}),
+				process: make(chan interface{}),
+				install: make(chan interface{}),
+				mix:     make(chan interface{}),
 			}
 
 			var (
@@ -170,8 +164,9 @@ func fetcher(library bool, playlists []string, albums []string, tracks []string)
 // decider finds the right asset to download
 // for a given track
 func decider(context.Context, chan error) {
-	// remember to stop passing data to the downloader
-	defer close(queues[download])
+	// remember to stop passing data to the collector
+	// the downloader, the composer and the painter
+	defer close(queues[collect])
 
 	cache := make(map[string]bool)
 	for event := range queues[decide] {
@@ -184,47 +179,55 @@ func decider(context.Context, chan error) {
 
 		log.Println("[decider]\t" + track.Title)
 		track.UpstreamURL = "http://whatev.er/blob.mp3"
-		queues[download] <- track
+		queues[collect] <- track
 		cache[track.ID] = true
+	}
+}
+
+// collector fetches all the needed assets
+// for a blob to be processed (basically
+// a wrapper around: downloader, composer and painter)
+func collector(ctx context.Context, ch chan error) {
+	// remember to stop passing data to installer
+	defer close(queues[process])
+
+	for event := range queues[collect] {
+		track := event.(*entity.Track)
+		log.Println("[collect]\t" + track.Title)
+		if err := nursery.RunConcurrently(
+			downloader(track),
+			composer(track),
+			painter(track),
+		); err != nil {
+			log.Printf("[collect]\t%s", err)
+			ch <- err
+			return
+		}
+		queues[process] <- track
 	}
 }
 
 // downloader pulls a track blob corresponding
 // to the (meta)data fetched from upstream
-func downloader(context.Context, chan error) {
-	// remember to stop passing data to painter
-	defer close(queues[paint])
-
-	for event := range queues[download] {
-		track := event.(*entity.Track)
+func downloader(track *entity.Track) func(context.Context, chan error) {
+	return func(context.Context, chan error) {
 		log.Println("[download]\t" + track.Title)
-		queues[paint] <- track
 	}
 }
 
 // painter pulls image blobs to be inserted
 // as artworks in the fetched blob
-func painter(context.Context, chan error) {
-	// remember to stop passing data to composer
-	defer close(queues[compose])
-
-	for event := range queues[paint] {
-		track := event.(*entity.Track)
+func painter(track *entity.Track) func(context.Context, chan error) {
+	return func(context.Context, chan error) {
 		log.Println("[painter]\t" + track.Title)
-		queues[compose] <- track
 	}
 }
 
 // composer pulls lyrics to be inserted
 // in the fetched blob
-func composer(context.Context, chan error) {
-	// remember to stop passing data to processor
-	defer close(queues[process])
-
-	for event := range queues[compose] {
-		track := event.(*entity.Track)
+func composer(track *entity.Track) func(context.Context, chan error) {
+	return func(context.Context, chan error) {
 		log.Println("[composer]\t" + track.Title)
-		queues[process] <- track
 	}
 }
 

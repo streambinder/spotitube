@@ -13,7 +13,7 @@ import (
 
 const (
 	index int = iota
-	authenticate
+	auth
 	decide
 	download
 	paint
@@ -53,9 +53,9 @@ var (
 		},
 		PreRunE: func(cmd *cobra.Command, args []string) (err error) {
 			semaphores = map[int](chan bool){
-				index:        make(chan bool, 1),
-				authenticate: make(chan bool, 1),
-				mix:          make(chan bool, 1),
+				index: make(chan bool, 1),
+				auth:  make(chan bool, 1),
+				mix:   make(chan bool, 1),
 			}
 			queues = map[int](chan interface{}){
 				decide:   make(chan interface{}),
@@ -107,20 +107,20 @@ func indexer(context.Context, chan error) {
 }
 
 func authenticator(ctx context.Context, ch chan error) {
-	// remember to close authenticate semaphore
-	defer close(semaphores[authenticate])
+	// remember to close auth semaphore
+	defer close(semaphores[auth])
 
 	var err error
 	client, err = spotify.Authenticate()
 	if err != nil {
 		log.Printf("[auth]\t%s", err)
-		semaphores[authenticate] <- false
+		semaphores[auth] <- false
 		ch <- err
 		return
 	}
 
 	// once authenticated, signal fetcher
-	semaphores[authenticate] <- true
+	semaphores[auth] <- true
 }
 
 // fetcher pulls data from the upstream
@@ -132,7 +132,7 @@ func fetcher(library bool, playlists []string, albums []string, tracks []string)
 		defer close(queues[mix])
 		// block until indexing and authentication is done
 		<-semaphores[index]
-		if !<-semaphores[authenticate] {
+		if !<-semaphores[auth] {
 			return
 		}
 

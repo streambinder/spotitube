@@ -15,6 +15,7 @@ import (
 )
 
 var (
+	err   = errors.New("ko")
 	track = &entity.Track{
 		ID:         "123",
 		Title:      "Title",
@@ -43,74 +44,116 @@ var (
 func init() {
 	monkey.Patch(time.Sleep, func(time.Duration) {})
 	monkey.Patch(cmd.Open, func(string, ...string) error { return nil })
-	monkey.Patch(spotify.Authenticate, func(...string) (*spotify.Client, error) { return &spotify.Client{}, nil })
-	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Library",
-		func(client *spotify.Client, channels ...chan interface{}) error {
-			channels[0] <- track
-			return nil
-		})
-	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Playlist",
-		func(client *spotify.Client, id string, channels ...chan interface{}) (*entity.Playlist, error) {
-			channels[0] <- track
-			return playlist, nil
-		})
-	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Album",
-		func(client *spotify.Client, id string, channels ...chan interface{}) (*entity.Album, error) {
-			channels[0] <- track
-			return album, nil
-		})
-	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Track",
-		func(client *spotify.Client, id string, channels ...chan interface{}) (*entity.Track, error) {
-			channels[0] <- track
-			return track, nil
-		})
 }
 
 func TestCmdSync(t *testing.T) {
-	assert.Nil(t, util.ErrOnly(testExecute("sync", "-l", "-p", "123", "-a", "123", "-t", "123")))
-}
+	// monkey patching
+	monkey.Patch(spotify.Authenticate, func(...string) (*spotify.Client, error) { return &spotify.Client{}, nil })
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Library",
+		func(c *spotify.Client, ch ...chan interface{}) error {
+			ch[0] <- track
+			return nil
+		})
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Playlist",
+		func(c *spotify.Client, id string, ch ...chan interface{}) (*entity.Playlist, error) {
+			ch[0] <- track
+			return playlist, nil
+		})
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Album",
+		func(c *spotify.Client, id string, ch ...chan interface{}) (*entity.Album, error) {
+			ch[0] <- track
+			return album, nil
+		})
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Track",
+		func(c *spotify.Client, id string, ch ...chan interface{}) (*entity.Track, error) {
+			ch[0] <- track
+			return track, nil
+		})
 
-func TestCmdSyncLibraryAutoEnabled(t *testing.T) {
-	err := util.ErrOnly(testExecute("sync"))
-	assert.Nil(t, err)
+	// testing
+	assert.Nil(t, util.ErrOnly(testExecute("sync")))
 	library, err := cmdSync.Flags().GetBool("library")
 	assert.Nil(t, err)
 	assert.True(t, library)
+	assert.Nil(t, util.ErrOnly(testExecute("sync", "-l", "-p", "123", "-a", "123", "-t", "123")))
 }
 
 func TestCmdSyncAuthFailure(t *testing.T) {
-	monkey.Patch(spotify.Authenticate, func(...string) (*spotify.Client, error) { return client, errors.New("failure") })
-	assert.EqualError(t, util.ErrOnly(testExecute("sync")), "failure")
+	// monkey patching
+	monkey.Patch(spotify.Authenticate, func(...string) (*spotify.Client, error) { return client, err })
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Library",
+		func(*spotify.Client, ...chan interface{}) error { return nil })
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Playlist",
+		func(*spotify.Client, string, ...chan interface{}) (*entity.Playlist, error) { return playlist, nil })
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Album",
+		func(*spotify.Client, string, ...chan interface{}) (*entity.Album, error) { return album, nil })
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Track",
+		func(*spotify.Client, string, ...chan interface{}) (*entity.Track, error) { return track, nil })
+
+	// testing
+	assert.EqualError(t, util.ErrOnly(testExecute("sync")), err.Error())
 }
 
 func TestCmdSyncLibraryFailure(t *testing.T) {
+	// monkey patching
+	monkey.Patch(spotify.Authenticate, func(...string) (*spotify.Client, error) { return &spotify.Client{}, nil })
 	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Library",
-		func(client *spotify.Client, channels ...chan interface{}) error {
-			return errors.New("failure")
-		})
-	assert.EqualError(t, util.ErrOnly(testExecute("sync")), "failure")
+		func(*spotify.Client, ...chan interface{}) error { return err })
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Playlist",
+		func(*spotify.Client, string, ...chan interface{}) (*entity.Playlist, error) { return playlist, nil })
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Album",
+		func(*spotify.Client, string, ...chan interface{}) (*entity.Album, error) { return album, nil })
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Track",
+		func(*spotify.Client, string, ...chan interface{}) (*entity.Track, error) { return track, nil })
+
+	// testing
+	assert.EqualError(t, util.ErrOnly(testExecute("sync")), err.Error())
 }
 
 func TestCmdSyncPlaylistFailure(t *testing.T) {
+	// monkey patching
+	monkey.Patch(spotify.Authenticate, func(...string) (*spotify.Client, error) { return &spotify.Client{}, nil })
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Library",
+		func(*spotify.Client, ...chan interface{}) error { return nil })
 	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Playlist",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Playlist, error) {
-			return nil, errors.New("failure")
-		})
-	assert.EqualError(t, util.ErrOnly(testExecute("sync", "-p", "123")), "failure")
+		func(*spotify.Client, string, ...chan interface{}) (*entity.Playlist, error) { return nil, err })
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Album",
+		func(*spotify.Client, string, ...chan interface{}) (*entity.Album, error) { return album, nil })
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Track",
+		func(*spotify.Client, string, ...chan interface{}) (*entity.Track, error) { return track, nil })
+
+	// testing
+	assert.EqualError(t, util.ErrOnly(testExecute("sync", "-p", "123")), err.Error())
 }
 
 func TestCmdSyncAlbumFailure(t *testing.T) {
+	// monkey patching
+	monkey.Patch(spotify.Authenticate, func(...string) (*spotify.Client, error) { return &spotify.Client{}, nil })
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Library",
+		func(*spotify.Client, ...chan interface{}) error { return nil })
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Playlist",
+		func(*spotify.Client, string, ...chan interface{}) (*entity.Playlist, error) { return playlist, nil })
 	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Album",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Album, error) {
-			return nil, errors.New("failure")
-		})
-	assert.EqualError(t, util.ErrOnly(testExecute("sync", "-a", "123")), "failure")
+		func(*spotify.Client, string, ...chan interface{}) (*entity.Album, error) { return nil, err })
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Track",
+		func(*spotify.Client, string, ...chan interface{}) (*entity.Track, error) { return track, nil })
+
+	// testing
+	assert.EqualError(t, util.ErrOnly(testExecute("sync", "-a", "123")), err.Error())
 }
 
 func TestCmdSyncTrackFailure(t *testing.T) {
+	// monkey patching
+	monkey.Patch(spotify.Authenticate, func(...string) (*spotify.Client, error) { return &spotify.Client{}, nil })
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Library",
+		func(*spotify.Client, ...chan interface{}) error { return nil })
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Playlist",
+		func(*spotify.Client, string, ...chan interface{}) (*entity.Playlist, error) { return playlist, nil })
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Album",
+		func(*spotify.Client, string, ...chan interface{}) (*entity.Album, error) { return album, nil })
 	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Track",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Track, error) {
-			return nil, errors.New("failure")
-		})
-	assert.EqualError(t, util.ErrOnly(testExecute("sync", "-t", "123")), "failure")
+		func(*spotify.Client, string, ...chan interface{}) (*entity.Track, error) { return nil, err })
+
+	// testing
+	assert.EqualError(t, util.ErrOnly(testExecute("sync", "-t", "123")), err.Error())
 }

@@ -24,7 +24,6 @@ var (
 		Album:      "Album",
 		ArtworkURL: "http://ima.ge",
 		Duration:   180,
-		Genre:      "Genre",
 		Number:     1,
 		Year:       "1970",
 	}

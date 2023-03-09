@@ -25,8 +25,7 @@ func trackEntity(track *spotify.FullTrack) *entity.Track {
 			return ""
 		}(track.Album.Images),
 		Artwork:     []byte{},
-		Duration:    track.Duration / 1000, // TODO find safer conversion approach
-		Genre:       "",                    // TODO
+		Duration:    track.Duration / 1000,
 		Lyrics:      []byte{},
 		Number:      track.TrackNumber,
 		Year:        strings.Split(track.Album.ReleaseDate, "-")[0],

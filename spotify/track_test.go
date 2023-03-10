@@ -46,7 +46,7 @@ func TestTrack(t *testing.T) {
 	assert.Equal(t, fullTrack.Name, track.Title)
 	assert.Equal(t, len(fullTrack.Artists), len(track.Artists))
 	assert.Equal(t, len(fullTrack.Album.Name), len(track.Album))
-	assert.Equal(t, fullTrack.Duration/1000, track.Duration) // TODO find safer conversion approach
+	assert.Equal(t, fullTrack.Duration/1000, track.Duration)
 	assert.Equal(t, fullTrack.TrackNumber, track.Number)
 	assert.Equal(t, fullTrack.Album.Images[0].URL, track.ArtworkURL)
 	assert.Equal(t, track, <-channel)

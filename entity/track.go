@@ -7,7 +7,7 @@ type Track struct {
 	Album       string
 	ArtworkURL  string // URL whose content to feed the Artwork field with
 	Artwork     []byte
-	Duration    int // in ms
+	Duration    int // in seconds
 	Lyrics      []byte
 	Number      int // track number within the album
 	Year        string

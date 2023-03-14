@@ -49,16 +49,16 @@ var (
 		},
 		PreRunE: func(cmd *cobra.Command, args []string) (err error) {
 			semaphores = map[int](chan bool){
-				index: make(chan bool, 1),
-				auth:  make(chan bool, 1),
-				mix:   make(chan bool, 1),
+				index:   make(chan bool, 1),
+				auth:    make(chan bool, 1),
+				install: make(chan bool, 1),
 			}
 			queues = map[int](chan interface{}){
-				decide:  make(chan interface{}),
-				collect: make(chan interface{}),
-				process: make(chan interface{}),
-				install: make(chan interface{}),
-				mix:     make(chan interface{}),
+				decide:  make(chan interface{}, 100),
+				collect: make(chan interface{}, 100),
+				process: make(chan interface{}, 100),
+				install: make(chan interface{}, 100),
+				mix:     make(chan interface{}, 100),
 			}
 
 			var (
@@ -248,7 +248,7 @@ func processor(context.Context, chan error) {
 // installer move the blob to its final destination
 func installer(context.Context, chan error) {
 	// remember to signal mixer
-	defer close(semaphores[mix])
+	defer close(semaphores[install])
 
 	for event := range queues[install] {
 		track := event.(*entity.Track)
@@ -259,7 +259,7 @@ func installer(context.Context, chan error) {
 // mixer wraps playlists to their final destination
 func mixer(context.Context, chan error) {
 	// block until installation is done
-	<-semaphores[index]
+	<-semaphores[install]
 
 	for event := range queues[mix] {
 		playlist := event.(*entity.Playlist)

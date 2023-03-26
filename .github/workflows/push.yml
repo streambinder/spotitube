@@ -34,14 +34,19 @@ jobs:
           export PATH=$PATH:$(go env GOPATH)/bin
           go install mvdan.cc/gofumpt@latest
           if gofumpt -l -e . | grep '^' -q; then exit 1; fi
-  go-http-body-consume:
+  go-http-body-close:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - run: test "$(grep -r '.Get(' | wc -l)" = "$(grep -r '.Body.Close(' | wc -l)"
+  go-monkey-unpatch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: test "$(grep -r 'monkey.Patch' | wc -l)" = "$(grep -r 'monkey.Unpatch' | wc -l)"
   test:
     runs-on: ubuntu-latest
-    needs: [commitlint, golangci-lint, gofumpt, go-http-body-consume]
+    needs: [commitlint, golangci-lint, gofumpt, go-http-body-close, go-monkey-unpatch]
     if: success()
     steps:
       - uses: actions/checkout@v3

@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
 
 	"bou.ke/monkey"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/util"
 	"github.com/stretchr/testify/assert"
 )
@@ -159,4 +161,19 @@ func TestYouTubeSearchFailingGoQuery(t *testing.T) {
 
 	// testing
 	assert.Error(t, util.ErrOnly(youTube{}.Search(track)), "failure")
+}
+
+func TestScraping(t *testing.T) {
+	if os.Getenv("TEST_SCRAPING") == "" {
+		return
+	}
+
+	// testing
+	matches, err := youTube{}.Search(&entity.Track{
+		Title:    "White Christmas",
+		Artists:  []string{"Bing Crosby"},
+		Duration: 183,
+	})
+	assert.Nil(t, err)
+	assert.NotEmpty(t, matches)
 }

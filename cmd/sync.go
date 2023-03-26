@@ -7,6 +7,7 @@ import (
 	"github.com/arunsworld/nursery"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"github.com/streambinder/spotitube/downloader"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/provider"
 	"github.com/streambinder/spotitube/spotify"
@@ -162,11 +163,11 @@ func fetcher(library bool, playlists []string, albums []string, tracks []string)
 	}
 }
 
-// decider finds the right asset to download
+// decider finds the right asset to retrieve
 // for a given track
 func decider(ctx context.Context, ch chan error) {
 	// remember to stop passing data to the collector
-	// the downloader, the composer and the painter
+	// the retriever, the composer and the painter
 	defer close(queues[collect])
 
 	cache := make(map[string]bool)
@@ -193,7 +194,7 @@ func decider(ctx context.Context, ch chan error) {
 
 // collector fetches all the needed assets
 // for a blob to be processed (basically
-// a wrapper around: downloader, composer and painter)
+// a wrapper around: retriever, composer and painter)
 func collector(ctx context.Context, ch chan error) {
 	// remember to stop passing data to installer
 	defer close(queues[process])
@@ -202,7 +203,7 @@ func collector(ctx context.Context, ch chan error) {
 		track := event.(*entity.Track)
 		log.Println("[collect]\t" + track.Title)
 		if err := nursery.RunConcurrently(
-			downloader(track),
+			retriever(track),
 			composer(track),
 			painter(track),
 		); err != nil {
@@ -214,11 +215,16 @@ func collector(ctx context.Context, ch chan error) {
 	}
 }
 
-// downloader pulls a track blob corresponding
+// retriever pulls a track blob corresponding
 // to the (meta)data fetched from upstream
-func downloader(track *entity.Track) func(context.Context, chan error) {
-	return func(context.Context, chan error) {
-		log.Println("[download]\t" + track.Title + " (" + track.UpstreamURL + ")")
+func retriever(track *entity.Track) func(context.Context, chan error) {
+	return func(ctx context.Context, ch chan error) {
+		log.Println("[retriever]\t" + track.Title + " (" + track.UpstreamURL + ")")
+		if err := downloader.Download(track.UpstreamURL, track.Path().Download()); err != nil {
+			log.Printf("[retriever]\t%s", err)
+			ch <- err
+			return
+		}
 	}
 }
 

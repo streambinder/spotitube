@@ -11,7 +11,7 @@ import (
 
 func TestOpen(t *testing.T) {
 	// monkey patching
-	monkey.PatchInstanceMethod(reflect.TypeOf(&exec.Cmd{}), "Start", func(_ *exec.Cmd) error { return nil })
+	monkey.PatchInstanceMethod(reflect.TypeOf(&exec.Cmd{}), "Start", func(*exec.Cmd) error { return nil })
 	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&exec.Cmd{}), "Start")
 
 	// testing

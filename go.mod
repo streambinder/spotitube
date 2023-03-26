@@ -25,6 +25,7 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	golang.org/x/net v0.7.0 // indirect
+	golang.org/x/sys v0.5.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
 )
@@ -32,6 +33,7 @@ require (
 require (
 	bou.ke/monkey v1.0.2
 	github.com/PuerkitoBio/goquery v1.8.1
+	github.com/adrg/xdg v0.4.0
 	github.com/agnivade/levenshtein v1.1.1
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gosimple/slug v1.13.1

@@ -25,7 +25,7 @@ var track = &entity.Track{
 func TestSearch(t *testing.T) {
 	// monkey patching
 	monkey.PatchInstanceMethod(reflect.TypeOf(youTube{}), "Search",
-		func(provider youTube, track *entity.Track) ([]*Match, error) {
+		func(youTube, *entity.Track) ([]*Match, error) {
 			return []*Match{
 				{URL: "url1", Score: 3},
 				{URL: "url2", Score: 1},
@@ -42,7 +42,7 @@ func TestSearch(t *testing.T) {
 func TestSearchFailure(t *testing.T) {
 	// monkey patching
 	monkey.PatchInstanceMethod(reflect.TypeOf(youTube{}), "Search",
-		func(provider youTube, track *entity.Track) ([]*Match, error) {
+		func(youTube, *entity.Track) ([]*Match, error) {
 			return nil, errors.New("failure")
 		})
 	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(youTube{}), "Search")

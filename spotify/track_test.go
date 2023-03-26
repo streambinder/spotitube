@@ -28,18 +28,19 @@ var fullTrack = spotify.FullTrack{
 	},
 }
 
-func init() {
+func TestTrack(t *testing.T) {
+	// monkey patching
 	monkey.Patch(time.Sleep, func(time.Duration) {})
+	defer monkey.Unpatch(time.Sleep)
 	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetTrackOpt",
 		func(*spotify.Client, spotify.ID, *spotify.Options) (*spotify.FullTrack, error) {
 			return &fullTrack, nil
 		})
-}
+	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetTrackOpt")
 
-func TestTrack(t *testing.T) {
+	// testing
 	channel := make(chan interface{}, 1)
 	defer close(channel)
-
 	track, err := (&Client{}).Track(fullTrack.ID.String(), channel)
 	assert.Nil(t, err)
 	assert.Equal(t, fullTrack.ID.String(), track.ID)
@@ -54,9 +55,15 @@ func TestTrack(t *testing.T) {
 }
 
 func TestTrackGetTrackFailure(t *testing.T) {
+	// monkey patching
+	monkey.Patch(time.Sleep, func(time.Duration) {})
+	defer monkey.Unpatch(time.Sleep)
 	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetTrackOpt",
 		func(*spotify.Client, spotify.ID, *spotify.Options) (*spotify.FullTrack, error) {
 			return nil, errors.New("failure")
 		})
+	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetTrackOpt")
+
+	// testing
 	assert.EqualError(t, util.ErrOnly((&Client{}).Track(fullTrack.ID.String())), "failure")
 }

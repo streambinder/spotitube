@@ -27,18 +27,19 @@ var fullAlbum = &spotify.FullAlbum{
 	},
 }
 
-func init() {
+func TestAlbum(t *testing.T) {
+	// monkey patching
 	monkey.Patch(time.Sleep, func(time.Duration) {})
+	defer monkey.Unpatch(time.Sleep)
 	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbumOpt",
 		func(*spotify.Client, spotify.ID, *spotify.Options) (*spotify.FullAlbum, error) {
 			return fullAlbum, nil
 		})
-}
+	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbumOpt")
 
-func TestAlbum(t *testing.T) {
+	// testing
 	channel := make(chan interface{}, 1)
 	defer close(channel)
-
 	album, err := (&Client{}).Album(fullAlbum.ID.String(), channel)
 	assert.Nil(t, err)
 	assert.Equal(t, fullAlbum.ID.String(), album.ID)
@@ -49,10 +50,16 @@ func TestAlbum(t *testing.T) {
 }
 
 func TestPlaylistGetAlbumFailure(t *testing.T) {
+	// monkey patching
+	monkey.Patch(time.Sleep, func(time.Duration) {})
+	defer monkey.Unpatch(time.Sleep)
 	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbumOpt",
 		func(*spotify.Client, spotify.ID, *spotify.Options) (*spotify.FullAlbum, error) {
 			return nil, errors.New("failure")
 		})
+	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbumOpt")
+
+	// testing
 	assert.EqualError(t, util.ErrOnly((&Client{}).Album(fullPlaylist.ID.String())), "failure")
 }
 
@@ -62,9 +69,16 @@ func TestAlbumNextPageFailure(t *testing.T) {
 		album  = fullAlbum
 	)
 	album.Tracks.Next = "http://0.0.0.0"
+
+	// monkey patching
+	monkey.Patch(time.Sleep, func(time.Duration) {})
+	defer monkey.Unpatch(time.Sleep)
 	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbumOpt",
 		func(*spotify.Client, spotify.ID, *spotify.Options) (*spotify.FullAlbum, error) {
 			return album, nil
 		})
+	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbumOpt")
+
+	// testing
 	assert.True(t, errors.Is(util.ErrOnly(client.Album(fullAlbum.ID.String())), syscall.ECONNREFUSED))
 }

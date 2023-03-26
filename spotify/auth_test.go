@@ -25,16 +25,19 @@ const (
 	state = "S7473"
 )
 
-func init() {
+func TestAuthenticate(t *testing.T) {
+	// monkey patching
 	monkey.Patch(cmd.Open, func(string, ...string) error { return nil })
+	defer monkey.Unpatch(cmd.Open)
 	monkey.Patch(randstr.Hex, func(int) string { return state })
+	defer monkey.Unpatch(randstr.Hex)
 	monkey.PatchInstanceMethod(reflect.TypeOf(spotify.Authenticator{}), "Token",
 		func(spotify.Authenticator, string, *http.Request) (*oauth2.Token, error) {
 			return nil, nil
 		})
-}
+	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(spotify.Authenticator{}), "Token")
 
-func TestAuthenticate(t *testing.T) {
+	// testing
 	assert.Nil(t, nursery.RunConcurrently(
 		func(ctx context.Context, ch chan error) {
 			ch <- util.ErrOnly(Authenticate("127.0.0.1"))
@@ -60,6 +63,18 @@ func TestAuthenticate(t *testing.T) {
 }
 
 func TestAuthenticateNotFound(t *testing.T) {
+	// monkey patching
+	monkey.Patch(cmd.Open, func(string, ...string) error { return nil })
+	defer monkey.Unpatch(cmd.Open)
+	monkey.Patch(randstr.Hex, func(int) string { return state })
+	defer monkey.Unpatch(randstr.Hex)
+	monkey.PatchInstanceMethod(reflect.TypeOf(spotify.Authenticator{}), "Token",
+		func(spotify.Authenticator, string, *http.Request) (*oauth2.Token, error) {
+			return nil, nil
+		})
+	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(spotify.Authenticator{}), "Token")
+
+	// testing
 	assert.EqualError(t, nursery.RunConcurrently(
 		func(ctx context.Context, ch chan error) {
 			ch <- util.ErrOnly(Authenticate("127.0.0.1"))
@@ -85,11 +100,18 @@ func TestAuthenticateNotFound(t *testing.T) {
 }
 
 func TestAuthenticateForbidden(t *testing.T) {
+	// monkey patching
+	monkey.Patch(cmd.Open, func(string, ...string) error { return nil })
+	defer monkey.Unpatch(cmd.Open)
+	monkey.Patch(randstr.Hex, func(int) string { return state })
+	defer monkey.Unpatch(randstr.Hex)
 	monkey.PatchInstanceMethod(reflect.TypeOf(spotify.Authenticator{}), "Token",
 		func(spotify.Authenticator, string, *http.Request) (*oauth2.Token, error) {
 			return nil, errors.New("failure")
 		})
+	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(spotify.Authenticator{}), "Token")
 
+	// testing
 	assert.EqualError(t, nursery.RunConcurrently(
 		func(ctx context.Context, ch chan error) {
 			ch <- util.ErrOnly(Authenticate("127.0.0.1"))
@@ -115,7 +137,13 @@ func TestAuthenticateForbidden(t *testing.T) {
 }
 
 func TestAuthenticateOpenFailure(t *testing.T) {
+	// monkey patching
 	monkey.Patch(cmd.Open, func(string, ...string) error { return errors.New("failure") })
+	defer monkey.Unpatch(cmd.Open)
+	monkey.Patch(randstr.Hex, func(int) string { return state })
+	defer monkey.Unpatch(randstr.Hex)
+
+	// testing
 	assert.EqualError(t, nursery.RunConcurrently(
 		func(ctx context.Context, ch chan error) {
 			ch <- util.ErrOnly(Authenticate("127.0.0.1"))
@@ -141,6 +169,14 @@ func TestAuthenticateOpenFailure(t *testing.T) {
 }
 
 func TestAuthenticateServerUnserving(t *testing.T) {
+	// monkey patching
+	monkey.Patch(cmd.Open, func(string, ...string) error { return nil })
+	defer monkey.Unpatch(cmd.Open)
+	monkey.Patch(randstr.Hex, func(int) string { return state })
+	defer monkey.Unpatch(randstr.Hex)
 	monkey.Patch(net.Listen, func(string, string) (net.Listener, error) { return nil, errors.New("failure") })
+	defer monkey.Unpatch(net.Listen)
+
+	// testing
 	assert.EqualError(t, util.ErrOnly(Authenticate()), "failure")
 }

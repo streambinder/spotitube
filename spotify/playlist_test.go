@@ -27,18 +27,19 @@ var fullPlaylist = &spotify.FullPlaylist{
 	},
 }
 
-func init() {
+func TestPlaylist(t *testing.T) {
+	// monkey patching
 	monkey.Patch(time.Sleep, func(time.Duration) {})
+	defer monkey.Unpatch(time.Sleep)
 	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetPlaylistOpt",
 		func(*spotify.Client, spotify.ID, string) (*spotify.FullPlaylist, error) {
 			return fullPlaylist, nil
 		})
-}
+	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetPlaylistOpt")
 
-func TestPlaylist(t *testing.T) {
+	// testing
 	channel := make(chan interface{}, 1)
 	defer close(channel)
-
 	playlist, err := (&Client{}).Playlist(fullPlaylist.ID.String(), channel)
 	assert.Nil(t, err)
 	assert.Equal(t, fullPlaylist.ID.String(), playlist.ID)
@@ -51,10 +52,16 @@ func TestPlaylist(t *testing.T) {
 }
 
 func TestPlaylistGetPlaylistFailure(t *testing.T) {
+	// monkey patching
+	monkey.Patch(time.Sleep, func(time.Duration) {})
+	defer monkey.Unpatch(time.Sleep)
 	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetPlaylistOpt",
 		func(*spotify.Client, spotify.ID, string) (*spotify.FullPlaylist, error) {
 			return nil, errors.New("failure")
 		})
+	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetPlaylistOpt")
+
+	// testing
 	assert.EqualError(t, util.ErrOnly((&Client{}).Playlist(fullPlaylist.ID.String())), "failure")
 }
 
@@ -64,9 +71,16 @@ func TestPlaylistNextPageFailure(t *testing.T) {
 		playlist = fullPlaylist
 	)
 	playlist.Tracks.Next = "http://0.0.0.0"
+
+	// monkey patching
+	monkey.Patch(time.Sleep, func(time.Duration) {})
+	defer monkey.Unpatch(time.Sleep)
 	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetPlaylistOpt",
 		func(*spotify.Client, spotify.ID, string) (*spotify.FullPlaylist, error) {
 			return playlist, nil
 		})
+	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetPlaylistOpt")
+
+	// testing
 	assert.True(t, errors.Is(util.ErrOnly(client.Playlist(fullPlaylist.ID.String())), syscall.ECONNREFUSED))
 }

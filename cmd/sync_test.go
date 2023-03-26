@@ -9,6 +9,7 @@ import (
 
 	"bou.ke/monkey"
 	"github.com/streambinder/spotitube/entity"
+	"github.com/streambinder/spotitube/provider"
 	"github.com/streambinder/spotitube/spotify"
 	"github.com/streambinder/spotitube/util"
 	"github.com/streambinder/spotitube/util/cmd"
@@ -69,6 +70,9 @@ func TestCmdSync(t *testing.T) {
 			ch[0] <- track
 			return track, nil
 		})
+	monkey.Patch(provider.Search, func(*entity.Track) ([]*provider.Match, error) {
+		return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
+	})
 
 	// testing
 	assert.Nil(t, util.ErrOnly(testExecute("sync")))
@@ -176,6 +180,28 @@ func TestCmdSyncCollectFailure(t *testing.T) {
 		return func(ctx context.Context, ch chan error) {
 			ch <- err
 		}
+	})
+
+	// testing
+	assert.EqualError(t, util.ErrOnly(testExecute("sync")), err.Error())
+}
+
+func TestCmdSyncDecideFailure(t *testing.T) {
+	// monkey patching
+	monkey.Patch(spotify.Authenticate, func(...string) (*spotify.Client, error) { return &spotify.Client{}, nil })
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Library",
+		func(c *spotify.Client, ch ...chan interface{}) error {
+			ch[0] <- track
+			return nil
+		})
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Playlist",
+		func(*spotify.Client, string, ...chan interface{}) (*entity.Playlist, error) { return playlist, nil })
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Album",
+		func(*spotify.Client, string, ...chan interface{}) (*entity.Album, error) { return album, nil })
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "Track",
+		func(*spotify.Client, string, ...chan interface{}) (*entity.Track, error) { return track, nil })
+	monkey.Patch(provider.Search, func(*entity.Track) ([]*provider.Match, error) {
+		return nil, err
 	})
 
 	// testing

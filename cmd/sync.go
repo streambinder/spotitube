@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/streambinder/spotitube/entity"
+	"github.com/streambinder/spotitube/provider"
 	"github.com/streambinder/spotitube/spotify"
 )
 
@@ -163,7 +164,7 @@ func fetcher(library bool, playlists []string, albums []string, tracks []string)
 
 // decider finds the right asset to download
 // for a given track
-func decider(context.Context, chan error) {
+func decider(ctx context.Context, ch chan error) {
 	// remember to stop passing data to the collector
 	// the downloader, the composer and the painter
 	defer close(queues[collect])
@@ -178,7 +179,13 @@ func decider(context.Context, chan error) {
 		}
 
 		log.Println("[decider]\t" + track.Title)
-		track.UpstreamURL = "http://whatev.er/blob.mp3"
+		matches, err := provider.Search(track)
+		if err != nil {
+			ch <- err
+			return
+		}
+
+		track.UpstreamURL = matches[0].URL
 		queues[collect] <- track
 		cache[track.ID] = true
 	}
@@ -211,7 +218,7 @@ func collector(ctx context.Context, ch chan error) {
 // to the (meta)data fetched from upstream
 func downloader(track *entity.Track) func(context.Context, chan error) {
 	return func(context.Context, chan error) {
-		log.Println("[download]\t" + track.Title)
+		log.Println("[download]\t" + track.Title + " (" + track.UpstreamURL + ")")
 	}
 }
 

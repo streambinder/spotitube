@@ -38,12 +38,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: test "$(grep -r '.Get(' | wc -l)" = "$(grep -r '.Body.Close(' | wc -l)"
+      - run: test "$(grep -r --exclude-dir=".git*" 'http.Get(' | wc -l)" = "$(grep -r --exclude-dir=".git*" '.Body.Close()' | wc -l)"
   go-monkey-unpatch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: test "$(grep -r 'monkey.Patch' | wc -l)" = "$(grep -r 'monkey.Unpatch' | wc -l)"
+      - run: test "$(grep -r --exclude-dir=".git*" 'monkey.Patch' | wc -l)" = "$(grep -r --exclude-dir=".git*" 'monkey.Unpatch' | wc -l)"
   test:
     runs-on: ubuntu-latest
     needs: [commitlint, golangci-lint, gofumpt, go-http-body-close, go-monkey-unpatch]

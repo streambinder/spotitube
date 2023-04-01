@@ -6,12 +6,16 @@ import (
 	"github.com/gosimple/slug"
 )
 
+func Flatten(sentence string) string {
+	return strings.ReplaceAll(slug.Make(sentence), "-", " ")
+}
+
 func UniqueFields(sentence string) (uniqueFieldsSentence string) {
 	var (
 		appearances  = make(map[string]bool)
 		uniqueFields []string
 	)
-	for _, field := range strings.Fields(strings.ReplaceAll(slug.Make(sentence), "-", " ")) {
+	for _, field := range strings.Fields(Flatten(sentence)) {
 		if appearances[field] {
 			continue
 		}

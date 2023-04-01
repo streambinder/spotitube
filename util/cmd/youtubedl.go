@@ -15,6 +15,8 @@ func YouTubeDl(url, path string) error {
 		"--audio-format", pathExtension,
 		"--audio-quality", "0",
 		"--output", path+".%(ext)s",
+		"--continue",
+		"--no-overwrites",
 		url,
 	).Run()
 }

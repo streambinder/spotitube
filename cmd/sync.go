@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/streambinder/spotitube/downloader"
 	"github.com/streambinder/spotitube/entity"
+	"github.com/streambinder/spotitube/lyrics"
 	"github.com/streambinder/spotitube/provider"
 	"github.com/streambinder/spotitube/spotify"
 )
@@ -239,8 +240,16 @@ func painter(track *entity.Track) func(context.Context, chan error) {
 // composer pulls lyrics to be inserted
 // in the fetched blob
 func composer(track *entity.Track) func(context.Context, chan error) {
-	return func(context.Context, chan error) {
+	return func(ctx context.Context, ch chan error) {
 		log.Println("[composer]\t" + track.Title)
+		lyrics, err := lyrics.Search(track)
+		if err != nil {
+			log.Printf("[composer]\t%s", err)
+			ch <- err
+			return
+		}
+		track.Lyrics = lyrics
+		log.Printf("[composer]\t%d", len(lyrics))
 	}
 }
 

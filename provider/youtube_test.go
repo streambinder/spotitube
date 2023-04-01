@@ -17,14 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var (
-	result = youTubeResult{
-		id:     "123",
-		title:  "title",
-		owner:  "owner",
-		views:  1000000,
-		length: 180,
-	}
+const (
 	resultViewsText  = "1.000.000 views"
 	resultLengthText = "3:00 minutes"
 	resultScript     = `<script>var ytInitialData = {
@@ -63,6 +56,14 @@ var (
 		}
 	</script>`
 )
+
+var result = youTubeResult{
+	id:     "123",
+	title:  "title",
+	owner:  "owner",
+	views:  1000000,
+	length: 180,
+}
 
 func TestYouTubeSearch(t *testing.T) {
 	// monkey patching

@@ -21,8 +21,8 @@ type Provider interface {
 
 func Search(track *entity.Track) ([]*Match, error) {
 	var (
-		workers = []nursery.ConcurrentJob{}
-		matches = []*Match{}
+		workers []nursery.ConcurrentJob
+		matches []*Match
 	)
 	for _, provider := range providers {
 		workers = append(workers, func(ctx context.Context, ch chan error) {

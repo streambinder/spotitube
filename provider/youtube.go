@@ -90,7 +90,7 @@ func (provider youTube) Search(track *entity.Track) ([]*Match, error) {
 		}
 
 		if match.id == "" || match.title == "" || match.owner == "" {
-			return false
+			return true
 		}
 
 		matches = append(matches, &Match{

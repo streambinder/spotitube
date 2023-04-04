@@ -8,7 +8,7 @@ import (
 	"github.com/streambinder/spotitube/entity"
 )
 
-var providers = []Provider{}
+var providers = []any{}
 
 type Match struct {
 	URL   string
@@ -25,14 +25,16 @@ func Search(track *entity.Track) ([]*Match, error) {
 		matches []*Match
 	)
 	for _, provider := range providers {
-		workers = append(workers, func(ctx context.Context, ch chan error) {
-			scopedMatches, err := provider.Search(track)
-			if err != nil {
-				ch <- err
-				return
+		workers = append(workers, func(p Provider) func(ctx context.Context, ch chan error) {
+			return func(ctx context.Context, ch chan error) {
+				scopedMatches, err := p.Search(track)
+				if err != nil {
+					ch <- err
+					return
+				}
+				matches = append(matches, scopedMatches...)
 			}
-			matches = append(matches, scopedMatches...)
-		})
+		}(provider.(Provider)))
 	}
 
 	if err := nursery.RunConcurrently(workers...); err != nil {

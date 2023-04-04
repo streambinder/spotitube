@@ -7,7 +7,7 @@ import (
 	"github.com/streambinder/spotitube/entity"
 )
 
-var composers = []Composer{}
+var composers = []any{}
 
 type Composer interface {
 	Search(track *entity.Track) ([]byte, error)
@@ -20,17 +20,19 @@ func Search(track *entity.Track) ([]byte, error) {
 		result  []byte
 	)
 	for _, composer := range composers {
-		workers = append(workers, func(ctx context.Context, ch chan error) {
-			scopedLyrics, err := composer.Search(track)
-			if err != nil {
-				ch <- err
-				return
-			}
+		workers = append(workers, func(c Composer) func(ctx context.Context, ch chan error) {
+			return func(ctx context.Context, ch chan error) {
+				scopedLyrics, err := c.Search(track)
+				if err != nil {
+					ch <- err
+					return
+				}
 
-			if len(scopedLyrics) > 0 {
-				result = scopedLyrics
+				if len(scopedLyrics) > 0 {
+					result = scopedLyrics
+				}
 			}
-		})
+		}(composer.(Composer)))
 	}
 
 	if err := nursery.RunConcurrently(workers...); err != nil {

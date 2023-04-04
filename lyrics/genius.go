@@ -21,7 +21,7 @@ type genius struct {
 }
 
 func init() {
-	composers = append(composers, genius{})
+	composers = append(composers, &genius{})
 }
 
 func (composer genius) Search(track *entity.Track) ([]byte, error) {

@@ -28,7 +28,7 @@ func Search(track *entity.Track) ([]byte, error) {
 					return
 				}
 
-				if len(scopedLyrics) > 0 {
+				if len(scopedLyrics) > len(result) {
 					result = scopedLyrics
 				}
 			}

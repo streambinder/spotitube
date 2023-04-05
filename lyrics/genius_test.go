@@ -67,6 +67,22 @@ func TestGeniusSearchFailure(t *testing.T) {
 	assert.Error(t, util.ErrOnly(genius{}.Search(track)), "failure")
 }
 
+func TestGeniusSearchHttpNotFound(t *testing.T) {
+	// monkey patching
+	monkey.Patch(util.HttpRequest,
+		func(ctx context.Context, method string, url string, queryParameters url.Values, body io.Reader, headers ...string) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: 404,
+				Body: io.NopCloser(
+					strings.NewReader("")),
+			}, nil
+		})
+	defer monkey.Unpatch(util.HttpRequest)
+
+	// testing
+	assert.NotNil(t, util.ErrOnly(genius{}.Search(track)))
+}
+
 func TestGeniusSearchReadFailure(t *testing.T) {
 	// monkey patching
 	monkey.Patch(util.HttpRequest,

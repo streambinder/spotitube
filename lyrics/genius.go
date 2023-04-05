@@ -39,6 +39,10 @@ func (composer genius) Search(track *entity.Track, ctxs ...context.Context) ([]b
 	}
 	defer response.Body.Close()
 
+	if response.StatusCode != 200 {
+		return nil, errors.New("cannot search lyrics on genius: " + response.Status)
+	}
+
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, err

@@ -2,10 +2,11 @@ package entity
 
 import (
 	"fmt"
+	"path"
 	"path/filepath"
-	"strings"
 
 	"github.com/adrg/xdg"
+	"github.com/gosimple/slug"
 	"github.com/streambinder/spotitube/util"
 )
 
@@ -24,16 +25,30 @@ type Track struct {
 }
 
 type trackPath struct {
-	id string
+	trackId   string
+	artworkId string
 }
 
-const format = "mp3"
+const (
+	trackFormat   = "mp3"
+	artworkFormat = "jpg"
+)
 
 func (track *Track) Path() trackPath {
-	return trackPath{strings.ToLower(track.ID)}
+	return trackPath{
+		trackId:   slug.Make(track.ID),
+		artworkId: slug.Make(path.Base(track.ArtworkURL)),
+	}
 }
 
 func (trackPath trackPath) Download() string {
-	basename := fmt.Sprintf("%s.%s", trackPath.id, format)
-	return util.ErrWrap(filepath.Join("tmp", basename))(xdg.CacheFile(filepath.Join("spotitube", basename)))
+	basename := fmt.Sprintf("%s.%s", trackPath.trackId, trackFormat)
+	return util.ErrWrap(filepath.Join("tmp", basename))(
+		xdg.CacheFile(filepath.Join("spotitube", basename)))
+}
+
+func (trackPath trackPath) Artwork() string {
+	basename := fmt.Sprintf("%s.%s", trackPath.artworkId, artworkFormat)
+	return util.ErrWrap(filepath.Join("tmp", basename))(
+		xdg.CacheFile(filepath.Join("spotitube", basename)))
 }

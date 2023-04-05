@@ -7,8 +7,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPaths(t *testing.T) {
-	id := "123"
-	downloadPath := (&Track{ID: id}).Path().Download()
-	assert.Equal(t, id+"."+format, path.Base(downloadPath))
+func TestDownloadPath(t *testing.T) {
+	track := &Track{
+		ID:         "123",
+		ArtworkURL: "http://domain.tld/123",
+	}
+	assert.Equal(t, track.Path().trackId+"."+trackFormat, path.Base(track.Path().Download()))
+	assert.Equal(t, track.Path().artworkId+"."+artworkFormat, path.Base(track.Path().Artwork()))
 }

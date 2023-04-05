@@ -1,6 +1,7 @@
 package lyrics
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -24,9 +25,14 @@ func init() {
 	composers = append(composers, &genius{})
 }
 
-func (composer genius) Search(track *entity.Track) ([]byte, error) {
+func (composer genius) Search(track *entity.Track, ctxs ...context.Context) ([]byte, error) {
+	ctx := context.Background()
+	if len(ctxs) > 0 {
+		ctx = ctxs[0]
+	}
+
 	searchKeys := url.Values{"q": []string{track.Title, track.Artists[0]}}
-	response, err := util.HttpRequest(http.MethodGet, "https://api.genius.com/search", searchKeys, nil,
+	response, err := util.HttpRequest(ctx, http.MethodGet, "https://api.genius.com/search", searchKeys, nil,
 		fmt.Sprintf("Authorization:Bearer %s", os.Getenv("GENIUS_TOKEN")))
 	if err != nil {
 		return nil, err
@@ -64,14 +70,14 @@ func (composer genius) Search(track *entity.Track) ([]byte, error) {
 	})
 
 	if geniusURL != "" {
-		return composer.fromGeniusURL(geniusURL)
+		return composer.fromGeniusURL(geniusURL, ctx)
 	}
 
 	return nil, nil
 }
 
-func (composer genius) fromGeniusURL(url string) ([]byte, error) {
-	response, err := util.HttpRequest(http.MethodGet, url, nil, nil)
+func (composer genius) fromGeniusURL(url string, ctx context.Context) ([]byte, error) {
+	response, err := util.HttpRequest(ctx, http.MethodGet, url, nil, nil)
 	if err != nil {
 		return nil, err
 	}

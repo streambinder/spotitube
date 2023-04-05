@@ -20,7 +20,7 @@ func TestHttpRequest(t *testing.T) {
 		}))
 	defer server.Close()
 
-	response, err := HttpRequest(http.MethodGet, server.URL, nil, nil, "Host:localhost")
+	response, err := HttpRequest(context.Background(), http.MethodGet, server.URL, nil, nil, "Host:localhost")
 	assert.Nil(t, err)
 	defer response.Body.Close()
 
@@ -38,5 +38,5 @@ func TestHttpRequestFailure(t *testing.T) {
 	defer monkey.Unpatch(http.NewRequestWithContext)
 
 	// testing
-	assert.Error(t, ErrOnly(HttpRequest(http.MethodGet, "localhost", nil, nil)), "failure")
+	assert.Error(t, ErrOnly(HttpRequest(context.Background(), http.MethodGet, "localhost", nil, nil)), "failure")
 }

@@ -1,6 +1,7 @@
 package lyrics
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"net/url"
 
 	"github.com/streambinder/spotitube/entity"
+	"github.com/streambinder/spotitube/util"
 )
 
 type lyricsOvh struct {
@@ -23,11 +25,16 @@ func init() {
 	composers = append(composers, &lyricsOvh{})
 }
 
-func (composer lyricsOvh) Search(track *entity.Track) ([]byte, error) {
-	response, err := http.Get(
-		fmt.Sprintf("https://api.lyrics.ovh/v1/%s/%s",
+func (composer lyricsOvh) Search(track *entity.Track, ctxs ...context.Context) ([]byte, error) {
+	ctx := context.Background()
+	if len(ctxs) > 0 {
+		ctx = ctxs[0]
+	}
+
+	response, err := util.HttpRequest(
+		ctx, http.MethodGet, fmt.Sprintf("https://api.lyrics.ovh/v1/%s/%s",
 			url.QueryEscape(track.Artists[0]),
-			url.QueryEscape(track.Title)),
+			url.QueryEscape(track.Title)), nil, nil,
 	)
 	if err != nil {
 		return nil, err

@@ -1,11 +1,12 @@
 package lyrics
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
-	"reflect"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -16,29 +17,29 @@ import (
 
 func TestLyricsOvhSearch(t *testing.T) {
 	// monkey patching
-	monkey.PatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get",
-		func(client *http.Client, url string) (*http.Response, error) {
+	monkey.Patch(util.HttpRequest,
+		func(context.Context, string, string, url.Values, io.Reader, ...string) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: 200,
 				Body: io.NopCloser(
 					strings.NewReader(`{"lyrics": "lyrics"}`)),
 			}, nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get")
+	defer monkey.Unpatch(util.HttpRequest)
 
 	// testing
-	lyrics, err := lyricsOvh{}.Search(track)
+	lyrics, err := lyricsOvh{}.Search(track, context.Background())
 	assert.Nil(t, err)
 	assert.Equal(t, []byte("lyrics"), lyrics)
 }
 
 func TestLyricsOvhSearchFailure(t *testing.T) {
 	// monkey patching
-	monkey.PatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get",
-		func(client *http.Client, url string) (*http.Response, error) {
+	monkey.Patch(util.HttpRequest,
+		func(context.Context, string, string, url.Values, io.Reader, ...string) (*http.Response, error) {
 			return nil, errors.New("failure")
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get")
+	defer monkey.Unpatch(util.HttpRequest)
 
 	// testing
 	assert.Error(t, util.ErrOnly(lyricsOvh{}.Search(track)), "failure")
@@ -46,15 +47,15 @@ func TestLyricsOvhSearchFailure(t *testing.T) {
 
 func TestLyricsOvhSearchNotFound(t *testing.T) {
 	// monkey patching
-	monkey.PatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get",
-		func(client *http.Client, url string) (*http.Response, error) {
+	monkey.Patch(util.HttpRequest,
+		func(context.Context, string, string, url.Values, io.Reader, ...string) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: 404,
 				Body: io.NopCloser(
 					strings.NewReader("")),
 			}, nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get")
+	defer monkey.Unpatch(util.HttpRequest)
 
 	// testing
 	lyrics, err := lyricsOvh{}.Search(track)
@@ -64,15 +65,15 @@ func TestLyricsOvhSearchNotFound(t *testing.T) {
 
 func TestLyricsOvhSearchInternalError(t *testing.T) {
 	// monkey patching
-	monkey.PatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get",
-		func(client *http.Client, url string) (*http.Response, error) {
+	monkey.Patch(util.HttpRequest,
+		func(context.Context, string, string, url.Values, io.Reader, ...string) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: 500,
 				Body: io.NopCloser(
 					strings.NewReader("")),
 			}, nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get")
+	defer monkey.Unpatch(util.HttpRequest)
 
 	// testing
 	assert.NotNil(t, util.ErrOnly(lyricsOvh{}.Search(track)))
@@ -80,15 +81,15 @@ func TestLyricsOvhSearchInternalError(t *testing.T) {
 
 func TestLyricsOvhSearchReadFailure(t *testing.T) {
 	// monkey patching
-	monkey.PatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get",
-		func(client *http.Client, url string) (*http.Response, error) {
+	monkey.Patch(util.HttpRequest,
+		func(context.Context, string, string, url.Values, io.Reader, ...string) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: 200,
 				Body: io.NopCloser(
 					strings.NewReader(`{"lyrics": "lyrics"}`)),
 			}, nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get")
+	defer monkey.Unpatch(util.HttpRequest)
 	monkey.Patch(io.ReadAll, func(r io.Reader) ([]byte, error) {
 		return nil, errors.New("failure")
 	})
@@ -100,15 +101,15 @@ func TestLyricsOvhSearchReadFailure(t *testing.T) {
 
 func TestLyricsOvhSearchJsonFailure(t *testing.T) {
 	// monkey patching
-	monkey.PatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get",
-		func(client *http.Client, url string) (*http.Response, error) {
+	monkey.Patch(util.HttpRequest,
+		func(context.Context, string, string, url.Values, io.Reader, ...string) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: 200,
 				Body: io.NopCloser(
 					strings.NewReader(`{"lyrics": "lyrics"}`)),
 			}, nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get")
+	defer monkey.Unpatch(util.HttpRequest)
 	monkey.Patch(json.Unmarshal, func(data []byte, v any) error {
 		return errors.New("failure")
 	})

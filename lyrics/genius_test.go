@@ -1,6 +1,7 @@
 package lyrics
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -32,7 +33,7 @@ const (
 func TestGeniusSearch(t *testing.T) {
 	// monkey patching
 	monkey.Patch(util.HttpRequest,
-		func(method string, url string, queryParameters url.Values, body io.Reader, headers ...string) (*http.Response, error) {
+		func(ctx context.Context, method string, url string, queryParameters url.Values, body io.Reader, headers ...string) (*http.Response, error) {
 			if strings.Contains(url, "//api.genius.com") {
 				return &http.Response{
 					StatusCode: 200,
@@ -49,7 +50,7 @@ func TestGeniusSearch(t *testing.T) {
 	defer monkey.Unpatch(util.HttpRequest)
 
 	// testing
-	lyrics, err := genius{}.Search(track)
+	lyrics, err := genius{}.Search(track, context.Background())
 	assert.Nil(t, err)
 	assert.Equal(t, []byte("verse\nlyrics"), lyrics)
 }
@@ -57,7 +58,7 @@ func TestGeniusSearch(t *testing.T) {
 func TestGeniusSearchFailure(t *testing.T) {
 	// monkey patching
 	monkey.Patch(util.HttpRequest,
-		func(string, string, url.Values, io.Reader, ...string) (*http.Response, error) {
+		func(context.Context, string, string, url.Values, io.Reader, ...string) (*http.Response, error) {
 			return nil, errors.New("failure")
 		})
 	defer monkey.Unpatch(util.HttpRequest)
@@ -69,7 +70,7 @@ func TestGeniusSearchFailure(t *testing.T) {
 func TestGeniusSearchReadFailure(t *testing.T) {
 	// monkey patching
 	monkey.Patch(util.HttpRequest,
-		func(method string, url string, queryParameters url.Values, body io.Reader, headers ...string) (*http.Response, error) {
+		func(context.Context, string, string, url.Values, io.Reader, ...string) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: 200,
 				Body: io.NopCloser(
@@ -89,7 +90,7 @@ func TestGeniusSearchReadFailure(t *testing.T) {
 func TestGeniusSearchNotFound(t *testing.T) {
 	// monkey patching
 	monkey.Patch(util.HttpRequest,
-		func(method string, url string, queryParameters url.Values, body io.Reader, headers ...string) (*http.Response, error) {
+		func(context.Context, string, string, url.Values, io.Reader, ...string) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: 200,
 				Body: io.NopCloser(
@@ -107,7 +108,7 @@ func TestGeniusSearchNotFound(t *testing.T) {
 func TestGeniusLyricsGetFailure(t *testing.T) {
 	// monkey patching
 	monkey.Patch(util.HttpRequest,
-		func(method string, url string, queryParameters url.Values, body io.Reader, headers ...string) (*http.Response, error) {
+		func(ctx context.Context, method string, url string, queryParameters url.Values, body io.Reader, headers ...string) (*http.Response, error) {
 			if strings.Contains(url, "//api.genius.com") {
 				return &http.Response{
 					StatusCode: 200,
@@ -126,7 +127,7 @@ func TestGeniusLyricsGetFailure(t *testing.T) {
 func TestGeniusLyricsNotFound(t *testing.T) {
 	// monkey patching
 	monkey.Patch(util.HttpRequest,
-		func(method string, url string, queryParameters url.Values, body io.Reader, headers ...string) (*http.Response, error) {
+		func(ctx context.Context, method string, url string, queryParameters url.Values, body io.Reader, headers ...string) (*http.Response, error) {
 			if strings.Contains(url, "//api.genius.com") {
 				return &http.Response{
 					StatusCode: 200,
@@ -150,7 +151,7 @@ func TestGeniusLyricsNotFound(t *testing.T) {
 func TestGeniusLyricsNotParseable(t *testing.T) {
 	// monkey patching
 	monkey.Patch(util.HttpRequest,
-		func(method string, url string, queryParameters url.Values, body io.Reader, headers ...string) (*http.Response, error) {
+		func(ctx context.Context, method string, url string, queryParameters url.Values, body io.Reader, headers ...string) (*http.Response, error) {
 			if strings.Contains(url, "//api.genius.com") {
 				return &http.Response{
 					StatusCode: 200,

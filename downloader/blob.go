@@ -36,7 +36,7 @@ func (blob) Supports(url string) bool {
 	}
 }
 
-func (blob) Download(url, path string) error {
+func (blob) Download(url, path string, channels ...chan []byte) error {
 	response, err := http.Get(url)
 	if err != nil {
 		return err
@@ -53,5 +53,14 @@ func (blob) Download(url, path string) error {
 	}
 	defer output.Close()
 
-	return util.ErrOnly(io.Copy(output, response.Body))
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+
+	for _, ch := range channels {
+		ch <- body
+	}
+
+	return util.ErrOnly(output.Write(body))
 }

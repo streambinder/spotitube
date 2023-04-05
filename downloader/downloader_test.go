@@ -17,42 +17,46 @@ import (
 
 func TestDownload(t *testing.T) {
 	// monkey patching
-	monkey.Patch(os.Stat, func(string) (fs.FileInfo, error) { return nil, errors.New("") })
-	defer monkey.Unpatch(os.Stat)
+	monkey.Patch(os.ReadFile, func(string) ([]byte, error) { return nil, errors.New("not exists") })
+	defer monkey.Unpatch(os.ReadFile)
 	monkey.Patch(os.MkdirAll, func(string, fs.FileMode) error { return nil })
 	defer monkey.Unpatch(os.MkdirAll)
 	monkey.Patch(cmd.YouTubeDl, func(url, path string) error { return nil })
 	defer monkey.Unpatch(cmd.YouTubeDl)
 	monkey.PatchInstanceMethod(reflect.TypeOf(youTubeDl{}), "Download",
-		func(youTubeDl, string, string) error { return nil })
+		func(youTubeDl, string, string, ...chan []byte) error { return nil })
 	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(youTubeDl{}), "Download")
 	monkey.PatchInstanceMethod(reflect.TypeOf(youTubeDl{}), "Supports",
 		func(youTubeDl, string) bool { return true })
 	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(youTubeDl{}), "Supports")
 	monkey.PatchInstanceMethod(reflect.TypeOf(blob{}), "Download",
-		func(blob, string, string) error { return nil })
+		func(blob, string, string, ...chan []byte) error { return nil })
 	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(blob{}), "Download")
 	monkey.PatchInstanceMethod(reflect.TypeOf(blob{}), "Supports",
 		func(blob, string) bool { return false })
 	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(blob{}), "Supports")
 
 	// testing
-	assert.Nil(t, Download("http://youtu.be", "fname.txt"))
+	ch := make(chan []byte, 1)
+	defer close(ch)
+	assert.Nil(t, Download("http://youtu.be", "fname.txt", ch))
 }
 
 func TestDownloadAlreadyExists(t *testing.T) {
 	// monkey patching
-	monkey.Patch(os.Stat, func(string) (fs.FileInfo, error) { return nil, nil })
-	defer monkey.Unpatch(os.Stat)
+	monkey.Patch(os.ReadFile, func(string) ([]byte, error) { return []byte{}, nil })
+	defer monkey.Unpatch(os.ReadFile)
 
 	// testing
-	assert.Nil(t, Download("http://youtu.be", "fname.txt"))
+	ch := make(chan []byte, 1)
+	defer close(ch)
+	assert.Nil(t, Download("http://youtu.be", "fname.txt", ch))
 }
 
 func TestDownloadMakeDirFailure(t *testing.T) {
 	// monkey patching
-	monkey.Patch(os.Stat, func(string) (fs.FileInfo, error) { return nil, errors.New("") })
-	defer monkey.Unpatch(os.Stat)
+	monkey.Patch(os.ReadFile, func(string) ([]byte, error) { return nil, errors.New("not exists") })
+	defer monkey.Unpatch(os.ReadFile)
 	monkey.Patch(os.MkdirAll, func(string, fs.FileMode) error { return errors.New("failure") })
 	defer monkey.Unpatch(os.MkdirAll)
 
@@ -62,8 +66,8 @@ func TestDownloadMakeDirFailure(t *testing.T) {
 
 func TestDownloadUnsupported(t *testing.T) {
 	// monkey patching
-	monkey.Patch(os.Stat, func(string) (fs.FileInfo, error) { return nil, errors.New("") })
-	defer monkey.Unpatch(os.Stat)
+	monkey.Patch(os.ReadFile, func(string) ([]byte, error) { return nil, errors.New("not exists") })
+	defer monkey.Unpatch(os.ReadFile)
 	monkey.Patch(cmd.YouTubeDl, func(url, path string) error { return nil })
 	defer monkey.Unpatch(cmd.YouTubeDl)
 	monkey.PatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Head",

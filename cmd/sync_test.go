@@ -80,7 +80,10 @@ func TestCmdSync(t *testing.T) {
 		return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
 	})
 	defer monkey.Unpatch(provider.Search)
-	monkey.Patch(downloader.Download, func(string, string) error {
+	monkey.Patch(downloader.Download, func(url, path string, ch ...chan []byte) error {
+		for _, c := range ch {
+			c <- []byte{}
+		}
 		return nil
 	})
 	defer monkey.Unpatch(downloader.Download)
@@ -281,12 +284,15 @@ func TestCmdSyncCollectFailure(t *testing.T) {
 		}
 	})
 	defer monkey.Unpatch(painter)
-	monkey.Patch(downloader.Download, func(string, string) error {
+	monkey.Patch(downloader.Download, func(url, path string, ch ...chan []byte) error {
+		for _, c := range ch {
+			c <- []byte{}
+		}
 		return nil
 	})
 	defer monkey.Unpatch(downloader.Download)
 	monkey.Patch(lyrics.Search, func(*entity.Track) ([]byte, error) {
-		return []byte(""), nil
+		return []byte{}, nil
 	})
 	defer monkey.Unpatch(lyrics.Search)
 
@@ -321,10 +327,15 @@ func TestCmdSyncDownloadFailure(t *testing.T) {
 		return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
 	})
 	defer monkey.Unpatch(provider.Search)
-	monkey.Patch(downloader.Download, func(string, string) error { return err })
+	monkey.Patch(downloader.Download, func(url, path string, ch ...chan []byte) error {
+		for _, c := range ch {
+			c <- []byte{}
+		}
+		return err
+	})
 	defer monkey.Unpatch(downloader.Download)
 	monkey.Patch(lyrics.Search, func(*entity.Track) ([]byte, error) {
-		return []byte(""), nil
+		return []byte{}, nil
 	})
 	defer monkey.Unpatch(lyrics.Search)
 	// testing
@@ -358,7 +369,10 @@ func TestCmdSyncLyricsFailure(t *testing.T) {
 		return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
 	})
 	defer monkey.Unpatch(provider.Search)
-	monkey.Patch(downloader.Download, func(string, string) error {
+	monkey.Patch(downloader.Download, func(url, path string, ch ...chan []byte) error {
+		for _, c := range ch {
+			c <- []byte{}
+		}
 		return nil
 	})
 	defer monkey.Unpatch(downloader.Download)

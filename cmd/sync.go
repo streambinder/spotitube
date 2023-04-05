@@ -233,12 +233,18 @@ func retriever(track *entity.Track) func(context.Context, chan error) {
 // as artworks in the fetched blob
 func painter(track *entity.Track) func(context.Context, chan error) {
 	return func(ctx context.Context, ch chan error) {
+		artwork := make(chan []byte, 1)
+		defer close(artwork)
+
 		log.Println("[painter]\t" + track.Title + " (" + track.ArtworkURL + ")")
-		if err := downloader.Download(track.ArtworkURL, track.Path().Artwork()); err != nil {
+		if err := downloader.Download(track.ArtworkURL, track.Path().Artwork(), artwork); err != nil {
 			log.Printf("[painter]\t%s", err)
 			ch <- err
 			return
 		}
+
+		track.Artwork = <-artwork
+		log.Printf("[painter]\t%d", len(track.Artwork))
 	}
 }
 

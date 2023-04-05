@@ -79,7 +79,7 @@ func TestBlobDownload(t *testing.T) {
 		func(*http.Client, string) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: 200,
-				Body:       io.NopCloser(strings.NewReader("")),
+				Body:       io.NopCloser(strings.NewReader("bitch")),
 				Header:     map[string][]string{"Content-Type": {"image/jpeg"}},
 			}, nil
 		})
@@ -88,13 +88,20 @@ func TestBlobDownload(t *testing.T) {
 		return nil, nil
 	})
 	defer monkey.Unpatch(os.OpenFile)
-	monkey.Patch(io.Copy, func(io.Writer, io.Reader) (int64, error) {
-		return 0, nil
+	monkey.Patch(io.ReadAll, func(r io.Reader) ([]byte, error) {
+		return []byte{}, nil
 	})
-	defer monkey.Unpatch(io.Copy)
+	defer monkey.Unpatch(io.ReadAll)
+	monkey.PatchInstanceMethod(reflect.TypeOf(&os.File{}), "Write",
+		func(*os.File, []byte) (int, error) {
+			return 0, nil
+		})
+	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&os.File{}), "Write")
 
 	// testing
-	assert.Nil(t, blob{}.Download("http://davidepucci.it", "/dev/null"))
+	ch := make(chan []byte, 1)
+	defer close(ch)
+	assert.Nil(t, blob{}.Download("http://davidepucci.it", "/dev/null", ch))
 }
 
 func TestBlobDownloadFailure(t *testing.T) {
@@ -139,6 +146,30 @@ func TestBlobDownloadFileCreationFailure(t *testing.T) {
 		return nil, errors.New("failure")
 	})
 	defer monkey.Unpatch(os.OpenFile)
+
+	// testing
+	assert.Error(t, blob{}.Download("http://davidepucci.it", "/dev/null"), "failure")
+}
+
+func TestBlobDownloadReadFailure(t *testing.T) {
+	// monkey patching
+	monkey.PatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get",
+		func(*http.Client, string) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: 200,
+				Body:       io.NopCloser(strings.NewReader("")),
+				Header:     map[string][]string{"Content-Type": {"image/jpeg"}},
+			}, nil
+		})
+	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Do")
+	monkey.Patch(os.OpenFile, func(string, int, fs.FileMode) (*os.File, error) {
+		return nil, nil
+	})
+	defer monkey.Unpatch(os.OpenFile)
+	monkey.Patch(io.ReadAll, func(r io.Reader) ([]byte, error) {
+		return nil, errors.New("failure")
+	})
+	defer monkey.Unpatch(io.ReadAll)
 
 	// testing
 	assert.Error(t, blob{}.Download("http://davidepucci.it", "/dev/null"), "failure")

@@ -4,19 +4,20 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-
-	"github.com/streambinder/spotitube/util"
 )
 
 var downloaders = []Downloader{}
 
 type Downloader interface {
-	Supports(url string) bool
-	Download(url, path string) error
+	Supports(string) bool
+	Download(string, string, ...chan []byte) error
 }
 
-func Download(url, path string) error {
-	if err := util.ErrOnly(os.Stat(path)); err == nil {
+func Download(url, path string, channels ...chan []byte) error {
+	if bytes, err := os.ReadFile(path); err == nil {
+		for _, ch := range channels {
+			ch <- bytes
+		}
 		return nil
 	}
 
@@ -26,7 +27,7 @@ func Download(url, path string) error {
 				return err
 			}
 
-			return downloader.Download(url, path)
+			return downloader.Download(url, path, channels...)
 		}
 	}
 	return errors.New("unsupported url")

@@ -32,6 +32,7 @@ type trackPath struct {
 const (
 	trackFormat   = "mp3"
 	artworkFormat = "jpg"
+	lyricsFormat  = "txt"
 )
 
 func (track *Track) Path() trackPath {
@@ -49,6 +50,12 @@ func (trackPath trackPath) Download() string {
 
 func (trackPath trackPath) Artwork() string {
 	basename := fmt.Sprintf("%s.%s", trackPath.artworkId, artworkFormat)
+	return util.ErrWrap(filepath.Join("tmp", basename))(
+		xdg.CacheFile(filepath.Join("spotitube", basename)))
+}
+
+func (trackPath trackPath) Lyrics() string {
+	basename := fmt.Sprintf("%s.%s", trackPath.trackId, lyricsFormat)
 	return util.ErrWrap(filepath.Join("tmp", basename))(
 		xdg.CacheFile(filepath.Join("spotitube", basename)))
 }

@@ -14,4 +14,5 @@ func TestDownloadPath(t *testing.T) {
 	}
 	assert.Equal(t, track.Path().trackId+"."+trackFormat, path.Base(track.Path().Download()))
 	assert.Equal(t, track.Path().artworkId+"."+artworkFormat, path.Base(track.Path().Artwork()))
+	assert.Equal(t, track.Path().trackId+"."+lyricsFormat, path.Base(track.Path().Lyrics()))
 }

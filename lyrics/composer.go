@@ -2,6 +2,8 @@ package lyrics
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 
 	"github.com/arunsworld/nursery"
 	"github.com/streambinder/spotitube/entity"
@@ -15,6 +17,10 @@ type Composer interface {
 
 // not found entries return no error
 func Search(track *entity.Track) ([]byte, error) {
+	if bytes, err := os.ReadFile(track.Path().Lyrics()); err == nil {
+		return bytes, nil
+	}
+
 	var (
 		workers        []nursery.ConcurrentJob
 		result         []byte
@@ -47,5 +53,10 @@ func Search(track *entity.Track) ([]byte, error) {
 	if len(result) == 0 {
 		return nil, nil
 	}
-	return result, nil
+
+	if err := os.MkdirAll(filepath.Dir(track.Path().Lyrics()), os.ModePerm); err != nil {
+		return nil, err
+	}
+
+	return result, os.WriteFile(track.Path().Lyrics(), result, 0o644)
 }

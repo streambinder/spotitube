@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"log"
+	"os"
 
 	"github.com/arunsworld/nursery"
 	"github.com/spf13/cobra"
@@ -34,11 +35,16 @@ var (
 		Short: "Synchronize collections",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var (
+				path, _      = cmd.Flags().GetString("path")
 				library, _   = cmd.Flags().GetBool("library")
 				playlists, _ = cmd.Flags().GetStringArray("playlist")
 				albums, _    = cmd.Flags().GetStringArray("album")
 				tracks, _    = cmd.Flags().GetStringArray("track")
 			)
+
+			if err := os.Chdir(path); err != nil {
+				return err
+			}
 
 			return nursery.RunConcurrently(
 				indexer,
@@ -87,6 +93,7 @@ var (
 
 func init() {
 	cmdRoot.AddCommand(cmdSync)
+	cmdSync.Flags().String("path", ".", "Target synchronization path")
 	cmdSync.Flags().BoolP("library", "l", false, "Synchronize library (auto-enabled if no collection is supplied)")
 	cmdSync.Flags().StringArrayP("playlist", "p", []string{}, "Synchronize playlist")
 	cmdSync.Flags().StringArrayP("album", "a", []string{}, "Synchronize album")
@@ -285,7 +292,7 @@ func postprocessor(ctx context.Context, ch chan error) {
 }
 
 // installer move the blob to its final destination
-func installer(context.Context, chan error) {
+func installer(ctx context.Context, ch chan error) {
 	// remember to signal mixer
 	defer close(semaphores[install])
 

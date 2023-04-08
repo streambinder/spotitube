@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"errors"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -103,6 +104,15 @@ func TestCmdSync(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, library)
 	assert.Nil(t, util.ErrOnly(testExecute("sync", "-l", "-p", "123", "-a", "123", "-t", "123")))
+}
+
+func TestCmdSyncPathFailure(t *testing.T) {
+	// monkey patching
+	monkey.Patch(os.Chdir, func(string) error { return err })
+	defer monkey.Unpatch(os.Chdir)
+
+	// testing
+	assert.EqualError(t, util.ErrOnly(testExecute("sync")), err.Error())
 }
 
 func TestCmdSyncAuthFailure(t *testing.T) {

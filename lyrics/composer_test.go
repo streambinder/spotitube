@@ -40,7 +40,7 @@ func TestSearch(t *testing.T) {
 	// testing
 	lyrics, err := Search(track)
 	assert.Nil(t, err)
-	assert.Equal(t, []byte("glyrics"), lyrics)
+	assert.Equal(t, "glyrics", lyrics)
 }
 
 func TestSearchAlreadyExists(t *testing.T) {
@@ -51,7 +51,7 @@ func TestSearchAlreadyExists(t *testing.T) {
 	// testing
 	lyrics, err := Search(track)
 	assert.Nil(t, err)
-	assert.Equal(t, []byte("lyrics"), lyrics)
+	assert.Equal(t, "lyrics", lyrics)
 }
 
 func TestSearchFailure(t *testing.T) {
@@ -91,7 +91,7 @@ func TestSearchNotFound(t *testing.T) {
 	// testing
 	lyrics, err := Search(track)
 	assert.Nil(t, err)
-	assert.Nil(t, lyrics)
+	assert.Empty(t, lyrics)
 }
 
 func TestSearchCannotCreateDir(t *testing.T) {

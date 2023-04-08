@@ -10,6 +10,7 @@ import (
 	"github.com/streambinder/spotitube/downloader"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/lyrics"
+	"github.com/streambinder/spotitube/processor"
 	"github.com/streambinder/spotitube/provider"
 	"github.com/streambinder/spotitube/spotify"
 )
@@ -45,7 +46,7 @@ var (
 				fetcher(library, playlists, albums, tracks),
 				decider,
 				collector,
-				processor,
+				postprocessor,
 				installer,
 				mixer,
 			)
@@ -264,16 +265,21 @@ func composer(track *entity.Track) func(context.Context, chan error) {
 	}
 }
 
-// processor applies some further enhancements
+// postprocessor applies some further enhancements
 // e.g. combining the downloaded artwork/lyrics
 // into the blob
-func processor(context.Context, chan error) {
+func postprocessor(ctx context.Context, ch chan error) {
 	// remember to stop passing data to installer
 	defer close(queues[install])
 
 	for event := range queues[process] {
 		track := event.(*entity.Track)
-		log.Println("[processor]\t" + track.Title)
+		log.Println("[postproc]\t" + track.Title)
+		if err := processor.Do(track); err != nil {
+			log.Printf("[postproc]\t%s", err)
+			ch <- err
+			return
+		}
 		queues[install] <- track
 	}
 }

@@ -16,9 +16,9 @@ type Composer interface {
 }
 
 // not found entries return no error
-func Search(track *entity.Track) ([]byte, error) {
+func Search(track *entity.Track) (string, error) {
 	if bytes, err := os.ReadFile(track.Path().Lyrics()); err == nil {
-		return bytes, nil
+		return string(bytes), nil
 	}
 
 	var (
@@ -47,16 +47,16 @@ func Search(track *entity.Track) ([]byte, error) {
 	}
 
 	if err := nursery.RunConcurrentlyWithContext(ctx, workers...); err != nil {
-		return nil, err
+		return "", err
 	}
 
 	if len(result) == 0 {
-		return nil, nil
+		return "", nil
 	}
 
 	if err := os.MkdirAll(filepath.Dir(track.Path().Lyrics()), os.ModePerm); err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return result, os.WriteFile(track.Path().Lyrics(), result, 0o644)
+	return string(result), os.WriteFile(track.Path().Lyrics(), result, 0o644)
 }

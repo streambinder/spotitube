@@ -31,14 +31,14 @@ func (encoder) Do(track *entity.Track) error {
 	tag.AddUserDefinedTextFrame(id3v2.UserDefinedTextFrame{
 		Encoding:    tag.DefaultEncoding(),
 		Description: "Artwork URL",
-		Value:       track.ArtworkURL,
+		Value:       track.Artwork.URL,
 	})
 	tag.AddAttachedPicture(id3v2.PictureFrame{
 		Encoding:    tag.DefaultEncoding(),
 		MimeType:    "image/jpeg",
 		PictureType: id3v2.PTFrontCover,
 		Description: "Front cover",
-		Picture:     track.Artwork,
+		Picture:     track.Artwork.Data,
 	})
 	tag.AddUserDefinedTextFrame(id3v2.UserDefinedTextFrame{
 		Encoding:    tag.DefaultEncoding(),

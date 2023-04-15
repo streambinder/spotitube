@@ -12,14 +12,14 @@ import (
 )
 
 var track = &entity.Track{
-	ID:         "123",
-	Title:      "Title",
-	Artists:    []string{"Artist"},
-	Album:      "Album",
-	ArtworkURL: "http://ima.ge",
-	Duration:   180,
-	Number:     1,
-	Year:       "1970",
+	ID:       "123",
+	Title:    "Title",
+	Artists:  []string{"Artist"},
+	Album:    "Album",
+	Artwork:  entity.Artwork{URL: "http://ima.ge"},
+	Duration: 180,
+	Number:   1,
+	Year:     "1970",
 }
 
 func TestSearch(t *testing.T) {

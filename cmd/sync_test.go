@@ -23,14 +23,16 @@ import (
 var (
 	err   = errors.New("ko")
 	track = &entity.Track{
-		ID:         "123",
-		Title:      "Title",
-		Artists:    []string{"Artist"},
-		Album:      "Album",
-		ArtworkURL: "http://ima.ge",
-		Duration:   180,
-		Number:     1,
-		Year:       "1970",
+		ID:          "123",
+		Title:       "Title",
+		Artists:     []string{"Artist"},
+		Album:       "Album",
+		Artwork:     entity.Artwork{URL: "http://ima.ge"},
+		Duration:    180,
+		Lyrics:      "",
+		Number:      1,
+		Year:        "1970",
+		UpstreamURL: "",
 	}
 	playlist = &entity.Playlist{
 		ID:     "123",

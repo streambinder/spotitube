@@ -10,13 +10,17 @@ import (
 	"github.com/streambinder/spotitube/util"
 )
 
+type Artwork struct {
+	URL  string
+	Data []byte
+}
+
 type Track struct {
 	ID          string
 	Title       string
 	Artists     []string
 	Album       string
-	ArtworkURL  string // URL whose content to feed the Artwork field with
-	Artwork     []byte
+	Artwork     Artwork
 	Duration    int // in seconds
 	Lyrics      string
 	Number      int // track number within the album
@@ -49,7 +53,7 @@ func (trackPath trackPath) Download() string {
 }
 
 func (trackPath trackPath) Artwork() string {
-	basename := fmt.Sprintf("%s.%s", slug.Make(path.Base(trackPath.track.ArtworkURL)), artworkFormat)
+	basename := fmt.Sprintf("%s.%s", slug.Make(path.Base(trackPath.track.Artwork.URL)), artworkFormat)
 	return util.ErrWrap(filepath.Join("tmp", basename))(
 		xdg.CacheFile(filepath.Join("spotitube", basename)))
 }

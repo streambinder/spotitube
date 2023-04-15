@@ -244,15 +244,15 @@ func painter(track *entity.Track) func(context.Context, chan error) {
 		artwork := make(chan []byte, 1)
 		defer close(artwork)
 
-		log.Println("[painter]\t" + track.Title + " (" + track.ArtworkURL + ")")
-		if err := downloader.Download(track.ArtworkURL, track.Path().Artwork(), artwork); err != nil {
+		log.Println("[painter]\t" + track.Title + " (" + track.Artwork.URL + ")")
+		if err := downloader.Download(track.Artwork.URL, track.Path().Artwork(), artwork); err != nil {
 			log.Printf("[painter]\t%s", err)
 			ch <- err
 			return
 		}
 
-		track.Artwork = <-artwork
-		log.Printf("[painter]\t%d", len(track.Artwork))
+		track.Artwork.Data = <-artwork
+		log.Printf("[painter]\t%d", len(track.Artwork.Data))
 	}
 }
 

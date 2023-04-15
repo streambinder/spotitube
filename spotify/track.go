@@ -18,13 +18,15 @@ func trackEntity(track *spotify.FullTrack) *entity.Track {
 			return
 		}(track.Artists),
 		Album: track.Album.Name,
-		ArtworkURL: func(artworks []spotify.Image) string {
-			for _, artwork := range artworks {
-				return artwork.URL
-			}
-			return ""
-		}(track.Album.Images),
-		Artwork:     []byte{},
+		Artwork: entity.Artwork{
+			URL: func(artworks []spotify.Image) string {
+				for _, artwork := range artworks {
+					return artwork.URL
+				}
+				return ""
+			}(track.Album.Images),
+			Data: []byte{},
+		},
 		Duration:    track.Duration / 1000,
 		Lyrics:      "",
 		Number:      track.TrackNumber,

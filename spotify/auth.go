@@ -2,21 +2,30 @@ package spotify
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 
+	"github.com/adrg/xdg"
 	"github.com/arunsworld/nursery"
+	"github.com/streambinder/spotitube/util"
 	"github.com/streambinder/spotitube/util/cmd"
 	"github.com/thanhpk/randstr"
 	"github.com/zmb3/spotify"
+	"golang.org/x/oauth2"
 )
 
 const (
-	port         = 8080
-	closeTabHTML = "<!DOCTYPE html><html><head><script>open(location, '_self').close();</script></head></html>"
+	port          = 8080
+	tokenBasename = "session.json"
+	closeTabHTML  = "<!DOCTYPE html><html><head><script>open(location, '_self').close();</script></head></html>"
 )
+
+var tokenPath = util.ErrWrap(filepath.Join("tmp", tokenBasename))(
+	xdg.CacheFile(filepath.Join("spotitube", tokenBasename)))
 
 type Client struct {
 	spotify.Client
@@ -51,6 +60,9 @@ func Authenticate(callbacks ...string) (*Client, error) {
 		spotify.ScopePlaylistModifyPrivate,
 	)
 	authenticator.SetAuthInfo(os.Getenv("SPOTIFY_ID"), os.Getenv("SPOTIFY_KEY"))
+	if client, err := Recover(authenticator, state); err == nil {
+		return client, client.Persist()
+	}
 
 	serverMux.HandleFunc("/callback", func(writer http.ResponseWriter, request *http.Request) {
 		fmt.Fprintln(writer, closeTabHTML)
@@ -96,5 +108,33 @@ func Authenticate(callbacks ...string) (*Client, error) {
 		return nil, err
 	}
 
-	return &client, nil
+	return &client, client.Persist()
+}
+
+func Recover(authenticator spotify.Authenticator, state string) (*Client, error) {
+	data, err := os.ReadFile(tokenPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var token oauth2.Token
+	if err := json.Unmarshal(data, &token); err != nil {
+		return nil, err
+	}
+
+	return &Client{authenticator.NewClient(&token), authenticator, state}, nil
+}
+
+func (client *Client) Persist() error {
+	token, err := client.Token()
+	if err != nil {
+		return err
+	}
+
+	file, err := os.OpenFile(tokenPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return json.NewEncoder(file).Encode(token)
 }

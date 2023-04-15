@@ -1,10 +1,11 @@
 package spotify
 
 import (
+	"context"
 	"strings"
 
 	"github.com/streambinder/spotitube/entity"
-	"github.com/zmb3/spotify"
+	"github.com/zmb3/spotify/v2"
 )
 
 func trackEntity(track *spotify.FullTrack) *entity.Track {
@@ -36,7 +37,7 @@ func trackEntity(track *spotify.FullTrack) *entity.Track {
 }
 
 func (client *Client) Track(id string, channels ...chan interface{}) (*entity.Track, error) {
-	fullTrack, err := client.GetTrack(spotify.ID(id))
+	fullTrack, err := client.GetTrack(context.Background(), spotify.ID(id))
 	if err != nil {
 		return nil, err
 	}

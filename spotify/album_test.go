@@ -1,6 +1,7 @@
 package spotify
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"reflect"
@@ -11,7 +12,8 @@ import (
 	"bou.ke/monkey"
 	"github.com/streambinder/spotitube/util"
 	"github.com/stretchr/testify/assert"
-	"github.com/zmb3/spotify"
+	"github.com/zmb3/spotify/v2"
+	spotifyauth "github.com/zmb3/spotify/v2/auth"
 )
 
 var fullAlbum = &spotify.FullAlbum{
@@ -31,11 +33,11 @@ func TestAlbum(t *testing.T) {
 	// monkey patching
 	monkey.Patch(time.Sleep, func(time.Duration) {})
 	defer monkey.Unpatch(time.Sleep)
-	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbumOpt",
-		func(*spotify.Client, spotify.ID, *spotify.Options) (*spotify.FullAlbum, error) {
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbum",
+		func(*spotify.Client, context.Context, spotify.ID, ...spotify.RequestOption) (*spotify.FullAlbum, error) {
 			return fullAlbum, nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbumOpt")
+	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbum")
 
 	// testing
 	channel := make(chan interface{}, 1)
@@ -53,11 +55,11 @@ func TestPlaylistGetAlbumFailure(t *testing.T) {
 	// monkey patching
 	monkey.Patch(time.Sleep, func(time.Duration) {})
 	defer monkey.Unpatch(time.Sleep)
-	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbumOpt",
-		func(*spotify.Client, spotify.ID, *spotify.Options) (*spotify.FullAlbum, error) {
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbum",
+		func(*spotify.Client, context.Context, spotify.ID, ...spotify.RequestOption) (*spotify.FullAlbum, error) {
 			return nil, errors.New("failure")
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbumOpt")
+	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbum")
 
 	// testing
 	assert.EqualError(t, util.ErrOnly((&Client{}).Album(fullPlaylist.ID.String())), "failure")
@@ -65,7 +67,7 @@ func TestPlaylistGetAlbumFailure(t *testing.T) {
 
 func TestAlbumNextPageFailure(t *testing.T) {
 	var (
-		client = (&Client{spotify.NewClient(http.DefaultClient), spotify.NewAuthenticator(""), ""})
+		client = (&Client{spotify.New(http.DefaultClient), &spotifyauth.Authenticator{}, ""})
 		album  = fullAlbum
 	)
 	album.Tracks.Next = "http://0.0.0.0"
@@ -73,11 +75,11 @@ func TestAlbumNextPageFailure(t *testing.T) {
 	// monkey patching
 	monkey.Patch(time.Sleep, func(time.Duration) {})
 	defer monkey.Unpatch(time.Sleep)
-	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbumOpt",
-		func(*spotify.Client, spotify.ID, *spotify.Options) (*spotify.FullAlbum, error) {
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbum",
+		func(*spotify.Client, context.Context, spotify.ID, ...spotify.RequestOption) (*spotify.FullAlbum, error) {
 			return album, nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbumOpt")
+	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbum")
 
 	// testing
 	assert.True(t, errors.Is(util.ErrOnly(client.Album(fullAlbum.ID.String())), syscall.ECONNREFUSED))

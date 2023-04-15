@@ -1,10 +1,11 @@
 package spotify
 
 import (
+	"context"
 	"errors"
 
 	"github.com/streambinder/spotitube/entity"
-	"github.com/zmb3/spotify"
+	"github.com/zmb3/spotify/v2"
 )
 
 func albumEntity(album *spotify.FullAlbum) *entity.Album {
@@ -21,7 +22,10 @@ func albumEntity(album *spotify.FullAlbum) *entity.Album {
 }
 
 func (client *Client) Album(id string, channels ...chan interface{}) (*entity.Album, error) {
-	fullAlbum, err := client.GetAlbum(spotify.ID(id))
+	var (
+		ctx            = context.Background()
+		fullAlbum, err = client.GetAlbum(ctx, spotify.ID(id))
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +43,7 @@ func (client *Client) Album(id string, channels ...chan interface{}) (*entity.Al
 			}
 		}
 
-		if err := client.NextPage(&fullAlbum.Tracks); errors.Is(err, spotify.ErrNoMorePages) {
+		if err := client.NextPage(ctx, &fullAlbum.Tracks); errors.Is(err, spotify.ErrNoMorePages) {
 			break
 		} else if err != nil {
 			return nil, err

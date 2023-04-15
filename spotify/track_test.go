@@ -1,6 +1,7 @@
 package spotify
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"strings"
@@ -10,7 +11,7 @@ import (
 	"bou.ke/monkey"
 	"github.com/streambinder/spotitube/util"
 	"github.com/stretchr/testify/assert"
-	"github.com/zmb3/spotify"
+	"github.com/zmb3/spotify/v2"
 )
 
 var fullTrack = spotify.FullTrack{
@@ -32,11 +33,11 @@ func TestTrack(t *testing.T) {
 	// monkey patching
 	monkey.Patch(time.Sleep, func(time.Duration) {})
 	defer monkey.Unpatch(time.Sleep)
-	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetTrackOpt",
-		func(*spotify.Client, spotify.ID, *spotify.Options) (*spotify.FullTrack, error) {
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetTrack",
+		func(*spotify.Client, context.Context, spotify.ID, ...spotify.RequestOption) (*spotify.FullTrack, error) {
 			return &fullTrack, nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetTrackOpt")
+	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetTrack")
 
 	// testing
 	channel := make(chan interface{}, 1)
@@ -58,11 +59,11 @@ func TestTrackGetTrackFailure(t *testing.T) {
 	// monkey patching
 	monkey.Patch(time.Sleep, func(time.Duration) {})
 	defer monkey.Unpatch(time.Sleep)
-	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetTrackOpt",
-		func(*spotify.Client, spotify.ID, *spotify.Options) (*spotify.FullTrack, error) {
+	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetTrack",
+		func(*spotify.Client, context.Context, spotify.ID, ...spotify.RequestOption) (*spotify.FullTrack, error) {
 			return nil, errors.New("failure")
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetTrackOpt")
+	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetTrack")
 
 	// testing
 	assert.EqualError(t, util.ErrOnly((&Client{}).Track(fullTrack.ID.String())), "failure")

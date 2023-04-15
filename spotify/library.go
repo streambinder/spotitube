@@ -1,13 +1,17 @@
 package spotify
 
 import (
+	"context"
 	"errors"
 
-	"github.com/zmb3/spotify"
+	"github.com/zmb3/spotify/v2"
 )
 
 func (client *Client) Library(channels ...chan interface{}) error {
-	library, err := client.CurrentUsersTracks()
+	var (
+		ctx          = context.Background()
+		library, err = client.CurrentUsersTracks(ctx)
+	)
 	if err != nil {
 		return err
 	}
@@ -20,7 +24,7 @@ func (client *Client) Library(channels ...chan interface{}) error {
 			}
 		}
 
-		if err := client.NextPage(library); errors.Is(err, spotify.ErrNoMorePages) {
+		if err := client.NextPage(ctx, library); errors.Is(err, spotify.ErrNoMorePages) {
 			break
 		} else if err != nil {
 			return err

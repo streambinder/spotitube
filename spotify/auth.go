@@ -14,7 +14,8 @@ import (
 	"github.com/streambinder/spotitube/util"
 	"github.com/streambinder/spotitube/util/cmd"
 	"github.com/thanhpk/randstr"
-	"github.com/zmb3/spotify"
+	"github.com/zmb3/spotify/v2"
+	spotifyauth "github.com/zmb3/spotify/v2/auth"
 	"golang.org/x/oauth2"
 )
 
@@ -28,8 +29,8 @@ var tokenPath = util.ErrWrap(filepath.Join("tmp", tokenBasename))(
 	xdg.CacheFile(filepath.Join("spotitube", tokenBasename)))
 
 type Client struct {
-	spotify.Client
-	authenticator spotify.Authenticator
+	*spotify.Client
+	authenticator *spotifyauth.Authenticator
 	state         string
 }
 
@@ -50,23 +51,26 @@ func Authenticate(callbacks ...string) (*Client, error) {
 		callback = callbacks[0]
 	}
 
-	authenticator := spotify.NewAuthenticator(
-		fmt.Sprintf("http://%s:%d/callback", callback, port),
-		spotify.ScopeUserLibraryRead,
-		spotify.ScopeUserLibraryModify,
-		spotify.ScopePlaylistReadPrivate,
-		spotify.ScopePlaylistReadCollaborative,
-		spotify.ScopePlaylistModifyPublic,
-		spotify.ScopePlaylistModifyPrivate,
+	authenticator := spotifyauth.New(
+		spotifyauth.WithRedirectURL(fmt.Sprintf("http://%s:%d/callback", callback, port)),
+		spotifyauth.WithScopes(
+			spotifyauth.ScopeUserLibraryRead,
+			spotifyauth.ScopeUserLibraryModify,
+			spotifyauth.ScopePlaylistReadPrivate,
+			spotifyauth.ScopePlaylistReadCollaborative,
+			spotifyauth.ScopePlaylistModifyPublic,
+			spotifyauth.ScopePlaylistModifyPrivate,
+		),
+		spotifyauth.WithClientID(os.Getenv("SPOTIFY_ID")),
+		spotifyauth.WithClientSecret(os.Getenv("SPOTIFY_KEY")),
 	)
-	authenticator.SetAuthInfo(os.Getenv("SPOTIFY_ID"), os.Getenv("SPOTIFY_KEY"))
 	if client, err := Recover(authenticator, state); err == nil {
 		return client, client.Persist()
 	}
 
 	serverMux.HandleFunc("/callback", func(writer http.ResponseWriter, request *http.Request) {
 		fmt.Fprintln(writer, closeTabHTML)
-		token, err := authenticator.Token(state, request)
+		token, err := authenticator.Token(request.Context(), state, request)
 		if err != nil {
 			clientChannel <- nil
 			errChannel <- errors.New(http.StatusText(http.StatusForbidden))
@@ -74,8 +78,11 @@ func Authenticate(callbacks ...string) (*Client, error) {
 			clientChannel <- nil
 			errChannel <- errors.New(http.StatusText(http.StatusNotFound))
 		} else {
-			client := authenticator.NewClient(token)
-			clientChannel <- &client
+			client := spotify.New(
+				authenticator.Client(request.Context(), token),
+				spotify.WithRetry(true),
+			)
+			clientChannel <- client
 			errChannel <- nil
 		}
 	})
@@ -101,7 +108,7 @@ func Authenticate(callbacks ...string) (*Client, error) {
 			if err != nil {
 				ch <- err
 			} else {
-				client = Client{*c, authenticator, state}
+				client = Client{c, authenticator, state}
 			}
 			ch <- server.Shutdown(ctx)
 		}); err != nil {
@@ -111,7 +118,7 @@ func Authenticate(callbacks ...string) (*Client, error) {
 	return &client, client.Persist()
 }
 
-func Recover(authenticator spotify.Authenticator, state string) (*Client, error) {
+func Recover(authenticator *spotifyauth.Authenticator, state string) (*Client, error) {
 	data, err := os.ReadFile(tokenPath)
 	if err != nil {
 		return nil, err
@@ -122,7 +129,10 @@ func Recover(authenticator spotify.Authenticator, state string) (*Client, error)
 		return nil, err
 	}
 
-	return &Client{authenticator.NewClient(&token), authenticator, state}, nil
+	return &Client{spotify.New(
+		authenticator.Client(context.Background(), &token),
+		spotify.WithRetry(true),
+	), authenticator, state}, nil
 }
 
 func (client *Client) Persist() error {

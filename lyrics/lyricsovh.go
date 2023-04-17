@@ -25,7 +25,7 @@ func init() {
 	composers = append(composers, &lyricsOvh{})
 }
 
-func (composer lyricsOvh) Search(track *entity.Track, ctxs ...context.Context) ([]byte, error) {
+func (composer lyricsOvh) search(track *entity.Track, ctxs ...context.Context) ([]byte, error) {
 	ctx := context.Background()
 	if len(ctxs) > 0 {
 		ctx = ctxs[0]

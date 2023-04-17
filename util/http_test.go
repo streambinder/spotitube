@@ -9,7 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"bou.ke/monkey"
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -31,11 +31,11 @@ func TestHttpRequest(t *testing.T) {
 
 func TestHttpRequestFailure(t *testing.T) {
 	// monkey patching
-	monkey.Patch(http.NewRequestWithContext,
+	patchhttpNewRequestWithContext := gomonkey.ApplyFunc(http.NewRequestWithContext,
 		func(context.Context, string, string, io.Reader) (*http.Request, error) {
 			return nil, errors.New("failure")
 		})
-	defer monkey.Unpatch(http.NewRequestWithContext)
+	defer patchhttpNewRequestWithContext.Reset()
 
 	// testing
 	assert.Error(t, ErrOnly(HttpRequest(context.Background(), http.MethodGet, "localhost", nil, nil)), "failure")

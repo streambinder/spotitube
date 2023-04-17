@@ -12,7 +12,7 @@ import (
 var composers = []Composer{}
 
 type Composer interface {
-	Search(*entity.Track, ...context.Context) ([]byte, error)
+	search(*entity.Track, ...context.Context) ([]byte, error)
 }
 
 // not found entries return no error
@@ -32,7 +32,7 @@ func Search(track *entity.Track) (string, error) {
 	for _, composer := range composers {
 		workers = append(workers, func(c Composer) func(context.Context, chan error) {
 			return func(ctx context.Context, ch chan error) {
-				scopedLyrics, err := c.Search(track, ctx)
+				scopedLyrics, err := c.search(track, ctx)
 				if err != nil {
 					ch <- err
 					return

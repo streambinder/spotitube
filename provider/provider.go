@@ -16,7 +16,7 @@ type Match struct {
 }
 
 type Provider interface {
-	Search(track *entity.Track) ([]*Match, error)
+	search(track *entity.Track) ([]*Match, error)
 }
 
 func Search(track *entity.Track) ([]*Match, error) {
@@ -27,7 +27,7 @@ func Search(track *entity.Track) ([]*Match, error) {
 	for _, provider := range providers {
 		workers = append(workers, func(p Provider) func(ctx context.Context, ch chan error) {
 			return func(ctx context.Context, ch chan error) {
-				scopedMatches, err := p.Search(track)
+				scopedMatches, err := p.search(track)
 				if err != nil {
 					ch <- err
 					return

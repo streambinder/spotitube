@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"bou.ke/monkey"
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/util"
 	"github.com/stretchr/testify/assert"
@@ -25,13 +25,13 @@ var library = &spotify.SavedTrackPage{
 
 func TestLibrary(t *testing.T) {
 	// monkey patching
-	monkey.Patch(time.Sleep, func(time.Duration) {})
-	defer monkey.Unpatch(time.Sleep)
-	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "CurrentUsersTracks",
+	patchtimeSleep := gomonkey.ApplyFunc(time.Sleep, func(time.Duration) {})
+	defer patchtimeSleep.Reset()
+	patchspotifyClientCurrentUsersTracks := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "CurrentUsersTracks",
 		func(*spotify.Client, context.Context, ...spotify.RequestOption) (*spotify.SavedTrackPage, error) {
 			return library, nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "CurrentUsersTracks")
+	defer patchspotifyClientCurrentUsersTracks.Reset()
 
 	// testing
 	channel := make(chan interface{}, 1)
@@ -43,13 +43,13 @@ func TestLibrary(t *testing.T) {
 
 func TestLibraryFailure(t *testing.T) {
 	// monkey patching
-	monkey.Patch(time.Sleep, func(time.Duration) {})
-	defer monkey.Unpatch(time.Sleep)
-	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "CurrentUsersTracks",
+	patchtimeSleep := gomonkey.ApplyFunc(time.Sleep, func(time.Duration) {})
+	defer patchtimeSleep.Reset()
+	patchspotifyClientCurrentUsersTracks := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "CurrentUsersTracks",
 		func(*spotify.Client, context.Context, ...spotify.RequestOption) (*spotify.SavedTrackPage, error) {
 			return nil, errors.New("failure")
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "CurrentUsersTracks")
+	defer patchspotifyClientCurrentUsersTracks.Reset()
 
 	// testing
 	assert.EqualError(t, util.ErrOnly((&Client{}).Library()), "failure")
@@ -63,13 +63,13 @@ func TestLibraryNextPageFailure(t *testing.T) {
 	libraryWithNextPage.Next = "http://0.0.0.0"
 
 	// monkey patching
-	monkey.Patch(time.Sleep, func(time.Duration) {})
-	defer monkey.Unpatch(time.Sleep)
-	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "CurrentUsersTracks",
+	patchtimeSleep := gomonkey.ApplyFunc(time.Sleep, func(time.Duration) {})
+	defer patchtimeSleep.Reset()
+	patchspotifyClientCurrentUsersTracks := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "CurrentUsersTracks",
 		func(*spotify.Client, context.Context, ...spotify.RequestOption) (*spotify.SavedTrackPage, error) {
 			return libraryWithNextPage, nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "CurrentUsersTracks")
+	defer patchspotifyClientCurrentUsersTracks.Reset()
 
 	// testing
 	assert.True(t, errors.Is(util.ErrOnly(client.Library()), syscall.ECONNREFUSED))

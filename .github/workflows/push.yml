@@ -55,7 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: test "$(grep -r --exclude-dir=".git*" 'monkey.Patch' | wc -l)" = "$(grep -r --exclude-dir=".git*" 'monkey.Unpatch' | wc -l)"
+      - run: test "$(grep -Erc --exclude-dir=".git*" 'defer [a-zA-Z0-9]+.Reset\(\)$')" = "$(grep -Erc --exclude-dir=".git*" 'defer [a-zA-Z0-9]+.Reset\(\)$')"
   test:
     runs-on: ubuntu-latest
     needs: [commitlint, codespell, golangci-lint, gofumpt, go-channel-closure, go-http-body-closure, go-monkey-unpatch]

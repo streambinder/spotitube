@@ -5,14 +5,14 @@ import (
 	"reflect"
 	"testing"
 
-	"bou.ke/monkey"
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestOpen(t *testing.T) {
 	// monkey patching
-	monkey.PatchInstanceMethod(reflect.TypeOf(&exec.Cmd{}), "Start", func(*exec.Cmd) error { return nil })
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&exec.Cmd{}), "Start")
+	patchexecCmdStart := gomonkey.ApplyMethod(reflect.TypeOf(&exec.Cmd{}), "Start", func(*exec.Cmd) error { return nil })
+	defer patchexecCmdStart.Reset()
 
 	// testing
 	assert.Nil(t, Open("https://davidepucci.it", "linux"))

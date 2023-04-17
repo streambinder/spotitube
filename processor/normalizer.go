@@ -9,7 +9,7 @@ type normalizer struct {
 	Processor
 }
 
-func (normalizer) Do(track *entity.Track) error {
+func (normalizer) do(track *entity.Track) error {
 	volumeDelta, err := cmd.FFmpeg().VolumeDetect(track.Path().Download())
 	if err != nil {
 		return err

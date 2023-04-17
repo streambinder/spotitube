@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"bou.ke/monkey"
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/stretchr/testify/assert"
 )
@@ -23,16 +23,16 @@ var track = &entity.Track{
 
 func TestProcessorDo(t *testing.T) {
 	// monkey patching
-	monkey.PatchInstanceMethod(reflect.TypeOf(normalizer{}), "Do",
+	patchnormalizerDo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(normalizer{}), "do",
 		func(normalizer, *entity.Track) error {
 			return nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(normalizer{}), "Do")
-	monkey.PatchInstanceMethod(reflect.TypeOf(encoder{}), "Do",
+	defer patchnormalizerDo.Reset()
+	patchencoderDo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(encoder{}), "do",
 		func(encoder, *entity.Track) error {
 			return nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(encoder{}), "Do")
+	defer patchencoderDo.Reset()
 
 	// testing
 	assert.Nil(t, Do(track))
@@ -40,16 +40,16 @@ func TestProcessorDo(t *testing.T) {
 
 func TestProcessorDoFailure(t *testing.T) {
 	// monkey patching
-	monkey.PatchInstanceMethod(reflect.TypeOf(normalizer{}), "Do",
+	patchnormalizerDo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(normalizer{}), "do",
 		func(normalizer, *entity.Track) error {
 			return nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(normalizer{}), "Do")
-	monkey.PatchInstanceMethod(reflect.TypeOf(encoder{}), "Do",
+	defer patchnormalizerDo.Reset()
+	patchencoderDo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(encoder{}), "do",
 		func(encoder, *entity.Track) error {
 			return errors.New("failure")
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(encoder{}), "Do")
+	defer patchencoderDo.Reset()
 
 	// testing
 	assert.Error(t, Do(track), "failure")

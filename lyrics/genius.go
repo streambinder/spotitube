@@ -25,7 +25,7 @@ func init() {
 	composers = append(composers, &genius{})
 }
 
-func (composer genius) Search(track *entity.Track, ctxs ...context.Context) ([]byte, error) {
+func (composer genius) search(track *entity.Track, ctxs ...context.Context) ([]byte, error) {
 	ctx := context.Background()
 	if len(ctxs) > 0 {
 		ctx = ctxs[0]

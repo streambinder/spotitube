@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"bou.ke/monkey"
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/streambinder/spotitube/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/zmb3/spotify/v2"
@@ -31,13 +31,13 @@ var fullAlbum = &spotify.FullAlbum{
 
 func TestAlbum(t *testing.T) {
 	// monkey patching
-	monkey.Patch(time.Sleep, func(time.Duration) {})
-	defer monkey.Unpatch(time.Sleep)
-	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbum",
+	patchtimeSleep := gomonkey.ApplyFunc(time.Sleep, func(time.Duration) {})
+	defer patchtimeSleep.Reset()
+	patchspotifyClientGetAlbum := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbum",
 		func(*spotify.Client, context.Context, spotify.ID, ...spotify.RequestOption) (*spotify.FullAlbum, error) {
 			return fullAlbum, nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbum")
+	defer patchspotifyClientGetAlbum.Reset()
 
 	// testing
 	channel := make(chan interface{}, 1)
@@ -53,13 +53,13 @@ func TestAlbum(t *testing.T) {
 
 func TestPlaylistGetAlbumFailure(t *testing.T) {
 	// monkey patching
-	monkey.Patch(time.Sleep, func(time.Duration) {})
-	defer monkey.Unpatch(time.Sleep)
-	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbum",
+	patchtimeSleep := gomonkey.ApplyFunc(time.Sleep, func(time.Duration) {})
+	defer patchtimeSleep.Reset()
+	patchspotifyClientGetAlbum := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbum",
 		func(*spotify.Client, context.Context, spotify.ID, ...spotify.RequestOption) (*spotify.FullAlbum, error) {
 			return nil, errors.New("failure")
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbum")
+	defer patchspotifyClientGetAlbum.Reset()
 
 	// testing
 	assert.EqualError(t, util.ErrOnly((&Client{}).Album(fullPlaylist.ID.String())), "failure")
@@ -73,13 +73,13 @@ func TestAlbumNextPageFailure(t *testing.T) {
 	album.Tracks.Next = "http://0.0.0.0"
 
 	// monkey patching
-	monkey.Patch(time.Sleep, func(time.Duration) {})
-	defer monkey.Unpatch(time.Sleep)
-	monkey.PatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbum",
+	patchtimeSleep := gomonkey.ApplyFunc(time.Sleep, func(time.Duration) {})
+	defer patchtimeSleep.Reset()
+	patchspotifyClientGetAlbum := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbum",
 		func(*spotify.Client, context.Context, spotify.ID, ...spotify.RequestOption) (*spotify.FullAlbum, error) {
 			return album, nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(&spotify.Client{}), "GetAlbum")
+	defer patchspotifyClientGetAlbum.Reset()
 
 	// testing
 	assert.True(t, errors.Is(util.ErrOnly(client.Album(fullAlbum.ID.String())), syscall.ECONNREFUSED))

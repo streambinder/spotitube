@@ -17,7 +17,7 @@ func init() {
 	downloaders = append(downloaders, blob{})
 }
 
-func (blob) Supports(url string) bool {
+func (blob) supports(url string) bool {
 	response, err := http.Head(url)
 	if err != nil {
 		return false
@@ -36,7 +36,7 @@ func (blob) Supports(url string) bool {
 	}
 }
 
-func (blob) Download(url, path string, channels ...chan []byte) error {
+func (blob) download(url, path string, channels ...chan []byte) error {
 	response, err := http.Get(url)
 	if err != nil {
 		return err

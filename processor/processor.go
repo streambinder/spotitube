@@ -5,7 +5,7 @@ import (
 )
 
 type Processor interface {
-	Do(*entity.Track) error
+	do(*entity.Track) error
 }
 
 func Do(track *entity.Track) error {
@@ -13,7 +13,7 @@ func Do(track *entity.Track) error {
 		normalizer{},
 		encoder{},
 	} {
-		if err := processor.Do(track); err != nil {
+		if err := processor.do(track); err != nil {
 			return err
 		}
 	}

@@ -31,9 +31,9 @@ require (
 )
 
 require (
-	bou.ke/monkey v1.0.2
 	github.com/PuerkitoBio/goquery v1.8.1
 	github.com/adrg/xdg v0.4.0
+	github.com/agiledragon/gomonkey/v2 v2.9.0
 	github.com/agnivade/levenshtein v1.1.1
 	github.com/bogem/id3v2/v2 v2.1.4
 	github.com/davecgh/go-spew v1.1.1 // indirect

@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"testing"
 
-	"bou.ke/monkey"
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/util"
 	"github.com/stretchr/testify/assert"
@@ -22,20 +22,20 @@ var track = &entity.Track{
 func TestSearch(t *testing.T) {
 	// monkey patching
 	ch := make(chan bool, 1)
-	monkey.Patch(os.ReadFile, func(string) ([]byte, error) { return nil, errors.New("") })
-	defer monkey.Unpatch(os.ReadFile)
-	monkey.PatchInstanceMethod(reflect.TypeOf(genius{}), "Search",
+	patchosReadFile := gomonkey.ApplyFunc(os.ReadFile, func(string) ([]byte, error) { return nil, errors.New("") })
+	defer patchosReadFile.Reset()
+	patchgeniusSearch := gomonkey.ApplyPrivateMethod(reflect.TypeOf(genius{}), "search",
 		func(genius, *entity.Track, ...context.Context) ([]byte, error) {
 			defer close(ch)
 			return []byte("glyrics"), nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(genius{}), "Search")
-	monkey.PatchInstanceMethod(reflect.TypeOf(lyricsOvh{}), "Search",
+	defer patchgeniusSearch.Reset()
+	patchlyricsOvhSearch := gomonkey.ApplyPrivateMethod(reflect.TypeOf(lyricsOvh{}), "search",
 		func(lyricsOvh, *entity.Track, ...context.Context) ([]byte, error) {
 			<-ch
 			return []byte("olyrics"), nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(lyricsOvh{}), "Search")
+	defer patchlyricsOvhSearch.Reset()
 
 	// testing
 	lyrics, err := Search(track)
@@ -45,8 +45,8 @@ func TestSearch(t *testing.T) {
 
 func TestSearchAlreadyExists(t *testing.T) {
 	// monkey patching
-	monkey.Patch(os.ReadFile, func(string) ([]byte, error) { return []byte("lyrics"), nil })
-	defer monkey.Unpatch(os.ReadFile)
+	patchosReadFile := gomonkey.ApplyFunc(os.ReadFile, func(string) ([]byte, error) { return []byte("lyrics"), nil })
+	defer patchosReadFile.Reset()
 
 	// testing
 	lyrics, err := Search(track)
@@ -56,18 +56,18 @@ func TestSearchAlreadyExists(t *testing.T) {
 
 func TestSearchFailure(t *testing.T) {
 	// monkey patching
-	monkey.Patch(os.ReadFile, func(string) ([]byte, error) { return nil, errors.New("") })
-	defer monkey.Unpatch(os.ReadFile)
-	monkey.PatchInstanceMethod(reflect.TypeOf(genius{}), "Search",
+	patchosReadFile := gomonkey.ApplyFunc(os.ReadFile, func(string) ([]byte, error) { return nil, errors.New("") })
+	defer patchosReadFile.Reset()
+	patchgeniusSearch := gomonkey.ApplyPrivateMethod(reflect.TypeOf(genius{}), "search",
 		func(genius, *entity.Track, ...context.Context) ([]byte, error) {
 			return nil, errors.New("failure")
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(genius{}), "Search")
-	monkey.PatchInstanceMethod(reflect.TypeOf(lyricsOvh{}), "Search",
+	defer patchgeniusSearch.Reset()
+	patchlyricsOvhSearch := gomonkey.ApplyPrivateMethod(reflect.TypeOf(lyricsOvh{}), "search",
 		func(lyricsOvh, *entity.Track, ...context.Context) ([]byte, error) {
 			return nil, errors.New("failure")
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(lyricsOvh{}), "Search")
+	defer patchlyricsOvhSearch.Reset()
 
 	// testing
 	assert.Error(t, util.ErrOnly(Search(track)), "failure")
@@ -75,18 +75,18 @@ func TestSearchFailure(t *testing.T) {
 
 func TestSearchNotFound(t *testing.T) {
 	// monkey patching
-	monkey.Patch(os.ReadFile, func(string) ([]byte, error) { return nil, errors.New("") })
-	defer monkey.Unpatch(os.ReadFile)
-	monkey.PatchInstanceMethod(reflect.TypeOf(genius{}), "Search",
+	patchosReadFile := gomonkey.ApplyFunc(os.ReadFile, func(string) ([]byte, error) { return nil, errors.New("") })
+	defer patchosReadFile.Reset()
+	patchgeniusSearch := gomonkey.ApplyPrivateMethod(reflect.TypeOf(genius{}), "search",
 		func(genius, *entity.Track, ...context.Context) ([]byte, error) {
 			return nil, nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(genius{}), "Search")
-	monkey.PatchInstanceMethod(reflect.TypeOf(lyricsOvh{}), "Search",
+	defer patchgeniusSearch.Reset()
+	patchlyricsOvhSearch := gomonkey.ApplyPrivateMethod(reflect.TypeOf(lyricsOvh{}), "search",
 		func(lyricsOvh, *entity.Track, ...context.Context) ([]byte, error) {
 			return nil, nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(lyricsOvh{}), "Search")
+	defer patchlyricsOvhSearch.Reset()
 
 	// testing
 	lyrics, err := Search(track)
@@ -96,20 +96,20 @@ func TestSearchNotFound(t *testing.T) {
 
 func TestSearchCannotCreateDir(t *testing.T) {
 	// monkey patching
-	monkey.Patch(os.ReadFile, func(string) ([]byte, error) { return nil, errors.New("") })
-	defer monkey.Unpatch(os.ReadFile)
-	monkey.PatchInstanceMethod(reflect.TypeOf(genius{}), "Search",
+	patchosReadFile := gomonkey.ApplyFunc(os.ReadFile, func(string) ([]byte, error) { return nil, errors.New("") })
+	defer patchosReadFile.Reset()
+	patchgeniusSearch := gomonkey.ApplyPrivateMethod(reflect.TypeOf(genius{}), "search",
 		func(genius, *entity.Track, ...context.Context) ([]byte, error) {
 			return []byte("lyrics"), nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(genius{}), "Search")
-	monkey.PatchInstanceMethod(reflect.TypeOf(lyricsOvh{}), "Search",
+	defer patchgeniusSearch.Reset()
+	patchlyricsOvhSearch := gomonkey.ApplyPrivateMethod(reflect.TypeOf(lyricsOvh{}), "search",
 		func(lyricsOvh, *entity.Track, ...context.Context) ([]byte, error) {
 			return []byte{}, nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(lyricsOvh{}), "Search")
-	monkey.Patch(os.MkdirAll, func(string, fs.FileMode) error { return errors.New("failure") })
-	defer monkey.Unpatch(os.MkdirAll)
+	defer patchlyricsOvhSearch.Reset()
+	patchosMkdirAll := gomonkey.ApplyFunc(os.MkdirAll, func(string, fs.FileMode) error { return errors.New("failure") })
+	defer patchosMkdirAll.Reset()
 
 	// testing
 	assert.Error(t, util.ErrOnly(Search(track)), "failure")

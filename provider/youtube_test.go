@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"bou.ke/monkey"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/util"
 	"github.com/stretchr/testify/assert"
@@ -67,7 +67,7 @@ var result = youTubeResult{
 
 func TestYouTubeSearch(t *testing.T) {
 	// monkey patching
-	monkey.PatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get",
+	patchhttpDefaultClientGet := gomonkey.ApplyMethod(reflect.TypeOf(http.DefaultClient), "Get",
 		func(client *http.Client, url string) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: 200,
@@ -83,15 +83,15 @@ func TestYouTubeSearch(t *testing.T) {
 				)),
 			}, nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get")
+	defer patchhttpDefaultClientGet.Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(youTube{}.Search(track)))
+	assert.Nil(t, util.ErrOnly(youTube{}.search(track)))
 }
 
 func TestYouTubeSearchMalformedData(t *testing.T) {
 	// monkey patching
-	monkey.PatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get",
+	patchhttpDefaultClientGet := gomonkey.ApplyMethod(reflect.TypeOf(http.DefaultClient), "Get",
 		func(client *http.Client, url string) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: 200,
@@ -100,68 +100,68 @@ func TestYouTubeSearchMalformedData(t *testing.T) {
 				)),
 			}, nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get")
+	defer patchhttpDefaultClientGet.Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(youTube{}.Search(track)))
+	assert.Nil(t, util.ErrOnly(youTube{}.search(track)))
 }
 
 func TestYouTubeSearchNoData(t *testing.T) {
 	// monkey patching
-	monkey.PatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get",
+	patchhttpDefaultClientGet := gomonkey.ApplyMethod(reflect.TypeOf(http.DefaultClient), "Get",
 		func(client *http.Client, url string) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: 200,
 				Body:       io.NopCloser(strings.NewReader("<script>some unmatching script</script>")),
 			}, nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get")
+	defer patchhttpDefaultClientGet.Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(youTube{}.Search(track)))
+	assert.Nil(t, util.ErrOnly(youTube{}.search(track)))
 }
 
 func TestYouTubeSearchFailingRequest(t *testing.T) {
 	// monkey patching
-	monkey.PatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get",
+	patchhttpDefaultClientGet := gomonkey.ApplyMethod(reflect.TypeOf(http.DefaultClient), "Get",
 		func(client *http.Client, url string) (*http.Response, error) {
 			return nil, errors.New("failure")
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get")
+	defer patchhttpDefaultClientGet.Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(youTube{}.Search(track)), "failure")
+	assert.Error(t, util.ErrOnly(youTube{}.search(track)), "failure")
 }
 
 func TestYouTubeSearchFailingRequestStatus(t *testing.T) {
 	// monkey patching
-	monkey.PatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get",
+	patchhttpDefaultClientGet := gomonkey.ApplyMethod(reflect.TypeOf(http.DefaultClient), "Get",
 		func(client *http.Client, url string) (*http.Response, error) {
 			return &http.Response{StatusCode: 500, Body: io.NopCloser(strings.NewReader(""))}, nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get")
+	defer patchhttpDefaultClientGet.Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(youTube{}.Search(track)))
+	assert.Error(t, util.ErrOnly(youTube{}.search(track)))
 }
 
 func TestYouTubeSearchFailingGoQuery(t *testing.T) {
 	// monkey patching
-	monkey.Patch(goquery.NewDocumentFromReader, func(io.Reader) (*goquery.Document, error) {
+	patchgoqueryNewDocumentFromReader := gomonkey.ApplyFunc(goquery.NewDocumentFromReader, func(io.Reader) (*goquery.Document, error) {
 		return nil, errors.New("failure")
 	})
-	defer monkey.Unpatch(goquery.NewDocumentFromReader)
-	monkey.PatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get",
+	defer patchgoqueryNewDocumentFromReader.Reset()
+	patchhttpDefaultClientGet := gomonkey.ApplyMethod(reflect.TypeOf(http.DefaultClient), "Get",
 		func(client *http.Client, url string) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: 200,
 				Body:       io.NopCloser(strings.NewReader("<script>some unmatching script</script>")),
 			}, nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(http.DefaultClient), "Get")
+	defer patchhttpDefaultClientGet.Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(youTube{}.Search(track)), "failure")
+	assert.Error(t, util.ErrOnly(youTube{}.search(track)), "failure")
 }
 
 func TestScraping(t *testing.T) {
@@ -170,7 +170,7 @@ func TestScraping(t *testing.T) {
 	}
 
 	// testing
-	matches, err := youTube{}.Search(&entity.Track{
+	matches, err := youTube{}.search(&entity.Track{
 		Title:    "White Christmas",
 		Artists:  []string{"Bing Crosby"},
 		Duration: 183,

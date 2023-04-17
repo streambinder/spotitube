@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"bou.ke/monkey"
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/util"
 	"github.com/stretchr/testify/assert"
@@ -24,14 +24,14 @@ var track = &entity.Track{
 
 func TestSearch(t *testing.T) {
 	// monkey patching
-	monkey.PatchInstanceMethod(reflect.TypeOf(youTube{}), "Search",
+	patchyouTubeSearch := gomonkey.ApplyPrivateMethod(reflect.TypeOf(youTube{}), "search",
 		func(youTube, *entity.Track) ([]*Match, error) {
 			return []*Match{
 				{URL: "url1", Score: 3},
 				{URL: "url2", Score: 1},
 			}, nil
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(youTube{}), "Search")
+	defer patchyouTubeSearch.Reset()
 
 	// testing
 	matches, err := Search(track)
@@ -41,11 +41,11 @@ func TestSearch(t *testing.T) {
 
 func TestSearchFailure(t *testing.T) {
 	// monkey patching
-	monkey.PatchInstanceMethod(reflect.TypeOf(youTube{}), "Search",
+	patchyouTubeSearch := gomonkey.ApplyPrivateMethod(reflect.TypeOf(youTube{}), "search",
 		func(youTube, *entity.Track) ([]*Match, error) {
 			return nil, errors.New("failure")
 		})
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(youTube{}), "Search")
+	defer patchyouTubeSearch.Reset()
 
 	// testing
 	assert.Error(t, util.ErrOnly(Search(track)), "failure")

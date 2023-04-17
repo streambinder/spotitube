@@ -11,7 +11,7 @@ type encoder struct {
 	Processor
 }
 
-func (encoder) Do(track *entity.Track) error {
+func (encoder) do(track *entity.Track) error {
 	tag, err := id3v2.Open(
 		track.Path().Download(),
 		id3v2.Options{Parse: true})

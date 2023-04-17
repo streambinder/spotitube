@@ -9,8 +9,8 @@ import (
 var downloaders = []Downloader{}
 
 type Downloader interface {
-	Supports(string) bool
-	Download(string, string, ...chan []byte) error
+	supports(string) bool
+	download(string, string, ...chan []byte) error
 }
 
 func Download(url, path string, channels ...chan []byte) error {
@@ -22,12 +22,12 @@ func Download(url, path string, channels ...chan []byte) error {
 	}
 
 	for _, downloader := range downloaders {
-		if downloader.Supports(url) {
+		if downloader.supports(url) {
 			if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
 				return err
 			}
 
-			return downloader.Download(url, path, channels...)
+			return downloader.download(url, path, channels...)
 		}
 	}
 	return errors.New("unsupported url")

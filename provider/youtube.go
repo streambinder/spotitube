@@ -38,7 +38,7 @@ func init() {
 	providers = append(providers, youTube{})
 }
 
-func (provider youTube) Search(track *entity.Track) ([]*Match, error) {
+func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 	searchKeys := url.Values{
 		"search_query": append([]string{track.Title}, track.Artists...),
 	}

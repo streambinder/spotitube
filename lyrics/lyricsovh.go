@@ -10,7 +10,6 @@ import (
 	"net/url"
 
 	"github.com/streambinder/spotitube/entity"
-	"github.com/streambinder/spotitube/util"
 )
 
 type lyricsOvh struct {
@@ -31,11 +30,14 @@ func (composer lyricsOvh) search(track *entity.Track, ctxs ...context.Context) (
 		ctx = ctxs[0]
 	}
 
-	response, err := util.HttpRequest(
-		ctx, http.MethodGet, fmt.Sprintf("https://api.lyrics.ovh/v1/%s/%s",
-			url.QueryEscape(track.Artists[0]),
-			url.QueryEscape(track.Title)), nil, nil,
-	)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://api.lyrics.ovh/v1/%s/%s",
+		url.QueryEscape(track.Artists[0]),
+		url.QueryEscape(track.Title)), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		return nil, err
 	}

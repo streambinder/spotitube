@@ -6,7 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -17,15 +17,15 @@ import (
 
 func TestLyricsOvhSearch(t *testing.T) {
 	// monkey patching
-	patchutilHttpRequest := gomonkey.ApplyFunc(util.HttpRequest,
-		func(context.Context, string, string, url.Values, io.Reader, ...string) (*http.Response, error) {
+	patchhttpDefaultClientDo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do",
+		func(*http.Client, *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: 200,
 				Body: io.NopCloser(
 					strings.NewReader(`{"lyrics": "lyrics"}`)),
 			}, nil
 		})
-	defer patchutilHttpRequest.Reset()
+	defer patchhttpDefaultClientDo.Reset()
 
 	// testing
 	lyrics, err := lyricsOvh{}.search(track, context.Background())
@@ -33,13 +33,25 @@ func TestLyricsOvhSearch(t *testing.T) {
 	assert.Equal(t, []byte("lyrics"), lyrics)
 }
 
-func TestLyricsOvhSearchFailure(t *testing.T) {
+func TestLyricsOvhSearchNewRequestFailure(t *testing.T) {
 	// monkey patching
-	patchutilHttpRequest := gomonkey.ApplyFunc(util.HttpRequest,
-		func(context.Context, string, string, url.Values, io.Reader, ...string) (*http.Response, error) {
+	patchhttpDefaultNewRequestWithContext := gomonkey.ApplyFunc(http.NewRequestWithContext,
+		func(context.Context, string, string, io.Reader) (*http.Request, error) {
 			return nil, errors.New("failure")
 		})
-	defer patchutilHttpRequest.Reset()
+	defer patchhttpDefaultNewRequestWithContext.Reset()
+
+	// testing
+	assert.Error(t, util.ErrOnly(lyricsOvh{}.search(track)), "failure")
+}
+
+func TestLyricsOvhSearchFailure(t *testing.T) {
+	// monkey patching
+	patchhttpDefaultClientDo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do",
+		func(*http.Client, *http.Request) (*http.Response, error) {
+			return nil, errors.New("failure")
+		})
+	defer patchhttpDefaultClientDo.Reset()
 
 	// testing
 	assert.Error(t, util.ErrOnly(lyricsOvh{}.search(track)), "failure")
@@ -47,15 +59,15 @@ func TestLyricsOvhSearchFailure(t *testing.T) {
 
 func TestLyricsOvhSearchNotFound(t *testing.T) {
 	// monkey patching
-	patchutilHttpRequest := gomonkey.ApplyFunc(util.HttpRequest,
-		func(context.Context, string, string, url.Values, io.Reader, ...string) (*http.Response, error) {
+	patchhttpDefaultClientDo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do",
+		func(*http.Client, *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: 404,
 				Body: io.NopCloser(
 					strings.NewReader("")),
 			}, nil
 		})
-	defer patchutilHttpRequest.Reset()
+	defer patchhttpDefaultClientDo.Reset()
 
 	// testing
 	lyrics, err := lyricsOvh{}.search(track)
@@ -65,15 +77,15 @@ func TestLyricsOvhSearchNotFound(t *testing.T) {
 
 func TestLyricsOvhSearchInternalError(t *testing.T) {
 	// monkey patching
-	patchutilHttpRequest := gomonkey.ApplyFunc(util.HttpRequest,
-		func(context.Context, string, string, url.Values, io.Reader, ...string) (*http.Response, error) {
+	patchhttpDefaultClientDo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do",
+		func(*http.Client, *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: 500,
 				Body: io.NopCloser(
 					strings.NewReader("")),
 			}, nil
 		})
-	defer patchutilHttpRequest.Reset()
+	defer patchhttpDefaultClientDo.Reset()
 
 	// testing
 	assert.NotNil(t, util.ErrOnly(lyricsOvh{}.search(track)))
@@ -81,15 +93,15 @@ func TestLyricsOvhSearchInternalError(t *testing.T) {
 
 func TestLyricsOvhSearchReadFailure(t *testing.T) {
 	// monkey patching
-	patchutilHttpRequest := gomonkey.ApplyFunc(util.HttpRequest,
-		func(context.Context, string, string, url.Values, io.Reader, ...string) (*http.Response, error) {
+	patchhttpDefaultClientDo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do",
+		func(*http.Client, *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: 200,
 				Body: io.NopCloser(
 					strings.NewReader(`{"lyrics": "lyrics"}`)),
 			}, nil
 		})
-	defer patchutilHttpRequest.Reset()
+	defer patchhttpDefaultClientDo.Reset()
 	patchioReadAll := gomonkey.ApplyFunc(io.ReadAll, func(r io.Reader) ([]byte, error) {
 		return nil, errors.New("failure")
 	})
@@ -101,15 +113,15 @@ func TestLyricsOvhSearchReadFailure(t *testing.T) {
 
 func TestLyricsOvhSearchJsonFailure(t *testing.T) {
 	// monkey patching
-	patchutilHttpRequest := gomonkey.ApplyFunc(util.HttpRequest,
-		func(context.Context, string, string, url.Values, io.Reader, ...string) (*http.Response, error) {
+	patchhttpDefaultClientDo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do",
+		func(*http.Client, *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: 200,
 				Body: io.NopCloser(
 					strings.NewReader(`{"lyrics": "lyrics"}`)),
 			}, nil
 		})
-	defer patchutilHttpRequest.Reset()
+	defer patchhttpDefaultClientDo.Reset()
 	patchjsonUnmarshal := gomonkey.ApplyFunc(json.Unmarshal, func(data []byte, v any) error {
 		return errors.New("failure")
 	})

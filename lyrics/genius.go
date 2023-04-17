@@ -32,8 +32,13 @@ func (composer genius) search(track *entity.Track, ctxs ...context.Context) ([]b
 	}
 
 	searchKeys := url.Values{"q": []string{track.Title, track.Artists[0]}}
-	response, err := util.HttpRequest(ctx, http.MethodGet, "https://api.genius.com/search", searchKeys, nil,
-		fmt.Sprintf("Authorization:Bearer %s", os.Getenv("GENIUS_TOKEN")))
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s?%s", "https://api.genius.com/search", searchKeys.Encode()), nil)
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("GENIUS_TOKEN")))
+
+	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +86,12 @@ func (composer genius) search(track *entity.Track, ctxs ...context.Context) ([]b
 }
 
 func (composer genius) fromGeniusURL(url string, ctx context.Context) ([]byte, error) {
-	response, err := util.HttpRequest(ctx, http.MethodGet, url, nil, nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		return nil, err
 	}

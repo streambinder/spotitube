@@ -45,12 +45,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: test "$(grep -r --exclude-dir=".git*" 'make(chan ' | wc -l)" = "$(grep -r --exclude-dir=".git*" '\sclose(' | wc -l)"
+      - run: test "$(grep -Erc --exclude-dir=".git*" 'make\(chan\s')" = "$(grep -Erc --exclude-dir=".git*" '\sclose\(')"
   go-http-body-closure:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: test "$(grep -r --exclude-dir=".git*" 'http.Get(\|http.Head(\|http.DefaultClient.Do(\|util.HttpRequest(' | wc -l)" = "$(grep -r --exclude-dir=".git*" '.Body.Close()' | wc -l)"
+      - run: test "$(grep -rc --exclude-dir=".git*" 'http.Get(\|http.Head(\|http.DefaultClient.Do(')" = "$(grep -rc --exclude-dir=".git*" '.Body.Close()')"
   go-monkey-unpatch:
     runs-on: ubuntu-latest
     steps:

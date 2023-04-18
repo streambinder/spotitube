@@ -15,5 +15,5 @@ func TestUtilErrWrap(t *testing.T) {
 func TestUtilErrOnly(t *testing.T) {
 	assert.Nil(t, ErrOnly())
 	assert.Nil(t, ErrOnly(func() (string, error) { return "", nil }()))
-	assert.EqualError(t, ErrOnly(func() (string, error) { return "", errors.New("failure") }()), "failure")
+	assert.EqualError(t, ErrOnly(func() (string, error) { return "", errors.New("ko") }()), "ko")
 }

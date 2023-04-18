@@ -3,7 +3,6 @@ package cmd
 import (
 	"errors"
 	"os/exec"
-	"reflect"
 	"strconv"
 	"testing"
 
@@ -30,10 +29,9 @@ libpostproc    56.  6.100 / 56.  6.100
 
 func TestVolumeDetect(t *testing.T) {
 	// monkey patching
-	patchexecCmdRun := gomonkey.ApplyMethod(reflect.TypeOf(&exec.Cmd{}), "Run", func(cmd *exec.Cmd) error {
+	defer gomonkey.ApplyMethod(&exec.Cmd{}, "Run", func(cmd *exec.Cmd) error {
 		return util.ErrOnly(cmd.Stdout.Write([]byte(volumeDetectOutput)))
-	})
-	defer patchexecCmdRun.Reset()
+	}).Reset()
 
 	// testing
 	delta, err := FFmpeg().VolumeDetect("/dev/null")
@@ -43,36 +41,34 @@ func TestVolumeDetect(t *testing.T) {
 
 func TestVolumeDetectFFmpegFailure(t *testing.T) {
 	// monkey patching
-	patchexecCmdRun := gomonkey.ApplyMethod(reflect.TypeOf(&exec.Cmd{}), "Run", func(cmd *exec.Cmd) error {
-		return errors.New("failure")
-	})
-	defer patchexecCmdRun.Reset()
+	defer gomonkey.ApplyMethod(&exec.Cmd{}, "Run", func() error {
+		return errors.New("ko")
+	}).Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(FFmpeg().VolumeDetect("/dev/null")), "failure")
+	assert.Error(t, util.ErrOnly(FFmpeg().VolumeDetect("/dev/null")), "ko")
 }
 
 func TestVolumeDetectParseFloatFailure(t *testing.T) {
 	// monkey patching
-	patchexecCmdRun := gomonkey.ApplyMethod(reflect.TypeOf(&exec.Cmd{}), "Run", func(cmd *exec.Cmd) error {
-		return util.ErrOnly(cmd.Stdout.Write([]byte(volumeDetectOutput)))
-	})
-	defer patchexecCmdRun.Reset()
-	patchstrconvParseFloat := gomonkey.ApplyFunc(strconv.ParseFloat, func(string, int) (float64, error) {
-		return 0, errors.New("failure")
-	})
-	defer patchstrconvParseFloat.Reset()
+	defer gomonkey.NewPatches().
+		ApplyMethod(&exec.Cmd{}, "Run", func(cmd *exec.Cmd) error {
+			return util.ErrOnly(cmd.Stdout.Write([]byte(volumeDetectOutput)))
+		}).
+		ApplyFunc(strconv.ParseFloat, func() (float64, error) {
+			return 0, errors.New("ko")
+		}).
+		Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(FFmpeg().VolumeDetect("/dev/null")), "failure")
+	assert.Error(t, util.ErrOnly(FFmpeg().VolumeDetect("/dev/null")), "ko")
 }
 
 func TestVolumeAdd(t *testing.T) {
 	// monkey patching
-	patchexecCmdRun := gomonkey.ApplyMethod(reflect.TypeOf(&exec.Cmd{}), "Run", func(cmd *exec.Cmd) error {
+	defer gomonkey.ApplyMethod(&exec.Cmd{}, "Run", func() error {
 		return nil
-	})
-	defer patchexecCmdRun.Reset()
+	}).Reset()
 
 	// testing
 	assert.Error(t, FFmpeg().VolumeAdd("/dev/null", -1), "rename /dev/null.normalized /dev/null: no such file or directory")
@@ -84,11 +80,10 @@ func TestVolumeAddNothing(t *testing.T) {
 
 func TestVolumeAddFFmpegFailure(t *testing.T) {
 	// monkey patching
-	patchexecCmdRun := gomonkey.ApplyMethod(reflect.TypeOf(&exec.Cmd{}), "Run", func(cmd *exec.Cmd) error {
-		return errors.New("failure")
-	})
-	defer patchexecCmdRun.Reset()
+	defer gomonkey.ApplyMethod(&exec.Cmd{}, "Run", func() error {
+		return errors.New("ko")
+	}).Reset()
 
 	// testing
-	assert.Error(t, FFmpeg().VolumeAdd("/dev/null", -1), "failure")
+	assert.Error(t, FFmpeg().VolumeAdd("/dev/null", -1), "ko")
 }

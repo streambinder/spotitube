@@ -2,7 +2,6 @@ package processor
 
 import (
 	"errors"
-	"reflect"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
@@ -12,16 +11,14 @@ import (
 
 func TestNormalizerDo(t *testing.T) {
 	// monkey patching
-	patchcmdFFmpegCmdVolumeDetect := gomonkey.ApplyMethod(reflect.TypeOf(cmd.FFmpegCmd{}), "VolumeDetect",
-		func(cmd.FFmpegCmd, string) (float64, error) {
+	defer gomonkey.NewPatches().
+		ApplyMethod(cmd.FFmpegCmd{}, "VolumeDetect", func() (float64, error) {
 			return 1, nil
-		})
-	defer patchcmdFFmpegCmdVolumeDetect.Reset()
-	patchcmdFFmpegCmdVolumeAdd := gomonkey.ApplyMethod(reflect.TypeOf(cmd.FFmpegCmd{}), "VolumeAdd",
-		func(cmd.FFmpegCmd, string, float64) error {
+		}).
+		ApplyMethod(cmd.FFmpegCmd{}, "VolumeAdd", func() error {
 			return nil
-		})
-	defer patchcmdFFmpegCmdVolumeAdd.Reset()
+		}).
+		Reset()
 
 	// testing
 	assert.Nil(t, normalizer{}.do(track))
@@ -29,12 +26,10 @@ func TestNormalizerDo(t *testing.T) {
 
 func TestNormalizerDoFailure(t *testing.T) {
 	// monkey patching
-	patchcmdFFmpegCmdVolumeDetect := gomonkey.ApplyMethod(reflect.TypeOf(cmd.FFmpegCmd{}), "VolumeDetect",
-		func(cmd.FFmpegCmd, string) (float64, error) {
-			return 0, errors.New("failure")
-		})
-	defer patchcmdFFmpegCmdVolumeDetect.Reset()
+	defer gomonkey.ApplyMethod(cmd.FFmpegCmd{}, "VolumeDetect", func() (float64, error) {
+		return 0, errors.New("ko")
+	}).Reset()
 
 	// testing
-	assert.Error(t, normalizer{}.do(track), "failure")
+	assert.Error(t, normalizer{}.do(track), "ko")
 }

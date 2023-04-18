@@ -1,9 +1,7 @@
 package spotify
 
 import (
-	"context"
 	"errors"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -31,13 +29,12 @@ var fullTrack = spotify.FullTrack{
 
 func TestTrack(t *testing.T) {
 	// monkey patching
-	patchtimeSleep := gomonkey.ApplyFunc(time.Sleep, func(time.Duration) {})
-	defer patchtimeSleep.Reset()
-	patchspotifyClientGetTrack := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "GetTrack",
-		func(*spotify.Client, context.Context, spotify.ID, ...spotify.RequestOption) (*spotify.FullTrack, error) {
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyMethod(&spotify.Client{}, "GetTrack", func() (*spotify.FullTrack, error) {
 			return &fullTrack, nil
-		})
-	defer patchspotifyClientGetTrack.Reset()
+		}).
+		Reset()
 
 	// testing
 	channel := make(chan interface{}, 1)
@@ -57,14 +54,13 @@ func TestTrack(t *testing.T) {
 
 func TestTrackGetTrackFailure(t *testing.T) {
 	// monkey patching
-	patchtimeSleep := gomonkey.ApplyFunc(time.Sleep, func(time.Duration) {})
-	defer patchtimeSleep.Reset()
-	patchspotifyClientGetTrack := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "GetTrack",
-		func(*spotify.Client, context.Context, spotify.ID, ...spotify.RequestOption) (*spotify.FullTrack, error) {
-			return nil, errors.New("failure")
-		})
-	defer patchspotifyClientGetTrack.Reset()
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyMethod(&spotify.Client{}, "GetTrack", func() (*spotify.FullTrack, error) {
+			return nil, errors.New("ko")
+		}).
+		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly((&Client{}).Track(fullTrack.ID.String())), "failure")
+	assert.EqualError(t, util.ErrOnly((&Client{}).Track(fullTrack.ID.String())), "ko")
 }

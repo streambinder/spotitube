@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -67,23 +66,21 @@ var result = youTubeResult{
 
 func TestYouTubeSearch(t *testing.T) {
 	// monkey patching
-	patchhttpDefaultClientGet := gomonkey.ApplyMethod(reflect.TypeOf(http.DefaultClient), "Get",
-		func(client *http.Client, url string) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: 200,
-				Body: io.NopCloser(strings.NewReader(
-					fmt.Sprintf(
-						resultScript,
-						result.id,
-						result.title,
-						result.owner,
-						resultViewsText,
-						resultLengthText,
-					),
-				)),
-			}, nil
-		})
-	defer patchhttpDefaultClientGet.Reset()
+	defer gomonkey.ApplyMethod(http.DefaultClient, "Get", func() (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 200,
+			Body: io.NopCloser(strings.NewReader(
+				fmt.Sprintf(
+					resultScript,
+					result.id,
+					result.title,
+					result.owner,
+					resultViewsText,
+					resultLengthText,
+				),
+			)),
+		}, nil
+	}).Reset()
 
 	// testing
 	assert.Nil(t, util.ErrOnly(youTube{}.search(track)))
@@ -91,16 +88,14 @@ func TestYouTubeSearch(t *testing.T) {
 
 func TestYouTubeSearchMalformedData(t *testing.T) {
 	// monkey patching
-	patchhttpDefaultClientGet := gomonkey.ApplyMethod(reflect.TypeOf(http.DefaultClient), "Get",
-		func(client *http.Client, url string) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: 200,
-				Body: io.NopCloser(strings.NewReader(
-					fmt.Sprintf(resultScript, "", "", "", "", ""),
-				)),
-			}, nil
-		})
-	defer patchhttpDefaultClientGet.Reset()
+	defer gomonkey.ApplyMethod(http.DefaultClient, "Get", func() (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 200,
+			Body: io.NopCloser(strings.NewReader(
+				fmt.Sprintf(resultScript, "", "", "", "", ""),
+			)),
+		}, nil
+	}).Reset()
 
 	// testing
 	assert.Nil(t, util.ErrOnly(youTube{}.search(track)))
@@ -108,14 +103,12 @@ func TestYouTubeSearchMalformedData(t *testing.T) {
 
 func TestYouTubeSearchNoData(t *testing.T) {
 	// monkey patching
-	patchhttpDefaultClientGet := gomonkey.ApplyMethod(reflect.TypeOf(http.DefaultClient), "Get",
-		func(client *http.Client, url string) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: 200,
-				Body:       io.NopCloser(strings.NewReader("<script>some unmatching script</script>")),
-			}, nil
-		})
-	defer patchhttpDefaultClientGet.Reset()
+	defer gomonkey.ApplyMethod(http.DefaultClient, "Get", func() (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 200,
+			Body:       io.NopCloser(strings.NewReader("<script>some unmatching script</script>")),
+		}, nil
+	}).Reset()
 
 	// testing
 	assert.Nil(t, util.ErrOnly(youTube{}.search(track)))
@@ -123,23 +116,19 @@ func TestYouTubeSearchNoData(t *testing.T) {
 
 func TestYouTubeSearchFailingRequest(t *testing.T) {
 	// monkey patching
-	patchhttpDefaultClientGet := gomonkey.ApplyMethod(reflect.TypeOf(http.DefaultClient), "Get",
-		func(client *http.Client, url string) (*http.Response, error) {
-			return nil, errors.New("failure")
-		})
-	defer patchhttpDefaultClientGet.Reset()
+	defer gomonkey.ApplyMethod(http.DefaultClient, "Get", func() (*http.Response, error) {
+		return nil, errors.New("ko")
+	}).Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(youTube{}.search(track)), "failure")
+	assert.Error(t, util.ErrOnly(youTube{}.search(track)), "ko")
 }
 
 func TestYouTubeSearchFailingRequestStatus(t *testing.T) {
 	// monkey patching
-	patchhttpDefaultClientGet := gomonkey.ApplyMethod(reflect.TypeOf(http.DefaultClient), "Get",
-		func(client *http.Client, url string) (*http.Response, error) {
-			return &http.Response{StatusCode: 500, Body: io.NopCloser(strings.NewReader(""))}, nil
-		})
-	defer patchhttpDefaultClientGet.Reset()
+	defer gomonkey.ApplyMethod(http.DefaultClient, "Get", func() (*http.Response, error) {
+		return &http.Response{StatusCode: 500, Body: io.NopCloser(strings.NewReader(""))}, nil
+	}).Reset()
 
 	// testing
 	assert.Error(t, util.ErrOnly(youTube{}.search(track)))
@@ -147,21 +136,20 @@ func TestYouTubeSearchFailingRequestStatus(t *testing.T) {
 
 func TestYouTubeSearchFailingGoQuery(t *testing.T) {
 	// monkey patching
-	patchgoqueryNewDocumentFromReader := gomonkey.ApplyFunc(goquery.NewDocumentFromReader, func(io.Reader) (*goquery.Document, error) {
-		return nil, errors.New("failure")
-	})
-	defer patchgoqueryNewDocumentFromReader.Reset()
-	patchhttpDefaultClientGet := gomonkey.ApplyMethod(reflect.TypeOf(http.DefaultClient), "Get",
-		func(client *http.Client, url string) (*http.Response, error) {
+	defer gomonkey.NewPatches().
+		ApplyFunc(goquery.NewDocumentFromReader, func() (*goquery.Document, error) {
+			return nil, errors.New("ko")
+		}).
+		ApplyMethod(http.DefaultClient, "Get", func() (*http.Response, error) {
 			return &http.Response{
 				StatusCode: 200,
 				Body:       io.NopCloser(strings.NewReader("<script>some unmatching script</script>")),
 			}, nil
-		})
-	defer patchhttpDefaultClientGet.Reset()
+		}).
+		Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(youTube{}.search(track)), "failure")
+	assert.Error(t, util.ErrOnly(youTube{}.search(track)), "ko")
 }
 
 func TestScraping(t *testing.T) {

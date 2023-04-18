@@ -3,10 +3,8 @@ package downloader
 import (
 	"errors"
 	"io"
-	"io/fs"
 	"net/http"
 	"os"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -16,15 +14,13 @@ import (
 
 func TestBlobSupports(t *testing.T) {
 	// monkey patching
-	patchhttpDefaultClientHead := gomonkey.ApplyMethod(reflect.TypeOf(http.DefaultClient), "Head",
-		func(*http.Client, string) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: 200,
-				Body:       io.NopCloser(strings.NewReader("")),
-				Header:     map[string][]string{"Content-Type": {"image/jpeg"}},
-			}, nil
-		})
-	defer patchhttpDefaultClientHead.Reset()
+	defer gomonkey.ApplyMethod(http.DefaultClient, "Head", func() (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 200,
+			Body:       io.NopCloser(strings.NewReader("")),
+			Header:     map[string][]string{"Content-Type": {"image/jpeg"}},
+		}, nil
+	}).Reset()
 
 	// testing
 	assert.True(t, blob{}.supports("http://davidepucci.it"))
@@ -32,11 +28,9 @@ func TestBlobSupports(t *testing.T) {
 
 func TestBlobSupportsError(t *testing.T) {
 	// monkey patching
-	patchhttpDefaultClientHead := gomonkey.ApplyMethod(reflect.TypeOf(http.DefaultClient), "Head",
-		func(*http.Client, string) (*http.Response, error) {
-			return nil, errors.New("failure")
-		})
-	defer patchhttpDefaultClientHead.Reset()
+	defer gomonkey.ApplyMethod(http.DefaultClient, "Head", func() (*http.Response, error) {
+		return nil, errors.New("ko")
+	}).Reset()
 
 	// testing
 	assert.False(t, blob{}.supports("http://davidepucci.it"))
@@ -44,14 +38,12 @@ func TestBlobSupportsError(t *testing.T) {
 
 func TestBlobSupportsNotFound(t *testing.T) {
 	// monkey patching
-	patchhttpDefaultClientHead := gomonkey.ApplyMethod(reflect.TypeOf(http.DefaultClient), "Head",
-		func(*http.Client, string) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: 404,
-				Body:       io.NopCloser(strings.NewReader("")),
-			}, nil
-		})
-	defer patchhttpDefaultClientHead.Reset()
+	defer gomonkey.ApplyMethod(http.DefaultClient, "Head", func() (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 404,
+			Body:       io.NopCloser(strings.NewReader("")),
+		}, nil
+	}).Reset()
 
 	// testing
 	assert.False(t, blob{}.supports("http://davidepucci.it"))
@@ -59,15 +51,13 @@ func TestBlobSupportsNotFound(t *testing.T) {
 
 func TestBlobUnsupported(t *testing.T) {
 	// monkey patching
-	patchhttpDefaultClientHead := gomonkey.ApplyMethod(reflect.TypeOf(http.DefaultClient), "Head",
-		func(*http.Client, string) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: 200,
-				Body:       io.NopCloser(strings.NewReader("")),
-				Header:     map[string][]string{"Content-Type": {"text/plain"}},
-			}, nil
-		})
-	defer patchhttpDefaultClientHead.Reset()
+	defer gomonkey.ApplyMethod(http.DefaultClient, "Head", func() (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 200,
+			Body:       io.NopCloser(strings.NewReader("")),
+			Header:     map[string][]string{"Content-Type": {"text/plain"}},
+		}, nil
+	}).Reset()
 
 	// testing
 	assert.False(t, blob{}.supports("http://davidepucci.it"))
@@ -75,28 +65,24 @@ func TestBlobUnsupported(t *testing.T) {
 
 func TestBlobDownload(t *testing.T) {
 	// monkey patching
-	patchhttpDefaultClientGet := gomonkey.ApplyMethod(reflect.TypeOf(http.DefaultClient), "Get",
-		func(*http.Client, string) (*http.Response, error) {
+	defer gomonkey.NewPatches().
+		ApplyMethod(http.DefaultClient, "Get", func() (*http.Response, error) {
 			return &http.Response{
 				StatusCode: 200,
 				Body:       io.NopCloser(strings.NewReader("bitch")),
 				Header:     map[string][]string{"Content-Type": {"image/jpeg"}},
 			}, nil
-		})
-	defer patchhttpDefaultClientGet.Reset()
-	patchosOpenFile := gomonkey.ApplyFunc(os.OpenFile, func(string, int, fs.FileMode) (*os.File, error) {
-		return nil, nil
-	})
-	defer patchosOpenFile.Reset()
-	patchioReadAll := gomonkey.ApplyFunc(io.ReadAll, func(r io.Reader) ([]byte, error) {
-		return []byte{}, nil
-	})
-	defer patchioReadAll.Reset()
-	patchosFileWrite := gomonkey.ApplyMethod(reflect.TypeOf(&os.File{}), "Write",
-		func(*os.File, []byte) (int, error) {
+		}).
+		ApplyFunc(os.OpenFile, func() (*os.File, error) {
+			return nil, nil
+		}).
+		ApplyFunc(io.ReadAll, func() ([]byte, error) {
+			return []byte{}, nil
+		}).
+		ApplyMethod(&os.File{}, "Write", func() (int, error) {
 			return 0, nil
-		})
-	defer patchosFileWrite.Reset()
+		}).
+		Reset()
 
 	// testing
 	ch := make(chan []byte, 1)
@@ -106,26 +92,22 @@ func TestBlobDownload(t *testing.T) {
 
 func TestBlobDownloadFailure(t *testing.T) {
 	// monkey patching
-	patchhttpDefaultClientGet := gomonkey.ApplyMethod(reflect.TypeOf(http.DefaultClient), "Get",
-		func(*http.Client, string) (*http.Response, error) {
-			return nil, errors.New("failure")
-		})
-	defer patchhttpDefaultClientGet.Reset()
+	defer gomonkey.ApplyMethod(http.DefaultClient, "Get", func() (*http.Response, error) {
+		return nil, errors.New("ko")
+	}).Reset()
 
 	// testing
-	assert.Error(t, blob{}.download("http://davidepucci.it", "/dev/null"), "failure")
+	assert.Error(t, blob{}.download("http://davidepucci.it", "/dev/null"), "ko")
 }
 
 func TestBlobDownloadNotFound(t *testing.T) {
 	// monkey patching
-	patchhttpDefaultClientGet := gomonkey.ApplyMethod(reflect.TypeOf(http.DefaultClient), "Get",
-		func(*http.Client, string) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: 404,
-				Body:       io.NopCloser(strings.NewReader("")),
-			}, nil
-		})
-	defer patchhttpDefaultClientGet.Reset()
+	defer gomonkey.ApplyMethod(http.DefaultClient, "Get", func() (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 404,
+			Body:       io.NopCloser(strings.NewReader("")),
+		}, nil
+	}).Reset()
 
 	// testing
 	assert.NotNil(t, blob{}.download("http://davidepucci.it", "/dev/null"))
@@ -133,44 +115,41 @@ func TestBlobDownloadNotFound(t *testing.T) {
 
 func TestBlobDownloadFileCreationFailure(t *testing.T) {
 	// monkey patching
-	patchhttpDefaultClientGet := gomonkey.ApplyMethod(reflect.TypeOf(http.DefaultClient), "Get",
-		func(*http.Client, string) (*http.Response, error) {
+	defer gomonkey.NewPatches().
+		ApplyMethod(http.DefaultClient, "Get", func() (*http.Response, error) {
 			return &http.Response{
 				StatusCode: 200,
 				Body:       io.NopCloser(strings.NewReader("")),
 				Header:     map[string][]string{"Content-Type": {"image/jpeg"}},
 			}, nil
-		})
-	defer patchhttpDefaultClientGet.Reset()
-	patchosOpenFile := gomonkey.ApplyFunc(os.OpenFile, func(string, int, fs.FileMode) (*os.File, error) {
-		return nil, errors.New("failure")
-	})
-	defer patchosOpenFile.Reset()
+		}).
+		ApplyFunc(os.OpenFile, func() (*os.File, error) {
+			return nil, errors.New("ko")
+		}).
+		Reset()
 
 	// testing
-	assert.Error(t, blob{}.download("http://davidepucci.it", "/dev/null"), "failure")
+	assert.Error(t, blob{}.download("http://davidepucci.it", "/dev/null"), "ko")
 }
 
 func TestBlobDownloadReadFailure(t *testing.T) {
 	// monkey patching
-	patchhttpDefaultClientGet := gomonkey.ApplyMethod(reflect.TypeOf(http.DefaultClient), "Get",
-		func(*http.Client, string) (*http.Response, error) {
+	defer gomonkey.NewPatches().
+		ApplyMethod(http.DefaultClient, "Get", func() (*http.Response, error) {
 			return &http.Response{
 				StatusCode: 200,
 				Body:       io.NopCloser(strings.NewReader("")),
 				Header:     map[string][]string{"Content-Type": {"image/jpeg"}},
 			}, nil
-		})
-	defer patchhttpDefaultClientGet.Reset()
-	patchosOpenFile := gomonkey.ApplyFunc(os.OpenFile, func(string, int, fs.FileMode) (*os.File, error) {
-		return nil, nil
-	})
-	defer patchosOpenFile.Reset()
-	patchioReadAll := gomonkey.ApplyFunc(io.ReadAll, func(r io.Reader) ([]byte, error) {
-		return nil, errors.New("failure")
-	})
-	defer patchioReadAll.Reset()
+		}).
+		ApplyFunc(os.OpenFile, func() (*os.File, error) {
+			return nil, nil
+		}).
+		ApplyFunc(io.ReadAll, func() ([]byte, error) {
+			return nil, errors.New("ko")
+		}).
+		Reset()
 
 	// testing
-	assert.Error(t, blob{}.download("http://davidepucci.it", "/dev/null"), "failure")
+	assert.Error(t, blob{}.download("http://davidepucci.it", "/dev/null"), "ko")
 }

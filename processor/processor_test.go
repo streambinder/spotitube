@@ -23,16 +23,14 @@ var track = &entity.Track{
 
 func TestProcessorDo(t *testing.T) {
 	// monkey patching
-	patchnormalizerDo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(normalizer{}), "do",
-		func(normalizer, *entity.Track) error {
+	defer gomonkey.NewPatches().
+		ApplyPrivateMethod(reflect.TypeOf(normalizer{}), "do", func() error {
 			return nil
-		})
-	defer patchnormalizerDo.Reset()
-	patchencoderDo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(encoder{}), "do",
-		func(encoder, *entity.Track) error {
+		}).
+		ApplyPrivateMethod(reflect.TypeOf(encoder{}), "do", func() error {
 			return nil
-		})
-	defer patchencoderDo.Reset()
+		}).
+		Reset()
 
 	// testing
 	assert.Nil(t, Do(track))
@@ -40,17 +38,15 @@ func TestProcessorDo(t *testing.T) {
 
 func TestProcessorDoFailure(t *testing.T) {
 	// monkey patching
-	patchnormalizerDo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(normalizer{}), "do",
-		func(normalizer, *entity.Track) error {
+	defer gomonkey.NewPatches().
+		ApplyPrivateMethod(reflect.TypeOf(normalizer{}), "do", func() error {
 			return nil
-		})
-	defer patchnormalizerDo.Reset()
-	patchencoderDo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(encoder{}), "do",
-		func(encoder, *entity.Track) error {
-			return errors.New("failure")
-		})
-	defer patchencoderDo.Reset()
+		}).
+		ApplyPrivateMethod(reflect.TypeOf(encoder{}), "do", func() error {
+			return errors.New("ko")
+		}).
+		Reset()
 
 	// testing
-	assert.Error(t, Do(track), "failure")
+	assert.Error(t, Do(track), "ko")
 }

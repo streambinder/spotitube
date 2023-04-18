@@ -2,7 +2,6 @@ package processor
 
 import (
 	"errors"
-	"reflect"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
@@ -12,13 +11,14 @@ import (
 
 func TestEncoderDo(t *testing.T) {
 	// monkey patching
-	patchid3v2Open := gomonkey.ApplyFunc(id3v2.Open, func(string, id3v2.Options) (*id3v2.Tag, error) {
-		return id3v2.NewEmptyTag(), nil
-	})
-	defer patchid3v2Open.Reset()
-	patchid3v2TagSave := gomonkey.ApplyMethod(reflect.TypeOf(&id3v2.Tag{}), "Save",
-		func(*id3v2.Tag) error { return nil })
-	defer patchid3v2TagSave.Reset()
+	defer gomonkey.NewPatches().
+		ApplyFunc(id3v2.Open, func() (*id3v2.Tag, error) {
+			return id3v2.NewEmptyTag(), nil
+		}).
+		ApplyMethod(&id3v2.Tag{}, "Save", func() error {
+			return nil
+		}).
+		Reset()
 
 	// testing
 	assert.Nil(t, encoder{}.do(track))
@@ -26,11 +26,10 @@ func TestEncoderDo(t *testing.T) {
 
 func TestEncoderDoOpenFailure(t *testing.T) {
 	// monkey patching
-	patchid3v2Open := gomonkey.ApplyFunc(id3v2.Open, func(string, id3v2.Options) (*id3v2.Tag, error) {
-		return nil, errors.New("failure")
-	})
-	defer patchid3v2Open.Reset()
+	defer gomonkey.ApplyFunc(id3v2.Open, func() (*id3v2.Tag, error) {
+		return nil, errors.New("ko")
+	}).Reset()
 
 	// testing
-	assert.Error(t, encoder{}.do(track), "failure")
+	assert.Error(t, encoder{}.do(track), "ko")
 }

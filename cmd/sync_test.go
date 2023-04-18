@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"os"
-	"reflect"
 	"testing"
 	"time"
 
@@ -21,7 +20,6 @@ import (
 )
 
 var (
-	err   = errors.New("ko")
 	track = &entity.Track{
 		ID:          "123",
 		Title:       "Title",
@@ -50,55 +48,44 @@ var (
 
 func TestCmdSync(t *testing.T) {
 	// monkey patching
-	patchSleep := gomonkey.ApplyFunc(time.Sleep, func(time.Duration) {})
-	defer patchSleep.Reset()
-	patchcmdOpen := gomonkey.ApplyFunc(cmd.Open, func(string, ...string) error { return nil })
-	defer patchcmdOpen.Reset()
-	patchspotifyAuthenticate := gomonkey.ApplyFunc(spotify.Authenticate, func(...string) (*spotify.Client, error) { return &spotify.Client{}, nil })
-	defer patchspotifyAuthenticate.Reset()
-	patchspotifyClientLibrary := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Library",
-		func(c *spotify.Client, ch ...chan interface{}) error {
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyFunc(cmd.Open, func() error { return nil }).
+		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
+			return &spotify.Client{}, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
 			ch[0] <- track
 			return nil
-		})
-	defer patchspotifyClientLibrary.Reset()
-	patchspotifyClientPlaylist := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Playlist",
-		func(c *spotify.Client, id string, ch ...chan interface{}) (*entity.Playlist, error) {
+		}).
+		ApplyMethod(&spotify.Client{}, "Playlist", func(_ *spotify.Client, _ string, ch ...chan interface{}) (*entity.Playlist, error) {
 			ch[0] <- track
 			return playlist, nil
-		})
-	defer patchspotifyClientPlaylist.Reset()
-	patchspotifyClientAlbum := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Album",
-		func(c *spotify.Client, id string, ch ...chan interface{}) (*entity.Album, error) {
+		}).
+		ApplyMethod(&spotify.Client{}, "Album", func(_ *spotify.Client, _ string, ch ...chan interface{}) (*entity.Album, error) {
 			ch[0] <- track
 			return album, nil
-		})
-	defer patchspotifyClientAlbum.Reset()
-	patchspotifyClientTrack := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Track",
-		func(c *spotify.Client, id string, ch ...chan interface{}) (*entity.Track, error) {
+		}).
+		ApplyMethod(&spotify.Client{}, "Track", func(_ *spotify.Client, _ string, ch ...chan interface{}) (*entity.Track, error) {
 			ch[0] <- track
 			return track, nil
-		})
-	defer patchspotifyClientTrack.Reset()
-	patchproviderSearch := gomonkey.ApplyFunc(provider.Search, func(*entity.Track) ([]*provider.Match, error) {
-		return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
-	})
-	defer patchproviderSearch.Reset()
-	patchdownloaderDownload := gomonkey.ApplyFunc(downloader.Download, func(url, path string, ch ...chan []byte) error {
-		for _, c := range ch {
-			c <- []byte{}
-		}
-		return nil
-	})
-	defer patchdownloaderDownload.Reset()
-	patchlyricsSearch := gomonkey.ApplyFunc(lyrics.Search, func(*entity.Track) (string, error) {
-		return "lyrics", nil
-	})
-	defer patchlyricsSearch.Reset()
-	patchprocessorDo := gomonkey.ApplyFunc(processor.Do, func(*entity.Track) error {
-		return nil
-	})
-	defer patchprocessorDo.Reset()
+		}).
+		ApplyFunc(provider.Search, func() ([]*provider.Match, error) {
+			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
+		}).
+		ApplyFunc(downloader.Download, func(_, _ string, ch ...chan []byte) error {
+			for _, c := range ch {
+				c <- []byte{}
+			}
+			return nil
+		}).
+		ApplyFunc(lyrics.Search, func() (string, error) {
+			return "lyrics", nil
+		}).
+		ApplyFunc(processor.Do, func() error {
+			return nil
+		}).
+		Reset()
 
 	// testing
 	assert.Nil(t, util.ErrOnly(testExecute("sync")))
@@ -110,341 +97,353 @@ func TestCmdSync(t *testing.T) {
 
 func TestCmdSyncPathFailure(t *testing.T) {
 	// monkey patching
-	patchosChdir := gomonkey.ApplyFunc(os.Chdir, func(string) error { return err })
-	defer patchosChdir.Reset()
+	defer gomonkey.ApplyFunc(os.Chdir, func() error {
+		return errors.New("ko")
+	}).Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync")), err.Error())
+	assert.EqualError(t, util.ErrOnly(testExecute("sync")), "ko")
 }
 
 func TestCmdSyncAuthFailure(t *testing.T) {
 	// monkey patching
-	patchtimeSleep := gomonkey.ApplyFunc(time.Sleep, func(time.Duration) {})
-	defer patchtimeSleep.Reset()
-	patchcmdOpen := gomonkey.ApplyFunc(cmd.Open, func(string, ...string) error { return nil })
-	defer patchcmdOpen.Reset()
-	patchspotifyAuthenticate := gomonkey.ApplyFunc(spotify.Authenticate, func(...string) (*spotify.Client, error) { return client, err })
-	defer patchspotifyAuthenticate.Reset()
-	patchspotifyClientLibrary := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Library",
-		func(*spotify.Client, ...chan interface{}) error { return nil })
-	defer patchspotifyClientLibrary.Reset()
-	patchspotifyClientPlaylist := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Playlist",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Playlist, error) { return playlist, nil })
-	defer patchspotifyClientPlaylist.Reset()
-	patchspotifyClientAlbum := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Album",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Album, error) { return album, nil })
-	defer patchspotifyClientAlbum.Reset()
-	patchspotifyClientTrack := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Track",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Track, error) { return track, nil })
-	defer patchspotifyClientTrack.Reset()
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyFunc(cmd.Open, func() error {
+			return nil
+		}).
+		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
+			return client, errors.New("ko")
+		}).
+		ApplyMethod(&spotify.Client{}, "Library", func() error {
+			return nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Playlist", func() (*entity.Playlist, error) {
+			return playlist, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
+			return album, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
+			return track, nil
+		}).
+		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync")), err.Error())
+	assert.EqualError(t, util.ErrOnly(testExecute("sync")), "ko")
 }
 
 func TestCmdSyncLibraryFailure(t *testing.T) {
 	// monkey patching
-	patchtimeSleep := gomonkey.ApplyFunc(time.Sleep, func(time.Duration) {})
-	defer patchtimeSleep.Reset()
-	patchcmdOpen := gomonkey.ApplyFunc(cmd.Open, func(string, ...string) error { return nil })
-	defer patchcmdOpen.Reset()
-	patchspotifyAuthenticate := gomonkey.ApplyFunc(spotify.Authenticate, func(...string) (*spotify.Client, error) { return &spotify.Client{}, nil })
-	defer patchspotifyAuthenticate.Reset()
-	patchspotifyClientLibrary := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Library",
-		func(*spotify.Client, ...chan interface{}) error { return err })
-	defer patchspotifyClientLibrary.Reset()
-	patchspotifyClientPlaylist := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Playlist",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Playlist, error) { return playlist, nil })
-	defer patchspotifyClientPlaylist.Reset()
-	patchspotifyClientAlbum := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Album",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Album, error) { return album, nil })
-	defer patchspotifyClientAlbum.Reset()
-	patchspotifyClientTrack := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Track",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Track, error) { return track, nil })
-	defer patchspotifyClientTrack.Reset()
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyFunc(cmd.Open, func() error {
+			return nil
+		}).
+		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
+			return &spotify.Client{}, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Library", func() error {
+			return errors.New("ko")
+		}).
+		ApplyMethod(&spotify.Client{}, "Playlist", func() (*entity.Playlist, error) {
+			return playlist, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
+			return album, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
+			return track, nil
+		}).
+		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync")), err.Error())
+	assert.EqualError(t, util.ErrOnly(testExecute("sync")), "ko")
 }
 
 func TestCmdSyncPlaylistFailure(t *testing.T) {
 	// monkey patching
-	patchtimeSleep := gomonkey.ApplyFunc(time.Sleep, func(time.Duration) {})
-	defer patchtimeSleep.Reset()
-	patchcmdOpen := gomonkey.ApplyFunc(cmd.Open, func(string, ...string) error { return nil })
-	defer patchcmdOpen.Reset()
-	patchspotifyAuthenticate := gomonkey.ApplyFunc(spotify.Authenticate, func(...string) (*spotify.Client, error) { return &spotify.Client{}, nil })
-	defer patchspotifyAuthenticate.Reset()
-	patchspotifyClientLibrary := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Library",
-		func(*spotify.Client, ...chan interface{}) error { return nil })
-	defer patchspotifyClientLibrary.Reset()
-	patchspotifyClientPlaylist := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Playlist",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Playlist, error) { return nil, err })
-	defer patchspotifyClientPlaylist.Reset()
-	patchspotifyClientAlbum := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Album",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Album, error) { return album, nil })
-	defer patchspotifyClientAlbum.Reset()
-	patchspotifyClientTrack := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Track",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Track, error) { return track, nil })
-	defer patchspotifyClientTrack.Reset()
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyFunc(cmd.Open, func() error {
+			return nil
+		}).
+		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
+			return &spotify.Client{}, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Library", func() error {
+			return nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Playlist", func() (*entity.Playlist, error) {
+			return nil, errors.New("ko")
+		}).
+		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
+			return album, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
+			return track, nil
+		}).
+		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync", "-p", "123")), err.Error())
+	assert.EqualError(t, util.ErrOnly(testExecute("sync", "-p", "123")), "ko")
 }
 
 func TestCmdSyncAlbumFailure(t *testing.T) {
 	// monkey patching
-	patchspotifyAuthenticate := gomonkey.ApplyFunc(spotify.Authenticate, func(...string) (*spotify.Client, error) { return &spotify.Client{}, nil })
-	defer patchspotifyAuthenticate.Reset()
-	patchcmdOpen := gomonkey.ApplyFunc(cmd.Open, func(string, ...string) error { return nil })
-	defer patchcmdOpen.Reset()
-	patchspotifyClientLibrary := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Library",
-		func(*spotify.Client, ...chan interface{}) error { return nil })
-	defer patchspotifyClientLibrary.Reset()
-	patchspotifyClientPlaylist := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Playlist",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Playlist, error) { return playlist, nil })
-	defer patchspotifyClientPlaylist.Reset()
-	patchspotifyClientAlbum := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Album",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Album, error) { return nil, err })
-	defer patchspotifyClientAlbum.Reset()
-	patchspotifyClientTrack := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Track",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Track, error) { return track, nil })
-	defer patchspotifyClientTrack.Reset()
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyFunc(cmd.Open, func() error {
+			return nil
+		}).
+		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
+			return &spotify.Client{}, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Library", func() error {
+			return nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Playlist", func() (*entity.Playlist, error) {
+			return playlist, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
+			return nil, errors.New("ko")
+		}).
+		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
+			return track, nil
+		}).
+		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync", "-a", "123")), err.Error())
+	assert.EqualError(t, util.ErrOnly(testExecute("sync", "-a", "123")), "ko")
 }
 
 func TestCmdSyncTrackFailure(t *testing.T) {
 	// monkey patching
-	patchtimeSleep := gomonkey.ApplyFunc(time.Sleep, func(time.Duration) {})
-	defer patchtimeSleep.Reset()
-	patchcmdOpen := gomonkey.ApplyFunc(cmd.Open, func(string, ...string) error { return nil })
-	defer patchcmdOpen.Reset()
-	patchspotifyAuthenticate := gomonkey.ApplyFunc(spotify.Authenticate, func(...string) (*spotify.Client, error) { return &spotify.Client{}, nil })
-	defer patchspotifyAuthenticate.Reset()
-	patchspotifyClientLibrary := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Library",
-		func(*spotify.Client, ...chan interface{}) error { return nil })
-	defer patchspotifyClientLibrary.Reset()
-	patchspotifyClientPlaylist := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Playlist",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Playlist, error) { return playlist, nil })
-	defer patchspotifyClientPlaylist.Reset()
-	patchspotifyClientAlbum := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Album",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Album, error) { return album, nil })
-	defer patchspotifyClientAlbum.Reset()
-	patchspotifyClientTrack := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Track",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Track, error) { return nil, err })
-	defer patchspotifyClientTrack.Reset()
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyFunc(cmd.Open, func() error {
+			return nil
+		}).
+		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
+			return &spotify.Client{}, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Library", func() error {
+			return nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Playlist", func() (*entity.Playlist, error) {
+			return playlist, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
+			return album, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
+			return nil, errors.New("ko")
+		}).
+		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync", "-t", "123")), err.Error())
+	assert.EqualError(t, util.ErrOnly(testExecute("sync", "-t", "123")), "ko")
 }
 
 func TestCmdSyncDecideFailure(t *testing.T) {
 	// monkey patching
-	patchtimeSleep := gomonkey.ApplyFunc(time.Sleep, func(time.Duration) {})
-	defer patchtimeSleep.Reset()
-	patchcmdOpen := gomonkey.ApplyFunc(cmd.Open, func(string, ...string) error { return nil })
-	defer patchcmdOpen.Reset()
-	patchspotifyAuthenticate := gomonkey.ApplyFunc(spotify.Authenticate, func(...string) (*spotify.Client, error) { return &spotify.Client{}, nil })
-	defer patchspotifyAuthenticate.Reset()
-	patchspotifyClientLibrary := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Library",
-		func(c *spotify.Client, ch ...chan interface{}) error {
-			ch[0] <- track
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyFunc(cmd.Open, func() error {
 			return nil
-		})
-	defer patchspotifyClientLibrary.Reset()
-	patchspotifyClientPlaylist := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Playlist",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Playlist, error) { return playlist, nil })
-	defer patchspotifyClientPlaylist.Reset()
-	patchspotifyClientAlbum := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Album",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Album, error) { return album, nil })
-	defer patchspotifyClientAlbum.Reset()
-	patchspotifyClientTrack := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Track",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Track, error) { return track, nil })
-	defer patchspotifyClientTrack.Reset()
-	patchproviderSearch := gomonkey.ApplyFunc(provider.Search, func(*entity.Track) ([]*provider.Match, error) {
-		return nil, err
-	})
-	defer patchproviderSearch.Reset()
+		}).
+		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
+			return &spotify.Client{}, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Library",
+			func(_ *spotify.Client, ch ...chan interface{}) error {
+				ch[0] <- track
+				return nil
+			}).
+		ApplyMethod(&spotify.Client{}, "Playlist", func() (*entity.Playlist, error) {
+			return playlist, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
+			return album, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
+			return track, nil
+		}).
+		ApplyFunc(provider.Search, func(*entity.Track) ([]*provider.Match, error) {
+			return nil, errors.New("ko")
+		}).
+		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync")), err.Error())
+	assert.EqualError(t, util.ErrOnly(testExecute("sync")), "ko")
 }
 
 func TestCmdSyncCollectFailure(t *testing.T) {
 	// monkey patching
-	patchtimeSleep := gomonkey.ApplyFunc(time.Sleep, func(time.Duration) {})
-	defer patchtimeSleep.Reset()
-	patchcmdOpen := gomonkey.ApplyFunc(cmd.Open, func(string, ...string) error { return nil })
-	defer patchcmdOpen.Reset()
-	patchspotifyAuthenticate := gomonkey.ApplyFunc(spotify.Authenticate, func(...string) (*spotify.Client, error) { return &spotify.Client{}, nil })
-	defer patchspotifyAuthenticate.Reset()
-	patchspotifyClientLibrary := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Library",
-		func(c *spotify.Client, ch ...chan interface{}) error {
-			ch[0] <- track
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyFunc(cmd.Open, func() error {
 			return nil
-		})
-	defer patchspotifyClientLibrary.Reset()
-	patchspotifyClientPlaylist := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Playlist",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Playlist, error) { return playlist, nil })
-	defer patchspotifyClientPlaylist.Reset()
-	patchspotifyClientAlbum := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Album",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Album, error) { return album, nil })
-	defer patchspotifyClientAlbum.Reset()
-	patchspotifyClientTrack := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Track",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Track, error) { return track, nil })
-	defer patchspotifyClientTrack.Reset()
-	patchPainter := gomonkey.ApplyFunc(painter, func(track *entity.Track) func(context.Context, chan error) {
-		return func(ctx context.Context, ch chan error) {
-			ch <- err
-		}
-	})
-	defer patchPainter.Reset()
-	patchdownloaderDownload := gomonkey.ApplyFunc(downloader.Download, func(url, path string, ch ...chan []byte) error {
-		for _, c := range ch {
-			c <- []byte{}
-		}
-		return nil
-	})
-	defer patchdownloaderDownload.Reset()
-	patchlyricsSearch := gomonkey.ApplyFunc(lyrics.Search, func(*entity.Track) (string, error) {
-		return "", nil
-	})
-	defer patchlyricsSearch.Reset()
+		}).
+		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
+			return &spotify.Client{}, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Library",
+			func(_ *spotify.Client, ch ...chan interface{}) error {
+				ch[0] <- track
+				return nil
+			}).
+		ApplyMethod(&spotify.Client{}, "Playlist", func() (*entity.Playlist, error) {
+			return playlist, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
+			return album, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
+			return track, nil
+		}).
+		ApplyFunc(painter, func(track *entity.Track) func(context.Context, chan error) {
+			return func(_ context.Context, ch chan error) {
+				ch <- errors.New("ko")
+			}
+		}).
+		ApplyFunc(downloader.Download, func(_, _ string, ch ...chan []byte) error {
+			for _, c := range ch {
+				c <- []byte{}
+			}
+			return nil
+		}).
+		ApplyFunc(lyrics.Search, func() (string, error) {
+			return "", nil
+		}).
+		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync")), err.Error())
+	assert.EqualError(t, util.ErrOnly(testExecute("sync")), "ko")
 }
 
 func TestCmdSyncDownloadFailure(t *testing.T) {
 	// monkey patching
-	patchtimeSleep := gomonkey.ApplyFunc(time.Sleep, func(time.Duration) {})
-	defer patchtimeSleep.Reset()
-	patchcmdOpen := gomonkey.ApplyFunc(cmd.Open, func(string, ...string) error { return nil })
-	defer patchcmdOpen.Reset()
-	patchspotifyAuthenticate := gomonkey.ApplyFunc(spotify.Authenticate, func(...string) (*spotify.Client, error) { return &spotify.Client{}, nil })
-	defer patchspotifyAuthenticate.Reset()
-	patchspotifyClientLibrary := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Library",
-		func(c *spotify.Client, ch ...chan interface{}) error {
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyFunc(cmd.Open, func() error {
+			return nil
+		}).
+		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
+			return &spotify.Client{}, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
 			ch[0] <- track
 			return nil
-		})
-	defer patchspotifyClientLibrary.Reset()
-	patchspotifyClientPlaylist := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Playlist",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Playlist, error) { return playlist, nil })
-	defer patchspotifyClientPlaylist.Reset()
-	patchspotifyClientAlbum := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Album",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Album, error) { return album, nil })
-	defer patchspotifyClientAlbum.Reset()
-	patchspotifyClientTrack := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Track",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Track, error) { return track, nil })
-	defer patchspotifyClientTrack.Reset()
-	patchproviderSearch := gomonkey.ApplyFunc(provider.Search, func(*entity.Track) ([]*provider.Match, error) {
-		return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
-	})
-	defer patchproviderSearch.Reset()
-	patchdownloaderDownload := gomonkey.ApplyFunc(downloader.Download, func(url, path string, ch ...chan []byte) error {
-		for _, c := range ch {
-			c <- []byte{}
-		}
-		return err
-	})
-	defer patchdownloaderDownload.Reset()
-	patchlyricsSearch := gomonkey.ApplyFunc(lyrics.Search, func(*entity.Track) (string, error) {
-		return "", nil
-	})
-	defer patchlyricsSearch.Reset()
+		}).
+		ApplyMethod(&spotify.Client{}, "Playlist", func() (*entity.Playlist, error) {
+			return playlist, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
+			return album, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
+			return track, nil
+		}).
+		ApplyFunc(provider.Search, func(*entity.Track) ([]*provider.Match, error) {
+			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
+		}).
+		ApplyFunc(downloader.Download, func(_, _ string, ch ...chan []byte) error {
+			for _, c := range ch {
+				c <- []byte{}
+			}
+			return errors.New("ko")
+		}).
+		ApplyFunc(lyrics.Search, func() (string, error) {
+			return "", nil
+		}).
+		Reset()
+
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync")), err.Error())
+	assert.EqualError(t, util.ErrOnly(testExecute("sync")), "ko")
 }
 
 func TestCmdSyncLyricsFailure(t *testing.T) {
 	// monkey patching
-	patchtimeSleep := gomonkey.ApplyFunc(time.Sleep, func(time.Duration) {})
-	defer patchtimeSleep.Reset()
-	patchcmdOpen := gomonkey.ApplyFunc(cmd.Open, func(string, ...string) error { return nil })
-	defer patchcmdOpen.Reset()
-	patchspotifyAuthenticate := gomonkey.ApplyFunc(spotify.Authenticate, func(...string) (*spotify.Client, error) { return &spotify.Client{}, nil })
-	defer patchspotifyAuthenticate.Reset()
-	patchspotifyClientLibrary := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Library",
-		func(c *spotify.Client, ch ...chan interface{}) error {
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyFunc(cmd.Open, func() error {
+			return nil
+		}).
+		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
+			return &spotify.Client{}, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
 			ch[0] <- track
 			return nil
-		})
-	defer patchspotifyClientLibrary.Reset()
-	patchspotifyClientPlaylist := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Playlist",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Playlist, error) { return playlist, nil })
-	defer patchspotifyClientPlaylist.Reset()
-	patchspotifyClientAlbum := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Album",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Album, error) { return album, nil })
-	defer patchspotifyClientAlbum.Reset()
-	patchspotifyClientTrack := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Track",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Track, error) { return track, nil })
-	defer patchspotifyClientTrack.Reset()
-	patchproviderSearch := gomonkey.ApplyFunc(provider.Search, func(*entity.Track) ([]*provider.Match, error) {
-		return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
-	})
-	defer patchproviderSearch.Reset()
-	patchdownloaderDownload := gomonkey.ApplyFunc(downloader.Download, func(url, path string, ch ...chan []byte) error {
-		for _, c := range ch {
-			c <- []byte{}
-		}
-		return nil
-	})
-	defer patchdownloaderDownload.Reset()
-	patchlyricsSearch := gomonkey.ApplyFunc(lyrics.Search, func(*entity.Track) (string, error) {
-		return "", err
-	})
-	defer patchlyricsSearch.Reset()
+		}).
+		ApplyMethod(&spotify.Client{}, "Playlist", func() (*entity.Playlist, error) {
+			return playlist, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
+			return album, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
+			return track, nil
+		}).
+		ApplyFunc(provider.Search, func() ([]*provider.Match, error) {
+			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
+		}).
+		ApplyFunc(downloader.Download, func(_, _ string, ch ...chan []byte) error {
+			for _, c := range ch {
+				c <- []byte{}
+			}
+			return nil
+		}).
+		ApplyFunc(lyrics.Search, func() (string, error) {
+			return "", errors.New("ko")
+		}).
+		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync")), err.Error())
+	assert.EqualError(t, util.ErrOnly(testExecute("sync")), "ko")
 }
 
 func TestCmdSyncProcessorFailure(t *testing.T) {
 	// monkey patching
-	patchtimeSleep := gomonkey.ApplyFunc(time.Sleep, func(time.Duration) {})
-	defer patchtimeSleep.Reset()
-	patchcmdOpen := gomonkey.ApplyFunc(cmd.Open, func(string, ...string) error { return nil })
-	defer patchcmdOpen.Reset()
-	patchspotifyAuthenticate := gomonkey.ApplyFunc(spotify.Authenticate, func(...string) (*spotify.Client, error) { return &spotify.Client{}, nil })
-	defer patchspotifyAuthenticate.Reset()
-	patchspotifyClientLibrary := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Library",
-		func(c *spotify.Client, ch ...chan interface{}) error {
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyFunc(cmd.Open, func() error {
+			return nil
+		}).
+		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
+			return &spotify.Client{}, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
 			ch[0] <- track
 			return nil
-		})
-	defer patchspotifyClientLibrary.Reset()
-	patchspotifyClientPlaylist := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Playlist",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Playlist, error) { return playlist, nil })
-	defer patchspotifyClientPlaylist.Reset()
-	patchspotifyClientAlbum := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Album",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Album, error) { return album, nil })
-	defer patchspotifyClientAlbum.Reset()
-	patchspotifyClientTrack := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Track",
-		func(*spotify.Client, string, ...chan interface{}) (*entity.Track, error) { return track, nil })
-	defer patchspotifyClientTrack.Reset()
-	patchproviderSearch := gomonkey.ApplyFunc(provider.Search, func(*entity.Track) ([]*provider.Match, error) {
-		return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
-	})
-	defer patchproviderSearch.Reset()
-	patchdownloaderDownload := gomonkey.ApplyFunc(downloader.Download, func(url, path string, ch ...chan []byte) error {
-		for _, c := range ch {
-			c <- []byte{}
-		}
-		return nil
-	})
-	defer patchdownloaderDownload.Reset()
-	patchlyricsSearch := gomonkey.ApplyFunc(lyrics.Search, func(*entity.Track) (string, error) {
-		return "lyrics", nil
-	})
-	defer patchlyricsSearch.Reset()
-	patchprocessorDo := gomonkey.ApplyFunc(processor.Do, func(*entity.Track) error {
-		return err
-	})
-	defer patchprocessorDo.Reset()
+		}).
+		ApplyMethod(&spotify.Client{}, "Playlist", func() (*entity.Playlist, error) {
+			return playlist, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
+			return album, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
+			return track, nil
+		}).
+		ApplyFunc(provider.Search, func() ([]*provider.Match, error) {
+			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
+		}).
+		ApplyFunc(downloader.Download, func(_, _ string, ch ...chan []byte) error {
+			for _, c := range ch {
+				c <- []byte{}
+			}
+			return nil
+		}).
+		ApplyFunc(lyrics.Search, func() (string, error) {
+			return "lyrics", nil
+		}).
+		ApplyFunc(processor.Do, func() error {
+			return errors.New("ko")
+		}).
+		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync")), err.Error())
+	assert.EqualError(t, util.ErrOnly(testExecute("sync")), "ko")
 }

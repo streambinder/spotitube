@@ -1,10 +1,8 @@
 package spotify
 
 import (
-	"context"
 	"errors"
 	"net/http"
-	"reflect"
 	"syscall"
 	"testing"
 	"time"
@@ -25,13 +23,12 @@ var library = &spotify.SavedTrackPage{
 
 func TestLibrary(t *testing.T) {
 	// monkey patching
-	patchtimeSleep := gomonkey.ApplyFunc(time.Sleep, func(time.Duration) {})
-	defer patchtimeSleep.Reset()
-	patchspotifyClientCurrentUsersTracks := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "CurrentUsersTracks",
-		func(*spotify.Client, context.Context, ...spotify.RequestOption) (*spotify.SavedTrackPage, error) {
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyMethod(&spotify.Client{}, "CurrentUsersTracks", func() (*spotify.SavedTrackPage, error) {
 			return library, nil
-		})
-	defer patchspotifyClientCurrentUsersTracks.Reset()
+		}).
+		Reset()
 
 	// testing
 	channel := make(chan interface{}, 1)
@@ -43,16 +40,15 @@ func TestLibrary(t *testing.T) {
 
 func TestLibraryFailure(t *testing.T) {
 	// monkey patching
-	patchtimeSleep := gomonkey.ApplyFunc(time.Sleep, func(time.Duration) {})
-	defer patchtimeSleep.Reset()
-	patchspotifyClientCurrentUsersTracks := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "CurrentUsersTracks",
-		func(*spotify.Client, context.Context, ...spotify.RequestOption) (*spotify.SavedTrackPage, error) {
-			return nil, errors.New("failure")
-		})
-	defer patchspotifyClientCurrentUsersTracks.Reset()
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyMethod(&spotify.Client{}, "CurrentUsersTracks", func() (*spotify.SavedTrackPage, error) {
+			return nil, errors.New("ko")
+		}).
+		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly((&Client{}).Library()), "failure")
+	assert.EqualError(t, util.ErrOnly((&Client{}).Library()), "ko")
 }
 
 func TestLibraryNextPageFailure(t *testing.T) {
@@ -63,13 +59,12 @@ func TestLibraryNextPageFailure(t *testing.T) {
 	libraryWithNextPage.Next = "http://0.0.0.0"
 
 	// monkey patching
-	patchtimeSleep := gomonkey.ApplyFunc(time.Sleep, func(time.Duration) {})
-	defer patchtimeSleep.Reset()
-	patchspotifyClientCurrentUsersTracks := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "CurrentUsersTracks",
-		func(*spotify.Client, context.Context, ...spotify.RequestOption) (*spotify.SavedTrackPage, error) {
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyMethod(&spotify.Client{}, "CurrentUsersTracks", func() (*spotify.SavedTrackPage, error) {
 			return libraryWithNextPage, nil
-		})
-	defer patchspotifyClientCurrentUsersTracks.Reset()
+		}).
+		Reset()
 
 	// testing
 	assert.True(t, errors.Is(util.ErrOnly(client.Library()), syscall.ECONNREFUSED))

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"os/exec"
-	"reflect"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
@@ -11,8 +10,7 @@ import (
 
 func TestOpen(t *testing.T) {
 	// monkey patching
-	patchexecCmdStart := gomonkey.ApplyMethod(reflect.TypeOf(&exec.Cmd{}), "Start", func(*exec.Cmd) error { return nil })
-	defer patchexecCmdStart.Reset()
+	defer gomonkey.ApplyMethod(&exec.Cmd{}, "Start", func() error { return nil }).Reset()
 
 	// testing
 	assert.Nil(t, Open("https://davidepucci.it", "linux"))

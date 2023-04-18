@@ -24,14 +24,12 @@ var track = &entity.Track{
 
 func TestSearch(t *testing.T) {
 	// monkey patching
-	patchyouTubeSearch := gomonkey.ApplyPrivateMethod(reflect.TypeOf(youTube{}), "search",
-		func(youTube, *entity.Track) ([]*Match, error) {
-			return []*Match{
-				{URL: "url1", Score: 3},
-				{URL: "url2", Score: 1},
-			}, nil
-		})
-	defer patchyouTubeSearch.Reset()
+	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(youTube{}), "search", func() ([]*Match, error) {
+		return []*Match{
+			{URL: "url1", Score: 3},
+			{URL: "url2", Score: 1},
+		}, nil
+	}).Reset()
 
 	// testing
 	matches, err := Search(track)
@@ -41,12 +39,10 @@ func TestSearch(t *testing.T) {
 
 func TestSearchFailure(t *testing.T) {
 	// monkey patching
-	patchyouTubeSearch := gomonkey.ApplyPrivateMethod(reflect.TypeOf(youTube{}), "search",
-		func(youTube, *entity.Track) ([]*Match, error) {
-			return nil, errors.New("failure")
-		})
-	defer patchyouTubeSearch.Reset()
+	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(youTube{}), "search", func() ([]*Match, error) {
+		return nil, errors.New("ko")
+	}).Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(Search(track)), "failure")
+	assert.Error(t, util.ErrOnly(Search(track)), "ko")
 }

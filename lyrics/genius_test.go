@@ -32,22 +32,20 @@ const (
 
 func TestGeniusSearch(t *testing.T) {
 	// monkey patching
-	patchhttpDefaultClientDo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do",
-		func(client *http.Client, request *http.Request) (*http.Response, error) {
-			if strings.EqualFold(request.Host, "api.genius.com") {
-				return &http.Response{
-					StatusCode: 200,
-					Body: io.NopCloser(
-						strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0]))),
-				}, nil
-			}
+	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func(_ *http.Client, request *http.Request) (*http.Response, error) {
+		if strings.EqualFold(request.Host, "api.genius.com") {
 			return &http.Response{
 				StatusCode: 200,
 				Body: io.NopCloser(
-					strings.NewReader(`<div data-lyrics-container="true">verse<br/><span>lyrics</span></div>`)),
+					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0]))),
 			}, nil
-		})
-	defer patchhttpDefaultClientDo.Reset()
+		}
+		return &http.Response{
+			StatusCode: 200,
+			Body: io.NopCloser(
+				strings.NewReader(`<div data-lyrics-container="true">verse<br/><span>lyrics</span></div>`)),
+		}, nil
+	}).Reset()
 
 	// testing
 	lyrics, err := genius{}.search(track, context.Background())
@@ -57,39 +55,33 @@ func TestGeniusSearch(t *testing.T) {
 
 func TestGeniusSearchNewRequestFailure(t *testing.T) {
 	// monkey patching
-	patchhttpDefaultNewRequestWithContext := gomonkey.ApplyFunc(http.NewRequestWithContext,
-		func(context.Context, string, string, io.Reader) (*http.Request, error) {
-			return nil, errors.New("failure")
-		})
-	defer patchhttpDefaultNewRequestWithContext.Reset()
+	defer gomonkey.ApplyFunc(http.NewRequestWithContext, func() (*http.Request, error) {
+		return nil, errors.New("ko")
+	}).Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(genius{}.search(track)), "failure")
+	assert.Error(t, util.ErrOnly(genius{}.search(track)), "ko")
 }
 
 func TestGeniusSearchFailure(t *testing.T) {
 	// monkey patching
-	patchhttpDefaultClientDo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do",
-		func(*http.Client, *http.Request) (*http.Response, error) {
-			return nil, errors.New("failure")
-		})
-	defer patchhttpDefaultClientDo.Reset()
+	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
+		return nil, errors.New("ko")
+	}).Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(genius{}.search(track)), "failure")
+	assert.Error(t, util.ErrOnly(genius{}.search(track)), "ko")
 }
 
 func TestGeniusSearchHttpNotFound(t *testing.T) {
 	// monkey patching
-	patchhttpDefaultClientDo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do",
-		func(*http.Client, *http.Request) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: 404,
-				Body: io.NopCloser(
-					strings.NewReader("")),
-			}, nil
-		})
-	defer patchhttpDefaultClientDo.Reset()
+	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 404,
+			Body: io.NopCloser(
+				strings.NewReader("")),
+		}, nil
+	}).Reset()
 
 	// testing
 	assert.NotNil(t, util.ErrOnly(genius{}.search(track)))
@@ -97,35 +89,32 @@ func TestGeniusSearchHttpNotFound(t *testing.T) {
 
 func TestGeniusSearchReadFailure(t *testing.T) {
 	// monkey patching
-	patchhttpDefaultClientDo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do",
-		func(*http.Client, *http.Request) (*http.Response, error) {
+	defer gomonkey.NewPatches().
+		ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
 			return &http.Response{
 				StatusCode: 200,
 				Body: io.NopCloser(
 					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0]))),
 			}, nil
-		})
-	defer patchhttpDefaultClientDo.Reset()
-	patchioReadAll := gomonkey.ApplyFunc(io.ReadAll, func(r io.Reader) ([]byte, error) {
-		return nil, errors.New("failure")
-	})
-	defer patchioReadAll.Reset()
+		}).
+		ApplyFunc(io.ReadAll, func() ([]byte, error) {
+			return nil, errors.New("ko")
+		}).
+		Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(genius{}.search(track)), "failure")
+	assert.Error(t, util.ErrOnly(genius{}.search(track)), "ko")
 }
 
 func TestGeniusSearchNotFound(t *testing.T) {
 	// monkey patching
-	patchhttpDefaultClientDo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do",
-		func(*http.Client, *http.Request) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: 200,
-				Body: io.NopCloser(
-					strings.NewReader(`{"response": {"hits": []}`)),
-			}, nil
-		})
-	defer patchhttpDefaultClientDo.Reset()
+	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 200,
+			Body: io.NopCloser(
+				strings.NewReader(`{"response": {"hits": []}`)),
+		}, nil
+	}).Reset()
 
 	// testing
 	lyrics, err := genius{}.search(track)
@@ -135,52 +124,46 @@ func TestGeniusSearchNotFound(t *testing.T) {
 
 func TestGeniusLyricsGetFailure(t *testing.T) {
 	// monkey patching
-	patchhttpDefaultClientDo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do",
-		func(client *http.Client, request *http.Request) (*http.Response, error) {
-			if strings.EqualFold(request.Host, "api.genius.com") {
-				return &http.Response{
-					StatusCode: 200,
-					Body: io.NopCloser(
-						strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0]))),
-				}, nil
-			}
-			return nil, errors.New("failure")
-		})
-	defer patchhttpDefaultClientDo.Reset()
+	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func(_ *http.Client, request *http.Request) (*http.Response, error) {
+		if strings.EqualFold(request.Host, "api.genius.com") {
+			return &http.Response{
+				StatusCode: 200,
+				Body: io.NopCloser(
+					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0]))),
+			}, nil
+		}
+		return nil, errors.New("ko")
+	}).Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(genius{}.search(track)), "failure")
+	assert.Error(t, util.ErrOnly(genius{}.search(track)), "ko")
 }
 
 func TestGeniusLyricsNewRequestFailure(t *testing.T) {
 	// monkey patching
-	patchhttpDefaultNewRequestWithContext := gomonkey.ApplyFunc(http.NewRequestWithContext,
-		func(context.Context, string, string, io.Reader) (*http.Request, error) {
-			return nil, errors.New("failure")
-		})
-	defer patchhttpDefaultNewRequestWithContext.Reset()
+	defer gomonkey.ApplyFunc(http.NewRequestWithContext, func() (*http.Request, error) {
+		return nil, errors.New("ko")
+	}).Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(genius{}.fromGeniusURL("http://genius.com/test", context.Background())), "failure")
+	assert.Error(t, util.ErrOnly(genius{}.fromGeniusURL("http://genius.com/test", context.Background())), "ko")
 }
 
 func TestGeniusLyricsNotFound(t *testing.T) {
 	// monkey patching
-	patchhttpDefaultClientDo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do",
-		func(client *http.Client, request *http.Request) (*http.Response, error) {
-			if strings.EqualFold(request.Host, "api.genius.com") {
-				return &http.Response{
-					StatusCode: 200,
-					Body: io.NopCloser(
-						strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0]))),
-				}, nil
-			}
+	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func(_ *http.Client, request *http.Request) (*http.Response, error) {
+		if strings.EqualFold(request.Host, "api.genius.com") {
 			return &http.Response{
-				StatusCode: 500,
-				Body:       io.NopCloser(strings.NewReader("")),
+				StatusCode: 200,
+				Body: io.NopCloser(
+					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0]))),
 			}, nil
-		})
-	defer patchhttpDefaultClientDo.Reset()
+		}
+		return &http.Response{
+			StatusCode: 500,
+			Body:       io.NopCloser(strings.NewReader("")),
+		}, nil
+	}).Reset()
 
 	// testing
 	lyrics, err := genius{}.search(track)
@@ -190,8 +173,8 @@ func TestGeniusLyricsNotFound(t *testing.T) {
 
 func TestGeniusLyricsNotParseable(t *testing.T) {
 	// monkey patching
-	patchhttpDefaultClientDo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do",
-		func(client *http.Client, request *http.Request) (*http.Response, error) {
+	defer gomonkey.NewPatches().
+		ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func(_ *http.Client, request *http.Request) (*http.Response, error) {
 			if strings.EqualFold(request.Host, "api.genius.com") {
 				return &http.Response{
 					StatusCode: 200,
@@ -203,16 +186,14 @@ func TestGeniusLyricsNotParseable(t *testing.T) {
 				StatusCode: 200,
 				Body:       io.NopCloser(strings.NewReader("")),
 			}, nil
-		})
-	defer patchhttpDefaultClientDo.Reset()
-	patchgoqueryNewDocumentFromReader := gomonkey.ApplyFunc(goquery.NewDocumentFromReader,
-		func(r io.Reader) (*goquery.Document, error) {
-			return nil, errors.New("failure")
-		})
-	defer patchgoqueryNewDocumentFromReader.Reset()
+		}).
+		ApplyFunc(goquery.NewDocumentFromReader, func() (*goquery.Document, error) {
+			return nil, errors.New("ko")
+		}).
+		Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(genius{}.search(track)), "failure")
+	assert.Error(t, util.ErrOnly(genius{}.search(track)), "ko")
 }
 
 func TestScraping(t *testing.T) {

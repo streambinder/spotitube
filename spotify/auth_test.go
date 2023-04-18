@@ -5,11 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"net"
 	"net/http"
 	"os"
-	"reflect"
 	"syscall"
 	"testing"
 	"time"
@@ -32,23 +30,23 @@ const (
 
 func TestAuthenticate(t *testing.T) {
 	// monkey patching
-	patchRecover := gomonkey.ApplyFunc(Recover, func(*spotifyauth.Authenticator, string) (*Client, error) {
-		return nil, errors.New("failure")
-	})
-	defer patchRecover.Reset()
-	patchClientPersist := gomonkey.ApplyMethod(reflect.TypeOf(&Client{}), "Persist", func(*Client) error {
-		return nil
-	})
-	defer patchClientPersist.Reset()
-	patchcmdOpen := gomonkey.ApplyFunc(cmd.Open, func(string, ...string) error { return nil })
-	defer patchcmdOpen.Reset()
-	patchrandstrHex := gomonkey.ApplyFunc(randstr.Hex, func(int) string { return state })
-	defer patchrandstrHex.Reset()
-	patchspotifyauthAuthenticatorToken := gomonkey.ApplyMethod(reflect.TypeOf(spotifyauth.Authenticator{}), "Token",
-		func(spotifyauth.Authenticator, context.Context, string, *http.Request, ...oauth2.AuthCodeOption) (*oauth2.Token, error) {
+	defer gomonkey.NewPatches().
+		ApplyFunc(Recover, func() (*Client, error) {
+			return nil, errors.New("ko")
+		}).
+		ApplyMethod(&Client{}, "Persist", func() error {
+			return nil
+		}).
+		ApplyFunc(cmd.Open, func() error {
+			return nil
+		}).
+		ApplyFunc(randstr.Hex, func() string {
+			return state
+		}).
+		ApplyMethod(spotifyauth.Authenticator{}, "Token", func() (*oauth2.Token, error) {
 			return nil, nil
-		})
-	defer patchspotifyauthAuthenticatorToken.Reset()
+		}).
+		Reset()
 
 	// testing
 	assert.Nil(t, nursery.RunConcurrently(
@@ -77,24 +75,20 @@ func TestAuthenticate(t *testing.T) {
 
 func TestAuthenticateRecoverAndPersist(t *testing.T) {
 	// monkey patching
-	patchosReadFile := gomonkey.ApplyFunc(os.ReadFile, func(string) ([]byte, error) {
-		return []byte(token), nil
-	})
-	defer patchosReadFile.Reset()
-	patchosOpenFile := gomonkey.ApplyFunc(os.OpenFile, func(string, int, fs.FileMode) (*os.File, error) {
-		return &os.File{}, nil
-	})
-	defer patchosOpenFile.Reset()
-	patchspotifyClientToken := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Token",
-		func(*spotify.Client) (*oauth2.Token, error) {
+	defer gomonkey.NewPatches().
+		ApplyFunc(os.ReadFile, func() ([]byte, error) {
+			return []byte(token), nil
+		}).
+		ApplyFunc(os.OpenFile, func() (*os.File, error) {
+			return &os.File{}, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Token", func() (*oauth2.Token, error) {
 			return nil, nil
-		})
-	defer patchspotifyClientToken.Reset()
-	patchjsonEncoderEncode := gomonkey.ApplyMethod(reflect.TypeOf(&json.Encoder{}), "Encode",
-		func(*json.Encoder, any) error {
+		}).
+		ApplyMethod(&json.Encoder{}, "Encode", func() error {
 			return nil
-		})
-	defer patchjsonEncoderEncode.Reset()
+		}).
+		Reset()
 
 	// testing
 	assert.Nil(t, util.ErrOnly(Authenticate("127.0.0.1")))
@@ -102,23 +96,23 @@ func TestAuthenticateRecoverAndPersist(t *testing.T) {
 
 func TestAuthenticateRecoverOpenFailure(t *testing.T) {
 	// monkey patching
-	patchosReadFile := gomonkey.ApplyFunc(os.ReadFile, func(string) ([]byte, error) {
-		return nil, errors.New("failure")
-	})
-	defer patchosReadFile.Reset()
-	patchClientPersist := gomonkey.ApplyMethod(reflect.TypeOf(&Client{}), "Persist", func(*Client) error {
-		return nil
-	})
-	defer patchClientPersist.Reset()
-	patchcmdOpen := gomonkey.ApplyFunc(cmd.Open, func(string, ...string) error { return nil })
-	defer patchcmdOpen.Reset()
-	patchrandstrHex := gomonkey.ApplyFunc(randstr.Hex, func(int) string { return state })
-	defer patchrandstrHex.Reset()
-	patchspotifyauthAuthenticatorToken := gomonkey.ApplyMethod(reflect.TypeOf(spotifyauth.Authenticator{}), "Token",
-		func(spotifyauth.Authenticator, context.Context, string, *http.Request, ...oauth2.AuthCodeOption) (*oauth2.Token, error) {
+	defer gomonkey.NewPatches().
+		ApplyFunc(os.ReadFile, func() ([]byte, error) {
+			return nil, errors.New("ko")
+		}).
+		ApplyMethod(&Client{}, "Persist", func() error {
+			return nil
+		}).
+		ApplyFunc(cmd.Open, func() error {
+			return nil
+		}).
+		ApplyFunc(randstr.Hex, func() string {
+			return state
+		}).
+		ApplyMethod(spotifyauth.Authenticator{}, "Token", func() (*oauth2.Token, error) {
 			return nil, nil
-		})
-	defer patchspotifyauthAuthenticatorToken.Reset()
+		}).
+		Reset()
 
 	// testing
 	assert.Nil(t, nursery.RunConcurrently(
@@ -147,27 +141,26 @@ func TestAuthenticateRecoverOpenFailure(t *testing.T) {
 
 func TestAuthenticateRecoverUnmarshalFailure(t *testing.T) {
 	// monkey patching
-	patchosReadFile := gomonkey.ApplyFunc(os.ReadFile, func(string) ([]byte, error) {
-		return []byte(token), nil
-	})
-	defer patchosReadFile.Reset()
-	patchjsonUnmarshal := gomonkey.ApplyFunc(json.Unmarshal, func([]byte, any) error {
-		return errors.New("failure")
-	})
-	defer patchjsonUnmarshal.Reset()
-	patchClientPersist := gomonkey.ApplyMethod(reflect.TypeOf(&Client{}), "Persist", func(*Client) error {
-		return nil
-	})
-	defer patchClientPersist.Reset()
-	patchcmdOpen := gomonkey.ApplyFunc(cmd.Open, func(string, ...string) error { return nil })
-	defer patchcmdOpen.Reset()
-	patchrandstrHex := gomonkey.ApplyFunc(randstr.Hex, func(int) string { return state })
-	defer patchrandstrHex.Reset()
-	patchspotifyauthAuthenticatorToken := gomonkey.ApplyMethod(reflect.TypeOf(spotifyauth.Authenticator{}), "Token",
-		func(spotifyauth.Authenticator, context.Context, string, *http.Request, ...oauth2.AuthCodeOption) (*oauth2.Token, error) {
+	defer gomonkey.NewPatches().
+		ApplyFunc(os.ReadFile, func() ([]byte, error) {
+			return []byte(token), nil
+		}).
+		ApplyFunc(json.Unmarshal, func() error {
+			return errors.New("ko")
+		}).
+		ApplyMethod(&Client{}, "Persist", func() error {
+			return nil
+		}).
+		ApplyFunc(cmd.Open, func() error {
+			return nil
+		}).
+		ApplyFunc(randstr.Hex, func() string {
+			return state
+		}).
+		ApplyMethod(spotifyauth.Authenticator{}, "Token", func() (*oauth2.Token, error) {
 			return nil, nil
-		})
-	defer patchspotifyauthAuthenticatorToken.Reset()
+		}).
+		Reset()
 
 	// testing
 	assert.Nil(t, nursery.RunConcurrently(
@@ -196,59 +189,56 @@ func TestAuthenticateRecoverUnmarshalFailure(t *testing.T) {
 
 func TestAuthenticateRecoverAndPersistTokenFailure(t *testing.T) {
 	// monkey patching
-	patchosReadFile := gomonkey.ApplyFunc(os.ReadFile, func(string) ([]byte, error) {
-		return []byte(token), nil
-	})
-	defer patchosReadFile.Reset()
-	patchspotifyClientToken := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Token",
-		func(*spotify.Client) (*oauth2.Token, error) {
-			return nil, errors.New("failure")
-		})
-	defer patchspotifyClientToken.Reset()
+	defer gomonkey.NewPatches().
+		ApplyFunc(os.ReadFile, func() ([]byte, error) {
+			return []byte(token), nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Token", func() (*oauth2.Token, error) {
+			return nil, errors.New("ko")
+		}).
+		Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(Authenticate("127.0.0.1")), "failure")
+	assert.Error(t, util.ErrOnly(Authenticate("127.0.0.1")), "ko")
 }
 
 func TestAuthenticateRecoverAndPersistOpenFailure(t *testing.T) {
 	// monkey patching
-	patchosReadFile := gomonkey.ApplyFunc(os.ReadFile, func(string) ([]byte, error) {
-		return []byte(token), nil
-	})
-	defer patchosReadFile.Reset()
-	patchspotifyClientToken := gomonkey.ApplyMethod(reflect.TypeOf(&spotify.Client{}), "Token",
-		func(*spotify.Client) (*oauth2.Token, error) {
+	defer gomonkey.NewPatches().
+		ApplyFunc(os.ReadFile, func() ([]byte, error) {
+			return []byte(token), nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Token", func() (*oauth2.Token, error) {
 			return nil, nil
-		})
-	defer patchspotifyClientToken.Reset()
-	patchosOpenFile := gomonkey.ApplyFunc(os.OpenFile, func(string, int, fs.FileMode) (*os.File, error) {
-		return nil, errors.New("failure")
-	})
-	defer patchosOpenFile.Reset()
+		}).
+		ApplyFunc(os.OpenFile, func() (*os.File, error) {
+			return nil, errors.New("ko")
+		}).
+		Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(Authenticate("127.0.0.1")), "failure")
+	assert.Error(t, util.ErrOnly(Authenticate("127.0.0.1")), "ko")
 }
 
 func TestAuthenticateNotFound(t *testing.T) {
 	// monkey patching
-	patchRecover := gomonkey.ApplyFunc(Recover, func(*spotifyauth.Authenticator, string) (*Client, error) {
-		return nil, errors.New("failure")
-	})
-	defer patchRecover.Reset()
-	patchClientPersist := gomonkey.ApplyMethod(reflect.TypeOf(&Client{}), "Persist", func(*Client) error {
-		return nil
-	})
-	defer patchClientPersist.Reset()
-	patchcmdOpen := gomonkey.ApplyFunc(cmd.Open, func(string, ...string) error { return nil })
-	defer patchcmdOpen.Reset()
-	patchrandstrHex := gomonkey.ApplyFunc(randstr.Hex, func(int) string { return state })
-	defer patchrandstrHex.Reset()
-	patchspotifyauthAuthenticatorToken := gomonkey.ApplyMethod(reflect.TypeOf(spotifyauth.Authenticator{}), "Token",
-		func(spotifyauth.Authenticator, context.Context, string, *http.Request, ...oauth2.AuthCodeOption) (*oauth2.Token, error) {
+	defer gomonkey.NewPatches().
+		ApplyFunc(Recover, func() (*Client, error) {
+			return nil, errors.New("ko")
+		}).
+		ApplyMethod(&Client{}, "Persist", func() error {
+			return nil
+		}).
+		ApplyFunc(cmd.Open, func() error {
+			return nil
+		}).
+		ApplyFunc(randstr.Hex, func() string {
+			return state
+		}).
+		ApplyMethod(spotifyauth.Authenticator{}, "Token", func() (*oauth2.Token, error) {
 			return nil, nil
-		})
-	defer patchspotifyauthAuthenticatorToken.Reset()
+		}).
+		Reset()
 
 	// testing
 	assert.EqualError(t, nursery.RunConcurrently(
@@ -277,23 +267,23 @@ func TestAuthenticateNotFound(t *testing.T) {
 
 func TestAuthenticateForbidden(t *testing.T) {
 	// monkey patching
-	patchRecover := gomonkey.ApplyFunc(Recover, func(*spotifyauth.Authenticator, string) (*Client, error) {
-		return nil, errors.New("failure")
-	})
-	defer patchRecover.Reset()
-	patchClientPersist := gomonkey.ApplyMethod(reflect.TypeOf(&Client{}), "Persist", func(*Client) error {
-		return nil
-	})
-	defer patchClientPersist.Reset()
-	patchcmdOpen := gomonkey.ApplyFunc(cmd.Open, func(string, ...string) error { return nil })
-	defer patchcmdOpen.Reset()
-	patchrandstrHex := gomonkey.ApplyFunc(randstr.Hex, func(int) string { return state })
-	defer patchrandstrHex.Reset()
-	patchspotifyauthAuthenticatorToken := gomonkey.ApplyMethod(reflect.TypeOf(spotifyauth.Authenticator{}), "Token",
-		func(spotifyauth.Authenticator, context.Context, string, *http.Request, ...oauth2.AuthCodeOption) (*oauth2.Token, error) {
-			return nil, errors.New("failure")
-		})
-	defer patchspotifyauthAuthenticatorToken.Reset()
+	defer gomonkey.NewPatches().
+		ApplyFunc(Recover, func() (*Client, error) {
+			return nil, errors.New("ko")
+		}).
+		ApplyMethod(&Client{}, "Persist", func() error {
+			return nil
+		}).
+		ApplyFunc(cmd.Open, func() error {
+			return nil
+		}).
+		ApplyFunc(randstr.Hex, func() string {
+			return state
+		}).
+		ApplyMethod(spotifyauth.Authenticator{}, "Token", func() (*oauth2.Token, error) {
+			return nil, errors.New("ko")
+		}).
+		Reset()
 
 	// testing
 	assert.EqualError(t, nursery.RunConcurrently(
@@ -322,18 +312,20 @@ func TestAuthenticateForbidden(t *testing.T) {
 
 func TestAuthenticateOpenFailure(t *testing.T) {
 	// monkey patching
-	patchRecover := gomonkey.ApplyFunc(Recover, func(*spotifyauth.Authenticator, string) (*Client, error) {
-		return nil, errors.New("failure")
-	})
-	defer patchRecover.Reset()
-	patchClientPersist := gomonkey.ApplyMethod(reflect.TypeOf(&Client{}), "Persist", func(*Client) error {
-		return nil
-	})
-	defer patchClientPersist.Reset()
-	patchcmdOpen := gomonkey.ApplyFunc(cmd.Open, func(string, ...string) error { return errors.New("failure") })
-	defer patchcmdOpen.Reset()
-	patchrandstrHex := gomonkey.ApplyFunc(randstr.Hex, func(int) string { return state })
-	defer patchrandstrHex.Reset()
+	defer gomonkey.NewPatches().
+		ApplyFunc(Recover, func() (*Client, error) {
+			return nil, errors.New("ko")
+		}).
+		ApplyMethod(&Client{}, "Persist", func() error {
+			return nil
+		}).
+		ApplyFunc(cmd.Open, func() error {
+			return errors.New("ko")
+		}).
+		ApplyFunc(randstr.Hex, func() string {
+			return state
+		}).
+		Reset()
 
 	// testing
 	assert.EqualError(t, nursery.RunConcurrently(
@@ -357,26 +349,29 @@ func TestAuthenticateOpenFailure(t *testing.T) {
 			}
 			assert.Equal(t, http.StatusOK, response.StatusCode)
 		},
-	), "failure")
+	), "ko")
 }
 
 func TestAuthenticateServerUnserving(t *testing.T) {
 	// monkey patching
-	patchRecover := gomonkey.ApplyFunc(Recover, func(*spotifyauth.Authenticator, string) (*Client, error) {
-		return nil, errors.New("failure")
-	})
-	defer patchRecover.Reset()
-	patchClientPersist := gomonkey.ApplyMethod(reflect.TypeOf(&Client{}), "Persist", func(*Client) error {
-		return nil
-	})
-	defer patchClientPersist.Reset()
-	patchcmdOpen := gomonkey.ApplyFunc(cmd.Open, func(string, ...string) error { return nil })
-	defer patchcmdOpen.Reset()
-	patchrandstrHex := gomonkey.ApplyFunc(randstr.Hex, func(int) string { return state })
-	defer patchrandstrHex.Reset()
-	patchnetListen := gomonkey.ApplyFunc(net.Listen, func(string, string) (net.Listener, error) { return nil, errors.New("failure") })
-	defer patchnetListen.Reset()
+	defer gomonkey.NewPatches().
+		ApplyFunc(Recover, func() (*Client, error) {
+			return nil, errors.New("ko")
+		}).
+		ApplyMethod(&Client{}, "Persist", func() error {
+			return nil
+		}).
+		ApplyFunc(cmd.Open, func() error {
+			return nil
+		}).
+		ApplyFunc(randstr.Hex, func() string {
+			return state
+		}).
+		ApplyFunc(net.Listen, func() (net.Listener, error) {
+			return nil, errors.New("ko")
+		}).
+		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(Authenticate()), "failure")
+	assert.EqualError(t, util.ErrOnly(Authenticate()), "ko")
 }

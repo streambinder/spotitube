@@ -1,6 +1,7 @@
 package processor
 
 import (
+	"errors"
 	"strconv"
 
 	"github.com/bogem/id3v2/v2"
@@ -11,7 +12,17 @@ type encoder struct {
 	Processor
 }
 
-func (encoder) do(track *entity.Track) error {
+func (encoder) applies(object interface{}) bool {
+	_, ok := object.(*entity.Track)
+	return ok
+}
+
+func (encoder) do(object interface{}) error {
+	track, ok := object.(*entity.Track)
+	if !ok {
+		return errors.New("processor does not support such object")
+	}
+
 	tag, err := id3v2.Open(
 		track.Path().Download(),
 		id3v2.Options{Parse: true})

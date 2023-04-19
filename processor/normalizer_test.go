@@ -24,6 +24,11 @@ func TestNormalizerDo(t *testing.T) {
 	assert.Nil(t, normalizer{}.do(track))
 }
 
+func TestNormalizerDoUnsupported(t *testing.T) {
+	// testing
+	assert.NotNil(t, normalizer{}.do("hello"))
+}
+
 func TestNormalizerDoFailure(t *testing.T) {
 	// monkey patching
 	defer gomonkey.ApplyMethod(cmd.FFmpegCmd{}, "VolumeDetect", func() (float64, error) {

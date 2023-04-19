@@ -24,6 +24,11 @@ func TestEncoderDo(t *testing.T) {
 	assert.Nil(t, encoder{}.do(track))
 }
 
+func TestEncoderDoUnsupported(t *testing.T) {
+	// testing
+	assert.NotNil(t, encoder{}.do("hello"))
+}
+
 func TestEncoderDoOpenFailure(t *testing.T) {
 	// monkey patching
 	defer gomonkey.ApplyFunc(id3v2.Open, func() (*id3v2.Tag, error) {

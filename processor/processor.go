@@ -1,19 +1,17 @@
 package processor
 
-import (
-	"github.com/streambinder/spotitube/entity"
-)
-
 type Processor interface {
-	do(*entity.Track) error
+	do(interface{}) error
+	applies(interface{}) bool
 }
 
-func Do(track *entity.Track) error {
+func Do(object interface{}) error {
 	for _, processor := range []Processor{
+		artwork{},
 		normalizer{},
 		encoder{},
 	} {
-		if err := processor.do(track); err != nil {
+		if supported, err := processor.applies(object), processor.do(object); supported && err != nil {
 			return err
 		}
 	}

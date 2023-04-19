@@ -38,6 +38,7 @@ require (
 	github.com/bogem/id3v2/v2 v2.1.4
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gosimple/slug v1.13.1
+	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/thanhpk/randstr v1.0.4
 	github.com/tidwall/gjson v1.14.4

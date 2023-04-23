@@ -17,20 +17,20 @@ import (
 )
 
 const (
-	index int = iota
-	auth
-	decide
-	collect
-	process
-	install
-	mix
+	routineTypeIndex int = iota
+	routineTypeAuth
+	routineTypeDecide
+	routineTypeCollect
+	routineTypeProcess
+	routineTypeInstall
+	routineTypeMix
 )
 
 var (
-	client     *spotify.Client
-	semaphores map[int](chan bool)
-	queues     map[int](chan interface{})
-	cmdSync    = &cobra.Command{
+	spotifyClient     *spotify.Client
+	routineSemaphores map[int](chan bool)
+	routineQueues     map[int](chan interface{})
+	cmdSync           = &cobra.Command{
 		Use:   "sync",
 		Short: "Synchronize collections",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -47,28 +47,28 @@ var (
 			}
 
 			return nursery.RunConcurrently(
-				indexer,
-				authenticator,
-				fetcher(library, playlists, albums, tracks),
-				decider,
-				collector,
-				postprocessor,
-				installer,
-				mixer,
+				routineIndex,
+				routineAuth,
+				routineFetch(library, playlists, albums, tracks),
+				routineDecide,
+				routineCollect,
+				routineProcess,
+				routineInstall,
+				routineMix,
 			)
 		},
 		PreRunE: func(cmd *cobra.Command, args []string) (err error) {
-			semaphores = map[int](chan bool){
-				index:   make(chan bool, 1),
-				auth:    make(chan bool, 1),
-				install: make(chan bool, 1),
+			routineSemaphores = map[int](chan bool){
+				routineTypeIndex:   make(chan bool, 1),
+				routineTypeAuth:    make(chan bool, 1),
+				routineTypeInstall: make(chan bool, 1),
 			}
-			queues = map[int](chan interface{}){
-				decide:  make(chan interface{}, 100),
-				collect: make(chan interface{}, 100),
-				process: make(chan interface{}, 100),
-				install: make(chan interface{}, 100),
-				mix:     make(chan interface{}, 100),
+			routineQueues = map[int](chan interface{}){
+				routineTypeDecide:  make(chan interface{}, 100),
+				routineTypeCollect: make(chan interface{}, 100),
+				routineTypeProcess: make(chan interface{}, 100),
+				routineTypeInstall: make(chan interface{}, 100),
+				routineTypeMix:     make(chan interface{}, 100),
 			}
 
 			var (
@@ -102,59 +102,59 @@ func init() {
 
 // indexer scans a possible local music library
 // to be considered as already synchronized
-func indexer(context.Context, chan error) {
+func routineIndex(context.Context, chan error) {
 	// remember to signal fetcher
-	defer close(semaphores[index])
+	defer close(routineSemaphores[routineTypeIndex])
 
 	log.Printf("[indexer]\tindexing")
 	// TODO: implement indexing
 	log.Printf("[indexer]\tindexed")
 }
 
-func authenticator(ctx context.Context, ch chan error) {
+func routineAuth(ctx context.Context, ch chan error) {
 	// remember to close auth semaphore
-	defer close(semaphores[auth])
+	defer close(routineSemaphores[routineTypeAuth])
 
 	var err error
-	client, err = spotify.Authenticate()
+	spotifyClient, err = spotify.Authenticate()
 	if err != nil {
 		log.Printf("[auth]\t%s", err)
-		semaphores[auth] <- false
+		routineSemaphores[routineTypeAuth] <- false
 		ch <- err
 		return
 	}
 
 	// once authenticated, signal fetcher
-	semaphores[auth] <- true
+	routineSemaphores[routineTypeAuth] <- true
 }
 
 // fetcher pulls data from the upstream
 // provider, i.e. Spotify
-func fetcher(library bool, playlists []string, albums []string, tracks []string) func(ctx context.Context, ch chan error) {
+func routineFetch(library bool, playlists []string, albums []string, tracks []string) func(ctx context.Context, ch chan error) {
 	return func(ctx context.Context, ch chan error) {
 		// remember to stop passing data to decider and mixer
-		defer close(queues[decide])
-		defer close(queues[mix])
+		defer close(routineQueues[routineTypeDecide])
+		defer close(routineQueues[routineTypeMix])
 		// block until indexing and authentication is done
-		<-semaphores[index]
-		if !<-semaphores[auth] {
+		<-routineSemaphores[routineTypeIndex]
+		if !<-routineSemaphores[routineTypeAuth] {
 			return
 		}
 
 		if library {
-			if err := client.Library(queues[decide]); err != nil {
+			if err := spotifyClient.Library(routineQueues[routineTypeDecide]); err != nil {
 				ch <- err
 				return
 			}
 		}
 		for _, id := range albums {
-			if _, err := client.Album(id, queues[decide]); err != nil {
+			if _, err := spotifyClient.Album(id, routineQueues[routineTypeDecide]); err != nil {
 				ch <- err
 				return
 			}
 		}
 		for _, id := range tracks {
-			if _, err := client.Track(id, queues[decide]); err != nil {
+			if _, err := spotifyClient.Track(id, routineQueues[routineTypeDecide]); err != nil {
 				ch <- err
 				return
 			}
@@ -162,25 +162,25 @@ func fetcher(library bool, playlists []string, albums []string, tracks []string)
 
 		// some special treatment for playlists
 		for _, id := range playlists {
-			playlist, err := client.Playlist(id, queues[decide])
+			playlist, err := spotifyClient.Playlist(id, routineQueues[routineTypeDecide])
 			if err != nil {
 				ch <- err
 				return
 			}
-			queues[mix] <- playlist
+			routineQueues[routineTypeMix] <- playlist
 		}
 	}
 }
 
 // decider finds the right asset to retrieve
 // for a given track
-func decider(ctx context.Context, ch chan error) {
+func routineDecide(ctx context.Context, ch chan error) {
 	// remember to stop passing data to the collector
 	// the retriever, the composer and the painter
-	defer close(queues[collect])
+	defer close(routineQueues[routineTypeCollect])
 
 	cache := make(map[string]bool)
-	for event := range queues[decide] {
+	for event := range routineQueues[routineTypeDecide] {
 		track := event.(*entity.Track)
 
 		if _, ok := cache[track.ID]; ok {
@@ -196,7 +196,7 @@ func decider(ctx context.Context, ch chan error) {
 		}
 
 		track.UpstreamURL = matches[0].URL
-		queues[collect] <- track
+		routineQueues[routineTypeCollect] <- track
 		cache[track.ID] = true
 	}
 }
@@ -204,29 +204,29 @@ func decider(ctx context.Context, ch chan error) {
 // collector fetches all the needed assets
 // for a blob to be processed (basically
 // a wrapper around: retriever, composer and painter)
-func collector(ctx context.Context, ch chan error) {
+func routineCollect(ctx context.Context, ch chan error) {
 	// remember to stop passing data to installer
-	defer close(queues[process])
+	defer close(routineQueues[routineTypeProcess])
 
-	for event := range queues[collect] {
+	for event := range routineQueues[routineTypeCollect] {
 		track := event.(*entity.Track)
 		log.Println("[collect]\t" + track.Title)
 		if err := nursery.RunConcurrently(
-			retriever(track),
-			composer(track),
-			painter(track),
+			routineCollectAsset(track),
+			routineCollectLyrics(track),
+			routineCollectArtwork(track),
 		); err != nil {
 			log.Printf("[collect]\t%s", err)
 			ch <- err
 			return
 		}
-		queues[process] <- track
+		routineQueues[routineTypeProcess] <- track
 	}
 }
 
 // retriever pulls a track blob corresponding
 // to the (meta)data fetched from upstream
-func retriever(track *entity.Track) func(context.Context, chan error) {
+func routineCollectAsset(track *entity.Track) func(context.Context, chan error) {
 	return func(ctx context.Context, ch chan error) {
 		log.Println("[retriever]\t" + track.Title + " (" + track.UpstreamURL + ")")
 		if err := downloader.Download(track.UpstreamURL, track.Path().Download(), nil); err != nil {
@@ -237,9 +237,25 @@ func retriever(track *entity.Track) func(context.Context, chan error) {
 	}
 }
 
+// composer pulls lyrics to be inserted
+// in the fetched blob
+func routineCollectLyrics(track *entity.Track) func(context.Context, chan error) {
+	return func(ctx context.Context, ch chan error) {
+		log.Println("[composer]\t" + track.Title)
+		lyrics, err := lyrics.Search(track)
+		if err != nil {
+			log.Printf("[composer]\t%s", err)
+			ch <- err
+			return
+		}
+		track.Lyrics = lyrics
+		log.Printf("[composer]\t%d", len(lyrics))
+	}
+}
+
 // painter pulls image blobs to be inserted
 // as artworks in the fetched blob
-func painter(track *entity.Track) func(context.Context, chan error) {
+func routineCollectArtwork(track *entity.Track) func(context.Context, chan error) {
 	return func(ctx context.Context, ch chan error) {
 		artwork := make(chan []byte, 1)
 		defer close(artwork)
@@ -256,30 +272,14 @@ func painter(track *entity.Track) func(context.Context, chan error) {
 	}
 }
 
-// composer pulls lyrics to be inserted
-// in the fetched blob
-func composer(track *entity.Track) func(context.Context, chan error) {
-	return func(ctx context.Context, ch chan error) {
-		log.Println("[composer]\t" + track.Title)
-		lyrics, err := lyrics.Search(track)
-		if err != nil {
-			log.Printf("[composer]\t%s", err)
-			ch <- err
-			return
-		}
-		track.Lyrics = lyrics
-		log.Printf("[composer]\t%d", len(lyrics))
-	}
-}
-
 // postprocessor applies some further enhancements
 // e.g. combining the downloaded artwork/lyrics
 // into the blob
-func postprocessor(ctx context.Context, ch chan error) {
+func routineProcess(ctx context.Context, ch chan error) {
 	// remember to stop passing data to installer
-	defer close(queues[install])
+	defer close(routineQueues[routineTypeInstall])
 
-	for event := range queues[process] {
+	for event := range routineQueues[routineTypeProcess] {
 		track := event.(*entity.Track)
 		log.Println("[postproc]\t" + track.Title)
 		if err := processor.Do(track); err != nil {
@@ -287,27 +287,27 @@ func postprocessor(ctx context.Context, ch chan error) {
 			ch <- err
 			return
 		}
-		queues[install] <- track
+		routineQueues[routineTypeInstall] <- track
 	}
 }
 
 // installer move the blob to its final destination
-func installer(ctx context.Context, ch chan error) {
+func routineInstall(ctx context.Context, ch chan error) {
 	// remember to signal mixer
-	defer close(semaphores[install])
+	defer close(routineSemaphores[routineTypeInstall])
 
-	for event := range queues[install] {
+	for event := range routineQueues[routineTypeInstall] {
 		track := event.(*entity.Track)
 		log.Println("[installer]\t" + track.Title)
 	}
 }
 
 // mixer wraps playlists to their final destination
-func mixer(context.Context, chan error) {
+func routineMix(context.Context, chan error) {
 	// block until installation is done
-	<-semaphores[install]
+	<-routineSemaphores[routineTypeInstall]
 
-	for event := range queues[mix] {
+	for event := range routineQueues[routineTypeMix] {
 		playlist := event.(*entity.Playlist)
 		log.Println("[mixer]\t" + playlist.Name)
 	}

@@ -113,7 +113,7 @@ func TestCmdSyncAuthFailure(t *testing.T) {
 			return nil
 		}).
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return client, errors.New("ko")
+			return spotifyClient, errors.New("ko")
 		}).
 		ApplyMethod(&spotify.Client{}, "Library", func() error {
 			return nil
@@ -305,7 +305,7 @@ func TestCmdSyncCollectFailure(t *testing.T) {
 		ApplyFunc(provider.Search, func(*entity.Track) ([]*provider.Match, error) {
 			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
 		}).
-		ApplyFunc(painter, func(track *entity.Track) func(context.Context, chan error) {
+		ApplyFunc(routineCollectArtwork, func(track *entity.Track) func(context.Context, chan error) {
 			return func(_ context.Context, ch chan error) {
 				ch <- errors.New("ko")
 			}

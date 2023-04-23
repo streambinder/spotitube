@@ -33,9 +33,9 @@ type trackPath struct {
 }
 
 const (
-	trackFormat   = "mp3"
-	artworkFormat = "jpg"
-	lyricsFormat  = "txt"
+	TrackFormat   = "mp3"
+	ArtworkFormat = "jpg"
+	LyricsFormat  = "txt"
 )
 
 func (track *Track) Path() trackPath {
@@ -43,23 +43,23 @@ func (track *Track) Path() trackPath {
 }
 
 func (trackPath trackPath) Final() string {
-	return fmt.Sprintf("%s - %s.%s", trackPath.track.Artists[0], trackPath.track.Title, trackFormat)
+	return fmt.Sprintf("%s - %s.%s", trackPath.track.Artists[0], trackPath.track.Title, TrackFormat)
 }
 
 func (trackPath trackPath) Download() string {
-	basename := fmt.Sprintf("%s.%s", slug.Make(trackPath.track.ID), trackFormat)
+	basename := fmt.Sprintf("%s.%s", slug.Make(trackPath.track.ID), TrackFormat)
 	return util.ErrWrap(filepath.Join("tmp", basename))(
 		xdg.CacheFile(filepath.Join("spotitube", basename)))
 }
 
 func (trackPath trackPath) Artwork() string {
-	basename := fmt.Sprintf("%s.%s", slug.Make(path.Base(trackPath.track.Artwork.URL)), artworkFormat)
+	basename := fmt.Sprintf("%s.%s", slug.Make(path.Base(trackPath.track.Artwork.URL)), ArtworkFormat)
 	return util.ErrWrap(filepath.Join("tmp", basename))(
 		xdg.CacheFile(filepath.Join("spotitube", basename)))
 }
 
 func (trackPath trackPath) Lyrics() string {
-	basename := fmt.Sprintf("%s.%s", slug.Make(trackPath.track.ID), lyricsFormat)
+	basename := fmt.Sprintf("%s.%s", slug.Make(trackPath.track.ID), LyricsFormat)
 	return util.ErrWrap(filepath.Join("tmp", basename))(
 		xdg.CacheFile(filepath.Join("spotitube", basename)))
 }

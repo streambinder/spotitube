@@ -6,6 +6,7 @@ import (
 
 	"github.com/bogem/id3v2/v2"
 	"github.com/streambinder/spotitube/entity"
+	"github.com/streambinder/spotitube/entity/id3"
 )
 
 type encoder struct {
@@ -25,7 +26,7 @@ func (encoder) Do(object interface{}) error {
 
 	tag, err := id3v2.Open(
 		track.Path().Download(),
-		id3v2.Options{Parse: true})
+		id3v2.Options{Parse: false})
 	if err != nil {
 		return err
 	}
@@ -33,7 +34,7 @@ func (encoder) Do(object interface{}) error {
 
 	tag.AddUserDefinedTextFrame(id3v2.UserDefinedTextFrame{
 		Encoding:    tag.DefaultEncoding(),
-		Description: "Spotify ID",
+		Description: id3.FrameSpotifyID,
 		Value:       track.ID,
 	})
 	tag.SetTitle(track.Title)
@@ -41,7 +42,7 @@ func (encoder) Do(object interface{}) error {
 	tag.SetAlbum(track.Album)
 	tag.AddUserDefinedTextFrame(id3v2.UserDefinedTextFrame{
 		Encoding:    tag.DefaultEncoding(),
-		Description: "Artwork URL",
+		Description: id3.FrameArtworkURL,
 		Value:       track.Artwork.URL,
 	})
 	tag.AddAttachedPicture(id3v2.PictureFrame{
@@ -53,7 +54,7 @@ func (encoder) Do(object interface{}) error {
 	})
 	tag.AddUserDefinedTextFrame(id3v2.UserDefinedTextFrame{
 		Encoding:    tag.DefaultEncoding(),
-		Description: "Duration",
+		Description: id3.FrameDuration,
 		Value:       strconv.Itoa(track.Duration),
 	})
 	tag.AddUnsynchronisedLyricsFrame(id3v2.UnsynchronisedLyricsFrame{
@@ -72,7 +73,7 @@ func (encoder) Do(object interface{}) error {
 	tag.SetYear(track.Year)
 	tag.AddUserDefinedTextFrame(id3v2.UserDefinedTextFrame{
 		Encoding:    tag.DefaultEncoding(),
-		Description: "Upstream URL",
+		Description: id3.FrameUpstreamURL,
 		Value:       track.UpstreamURL,
 	})
 

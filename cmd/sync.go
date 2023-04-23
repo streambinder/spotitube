@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/streambinder/spotitube/downloader"
 	"github.com/streambinder/spotitube/entity"
+	"github.com/streambinder/spotitube/entity/index"
 	"github.com/streambinder/spotitube/lyrics"
 	"github.com/streambinder/spotitube/processor"
 	"github.com/streambinder/spotitube/provider"
@@ -30,6 +31,7 @@ var (
 	spotifyClient     *spotify.Client
 	routineSemaphores map[int](chan bool)
 	routineQueues     map[int](chan interface{})
+	indexData         = index.New()
 	cmdSync           = &cobra.Command{
 		Use:   "sync",
 		Short: "Synchronize collections",
@@ -102,13 +104,21 @@ func init() {
 
 // indexer scans a possible local music library
 // to be considered as already synchronized
-func routineIndex(context.Context, chan error) {
+func routineIndex(ctx context.Context, ch chan error) {
 	// remember to signal fetcher
 	defer close(routineSemaphores[routineTypeIndex])
 
 	log.Printf("[indexer]\tindexing")
-	// TODO: implement indexing
+	if err := indexData.Build("."); err != nil {
+		log.Printf("[indexer]\t%s", err)
+		routineSemaphores[routineTypeIndex] <- false
+		ch <- err
+		return
+	}
 	log.Printf("[indexer]\tindexed")
+
+	// once indexed, sidgnal fetcher
+	routineSemaphores[routineTypeIndex] <- true
 }
 
 func routineAuth(ctx context.Context, ch chan error) {
@@ -136,7 +146,9 @@ func routineFetch(library bool, playlists []string, albums []string, tracks []st
 		defer close(routineQueues[routineTypeDecide])
 		defer close(routineQueues[routineTypeMix])
 		// block until indexing and authentication is done
-		<-routineSemaphores[routineTypeIndex]
+		if !<-routineSemaphores[routineTypeIndex] {
+			return
+		}
 		if !<-routineSemaphores[routineTypeAuth] {
 			return
 		}
@@ -179,12 +191,17 @@ func routineDecide(ctx context.Context, ch chan error) {
 	// the retriever, the composer and the painter
 	defer close(routineQueues[routineTypeCollect])
 
-	cache := make(map[string]bool)
 	for event := range routineQueues[routineTypeDecide] {
 		track := event.(*entity.Track)
 
-		if _, ok := cache[track.ID]; ok {
+		if status, ok := indexData[track.ID]; !ok {
+			log.Println("[decider]\tmarking " + track.Title + " as to be synced")
+			indexData[track.ID] = index.Online
+		} else if status == index.Online {
 			log.Println("[decider]\tignoring duplicate " + track.Title)
+			continue
+		} else if status == index.Offline {
+			log.Println("[decider]\tignoring already synced " + track.Title)
 			continue
 		}
 
@@ -197,7 +214,6 @@ func routineDecide(ctx context.Context, ch chan error) {
 
 		track.UpstreamURL = matches[0].URL
 		routineQueues[routineTypeCollect] <- track
-		cache[track.ID] = true
 	}
 }
 

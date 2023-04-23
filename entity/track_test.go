@@ -15,15 +15,15 @@ func TestDownloadPath(t *testing.T) {
 		Artwork: Artwork{URL: "http://domain.tld/123"},
 	}
 	assert.Equal(t,
-		fmt.Sprintf("%s - %s.%s", track.Path().track.Artists[0], track.Path().track.Title, trackFormat),
+		fmt.Sprintf("%s - %s.%s", track.Path().track.Artists[0], track.Path().track.Title, TrackFormat),
 		path.Base(track.Path().Final()))
 	assert.Equal(t,
-		fmt.Sprintf("%s.%s", track.Path().track.ID, trackFormat),
+		fmt.Sprintf("%s.%s", track.Path().track.ID, TrackFormat),
 		path.Base(track.Path().Download()))
 	assert.Equal(t,
-		fmt.Sprintf("%s.%s", path.Base(track.Path().track.Artwork.URL), artworkFormat),
+		fmt.Sprintf("%s.%s", path.Base(track.Path().track.Artwork.URL), ArtworkFormat),
 		path.Base(track.Path().Artwork()))
 	assert.Equal(t,
-		fmt.Sprintf("%s.%s", track.Path().track.ID, lyricsFormat),
+		fmt.Sprintf("%s.%s", track.Path().track.ID, LyricsFormat),
 		path.Base(track.Path().Lyrics()))
 }

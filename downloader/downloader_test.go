@@ -43,7 +43,7 @@ func TestDownload(t *testing.T) {
 	// testing
 	ch := make(chan []byte, 1)
 	defer close(ch)
-	assert.Nil(t, Download("http://youtu.be", "fname.txt", ch))
+	assert.Nil(t, Download("http://youtu.be", "fname.txt", nil, ch))
 }
 
 func TestDownloadAlreadyExists(t *testing.T) {
@@ -55,7 +55,7 @@ func TestDownloadAlreadyExists(t *testing.T) {
 	// testing
 	ch := make(chan []byte, 1)
 	defer close(ch)
-	assert.Nil(t, Download("http://youtu.be", "fname.txt", ch))
+	assert.Nil(t, Download("http://youtu.be", "fname.txt", nil, ch))
 }
 
 func TestDownloadMakeDirFailure(t *testing.T) {
@@ -70,7 +70,7 @@ func TestDownloadMakeDirFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, Download("http://youtu.be", "fname.txt"), "ko")
+	assert.Error(t, Download("http://youtu.be", "fname.txt", nil), "ko")
 }
 
 func TestDownloadUnsupported(t *testing.T) {
@@ -92,5 +92,5 @@ func TestDownloadUnsupported(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, Download("http://davidepucci.it", "fname.txt"), "unsupported url")
+	assert.Error(t, Download("http://davidepucci.it", "fname.txt", nil), "unsupported url")
 }

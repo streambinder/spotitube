@@ -10,16 +10,16 @@ import (
 	"github.com/nfnt/resize"
 )
 
-type artwork struct {
+type Artwork struct {
 	Processor
 }
 
-func (artwork) applies(object interface{}) bool {
+func (Artwork) Applies(object interface{}) bool {
 	_, ok := object.(*[]byte)
 	return ok
 }
 
-func (artwork) do(object interface{}) error {
+func (Artwork) Do(object interface{}) error {
 	data, ok := object.(*[]byte)
 	if !ok {
 		return errors.New("processor does not support such object")

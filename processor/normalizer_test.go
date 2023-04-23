@@ -21,12 +21,12 @@ func TestNormalizerDo(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, normalizer{}.do(track))
+	assert.Nil(t, normalizer{}.Do(track))
 }
 
 func TestNormalizerDoUnsupported(t *testing.T) {
 	// testing
-	assert.NotNil(t, normalizer{}.do("hello"))
+	assert.NotNil(t, normalizer{}.Do("hello"))
 }
 
 func TestNormalizerDoFailure(t *testing.T) {
@@ -36,5 +36,5 @@ func TestNormalizerDoFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Error(t, normalizer{}.do(track), "ko")
+	assert.Error(t, normalizer{}.Do(track), "ko")
 }

@@ -9,8 +9,27 @@ import (
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
+	"github.com/streambinder/spotitube/processor"
 	"github.com/stretchr/testify/assert"
 )
+
+type mockProcessor struct {
+	processor.Processor
+	applies bool
+	err     error
+}
+
+func (p mockProcessor) Applies(interface{}) bool {
+	return p.applies
+}
+
+func (p mockProcessor) Do(interface{}) error {
+	return p.err
+}
+
+func stubProcessor(applies bool, err error) processor.Processor {
+	return mockProcessor{applies: applies, err: err}
+}
 
 func TestBlobSupports(t *testing.T) {
 	// monkey patching
@@ -87,7 +106,29 @@ func TestBlobDownload(t *testing.T) {
 	// testing
 	ch := make(chan []byte, 1)
 	defer close(ch)
-	assert.Nil(t, blob{}.download("http://davidepucci.it", "/dev/null", ch))
+	assert.Nil(t, blob{}.download("http://davidepucci.it", "/dev/null", stubProcessor(true, nil), ch))
+}
+
+func TestBlobDownloadProcessorFailure(t *testing.T) {
+	// monkey patching
+	defer gomonkey.NewPatches().
+		ApplyMethod(http.DefaultClient, "Get", func() (*http.Response, error) {
+			return &http.Response{
+				StatusCode: 200,
+				Body:       io.NopCloser(strings.NewReader("bitch")),
+				Header:     map[string][]string{"Content-Type": {"image/jpeg"}},
+			}, nil
+		}).
+		ApplyFunc(os.OpenFile, func() (*os.File, error) {
+			return nil, nil
+		}).
+		ApplyFunc(io.ReadAll, func() ([]byte, error) {
+			return []byte{}, nil
+		}).
+		Reset()
+
+	// testing
+	assert.Error(t, blob{}.download("http://davidepucci.it", "/dev/null", stubProcessor(true, errors.New("ko"))), "ko")
 }
 
 func TestBlobDownloadFailure(t *testing.T) {
@@ -97,7 +138,7 @@ func TestBlobDownloadFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Error(t, blob{}.download("http://davidepucci.it", "/dev/null"), "ko")
+	assert.Error(t, blob{}.download("http://davidepucci.it", "/dev/null", nil), "ko")
 }
 
 func TestBlobDownloadNotFound(t *testing.T) {
@@ -110,7 +151,7 @@ func TestBlobDownloadNotFound(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.NotNil(t, blob{}.download("http://davidepucci.it", "/dev/null"))
+	assert.NotNil(t, blob{}.download("http://davidepucci.it", "/dev/null", nil))
 }
 
 func TestBlobDownloadFileCreationFailure(t *testing.T) {
@@ -129,7 +170,7 @@ func TestBlobDownloadFileCreationFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, blob{}.download("http://davidepucci.it", "/dev/null"), "ko")
+	assert.Error(t, blob{}.download("http://davidepucci.it", "/dev/null", nil), "ko")
 }
 
 func TestBlobDownloadReadFailure(t *testing.T) {
@@ -151,5 +192,5 @@ func TestBlobDownloadReadFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, blob{}.download("http://davidepucci.it", "/dev/null"), "ko")
+	assert.Error(t, blob{}.download("http://davidepucci.it", "/dev/null", nil), "ko")
 }

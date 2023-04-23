@@ -12,12 +12,12 @@ type encoder struct {
 	Processor
 }
 
-func (encoder) applies(object interface{}) bool {
+func (encoder) Applies(object interface{}) bool {
 	_, ok := object.(*entity.Track)
 	return ok
 }
 
-func (encoder) do(object interface{}) error {
+func (encoder) Do(object interface{}) error {
 	track, ok := object.(*entity.Track)
 	if !ok {
 		return errors.New("processor does not support such object")

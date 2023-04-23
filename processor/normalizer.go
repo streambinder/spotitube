@@ -11,12 +11,12 @@ type normalizer struct {
 	Processor
 }
 
-func (normalizer) applies(object interface{}) bool {
+func (normalizer) Applies(object interface{}) bool {
 	_, ok := object.(*entity.Track)
 	return ok
 }
 
-func (normalizer) do(object interface{}) error {
+func (normalizer) Do(object interface{}) error {
 	track, ok := object.(*entity.Track)
 	if !ok {
 		return errors.New("processor does not support such object")

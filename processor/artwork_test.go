@@ -22,12 +22,12 @@ func TestArtworkDo(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, artwork{}.do(&[]byte{}))
+	assert.Nil(t, Artwork{}.Do(&[]byte{}))
 }
 
 func TestArtworkDoUnsupported(t *testing.T) {
 	// testing
-	assert.NotNil(t, artwork{}.do(track))
+	assert.NotNil(t, Artwork{}.Do(track))
 }
 
 func TestEncoderDoDecodeFailure(t *testing.T) {
@@ -37,7 +37,7 @@ func TestEncoderDoDecodeFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Error(t, artwork{}.do(&[]byte{}), "ko")
+	assert.Error(t, Artwork{}.Do(&[]byte{}), "ko")
 }
 
 func TestEncoderDoEncodeFailure(t *testing.T) {
@@ -52,5 +52,5 @@ func TestEncoderDoEncodeFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, artwork{}.do(&[]byte{}), "ko")
+	assert.Error(t, Artwork{}.Do(&[]byte{}), "ko")
 }

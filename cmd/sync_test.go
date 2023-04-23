@@ -73,7 +73,7 @@ func TestCmdSync(t *testing.T) {
 		ApplyFunc(provider.Search, func() ([]*provider.Match, error) {
 			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
 		}).
-		ApplyFunc(downloader.Download, func(_, _ string, ch ...chan []byte) error {
+		ApplyFunc(downloader.Download, func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
 			for _, c := range ch {
 				c <- []byte{}
 			}
@@ -302,12 +302,15 @@ func TestCmdSyncCollectFailure(t *testing.T) {
 		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
 			return track, nil
 		}).
+		ApplyFunc(provider.Search, func(*entity.Track) ([]*provider.Match, error) {
+			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
+		}).
 		ApplyFunc(painter, func(track *entity.Track) func(context.Context, chan error) {
 			return func(_ context.Context, ch chan error) {
 				ch <- errors.New("ko")
 			}
 		}).
-		ApplyFunc(downloader.Download, func(_, _ string, ch ...chan []byte) error {
+		ApplyFunc(downloader.Download, func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
 			for _, c := range ch {
 				c <- []byte{}
 			}
@@ -348,7 +351,7 @@ func TestCmdSyncDownloadFailure(t *testing.T) {
 		ApplyFunc(provider.Search, func(*entity.Track) ([]*provider.Match, error) {
 			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
 		}).
-		ApplyFunc(downloader.Download, func(_, _ string, ch ...chan []byte) error {
+		ApplyFunc(downloader.Download, func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
 			for _, c := range ch {
 				c <- []byte{}
 			}
@@ -389,7 +392,7 @@ func TestCmdSyncLyricsFailure(t *testing.T) {
 		ApplyFunc(provider.Search, func() ([]*provider.Match, error) {
 			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
 		}).
-		ApplyFunc(downloader.Download, func(_, _ string, ch ...chan []byte) error {
+		ApplyFunc(downloader.Download, func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
 			for _, c := range ch {
 				c <- []byte{}
 			}
@@ -430,7 +433,7 @@ func TestCmdSyncProcessorFailure(t *testing.T) {
 		ApplyFunc(provider.Search, func() ([]*provider.Match, error) {
 			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
 		}).
-		ApplyFunc(downloader.Download, func(_, _ string, ch ...chan []byte) error {
+		ApplyFunc(downloader.Download, func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
 			for _, c := range ch {
 				c <- []byte{}
 			}

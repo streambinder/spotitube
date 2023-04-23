@@ -229,7 +229,7 @@ func collector(ctx context.Context, ch chan error) {
 func retriever(track *entity.Track) func(context.Context, chan error) {
 	return func(ctx context.Context, ch chan error) {
 		log.Println("[retriever]\t" + track.Title + " (" + track.UpstreamURL + ")")
-		if err := downloader.Download(track.UpstreamURL, track.Path().Download()); err != nil {
+		if err := downloader.Download(track.UpstreamURL, track.Path().Download(), nil); err != nil {
 			log.Printf("[retriever]\t%s", err)
 			ch <- err
 			return
@@ -245,7 +245,7 @@ func painter(track *entity.Track) func(context.Context, chan error) {
 		defer close(artwork)
 
 		log.Println("[painter]\t" + track.Title + " (" + track.Artwork.URL + ")")
-		if err := downloader.Download(track.Artwork.URL, track.Path().Artwork(), artwork); err != nil {
+		if err := downloader.Download(track.Artwork.URL, track.Path().Artwork(), processor.Artwork{}, artwork); err != nil {
 			log.Printf("[painter]\t%s", err)
 			ch <- err
 			return

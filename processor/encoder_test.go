@@ -21,12 +21,12 @@ func TestEncoderDo(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, encoder{}.do(track))
+	assert.Nil(t, encoder{}.Do(track))
 }
 
 func TestEncoderDoUnsupported(t *testing.T) {
 	// testing
-	assert.NotNil(t, encoder{}.do("hello"))
+	assert.NotNil(t, encoder{}.Do("hello"))
 }
 
 func TestEncoderDoOpenFailure(t *testing.T) {
@@ -36,5 +36,5 @@ func TestEncoderDoOpenFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Error(t, encoder{}.do(track), "ko")
+	assert.Error(t, encoder{}.Do(track), "ko")
 }

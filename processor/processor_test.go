@@ -24,10 +24,10 @@ var track = &entity.Track{
 func TestProcessorDo(t *testing.T) {
 	// monkey patching
 	defer gomonkey.NewPatches().
-		ApplyPrivateMethod(reflect.TypeOf(normalizer{}), "do", func() error {
+		ApplyPrivateMethod(reflect.TypeOf(normalizer{}), "Do", func() error {
 			return nil
 		}).
-		ApplyPrivateMethod(reflect.TypeOf(encoder{}), "do", func() error {
+		ApplyPrivateMethod(reflect.TypeOf(encoder{}), "Do", func() error {
 			return nil
 		}).
 		Reset()
@@ -39,10 +39,10 @@ func TestProcessorDo(t *testing.T) {
 func TestProcessorDoFailure(t *testing.T) {
 	// monkey patching
 	defer gomonkey.NewPatches().
-		ApplyPrivateMethod(reflect.TypeOf(normalizer{}), "do", func() error {
+		ApplyPrivateMethod(reflect.TypeOf(normalizer{}), "Do", func() error {
 			return nil
 		}).
-		ApplyPrivateMethod(reflect.TypeOf(encoder{}), "do", func() error {
+		ApplyPrivateMethod(reflect.TypeOf(encoder{}), "Do", func() error {
 			return errors.New("ko")
 		}).
 		Reset()

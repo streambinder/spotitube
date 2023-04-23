@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/streambinder/spotitube/processor"
 	"github.com/streambinder/spotitube/util"
 )
 
@@ -36,7 +37,7 @@ func (blob) supports(url string) bool {
 	}
 }
 
-func (blob) download(url, path string, channels ...chan []byte) error {
+func (blob) download(url, path string, processor processor.Processor, channels ...chan []byte) error {
 	response, err := http.Get(url)
 	if err != nil {
 		return err
@@ -56,6 +57,12 @@ func (blob) download(url, path string, channels ...chan []byte) error {
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return err
+	}
+
+	if processor != nil && processor.Applies(body) {
+		if err := processor.Do(body); err != nil {
+			return err
+		}
 	}
 
 	for _, ch := range channels {

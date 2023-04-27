@@ -15,6 +15,7 @@ import (
 	"github.com/streambinder/spotitube/processor"
 	"github.com/streambinder/spotitube/provider"
 	"github.com/streambinder/spotitube/spotify"
+	"github.com/streambinder/spotitube/util"
 )
 
 const (
@@ -315,6 +316,11 @@ func routineInstall(ctx context.Context, ch chan error) {
 	for event := range routineQueues[routineTypeInstall] {
 		track := event.(*entity.Track)
 		log.Println("[installer]\t" + track.Title)
+		if err := util.FileMoveOrCopy(track.Path().Download(), track.Path().Final()); err != nil {
+			log.Printf("[installer]\t%s", err)
+			ch <- err
+			return
+		}
 	}
 }
 

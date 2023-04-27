@@ -92,6 +92,9 @@ func TestCmdSync(t *testing.T) {
 		ApplyFunc(processor.Do, func() error {
 			return nil
 		}).
+		ApplyFunc(util.FileMoveOrCopy, func() error {
+			return nil
+		}).
 		Reset()
 
 	// testing
@@ -146,6 +149,9 @@ func TestCmdSyncOfflineIndex(t *testing.T) {
 			return "lyrics", nil
 		}).
 		ApplyFunc(processor.Do, func() error {
+			return nil
+		}).
+		ApplyFunc(util.FileMoveOrCopy, func() error {
 			return nil
 		}).
 		Reset()
@@ -578,6 +584,59 @@ func TestCmdSyncProcessorFailure(t *testing.T) {
 			return "lyrics", nil
 		}).
 		ApplyFunc(processor.Do, func() error {
+			return errors.New("ko")
+		}).
+		Reset()
+
+	// testing
+	assert.EqualError(t, util.ErrOnly(testExecute("sync")), "ko")
+}
+
+func TestCmdSyncInstallerFailure(t *testing.T) {
+	testTrack := track
+	testTrack.ID = "TestCmdSyncInstallerFailure"
+
+	// monkey patching
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyFunc(cmd.Open, func() error {
+			return nil
+		}).
+		ApplyMethod(index.Index{}, "Build", func() error {
+			return nil
+		}).
+		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
+			return &spotify.Client{}, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
+			ch[0] <- testTrack
+			return nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Playlist", func() (*entity.Playlist, error) {
+			return playlist, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
+			return album, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
+			return testTrack, nil
+		}).
+		ApplyFunc(provider.Search, func() ([]*provider.Match, error) {
+			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
+		}).
+		ApplyFunc(downloader.Download, func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+			for _, c := range ch {
+				c <- []byte{}
+			}
+			return nil
+		}).
+		ApplyFunc(lyrics.Search, func() (string, error) {
+			return "lyrics", nil
+		}).
+		ApplyFunc(processor.Do, func() error {
+			return nil
+		}).
+		ApplyFunc(util.FileMoveOrCopy, func() error {
 			return errors.New("ko")
 		}).
 		Reset()

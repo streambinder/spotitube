@@ -40,7 +40,7 @@ func TestAuthenticate(t *testing.T) {
 		ApplyFunc(cmd.Open, func() error {
 			return nil
 		}).
-		ApplyFunc(randstr.Hex, func() string {
+		ApplyFunc(randstr.String, func() string {
 			return state
 		}).
 		ApplyMethod(spotifyauth.Authenticator{}, "Token", func() (*oauth2.Token, error) {
@@ -60,7 +60,7 @@ func TestAuthenticate(t *testing.T) {
 			)
 
 			for {
-				response, err = http.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=C0D3&state=S7473", port))
+				response, err = http.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=C0D3&state=%s", port, state))
 				if errors.Is(err, syscall.ECONNREFUSED) {
 					time.Sleep(100 * time.Millisecond)
 					continue
@@ -106,7 +106,7 @@ func TestAuthenticateRecoverOpenFailure(t *testing.T) {
 		ApplyFunc(cmd.Open, func() error {
 			return nil
 		}).
-		ApplyFunc(randstr.Hex, func() string {
+		ApplyFunc(randstr.String, func() string {
 			return state
 		}).
 		ApplyMethod(spotifyauth.Authenticator{}, "Token", func() (*oauth2.Token, error) {
@@ -126,7 +126,7 @@ func TestAuthenticateRecoverOpenFailure(t *testing.T) {
 			)
 
 			for {
-				response, err = http.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=C0D3&state=S7473", port))
+				response, err = http.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=C0D3&state=%s", port, state))
 				if errors.Is(err, syscall.ECONNREFUSED) {
 					time.Sleep(100 * time.Millisecond)
 					continue
@@ -154,7 +154,7 @@ func TestAuthenticateRecoverUnmarshalFailure(t *testing.T) {
 		ApplyFunc(cmd.Open, func() error {
 			return nil
 		}).
-		ApplyFunc(randstr.Hex, func() string {
+		ApplyFunc(randstr.String, func() string {
 			return state
 		}).
 		ApplyMethod(spotifyauth.Authenticator{}, "Token", func() (*oauth2.Token, error) {
@@ -174,7 +174,7 @@ func TestAuthenticateRecoverUnmarshalFailure(t *testing.T) {
 			)
 
 			for {
-				response, err = http.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=C0D3&state=S7473", port))
+				response, err = http.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=C0D3&state=%s", port, state))
 				if errors.Is(err, syscall.ECONNREFUSED) {
 					time.Sleep(100 * time.Millisecond)
 					continue
@@ -232,7 +232,7 @@ func TestAuthenticateNotFound(t *testing.T) {
 		ApplyFunc(cmd.Open, func() error {
 			return nil
 		}).
-		ApplyFunc(randstr.Hex, func() string {
+		ApplyFunc(randstr.String, func() string {
 			return state
 		}).
 		ApplyMethod(spotifyauth.Authenticator{}, "Token", func() (*oauth2.Token, error) {
@@ -277,7 +277,7 @@ func TestAuthenticateForbidden(t *testing.T) {
 		ApplyFunc(cmd.Open, func() error {
 			return nil
 		}).
-		ApplyFunc(randstr.Hex, func() string {
+		ApplyFunc(randstr.String, func() string {
 			return state
 		}).
 		ApplyMethod(spotifyauth.Authenticator{}, "Token", func() (*oauth2.Token, error) {
@@ -322,7 +322,7 @@ func TestAuthenticateOpenFailure(t *testing.T) {
 		ApplyFunc(cmd.Open, func() error {
 			return errors.New("ko")
 		}).
-		ApplyFunc(randstr.Hex, func() string {
+		ApplyFunc(randstr.String, func() string {
 			return state
 		}).
 		Reset()
@@ -339,7 +339,7 @@ func TestAuthenticateOpenFailure(t *testing.T) {
 			)
 
 			for {
-				response, err = http.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=C0D3&state=S7473", port))
+				response, err = http.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=C0D3&state=%s", port, state))
 				if errors.Is(err, syscall.ECONNREFUSED) {
 					time.Sleep(100 * time.Millisecond)
 					continue
@@ -364,7 +364,7 @@ func TestAuthenticateServerUnserving(t *testing.T) {
 		ApplyFunc(cmd.Open, func() error {
 			return nil
 		}).
-		ApplyFunc(randstr.Hex, func() string {
+		ApplyFunc(randstr.String, func() string {
 			return state
 		}).
 		ApplyFunc(net.Listen, func() (net.Listener, error) {

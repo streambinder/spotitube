@@ -37,7 +37,7 @@ func (index Index) Build(path string, init ...int) error {
 		}
 
 		// skip any inner directory from walk
-		if entry.IsDir() {
+		if entry.IsDir() && entry.Name() != path {
 			return fs.SkipDir
 		}
 

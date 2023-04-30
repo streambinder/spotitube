@@ -24,5 +24,5 @@ func FileMoveOrCopy(source, destination string) error {
 }
 
 func FileBaseStem(path string) string {
-	return strings.TrimSuffix(path, "."+filepath.Ext(path)[1:])
+	return strings.TrimSuffix(path, filepath.Ext(path))
 }

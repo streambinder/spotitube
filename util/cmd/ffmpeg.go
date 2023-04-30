@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/streambinder/spotitube/util"
 )
 
 type FFmpegCmd struct{}
@@ -52,7 +55,7 @@ func (FFmpegCmd) VolumeAdd(path string, delta float64) error {
 
 	var (
 		output bytes.Buffer
-		temp   = path + ".normalized"
+		temp   = util.FileBaseStem(path) + ".norm" + filepath.Ext(path)
 		cmd    = exec.Command("ffmpeg",
 			"-i", path,
 			"-af", fmt.Sprintf("volume=+%fdB", delta),

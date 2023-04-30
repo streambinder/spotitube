@@ -71,3 +71,7 @@ func TestFileCopyWriteFailure(t *testing.T) {
 	// testing
 	assert.Error(t, FileMoveOrCopy("/a", "/a"), "ko")
 }
+
+func TestFileBaseStem(t *testing.T) {
+	assert.Equal(t, "hello", FileBaseStem("hello.txt"))
+}

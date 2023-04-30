@@ -4,11 +4,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/streambinder/spotitube/util"
 )
 
 func YouTubeDl(url, path string) error {
 	pathExtension := filepath.Ext(path)[1:]
-	path = strings.TrimSuffix(path, "."+pathExtension)
+	path = strings.TrimSuffix(util.FileBaseStem(path), "."+pathExtension)
 	return exec.Command("youtube-dl",
 		"--format", "bestaudio",
 		"--extract-audio",

@@ -2,6 +2,8 @@ package util
 
 import (
 	"os"
+	"path/filepath"
+	"strings"
 )
 
 func FileMoveOrCopy(source, destination string) error {
@@ -19,4 +21,8 @@ func FileMoveOrCopy(source, destination string) error {
 	}
 
 	return os.Remove(source)
+}
+
+func FileBaseStem(path string) string {
+	return strings.TrimSuffix(path, "."+filepath.Ext(path)[1:])
 }

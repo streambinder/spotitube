@@ -4,19 +4,19 @@ import (
 	"context"
 	"errors"
 
-	"github.com/streambinder/spotitube/entity"
+	"github.com/streambinder/spotitube/entity/playlist"
 	"github.com/zmb3/spotify/v2"
 )
 
-func playlistEntity(playlist *spotify.FullPlaylist) *entity.Playlist {
-	return &entity.Playlist{
-		ID:    playlist.ID.String(),
-		Name:  playlist.Name,
-		Owner: playlist.Owner.ID,
+func playlistEntity(fullPlaylist *spotify.FullPlaylist) *playlist.Playlist {
+	return &playlist.Playlist{
+		ID:    fullPlaylist.ID.String(),
+		Name:  fullPlaylist.Name,
+		Owner: fullPlaylist.Owner.ID,
 	}
 }
 
-func (client *Client) Playlist(id string, channels ...chan interface{}) (*entity.Playlist, error) {
+func (client *Client) Playlist(id string, channels ...chan interface{}) (*playlist.Playlist, error) {
 	var (
 		ctx               = context.Background()
 		fullPlaylist, err = client.GetPlaylist(ctx, spotify.ID(id))

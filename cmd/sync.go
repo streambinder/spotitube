@@ -11,6 +11,7 @@ import (
 	"github.com/streambinder/spotitube/downloader"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/entity/index"
+	"github.com/streambinder/spotitube/entity/playlist"
 	"github.com/streambinder/spotitube/lyrics"
 	"github.com/streambinder/spotitube/processor"
 	"github.com/streambinder/spotitube/provider"
@@ -38,11 +39,12 @@ var (
 		Short: "Synchronize collections",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var (
-				path, _      = cmd.Flags().GetString("path")
-				library, _   = cmd.Flags().GetBool("library")
-				playlists, _ = cmd.Flags().GetStringArray("playlist")
-				albums, _    = cmd.Flags().GetStringArray("album")
-				tracks, _    = cmd.Flags().GetStringArray("track")
+				path, _             = cmd.Flags().GetString("path")
+				playlistEncoding, _ = cmd.Flags().GetString("playlist-encoding")
+				library, _          = cmd.Flags().GetBool("library")
+				playlists, _        = cmd.Flags().GetStringArray("playlist")
+				albums, _           = cmd.Flags().GetStringArray("album")
+				tracks, _           = cmd.Flags().GetStringArray("track")
 			)
 
 			if err := os.Chdir(path); err != nil {
@@ -57,7 +59,7 @@ var (
 				routineCollect,
 				routineProcess,
 				routineInstall,
-				routineMix,
+				routineMix(playlistEncoding),
 			)
 		},
 		PreRunE: func(cmd *cobra.Command, args []string) (err error) {
@@ -97,6 +99,7 @@ var (
 func init() {
 	cmdRoot.AddCommand(cmdSync)
 	cmdSync.Flags().String("path", ".", "Target synchronization path")
+	cmdSync.Flags().String("playlist-encoding", "m3u", "Target synchronization path")
 	cmdSync.Flags().BoolP("library", "l", false, "Synchronize library (auto-enabled if no collection is supplied)")
 	cmdSync.Flags().StringArrayP("playlist", "p", []string{}, "Synchronize playlist")
 	cmdSync.Flags().StringArrayP("album", "a", []string{}, "Synchronize album")
@@ -321,16 +324,43 @@ func routineInstall(ctx context.Context, ch chan error) {
 			ch <- err
 			return
 		}
+		indexData[track.ID] = index.Installed
 	}
 }
 
 // mixer wraps playlists to their final destination
-func routineMix(context.Context, chan error) {
-	// block until installation is done
-	<-routineSemaphores[routineTypeInstall]
+func routineMix(encoding string) func(context.Context, chan error) {
+	return func(ctx context.Context, ch chan error) {
+		// block until installation is done
+		<-routineSemaphores[routineTypeInstall]
 
-	for event := range routineQueues[routineTypeMix] {
-		playlist := event.(*entity.Playlist)
-		log.Println("[mixer]\t" + playlist.Name)
+		for event := range routineQueues[routineTypeMix] {
+			playlist := event.(*playlist.Playlist)
+			encoder, err := playlist.Encoder(encoding)
+			if err != nil {
+				log.Printf("[mixer]\t(%s) %s", playlist.Name, err)
+				ch <- err
+				return
+			}
+
+			for _, track := range playlist.Tracks {
+				if trackStatus, ok := indexData[track.ID]; !ok || (trackStatus != index.Installed && trackStatus != index.Offline) {
+					continue
+				}
+
+				if err := encoder.Add(track); err != nil {
+					log.Printf("[mixer]\t(%s) %s", playlist.Name, err)
+					ch <- err
+					return
+
+				}
+			}
+
+			if err := encoder.Close(); err != nil {
+				log.Printf("[mixer]\t(%s) %s", playlist.Name, err)
+				ch <- err
+				return
+			}
+		}
 	}
 }

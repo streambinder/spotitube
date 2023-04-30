@@ -35,8 +35,9 @@ var (
 	routineQueues     map[int](chan interface{})
 	indexData         = index.New()
 	cmdSync           = &cobra.Command{
-		Use:   "sync",
-		Short: "Synchronize collections",
+		Use:          "sync",
+		Short:        "Synchronize collections",
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var (
 				path, _             = cmd.Flags().GetString("path")

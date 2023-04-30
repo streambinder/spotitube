@@ -420,6 +420,48 @@ func TestCmdSyncDecideFailure(t *testing.T) {
 	assert.EqualError(t, util.ErrOnly(testExecute("sync")), "ko")
 }
 
+func TestCmdSyncDecideNotFound(t *testing.T) {
+	testTrack := testTrack
+	testTrack.ID = "TestCmdSyncDecideNotFound"
+
+	// monkey patching
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyFunc(cmd.Open, func() error {
+			return nil
+		}).
+		ApplyMethod(index.Index{}, "Build", func() error {
+			return nil
+		}).
+		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
+			return &spotify.Client{}, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Library",
+			func(_ *spotify.Client, ch ...chan interface{}) error {
+				ch[0] <- testTrack
+				return nil
+			}).
+		ApplyMethod(&spotify.Client{}, "Playlist", func() (*playlist.Playlist, error) {
+			return testPlaylist, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
+			return testAlbum, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
+			return testTrack, nil
+		}).
+		ApplyFunc(provider.Search, func(*entity.Track) ([]*provider.Match, error) {
+			return []*provider.Match{}, nil
+		}).
+		ApplyMethod(&playlist.M3UEncoder{}, "Close", func() error {
+			return nil
+		}).
+		Reset()
+
+	// testing
+	assert.Nil(t, util.ErrOnly(testExecute("sync")))
+}
+
 func TestCmdSyncCollectFailure(t *testing.T) {
 	testTrack := testTrack
 	testTrack.ID = "TestCmdSyncCollectFailure"

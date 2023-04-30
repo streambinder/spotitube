@@ -217,6 +217,11 @@ func routineDecide(ctx context.Context, ch chan error) {
 			return
 		}
 
+		if len(matches) == 0 {
+			log.Println("[decider]\tno result found for " + track.Title)
+			continue
+		}
+
 		track.UpstreamURL = matches[0].URL
 		routineQueues[routineTypeCollect] <- track
 	}

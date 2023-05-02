@@ -31,7 +31,7 @@ func (composer genius) search(track *entity.Track, ctxs ...context.Context) ([]b
 		ctx = ctxs[0]
 	}
 
-	searchKeys := url.Values{"q": []string{track.Title, track.Artists[0]}}
+	searchKeys := url.Values{"q": []string{track.Title}}
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s?%s", "https://api.genius.com/search", searchKeys.Encode()), nil)
 	if err != nil {
 		return nil, err

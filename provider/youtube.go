@@ -33,7 +33,7 @@ type youTubeResult struct {
 const (
 	titleScoreMultiplier    = 1.5
 	durationScoreMultiplier = 2.0
-	viewsScoreMultiplier    = 0.0000005
+	viewsScoreMultiplier    = 10
 	keywordsMatchScore      = 100
 	skimThreshold           = -100
 )
@@ -115,13 +115,13 @@ func (result youTubeResult) score() int {
 		resultDistinct = util.UniqueFields(fmt.Sprintf("%s %s", result.owner, result.title))
 		titleScore     = int(float64(levenshtein.ComputeDistance(queryDistinct, resultDistinct)) * titleScoreMultiplier)
 		durationScore  = int(math.Abs(float64(result.length)-float64(result.track.Duration)) * durationScoreMultiplier)
-		viewsScore     = int(float64(result.views) * viewsScoreMultiplier)
+		viewsScore     = len(strconv.Itoa(result.views)) * viewsScoreMultiplier // multiply views number order, not views directly
 		score          = viewsScore - titleScore - durationScore
 	)
 
-	if strings.Contains(resultDistinct, util.Flatten(result.track.Artists[0])) &&
-		strings.Contains(resultDistinct, util.Flatten(result.track.Title)) {
-		score += keywordsMatchScore
+	if !(strings.Contains(resultDistinct, util.Flatten(result.track.Artists[0])) &&
+		strings.Contains(resultDistinct, util.Flatten(result.track.Title))) {
+		score -= keywordsMatchScore
 	}
 
 	return score

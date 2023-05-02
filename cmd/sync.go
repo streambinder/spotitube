@@ -113,14 +113,13 @@ func routineIndex(ctx context.Context, ch chan error) {
 	// remember to signal fetcher
 	defer close(routineSemaphores[routineTypeIndex])
 
-	log.Printf("[indexer]\tindexing")
 	if err := indexData.Build("."); err != nil {
 		log.Printf("[indexer]\t%s", err)
 		routineSemaphores[routineTypeIndex] <- false
 		ch <- err
 		return
 	}
-	log.Printf("[indexer]\tindexed")
+	log.Printf("[indexer]\tindexed %d tracks", len(indexData))
 
 	// once indexed, sidgnal fetcher
 	routineSemaphores[routineTypeIndex] <- true
@@ -200,17 +199,16 @@ func routineDecide(ctx context.Context, ch chan error) {
 		track := event.(*entity.Track)
 
 		if status, ok := indexData[track.ID]; !ok {
-			log.Println("[decider]\tmarking " + track.Title + " as to be synced")
+			log.Printf("[decider]\t[%s] sync", util.Excerpt(track.Title, true))
 			indexData[track.ID] = index.Online
 		} else if status == index.Online {
-			log.Println("[decider]\tignoring duplicate " + track.Title)
+			log.Printf("[decider]\t[%s] skip (dup)", util.Excerpt(track.Title, true))
 			continue
 		} else if status == index.Offline {
-			log.Println("[decider]\tignoring already synced " + track.Title)
+			// log.Printf("[decider]\t[%s] skip (offline)", util.Excerpt(track.Title, true))
 			continue
 		}
 
-		log.Println("[decider]\t" + track.Title)
 		matches, err := provider.Search(track)
 		if err != nil {
 			ch <- err
@@ -218,7 +216,7 @@ func routineDecide(ctx context.Context, ch chan error) {
 		}
 
 		if len(matches) == 0 {
-			log.Println("[decider]\tno result found for " + track.Title)
+			log.Printf("[decider]\t[%s] no result", util.Excerpt(track.Title, true))
 			continue
 		}
 
@@ -236,13 +234,13 @@ func routineCollect(ctx context.Context, ch chan error) {
 
 	for event := range routineQueues[routineTypeCollect] {
 		track := event.(*entity.Track)
-		log.Println("[collect]\t" + track.Title)
+		log.Printf("[decider]\t[%s]", util.Excerpt(track.Title, true))
 		if err := nursery.RunConcurrently(
 			routineCollectAsset(track),
 			routineCollectLyrics(track),
 			routineCollectArtwork(track),
 		); err != nil {
-			log.Printf("[collect]\t%s", err)
+			log.Printf("[collect] %s", err)
 			ch <- err
 			return
 		}
@@ -254,9 +252,9 @@ func routineCollect(ctx context.Context, ch chan error) {
 // to the (meta)data fetched from upstream
 func routineCollectAsset(track *entity.Track) func(context.Context, chan error) {
 	return func(ctx context.Context, ch chan error) {
-		log.Println("[retriever]\t" + track.Title + " (" + track.UpstreamURL + ")")
+		log.Printf("[retriever]\t[%s] %s", util.Excerpt(track.Title, true), track.UpstreamURL)
 		if err := downloader.Download(track.UpstreamURL, track.Path().Download(), nil); err != nil {
-			log.Printf("[retriever]\t%s", err)
+			log.Printf("[retriever]\t[%s] %s", util.Excerpt(track.Title, true), err)
 			ch <- err
 			return
 		}
@@ -267,15 +265,15 @@ func routineCollectAsset(track *entity.Track) func(context.Context, chan error) 
 // in the fetched blob
 func routineCollectLyrics(track *entity.Track) func(context.Context, chan error) {
 	return func(ctx context.Context, ch chan error) {
-		log.Println("[composer]\t" + track.Title)
+		log.Printf("[composer]\t[%s]", util.Excerpt(track.Title, true))
 		lyrics, err := lyrics.Search(track)
 		if err != nil {
-			log.Printf("[composer]\t%s", err)
+			log.Printf("[composer]\t[%s] %s", util.Excerpt(track.Title, true), err)
 			ch <- err
 			return
 		}
 		track.Lyrics = lyrics
-		log.Printf("[composer]\t%d", len(lyrics))
+		log.Printf("[composer]\t[%s] %s", util.Excerpt(track.Title, true), util.Excerpt(lyrics))
 	}
 }
 
@@ -286,15 +284,15 @@ func routineCollectArtwork(track *entity.Track) func(context.Context, chan error
 		artwork := make(chan []byte, 1)
 		defer close(artwork)
 
-		log.Println("[painter]\t" + track.Title + " (" + track.Artwork.URL + ")")
+		log.Printf("[painter]\t[%s] %s", util.Excerpt(track.Title, true), track.Artwork.URL)
 		if err := downloader.Download(track.Artwork.URL, track.Path().Artwork(), processor.Artwork{}, artwork); err != nil {
-			log.Printf("[painter]\t%s", err)
+			log.Printf("[painter]\t[%s] %s", util.Excerpt(track.Title, true), err)
 			ch <- err
 			return
 		}
 
 		track.Artwork.Data = <-artwork
-		log.Printf("[painter]\t%d", len(track.Artwork.Data))
+		log.Printf("[painter]\t[%s] %d", util.Excerpt(track.Title, true), len(track.Artwork.Data))
 	}
 }
 
@@ -307,9 +305,9 @@ func routineProcess(ctx context.Context, ch chan error) {
 
 	for event := range routineQueues[routineTypeProcess] {
 		track := event.(*entity.Track)
-		log.Println("[postproc]\t" + track.Title)
+		log.Printf("[postproc]\t[%s]", util.Excerpt(track.Title, true))
 		if err := processor.Do(track); err != nil {
-			log.Printf("[postproc]\t%s", err)
+			log.Printf("[postproc]\t[%s] %s", util.Excerpt(track.Title, true), err)
 			ch <- err
 			return
 		}
@@ -324,9 +322,9 @@ func routineInstall(ctx context.Context, ch chan error) {
 
 	for event := range routineQueues[routineTypeInstall] {
 		track := event.(*entity.Track)
-		log.Println("[installer]\t" + track.Title)
+		log.Printf("[installer]\t[%s]", util.Excerpt(track.Title, true))
 		if err := util.FileMoveOrCopy(track.Path().Download(), track.Path().Final()); err != nil {
-			log.Printf("[installer]\t%s", err)
+			log.Printf("[installer]\t[%s] %s", util.Excerpt(track.Title, true), err)
 			ch <- err
 			return
 		}
@@ -342,9 +340,10 @@ func routineMix(encoding string) func(context.Context, chan error) {
 
 		for event := range routineQueues[routineTypeMix] {
 			playlist := event.(*playlist.Playlist)
+			log.Printf("[mixer]\t[%s]", playlist.Name)
 			encoder, err := playlist.Encoder(encoding)
 			if err != nil {
-				log.Printf("[mixer]\t(%s) %s", playlist.Name, err)
+				log.Printf("[mixer]\t[%s] %s", playlist.Name, err)
 				ch <- err
 				return
 			}
@@ -355,7 +354,7 @@ func routineMix(encoding string) func(context.Context, chan error) {
 				}
 
 				if err := encoder.Add(track); err != nil {
-					log.Printf("[mixer]\t(%s) %s", playlist.Name, err)
+					log.Printf("[mixer]\t[%s] %s", playlist.Name, err)
 					ch <- err
 					return
 
@@ -363,7 +362,7 @@ func routineMix(encoding string) func(context.Context, chan error) {
 			}
 
 			if err := encoder.Close(); err != nil {
-				log.Printf("[mixer]\t(%s) %s", playlist.Name, err)
+				log.Printf("[mixer]\t[%s] %s", playlist.Name, err)
 				ch <- err
 				return
 			}

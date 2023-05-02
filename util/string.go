@@ -24,3 +24,18 @@ func UniqueFields(sentence string) (uniqueFieldsSentence string) {
 	}
 	return strings.Join(uniqueFields, " ")
 }
+
+func Excerpt(sentence string, args ...bool) string {
+	pad := false
+	if len(args) > 0 {
+		pad = args[0]
+	}
+
+	for len(sentence) < 10 {
+		if !pad {
+			return sentence
+		}
+		sentence += " "
+	}
+	return sentence[:10]
+}

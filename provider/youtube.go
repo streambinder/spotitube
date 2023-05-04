@@ -21,7 +21,6 @@ type youTube struct {
 }
 
 type youTubeResult struct {
-	track  *entity.Track
 	query  string
 	id     string
 	title  string
@@ -30,23 +29,17 @@ type youTubeResult struct {
 	length int
 }
 
-const (
-	titleScoreMultiplier    = 1.5
-	durationScoreMultiplier = 2.0
-	viewsScoreMultiplier    = 10
-	keywordsMatchScore      = 100
-	skimThreshold           = -100
-)
-
 func init() {
 	providers = append(providers, youTube{})
 }
 
 func (provider youTube) search(track *entity.Track) ([]*Match, error) {
-	searchKeys := url.Values{
-		"search_query": append([]string{track.Title}, track.Artists...),
+	query := track.Title
+	for _, artist := range track.Artists {
+		query = fmt.Sprintf("%s %s", query, artist)
 	}
-	response, err := http.Get("https://www.youtube.com/results?" + searchKeys.Encode())
+
+	response, err := http.Get("https://www.youtube.com/results?search_query=" + url.QueryEscape(query))
 	if err != nil {
 		return nil, err
 	}
@@ -71,8 +64,7 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 	var matches []*Match
 	gjson.Get(resultJSON, "contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents.0.itemSectionRenderer.contents").ForEach(func(key, value gjson.Result) bool {
 		match := youTubeResult{
-			track: track,
-			query: searchKeys.Get("search_query"),
+			query: query,
 			id:    gjson.Get(value.String(), "videoRenderer.videoId").String(),
 			title: gjson.Get(value.String(), "videoRenderer.title.runs.0.text").String(),
 			owner: gjson.Get(value.String(), "videoRenderer.ownerText.runs.0.text").String(),
@@ -99,8 +91,8 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 			return true
 		}
 
-		if match.score() > skimThreshold {
-			matches = append(matches, &Match{fmt.Sprintf("https://youtu.be/%s", match.id), match.score()})
+		if match.compliant(track) {
+			matches = append(matches, &Match{fmt.Sprintf("https://youtu.be/%s", match.id), match.score(track)})
 		}
 
 		return true
@@ -109,20 +101,58 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 	return matches, nil
 }
 
-func (result youTubeResult) score() int {
-	var (
-		queryDistinct  = util.UniqueFields(result.query)
-		resultDistinct = util.UniqueFields(fmt.Sprintf("%s %s", result.owner, result.title))
-		titleScore     = int(float64(levenshtein.ComputeDistance(queryDistinct, resultDistinct)) * titleScoreMultiplier)
-		durationScore  = int(math.Abs(float64(result.length)-float64(result.track.Duration)) * durationScoreMultiplier)
-		viewsScore     = len(strconv.Itoa(result.views)) * viewsScoreMultiplier // multiply views number order, not views directly
-		score          = viewsScore - titleScore - durationScore
+// compliance check works as a barrier before checking on the result score
+// so to ensure that only the results that pass certain pre-checks get returned
+func (result youTubeResult) compliant(track *entity.Track) bool {
+	return strings.Contains(
+		util.UniqueFields(result.query),
+		util.Flatten(track.Artists[0]),
+	) && strings.Contains(
+		util.UniqueFields(fmt.Sprintf("%s %s", result.owner, result.title)),
+		util.Flatten(track.Title),
 	)
+}
 
-	if !(strings.Contains(resultDistinct, util.Flatten(result.track.Artists[0])) &&
-		strings.Contains(resultDistinct, util.Flatten(result.track.Title))) {
-		score -= keywordsMatchScore
-	}
+// score goes from 0 to 100:
+//
+//	0–50% is added depending on the Levenshtein distance between the query and result owner+title
+//	0-30% is added depending on the distance between the duration of the track and the result
+//	0-20% is added depending on the amount of views the result has
+func (result youTubeResult) score(track *entity.Track) int {
+	var (
+		titleScore    = result.titleAccuracy() / 2
+		durationScore = result.durationAccuracy(track.Duration) * 3 / 10
+		viewsScore    = result.viewsAccuracy() / 5
+	)
+	return titleScore + durationScore + viewsScore
+}
 
-	return score
+// return an accuracy percentage for result owner+title
+func (result youTubeResult) titleAccuracy() int {
+	distance := int(math.Min(
+		float64(levenshtein.ComputeDistance(
+			util.UniqueFields(result.query),
+			util.UniqueFields(fmt.Sprintf("%s %s", result.owner, result.title)),
+		)),
+		50.0,
+	))
+	// return the inverse of the proportion of the distance
+	// on a percentage scale to 50
+	return 100 - (distance * 100 / 50)
+}
+
+// return an accuracy percentage for result duration
+func (result youTubeResult) durationAccuracy(duration int) int {
+	distance := int(math.Min(math.Abs(float64(result.length)-float64(duration)), 60.0))
+	// return the inverse of the proportion of the distance
+	// on a percentage scale to 60
+	return 100 - (distance * 100 / 60)
+}
+
+// return an accuracy percentage for number of views
+//
+//	ie percentage of the number of digits of views on a scale to 11
+//	(11 digits is for views of the order of 10.000.000.000, the highest reached on YouTube so far)
+func (result youTubeResult) viewsAccuracy() int {
+	return int(math.Min(float64(len(strconv.Itoa(result.views))), 11.0)) * 100 / 11
 }

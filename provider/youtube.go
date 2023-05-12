@@ -104,13 +104,8 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 // compliance check works as a barrier before checking on the result score
 // so to ensure that only the results that pass certain pre-checks get returned
 func (result youTubeResult) compliant(track *entity.Track) bool {
-	return strings.Contains(
-		util.UniqueFields(result.query),
-		util.Flatten(track.Artists[0]),
-	) && strings.Contains(
-		util.UniqueFields(fmt.Sprintf("%s %s", result.owner, result.title)),
-		util.Flatten(track.Title),
-	)
+	spec := util.UniqueFields(fmt.Sprintf("%s %s", result.owner, result.title))
+	return strings.Contains(spec, util.UniqueFields(track.Artists[0])) && strings.Contains(spec, util.UniqueFields(track.Title))
 }
 
 // score goes from 0 to 100:

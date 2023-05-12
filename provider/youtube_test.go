@@ -59,7 +59,7 @@ const (
 var result = youTubeResult{
 	id:     "123",
 	title:  "title",
-	owner:  "owner",
+	owner:  "artist",
 	views:  1000000,
 	length: 180,
 }

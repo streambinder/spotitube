@@ -31,8 +31,12 @@ func (composer genius) search(track *entity.Track, ctxs ...context.Context) ([]b
 		ctx = ctxs[0]
 	}
 
-	searchKeys := url.Values{"q": []string{track.Title}}
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s?%s", "https://api.genius.com/search", searchKeys.Encode()), nil)
+	query := track.Title
+	for _, artist := range track.Artists {
+		query = fmt.Sprintf("%s %s", query, artist)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://api.genius.com/search?q=%s", url.QueryEscape(query)), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +70,7 @@ func (composer genius) search(track *entity.Track, ctxs ...context.Context) ([]b
 			artist          = gjson.Get(value.String(), "result.primary_artist.name").String()
 			artistCompliant = strings.Contains(util.Flatten(artist), util.Flatten(track.Artists[0]))
 			distance        = levenshtein.ComputeDistance(
-				util.UniqueFields(searchKeys.Get("q")),
+				util.UniqueFields(query),
 				util.UniqueFields(fmt.Sprintf("%s %s", title, artist)),
 			)
 		)

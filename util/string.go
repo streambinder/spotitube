@@ -26,6 +26,8 @@ func UniqueFields(sentence string) (uniqueFieldsSentence string) {
 }
 
 func Excerpt(sentence string, args ...bool) string {
+	sentence = strings.ReplaceAll(strings.ReplaceAll(sentence, "\n", " "), "\r", " ")
+
 	pad := false
 	if len(args) > 0 {
 		pad = args[0]

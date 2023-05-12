@@ -45,7 +45,10 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode == 429 {
+		util.SleepUntilRetry(response.Header)
+		return provider.search(track)
+	} else if response.StatusCode != 200 {
 		return nil, errors.New("cannot fetch results on youtube: " + response.Status)
 	}
 

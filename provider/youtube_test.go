@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/agiledragon/gomonkey/v2"
@@ -96,6 +97,20 @@ func TestYouTubeSearchMalformedData(t *testing.T) {
 			)),
 		}, nil
 	}).Reset()
+
+	// testing
+	assert.Nil(t, util.ErrOnly(youTube{}.search(track)))
+}
+
+func TestYouTubeSearchTooManyRequests(t *testing.T) {
+	// monkey patching
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyMethodSeq(http.DefaultClient, "Get", []gomonkey.OutputCell{
+			{Values: gomonkey.Params{&http.Response{StatusCode: 429, Body: io.NopCloser(strings.NewReader(""))}, nil}},
+			{Values: gomonkey.Params{&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(""))}, nil}},
+		}).
+		Reset()
 
 	// testing
 	assert.Nil(t, util.ErrOnly(youTube{}.search(track)))

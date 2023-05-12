@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/streambinder/spotitube/util"
@@ -65,6 +66,32 @@ func TestLyricsOvhSearchNotFound(t *testing.T) {
 	lyrics, err := lyricsOvh{}.search(track)
 	assert.Nil(t, lyrics)
 	assert.Nil(t, err)
+}
+
+func TestLyricsOvhSearchTooManyRequests(t *testing.T) {
+	// monkey patching
+	doCounter := 0
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
+			doCounter++
+			if doCounter > 1 {
+				return &http.Response{
+					StatusCode: 200,
+					Body: io.NopCloser(
+						strings.NewReader(`{"lyrics": "lyrics"}`)),
+				}, nil
+			}
+			return &http.Response{
+				StatusCode: 429,
+				Body: io.NopCloser(
+					strings.NewReader("")),
+			}, nil
+		}).
+		Reset()
+
+	// testing
+	assert.Nil(t, util.ErrOnly(lyricsOvh{}.search(track)))
 }
 
 func TestLyricsOvhSearchInternalError(t *testing.T) {

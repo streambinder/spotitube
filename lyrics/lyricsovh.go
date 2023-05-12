@@ -10,6 +10,7 @@ import (
 	"net/url"
 
 	"github.com/streambinder/spotitube/entity"
+	"github.com/streambinder/spotitube/util"
 )
 
 type lyricsOvh struct {
@@ -45,6 +46,9 @@ func (composer lyricsOvh) search(track *entity.Track, ctxs ...context.Context) (
 
 	if response.StatusCode == 404 {
 		return nil, nil
+	} else if response.StatusCode == 429 {
+		util.SleepUntilRetry(response.Header)
+		return composer.search(track, ctx)
 	} else if response.StatusCode != 200 {
 		return nil, errors.New("cannot fetch results on lyrics.ovh: " + response.Status)
 	}

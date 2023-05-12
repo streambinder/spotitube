@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/agiledragon/gomonkey/v2"
@@ -85,6 +86,32 @@ func TestGeniusSearchHttpNotFound(t *testing.T) {
 
 	// testing
 	assert.NotNil(t, util.ErrOnly(genius{}.search(track)))
+}
+
+func TestGeniusSearchTooManyReequests(t *testing.T) {
+	// monkey patching
+	doCounter := 0
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
+			doCounter++
+			if doCounter > 1 {
+				return &http.Response{
+					StatusCode: 200,
+					Body: io.NopCloser(
+						strings.NewReader(`<div data-lyrics-container="true">verse<br/><span>lyrics</span></div>`)),
+				}, nil
+			}
+			return &http.Response{
+				StatusCode: 429,
+				Body: io.NopCloser(
+					strings.NewReader("")),
+			}, nil
+		}).
+		Reset()
+
+	// testing
+	assert.Nil(t, util.ErrOnly(genius{}.search(track)))
 }
 
 func TestGeniusSearchReadFailure(t *testing.T) {

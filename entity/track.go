@@ -24,7 +24,7 @@ type Track struct {
 	Duration    int // in seconds
 	Lyrics      string
 	Number      int // track number within the album
-	Year        string
+	Year        int
 	UpstreamURL string // URL to the upstream blob the song's been downloaded from
 }
 

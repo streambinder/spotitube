@@ -18,9 +18,10 @@ import (
 )
 
 const (
-	resultViewsText  = "1.000.000 views"
-	resultLengthText = "3:00 minutes"
-	resultScript     = `<script>var ytInitialData = {
+	resultViewsText     = "1.000.000 views"
+	resultLengthText    = "3:00 minutes"
+	resultPublishedText = "1 year ago"
+	resultScript        = `<script>var ytInitialData = {
 		"contents": {
 			"twoColumnSearchResultsRenderer": {
 				"primaryContents": {
@@ -44,6 +45,9 @@ const (
 											"simpleText": "%s"
 										},
 										"lengthText": {
+											"simpleText": "%s"
+										},
+										"publishedTimeText": {
 											"simpleText": "%s"
 										}
 									}
@@ -78,6 +82,7 @@ func TestYouTubeSearch(t *testing.T) {
 					result.owner,
 					resultViewsText,
 					resultLengthText,
+					resultPublishedText,
 				),
 			)),
 		}, nil
@@ -93,7 +98,7 @@ func TestYouTubeSearchMalformedData(t *testing.T) {
 		return &http.Response{
 			StatusCode: 200,
 			Body: io.NopCloser(strings.NewReader(
-				fmt.Sprintf(resultScript, "", "", "", "", ""),
+				fmt.Sprintf(resultScript, "", "", "", "", "", ""),
 			)),
 		}, nil
 	}).Reset()

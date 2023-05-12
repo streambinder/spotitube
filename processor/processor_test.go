@@ -18,7 +18,7 @@ var track = &entity.Track{
 	Artwork:  entity.Artwork{URL: "http://ima.ge"},
 	Duration: 180,
 	Number:   1,
-	Year:     "1970",
+	Year:     1970,
 }
 
 func TestProcessorDo(t *testing.T) {

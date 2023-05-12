@@ -2,6 +2,7 @@ package spotify
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -49,7 +50,7 @@ func TestTrack(t *testing.T) {
 	assert.Equal(t, fullTrack.TrackNumber, track.Number)
 	assert.Equal(t, fullTrack.Album.Images[0].URL, track.Artwork.URL)
 	assert.Equal(t, track, <-channel)
-	assert.True(t, strings.HasPrefix(fullTrack.Album.ReleaseDate, track.Year))
+	assert.True(t, strings.HasPrefix(fullTrack.Album.ReleaseDate, strconv.Itoa(track.Year)))
 }
 
 func TestTrackGetTrackFailure(t *testing.T) {

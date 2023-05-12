@@ -70,7 +70,7 @@ func (encoder) Do(object interface{}) error {
 			Text:     strconv.Itoa(track.Number),
 		},
 	)
-	tag.SetYear(track.Year)
+	tag.SetYear(strconv.Itoa(track.Year))
 	tag.AddUserDefinedTextFrame(id3v2.UserDefinedTextFrame{
 		Encoding:    tag.DefaultEncoding(),
 		Description: id3.FrameUpstreamURL,

@@ -31,7 +31,7 @@ var (
 		Duration:    180,
 		Lyrics:      "",
 		Number:      1,
-		Year:        "1970",
+		Year:        1970,
 		UpstreamURL: "",
 	}
 	testPlaylist = &playlist.Playlist{

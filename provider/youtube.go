@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/agnivade/levenshtein"
@@ -27,6 +28,7 @@ type youTubeResult struct {
 	owner  string
 	views  int
 	length int
+	year   int
 }
 
 func init() {
@@ -88,6 +90,13 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 				)
 				return minutes*60 + seconds
 			}(gjson.Get(value.String(), "videoRenderer.lengthText.simpleText").String()),
+			year: func(ago string) int {
+				yearsAgo := 0
+				if strings.Contains(ago, " year") {
+					yearsAgo = util.ErrWrap(0)(strconv.Atoi(strings.Split(ago, " year")[0]))
+				}
+				return time.Now().Year() - yearsAgo
+			}(gjson.Get(value.String(), "videoRenderer.publishedTimeText.simpleText").String()),
 		}
 
 		if match.id == "" || match.title == "" || match.owner == "" {
@@ -108,7 +117,9 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 // so to ensure that only the results that pass certain pre-checks get returned
 func (result youTubeResult) compliant(track *entity.Track) bool {
 	spec := util.UniqueFields(fmt.Sprintf("%s %s", result.owner, result.title))
-	return strings.Contains(spec, util.UniqueFields(track.Artists[0])) && strings.Contains(spec, util.UniqueFields(track.Title))
+	return result.year >= track.Year &&
+		strings.Contains(spec, util.UniqueFields(track.Artists[0])) &&
+		strings.Contains(spec, util.UniqueFields(track.Title))
 }
 
 // score goes from 0 to 100:

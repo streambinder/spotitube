@@ -2,9 +2,11 @@ package spotify
 
 import (
 	"context"
+	"strconv"
 	"strings"
 
 	"github.com/streambinder/spotitube/entity"
+	"github.com/streambinder/spotitube/util"
 	"github.com/zmb3/spotify/v2"
 )
 
@@ -31,7 +33,7 @@ func trackEntity(track *spotify.FullTrack) *entity.Track {
 		Duration:    track.Duration / 1000,
 		Lyrics:      "",
 		Number:      track.TrackNumber,
-		Year:        strings.Split(track.Album.ReleaseDate, "-")[0],
+		Year:        util.ErrWrap(0)(strconv.Atoi(strings.Split(track.Album.ReleaseDate, "-")[0])),
 		UpstreamURL: "",
 	}
 }

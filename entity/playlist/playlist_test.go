@@ -25,6 +25,10 @@ func TestEncoderM3U(t *testing.T) {
 	assert.Nil(t, util.ErrOnly(testPlaylist.Encoder("m3u")))
 }
 
+func TestEncoderPLS(t *testing.T) {
+	assert.Nil(t, util.ErrOnly(testPlaylist.Encoder("pls")))
+}
+
 func TestEncoderInitFailure(t *testing.T) {
 	// monkey patching
 	defer gomonkey.ApplyPrivateMethod(&M3UEncoder{}, "init", func() error {

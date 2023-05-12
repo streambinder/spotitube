@@ -16,10 +16,10 @@ func playlistEntity(fullPlaylist *spotify.FullPlaylist) *playlist.Playlist {
 	}
 }
 
-func (client *Client) Playlist(id string, channels ...chan interface{}) (*playlist.Playlist, error) {
+func (client *Client) Playlist(target string, channels ...chan interface{}) (*playlist.Playlist, error) {
 	var (
 		ctx               = context.Background()
-		fullPlaylist, err = client.GetPlaylist(ctx, spotify.ID(id))
+		fullPlaylist, err = client.GetPlaylist(ctx, id(target))
 	)
 	if err != nil {
 		return nil, err

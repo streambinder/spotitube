@@ -21,10 +21,10 @@ func albumEntity(album *spotify.FullAlbum) *entity.Album {
 	}
 }
 
-func (client *Client) Album(id string, channels ...chan interface{}) (*entity.Album, error) {
+func (client *Client) Album(target string, channels ...chan interface{}) (*entity.Album, error) {
 	var (
 		ctx            = context.Background()
-		fullAlbum, err = client.GetAlbum(ctx, spotify.ID(id))
+		fullAlbum, err = client.GetAlbum(ctx, id(target))
 	)
 	if err != nil {
 		return nil, err

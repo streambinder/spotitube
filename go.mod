@@ -21,8 +21,8 @@ require (
 	github.com/andybalholm/cascadia v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/gosimple/unidecode v1.0.1 // indirect
-	github.com/tidwall/match v1.1.1 // indirect
-	github.com/tidwall/pretty v1.2.1 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421 // indirect
+	github.com/modern-go/reflect2 v1.0.2 // indirect
 	golang.org/x/net v0.9.0 // indirect
 	golang.org/x/sys v0.7.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
@@ -38,10 +38,10 @@ require (
 	github.com/bogem/id3v2/v2 v2.1.4
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gosimple/slug v1.13.1
+	github.com/json-iterator/go v1.1.12
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/thanhpk/randstr v1.0.5
-	github.com/tidwall/gjson v1.14.4
 	github.com/zmb3/spotify/v2 v2.3.1
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

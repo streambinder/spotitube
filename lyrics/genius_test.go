@@ -20,14 +20,16 @@ import (
 )
 
 const (
-	response = `{"response": {
-		"hits": [{
-			"result": {
-				"url": "https://genius.com/test",
-				"title": "%s",
-				"primary_artist": {"name": "%s"}
-			}
-		}],
+	response = `{
+		"response": {
+			"hits": [{
+				"result": {
+					"url": "https://genius.com/test",
+					"title": "%s",
+					"primary_artist": {"name": "%s"}
+				}
+			}]
+		}
 	}`
 )
 
@@ -64,6 +66,20 @@ func TestGeniusSearchNewRequestFailure(t *testing.T) {
 	assert.Error(t, util.ErrOnly(genius{}.search(track)), "ko")
 }
 
+func TestGeniusSearchMalformedDatra(t *testing.T) {
+	// monkey patching
+	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 200,
+			Body: io.NopCloser(
+				strings.NewReader(`{"response": {}`)),
+		}, nil
+	}).Reset()
+
+	// testing
+	assert.Error(t, util.ErrOnly(genius{}.search(track)), "ko")
+}
+
 func TestGeniusSearchFailure(t *testing.T) {
 	// monkey patching
 	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
@@ -88,12 +104,31 @@ func TestGeniusSearchHttpNotFound(t *testing.T) {
 	assert.NotNil(t, util.ErrOnly(genius{}.search(track)))
 }
 
-func TestGeniusSearchTooManyReequests(t *testing.T) {
+func TestGeniusSearchTooManyRequests(t *testing.T) {
 	// monkey patching
-	doCounter := 0
+	var (
+		doApiCounter            = 0
+		doCounter               = 0
+		tooManyRequestsResponse = &http.Response{
+			StatusCode: 429,
+			Body: io.NopCloser(
+				strings.NewReader("")),
+		}
+	)
 	defer gomonkey.NewPatches().
 		ApplyFunc(time.Sleep, func() {}).
-		ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
+		ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func(_ *http.Client, request *http.Request) (*http.Response, error) {
+			if strings.EqualFold(request.Host, "api.genius.com") {
+				doApiCounter++
+				if doApiCounter > 1 {
+					return &http.Response{
+						StatusCode: 200,
+						Body: io.NopCloser(
+							strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0]))),
+					}, nil
+				}
+				return tooManyRequestsResponse, nil
+			}
 			doCounter++
 			if doCounter > 1 {
 				return &http.Response{
@@ -102,11 +137,7 @@ func TestGeniusSearchTooManyReequests(t *testing.T) {
 						strings.NewReader(`<div data-lyrics-container="true">verse<br/><span>lyrics</span></div>`)),
 				}, nil
 			}
-			return &http.Response{
-				StatusCode: 429,
-				Body: io.NopCloser(
-					strings.NewReader("")),
-			}, nil
+			return tooManyRequestsResponse, nil
 		}).
 		Reset()
 
@@ -139,7 +170,7 @@ func TestGeniusSearchNotFound(t *testing.T) {
 		return &http.Response{
 			StatusCode: 200,
 			Body: io.NopCloser(
-				strings.NewReader(`{"response": {"hits": []}`)),
+				strings.NewReader(`{"response": {"hits": []}}`)),
 		}, nil
 	}).Reset()
 

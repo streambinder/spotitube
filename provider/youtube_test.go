@@ -52,13 +52,13 @@ const (
 										}
 									}
 								}]
-							}]
-						}
+							}
+						}]
 					}
 				}
 			}
 		}
-	</script>`
+	}</script>`
 )
 
 var result = youTubeResult{
@@ -97,9 +97,28 @@ func TestYouTubeSearchMalformedData(t *testing.T) {
 	defer gomonkey.ApplyMethod(http.DefaultClient, "Get", func() (*http.Response, error) {
 		return &http.Response{
 			StatusCode: 200,
-			Body: io.NopCloser(strings.NewReader(
-				fmt.Sprintf(resultScript, "", "", "", "", "", ""),
-			)),
+			Body:       io.NopCloser(strings.NewReader(`<script>var ytInitialData = {"content": {}`)),
+		}, nil
+	}).Reset()
+
+	// testing
+	assert.NotNil(t, util.ErrOnly(youTube{}.search(track)))
+}
+
+func TestYouTubeSearchPartialData(t *testing.T) {
+	// monkey patching
+	defer gomonkey.ApplyMethod(http.DefaultClient, "Get", func() (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 200,
+			Body: io.NopCloser(strings.NewReader(fmt.Sprintf(
+				resultScript,
+				result.id,
+				"",
+				"",
+				"",
+				"",
+				"",
+			))),
 		}, nil
 	}).Reset()
 

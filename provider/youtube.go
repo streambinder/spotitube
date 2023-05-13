@@ -12,13 +12,52 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/agnivade/levenshtein"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/util"
-	"github.com/tidwall/gjson"
 )
 
 type youTube struct {
 	Provider
+}
+
+type youTubeInitialData struct {
+	Contents struct {
+		TwoColumnSearchResultsRenderer struct {
+			PrimaryContents struct {
+				SectionListRenderer struct {
+					Contents []struct {
+						ItemSectionRenderer struct {
+							Contents []struct {
+								VideoRenderer struct {
+									VideoId string
+									Title   struct {
+										Runs []struct {
+											Text string
+										}
+									}
+									OwnerText struct {
+										Runs []struct {
+											Text string
+										}
+									}
+									ViewCountText struct {
+										SimpleText string
+									}
+									LengthText struct {
+										SimpleText string
+									}
+									PublishedTimeText struct {
+										SimpleText string
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 type youTubeResult struct {
@@ -60,55 +99,61 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 	}
 
 	resultJSON := strings.Join(document.Find("script").Map(func(i int, selection *goquery.Selection) string {
-		if !strings.HasPrefix(strings.TrimPrefix(selection.Text(), " "), "var ytInitialData =") {
+		prefix := "var ytInitialData ="
+		if !strings.HasPrefix(strings.TrimPrefix(selection.Text(), " "), prefix) {
 			return ""
 		}
-		return strings.TrimSpace(selection.Text()[19:])
+		return strings.TrimSpace(selection.Text()[len(prefix):])
 	}), "")
+	if resultJSON == "" {
+		return []*Match{}, nil
+	}
 
-	var matches []*Match
-	gjson.Get(resultJSON, "contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents.0.itemSectionRenderer.contents").ForEach(func(key, value gjson.Result) bool {
-		match := youTubeResult{
-			query: query,
-			id:    gjson.Get(value.String(), "videoRenderer.videoId").String(),
-			title: gjson.Get(value.String(), "videoRenderer.title.runs.0.text").String(),
-			owner: gjson.Get(value.String(), "videoRenderer.ownerText.runs.0.text").String(),
-			views: func(viewCount string) int {
-				if viewCount == "" {
-					return 0
-				}
-				return util.ErrWrap(0)(strconv.Atoi(strings.ReplaceAll(strings.Split(viewCount, " ")[0], ".", "")))
-			}(gjson.Get(value.String(), "videoRenderer.viewCountText.simpleText").String()),
-			length: func(length string) int {
-				if length == "" {
-					return 0
-				}
-				var (
-					digits  = strings.Split(length, ":")
-					minutes = util.ErrWrap(0)(strconv.Atoi(digits[0]))
-					seconds = util.ErrWrap(0)(strconv.Atoi(digits[1]))
-				)
-				return minutes*60 + seconds
-			}(gjson.Get(value.String(), "videoRenderer.lengthText.simpleText").String()),
-			year: func(ago string) int {
-				yearsAgo := 0
-				if strings.Contains(ago, " year") {
-					yearsAgo = util.ErrWrap(0)(strconv.Atoi(strings.Split(ago, " year")[0]))
-				}
-				return time.Now().Year() - yearsAgo
-			}(gjson.Get(value.String(), "videoRenderer.publishedTimeText.simpleText").String()),
+	var (
+		matches []*Match
+		data    youTubeInitialData
+	)
+	if err := jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(resultJSON), &data); err != nil {
+		return nil, err
+	}
+	for _, section := range data.Contents.TwoColumnSearchResultsRenderer.PrimaryContents.SectionListRenderer.Contents {
+		for _, result := range section.ItemSectionRenderer.Contents {
+			match := youTubeResult{
+				query: query,
+				id:    result.VideoRenderer.VideoId,
+				title: result.VideoRenderer.Title.Runs[0].Text,
+				owner: result.VideoRenderer.OwnerText.Runs[0].Text,
+				views: func(viewCount string) int {
+					if viewCount == "" {
+						return 0
+					}
+					return util.ErrWrap(0)(strconv.Atoi(strings.ReplaceAll(strings.Split(viewCount, " ")[0], ".", "")))
+				}(result.VideoRenderer.ViewCountText.SimpleText),
+				length: func(length string) int {
+					if length == "" {
+						return 0
+					}
+					var (
+						digits  = strings.Split(length, ":")
+						minutes = util.ErrWrap(0)(strconv.Atoi(digits[0]))
+						seconds = util.ErrWrap(0)(strconv.Atoi(digits[1]))
+					)
+					return minutes*60 + seconds
+				}(result.VideoRenderer.LengthText.SimpleText),
+				year: func(ago string) int {
+					yearsAgo := 0
+					if strings.Contains(ago, " year") {
+						yearsAgo = util.ErrWrap(0)(strconv.Atoi(strings.Split(ago, " year")[0]))
+					}
+					return time.Now().Year() - yearsAgo
+				}(result.VideoRenderer.PublishedTimeText.SimpleText),
+			}
+
+			if match.compliant(track) {
+				matches = append(matches, &Match{fmt.Sprintf("https://youtu.be/%s", match.id), match.score(track)})
+			}
 		}
-
-		if match.id == "" || match.title == "" || match.owner == "" {
-			return true
-		}
-
-		if match.compliant(track) {
-			matches = append(matches, &Match{fmt.Sprintf("https://youtu.be/%s", match.id), match.score(track)})
-		}
-
-		return true
-	})
+	}
 
 	return matches, nil
 }
@@ -117,7 +162,7 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 // so to ensure that only the results that pass certain pre-checks get returned
 func (result youTubeResult) compliant(track *entity.Track) bool {
 	spec := util.UniqueFields(fmt.Sprintf("%s %s", result.owner, result.title))
-	return result.year >= track.Year &&
+	return result.id != "" && result.year >= track.Year &&
 		strings.Contains(spec, util.UniqueFields(track.Artists[0])) &&
 		strings.Contains(spec, util.UniqueFields(track.Title))
 }

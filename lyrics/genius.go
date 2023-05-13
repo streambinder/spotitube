@@ -12,13 +12,27 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/agnivade/levenshtein"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/util"
-	"github.com/tidwall/gjson"
 )
 
 type genius struct {
 	Composer
+}
+
+type geniusSearch struct {
+	Response struct {
+		Hits []struct {
+			Result struct {
+				URL    string
+				Title  string
+				Artist struct {
+					Name string
+				} `json:"primary_artist"`
+			}
+		}
+	}
 }
 
 func init() {
@@ -59,36 +73,36 @@ func (composer genius) search(track *entity.Track, ctxs ...context.Context) ([]b
 		return nil, err
 	}
 
+	var data geniusSearch
+	if err := jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal(body, &data); err != nil {
+		return nil, err
+	}
+
 	var (
 		geniusURL   string
 		minDistance = 50
 	)
-	gjson.Get(string(body), "response.hits").ForEach(func(key, value gjson.Result) bool {
+	for _, hit := range data.Response.Hits {
 		var (
-			url             = gjson.Get(value.String(), "result.url").String()
-			urlCompliant    = strings.HasPrefix(url, "https://genius.com/")
-			title           = gjson.Get(value.String(), "result.title").String()
-			titleCompliant  = strings.Contains(util.Flatten(title), util.Flatten(track.Title))
-			artist          = gjson.Get(value.String(), "result.primary_artist.name").String()
-			artistCompliant = strings.Contains(util.Flatten(artist), util.Flatten(track.Artists[0]))
+			urlCompliant    = strings.HasPrefix(hit.Result.URL, "https://genius.com/")
+			titleCompliant  = strings.Contains(util.Flatten(hit.Result.Title), util.Flatten(track.Title))
+			artistCompliant = strings.Contains(util.Flatten(hit.Result.Artist.Name), util.Flatten(track.Artists[0]))
 			distance        = levenshtein.ComputeDistance(
 				util.UniqueFields(query),
-				util.UniqueFields(fmt.Sprintf("%s %s", title, artist)),
+				util.UniqueFields(fmt.Sprintf("%s %s", hit.Result.Title, hit.Result.Artist.Name)),
 			)
 		)
 		if urlCompliant && titleCompliant && artistCompliant && distance < minDistance {
-			geniusURL = url
+			geniusURL = hit.Result.URL
 			minDistance = distance
 		}
-
-		return true
-	})
-
-	if geniusURL != "" {
-		return composer.fromGeniusURL(geniusURL, ctx)
 	}
 
-	return nil, nil
+	if geniusURL == "" {
+		return nil, nil
+	}
+
+	return composer.fromGeniusURL(geniusURL, ctx)
 }
 
 func (composer genius) fromGeniusURL(url string, ctx context.Context) ([]byte, error) {
@@ -103,7 +117,10 @@ func (composer genius) fromGeniusURL(url string, ctx context.Context) ([]byte, e
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode == 429 {
+		util.SleepUntilRetry(response.Header)
+		return composer.fromGeniusURL(url, ctx)
+	} else if response.StatusCode != 200 {
 		return nil, errors.New("cannot fetch lyrics on genius: " + response.Status)
 	}
 

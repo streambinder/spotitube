@@ -27,7 +27,33 @@ var fullPlaylist = &spotify.FullPlaylist{
 	},
 }
 
+func BenchmarkPlaylist(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestPlaylist(&testing.T{})
+	}
+}
+
 func TestPlaylist(t *testing.T) {
+	// monkey patching
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyMethod(&spotify.Client{}, "GetPlaylist", func() (*spotify.FullPlaylist, error) {
+			return fullPlaylist, nil
+		}).
+		Reset()
+
+	// testing
+	playlist, err := (&Client{}).Playlist(fullPlaylist.ID.String())
+	assert.Nil(t, err)
+	assert.Equal(t, fullPlaylist.ID.String(), playlist.ID)
+	assert.Equal(t, fullPlaylist.Name, playlist.Name)
+	assert.Equal(t, fullPlaylist.Owner.ID, playlist.Owner)
+	assert.Equal(t, len(fullPlaylist.Tracks.Tracks), len(playlist.Tracks))
+	assert.Equal(t, fullPlaylist.Tracks.Tracks[0].Track.ID.String(), playlist.Tracks[0].ID)
+	assert.Equal(t, fullPlaylist.Tracks.Tracks[0].Track.Name, playlist.Tracks[0].Title)
+}
+
+func TestPlaylistChannel(t *testing.T) {
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(time.Sleep, func() {}).
@@ -41,12 +67,6 @@ func TestPlaylist(t *testing.T) {
 	defer close(channel)
 	playlist, err := (&Client{}).Playlist(fullPlaylist.ID.String(), channel)
 	assert.Nil(t, err)
-	assert.Equal(t, fullPlaylist.ID.String(), playlist.ID)
-	assert.Equal(t, fullPlaylist.Name, playlist.Name)
-	assert.Equal(t, fullPlaylist.Owner.ID, playlist.Owner)
-	assert.Equal(t, len(fullPlaylist.Tracks.Tracks), len(playlist.Tracks))
-	assert.Equal(t, fullPlaylist.Tracks.Tracks[0].Track.ID.String(), playlist.Tracks[0].ID)
-	assert.Equal(t, fullPlaylist.Tracks.Tracks[0].Track.Name, playlist.Tracks[0].Title)
 	assert.Equal(t, playlist.Tracks[0], <-channel)
 }
 

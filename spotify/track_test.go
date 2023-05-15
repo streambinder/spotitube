@@ -28,7 +28,35 @@ var fullTrack = spotify.FullTrack{
 	},
 }
 
+func BenchmarkTrack(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestTrack(&testing.T{})
+	}
+}
+
 func TestTrack(t *testing.T) {
+	// monkey patching
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyMethod(&spotify.Client{}, "GetTrack", func() (*spotify.FullTrack, error) {
+			return &fullTrack, nil
+		}).
+		Reset()
+
+	// testing
+	track, err := (&Client{}).Track(fullTrack.ID.String())
+	assert.Nil(t, err)
+	assert.Equal(t, fullTrack.ID.String(), track.ID)
+	assert.Equal(t, fullTrack.Name, track.Title)
+	assert.Equal(t, len(fullTrack.Artists), len(track.Artists))
+	assert.Equal(t, len(fullTrack.Album.Name), len(track.Album))
+	assert.Equal(t, fullTrack.Duration/1000, track.Duration)
+	assert.Equal(t, fullTrack.TrackNumber, track.Number)
+	assert.Equal(t, fullTrack.Album.Images[0].URL, track.Artwork.URL)
+	assert.True(t, strings.HasPrefix(fullTrack.Album.ReleaseDate, strconv.Itoa(track.Year)))
+}
+
+func TestTrackChannel(t *testing.T) {
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(time.Sleep, func() {}).
@@ -42,15 +70,7 @@ func TestTrack(t *testing.T) {
 	defer close(channel)
 	track, err := (&Client{}).Track(fullTrack.ID.String(), channel)
 	assert.Nil(t, err)
-	assert.Equal(t, fullTrack.ID.String(), track.ID)
-	assert.Equal(t, fullTrack.Name, track.Title)
-	assert.Equal(t, len(fullTrack.Artists), len(track.Artists))
-	assert.Equal(t, len(fullTrack.Album.Name), len(track.Album))
-	assert.Equal(t, fullTrack.Duration/1000, track.Duration)
-	assert.Equal(t, fullTrack.TrackNumber, track.Number)
-	assert.Equal(t, fullTrack.Album.Images[0].URL, track.Artwork.URL)
 	assert.Equal(t, track, <-channel)
-	assert.True(t, strings.HasPrefix(fullTrack.Album.ReleaseDate, strconv.Itoa(track.Year)))
 }
 
 func TestTrackGetTrackFailure(t *testing.T) {

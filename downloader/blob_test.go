@@ -31,6 +31,13 @@ func stubProcessor(applies bool, err error) processor.Processor {
 	return mockProcessor{applies: applies, err: err}
 }
 
+func BenchmarkBlob(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestBlobSupports(&testing.T{})
+		TestBlobDownload(&testing.T{})
+	}
+}
+
 func TestBlobSupports(t *testing.T) {
 	// monkey patching
 	defer gomonkey.ApplyMethod(http.DefaultClient, "Head", func() (*http.Response, error) {

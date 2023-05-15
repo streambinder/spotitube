@@ -33,6 +33,12 @@ const (
 	}`
 )
 
+func BenchmarkGenius(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestGeniusSearch(&testing.T{})
+	}
+}
+
 func TestGeniusSearch(t *testing.T) {
 	// monkey patching
 	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func(_ *http.Client, request *http.Request) (*http.Response, error) {

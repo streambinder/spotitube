@@ -9,6 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func BenchmarkEncoder(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestEncoderDo(&testing.T{})
+	}
+}
+
 func TestEncoderDo(t *testing.T) {
 	// monkey patching
 	defer gomonkey.NewPatches().

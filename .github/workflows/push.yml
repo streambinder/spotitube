@@ -67,6 +67,14 @@ jobs:
       - run: |
           go test -v -coverprofile=coverage.out ./...
           go tool cover -func=coverage.out | grep -E '^total:.*100.0%$'
+  benchmark:
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: success()
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+      - run: go test -benchmem -bench '^Benchmark.*$' ./... | grep ^Benchmark
   build:
     runs-on: ubuntu-latest
     needs: [test]

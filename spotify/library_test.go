@@ -21,7 +21,26 @@ var library = &spotify.SavedTrackPage{
 	},
 }
 
+func BenchmarkLibrary(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestLibrary(&testing.T{})
+	}
+}
+
 func TestLibrary(t *testing.T) {
+	// monkey patching
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyMethod(&spotify.Client{}, "CurrentUsersTracks", func() (*spotify.SavedTrackPage, error) {
+			return library, nil
+		}).
+		Reset()
+
+	// testing
+	assert.Nil(t, (&Client{}).Library())
+}
+
+func TestLibraryChannel(t *testing.T) {
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(time.Sleep, func() {}).

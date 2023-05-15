@@ -63,18 +63,18 @@ var (
 				routineMix(playlistEncoding),
 			)
 		},
-		PreRunE: func(cmd *cobra.Command, args []string) (err error) {
+		PreRun: func(cmd *cobra.Command, args []string) {
 			routineSemaphores = map[int](chan bool){
 				routineTypeIndex:   make(chan bool, 1),
 				routineTypeAuth:    make(chan bool, 1),
 				routineTypeInstall: make(chan bool, 1),
 			}
 			routineQueues = map[int](chan interface{}){
-				routineTypeDecide:  make(chan interface{}, 100),
-				routineTypeCollect: make(chan interface{}, 100),
-				routineTypeProcess: make(chan interface{}, 100),
-				routineTypeInstall: make(chan interface{}, 100),
-				routineTypeMix:     make(chan interface{}, 100),
+				routineTypeDecide:  make(chan interface{}, 10000),
+				routineTypeCollect: make(chan interface{}, 10000),
+				routineTypeProcess: make(chan interface{}, 10000),
+				routineTypeInstall: make(chan interface{}, 10000),
+				routineTypeMix:     make(chan interface{}, 10000),
 			}
 
 			var (
@@ -92,7 +92,6 @@ var (
 					}
 				})
 			}
-			return
 		},
 	}
 )
@@ -119,7 +118,7 @@ func routineIndex(ctx context.Context, ch chan error) {
 		ch <- err
 		return
 	}
-	log.Println(util.Excerpt("[indexer]", true), "indexed", len(indexData))
+	log.Println(util.Excerpt("[indexer]", true), "indexed", indexData.Size())
 
 	// once indexed, sidgnal fetcher
 	routineSemaphores[routineTypeIndex] <- true
@@ -198,9 +197,9 @@ func routineDecide(ctx context.Context, ch chan error) {
 	for event := range routineQueues[routineTypeDecide] {
 		track := event.(*entity.Track)
 
-		if status, ok := indexData[track.ID]; !ok {
+		if status, ok := indexData.Get(track.ID); !ok {
 			log.Println(util.Excerpt("[decider]", true), util.Excerpt(track.Title, true), "sync")
-			indexData[track.ID] = index.Online
+			indexData.Set(track.ID, index.Online)
 		} else if status == index.Online {
 			log.Println(util.Excerpt("[decider]", true), util.Excerpt(track.Title, true), "skip (dup)")
 			continue
@@ -328,7 +327,7 @@ func routineInstall(ctx context.Context, ch chan error) {
 			ch <- err
 			return
 		}
-		indexData[track.ID] = index.Installed
+		indexData.Set(track.ID, index.Installed)
 	}
 }
 
@@ -349,7 +348,7 @@ func routineMix(encoding string) func(context.Context, chan error) {
 			}
 
 			for _, track := range playlist.Tracks {
-				if trackStatus, ok := indexData[track.ID]; !ok || (trackStatus != index.Installed && trackStatus != index.Offline) {
+				if trackStatus, ok := indexData.Get(track.ID); !ok || (trackStatus != index.Installed && trackStatus != index.Offline) {
 					continue
 				}
 

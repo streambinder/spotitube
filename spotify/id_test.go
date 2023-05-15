@@ -7,6 +7,12 @@ import (
 	"github.com/zmb3/spotify/v2"
 )
 
+func BenchmarkID(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestID(&testing.T{})
+	}
+}
+
 func TestID(t *testing.T) {
 	var (
 		target    = "1234567890123456789012"

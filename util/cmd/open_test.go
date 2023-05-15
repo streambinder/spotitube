@@ -8,6 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func BenchmarkOpen(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestOpen(&testing.T{})
+	}
+}
+
 func TestOpen(t *testing.T) {
 	// monkey patching
 	defer gomonkey.ApplyMethod(&exec.Cmd{}, "Start", func() error { return nil }).Reset()

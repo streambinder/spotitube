@@ -8,6 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func BenchmarkTrack(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestDownloadPath(&testing.T{})
+	}
+}
+
 func TestDownloadPath(t *testing.T) {
 	track := &Track{
 		ID:      "123",

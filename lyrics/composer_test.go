@@ -17,6 +17,12 @@ var track = &entity.Track{
 	Artists: []string{"Artist"},
 }
 
+func BenchmarkComposer(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestSearch(&testing.T{})
+	}
+}
+
 func TestSearch(t *testing.T) {
 	// monkey patching
 	ch := make(chan bool, 1)

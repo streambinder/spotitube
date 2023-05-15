@@ -14,6 +14,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func BenchmarkDownload(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestDownload(&testing.T{})
+	}
+}
+
 func TestDownload(t *testing.T) {
 	// monkey patching
 	defer gomonkey.NewPatches().

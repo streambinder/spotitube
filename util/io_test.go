@@ -9,6 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func BenchmarkIO(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestFileCopy(&testing.T{})
+	}
+}
+
 func TestFileMove(t *testing.T) {
 	src, dst := "/tmp/test_a.txt", "/tmp/test_b.txt"
 	file, err := os.Create(src)

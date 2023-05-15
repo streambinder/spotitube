@@ -22,6 +22,12 @@ var track = &entity.Track{
 	Year:     1970,
 }
 
+func BenchmarkProvider(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestSearch(&testing.T{})
+	}
+}
+
 func TestSearch(t *testing.T) {
 	// monkey patching
 	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(youTube{}), "search", func() ([]*Match, error) {

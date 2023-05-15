@@ -6,6 +6,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func BenchmarkString(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestFlatten(&testing.T{})
+		TestUniqueFields(&testing.T{})
+		TestExcerpt(&testing.T{})
+	}
+}
+
 func TestFlatten(t *testing.T) {
 	assert.Equal(t, UniqueFields("word word1"), "word word1")
 }

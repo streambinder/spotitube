@@ -9,6 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func BenchmarkNormalizer(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestNormalizerDo(&testing.T{})
+	}
+}
+
 func TestNormalizerDo(t *testing.T) {
 	// monkey patching
 	defer gomonkey.NewPatches().

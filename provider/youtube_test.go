@@ -69,6 +69,12 @@ var result = youTubeResult{
 	length: 180,
 }
 
+func BenchmarkYouTube(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestYouTubeSearch(&testing.T{})
+	}
+}
+
 func TestYouTubeSearch(t *testing.T) {
 	// monkey patching
 	defer gomonkey.ApplyMethod(http.DefaultClient, "Get", func() (*http.Response, error) {

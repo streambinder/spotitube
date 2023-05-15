@@ -27,6 +27,13 @@ libpostproc    56.  6.100 / 56.  6.100
 [Parsed_volumedetect_0 @ 0x6000036482c0] max_volume: -5.0 dB
 [Parsed_volumedetect_0 @ 0x6000036482c0] histogram_0db: 184156`
 
+func BenchmarkFFmpeg(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestVolumeDetect(&testing.T{})
+		TestVolumeAdd(&testing.T{})
+	}
+}
+
 func TestVolumeDetect(t *testing.T) {
 	// monkey patching
 	defer gomonkey.ApplyMethod(&exec.Cmd{}, "Run", func(cmd *exec.Cmd) error {

@@ -27,7 +27,31 @@ var fullAlbum = &spotify.FullAlbum{
 	},
 }
 
+func BenchmarkAlbum(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestAlbum(&testing.T{})
+	}
+}
+
 func TestAlbum(t *testing.T) {
+	// monkey patching
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyMethod(&spotify.Client{}, "GetAlbum", func() (*spotify.FullAlbum, error) {
+			return fullAlbum, nil
+		}).
+		Reset()
+
+	// testing
+	album, err := (&Client{}).Album(fullAlbum.ID.String())
+	assert.Nil(t, err)
+	assert.Equal(t, fullAlbum.ID.String(), album.ID)
+	assert.Equal(t, fullAlbum.Name, album.Name)
+	assert.Equal(t, len(fullAlbum.Artists), len(album.Artists))
+	assert.Equal(t, len(fullAlbum.Tracks.Tracks), len(album.Tracks))
+}
+
+func TestAlbumChannel(t *testing.T) {
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(time.Sleep, func() {}).
@@ -41,10 +65,6 @@ func TestAlbum(t *testing.T) {
 	defer close(channel)
 	album, err := (&Client{}).Album(fullAlbum.ID.String(), channel)
 	assert.Nil(t, err)
-	assert.Equal(t, fullAlbum.ID.String(), album.ID)
-	assert.Equal(t, fullAlbum.Name, album.Name)
-	assert.Equal(t, len(fullAlbum.Artists), len(album.Artists))
-	assert.Equal(t, len(fullAlbum.Tracks.Tracks), len(album.Tracks))
 	assert.Equal(t, album.Tracks[0], <-channel)
 }
 

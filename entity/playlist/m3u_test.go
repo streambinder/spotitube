@@ -9,6 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func BenchmarkM3U(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestM3U(&testing.T{})
+	}
+}
+
 func TestM3U(t *testing.T) {
 	var output []byte
 

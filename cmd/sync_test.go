@@ -48,6 +48,12 @@ var (
 	}
 )
 
+func BenchmarkSync(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestCmdSync(&testing.T{})
+	}
+}
+
 func TestCmdSync(t *testing.T) {
 	testTrack := testTrack
 	testTrack.ID = "TestCmdSync"
@@ -56,7 +62,7 @@ func TestCmdSync(t *testing.T) {
 	defer gomonkey.NewPatches().
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error { return nil }).
-		ApplyMethod(index.Index{}, "Build", func() error {
+		ApplyMethod(&index.Index{}, "Build", func() error {
 			return nil
 		}).
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
@@ -112,13 +118,13 @@ func TestCmdSync(t *testing.T) {
 func TestCmdSyncOfflineIndex(t *testing.T) {
 	testTrack := testTrack
 	testTrack.ID = "TestCmdSync"
-	indexData[testTrack.ID] = index.Offline
 
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error { return nil }).
-		ApplyMethod(index.Index{}, "Build", func() error {
+		ApplyMethod(&index.Index{}, "Build", func(data *index.Index) error {
+			data.Set(testTrack.ID, index.Offline)
 			return nil
 		}).
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
@@ -187,7 +193,7 @@ func TestCmdSyncIndexFailure(t *testing.T) {
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
-		ApplyMethod(index.Index{}, "Build", func() error {
+		ApplyMethod(&index.Index{}, "Build", func() error {
 			return errors.New("ko")
 		}).
 		Reset()
@@ -206,11 +212,11 @@ func TestCmdSyncAuthFailure(t *testing.T) {
 		ApplyFunc(cmd.Open, func() error {
 			return nil
 		}).
-		ApplyMethod(index.Index{}, "Build", func() error {
+		ApplyMethod(&index.Index{}, "Build", func() error {
 			return nil
 		}).
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return spotifyClient, errors.New("ko")
+			return &spotify.Client{}, errors.New("ko")
 		}).
 		ApplyMethod(&spotify.Client{}, "Library", func() error {
 			return nil
@@ -243,7 +249,7 @@ func TestCmdSyncLibraryFailure(t *testing.T) {
 		ApplyFunc(cmd.Open, func() error {
 			return nil
 		}).
-		ApplyMethod(index.Index{}, "Build", func() error {
+		ApplyMethod(&index.Index{}, "Build", func() error {
 			return nil
 		}).
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
@@ -280,7 +286,7 @@ func TestCmdSyncPlaylistFailure(t *testing.T) {
 		ApplyFunc(cmd.Open, func() error {
 			return nil
 		}).
-		ApplyMethod(index.Index{}, "Build", func() error {
+		ApplyMethod(&index.Index{}, "Build", func() error {
 			return nil
 		}).
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
@@ -317,7 +323,7 @@ func TestCmdSyncAlbumFailure(t *testing.T) {
 		ApplyFunc(cmd.Open, func() error {
 			return nil
 		}).
-		ApplyMethod(index.Index{}, "Build", func() error {
+		ApplyMethod(&index.Index{}, "Build", func() error {
 			return nil
 		}).
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
@@ -351,7 +357,7 @@ func TestCmdSyncTrackFailure(t *testing.T) {
 		ApplyFunc(cmd.Open, func() error {
 			return nil
 		}).
-		ApplyMethod(index.Index{}, "Build", func() error {
+		ApplyMethod(&index.Index{}, "Build", func() error {
 			return nil
 		}).
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
@@ -388,7 +394,7 @@ func TestCmdSyncDecideFailure(t *testing.T) {
 		ApplyFunc(cmd.Open, func() error {
 			return nil
 		}).
-		ApplyMethod(index.Index{}, "Build", func() error {
+		ApplyMethod(&index.Index{}, "Build", func() error {
 			return nil
 		}).
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
@@ -430,7 +436,7 @@ func TestCmdSyncDecideNotFound(t *testing.T) {
 		ApplyFunc(cmd.Open, func() error {
 			return nil
 		}).
-		ApplyMethod(index.Index{}, "Build", func() error {
+		ApplyMethod(&index.Index{}, "Build", func() error {
 			return nil
 		}).
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
@@ -472,7 +478,7 @@ func TestCmdSyncCollectFailure(t *testing.T) {
 		ApplyFunc(cmd.Open, func() error {
 			return nil
 		}).
-		ApplyMethod(index.Index{}, "Build", func() error {
+		ApplyMethod(&index.Index{}, "Build", func() error {
 			return nil
 		}).
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
@@ -528,7 +534,7 @@ func TestCmdSyncDownloadFailure(t *testing.T) {
 		ApplyFunc(cmd.Open, func() error {
 			return nil
 		}).
-		ApplyMethod(index.Index{}, "Build", func() error {
+		ApplyMethod(&index.Index{}, "Build", func() error {
 			return nil
 		}).
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
@@ -578,7 +584,7 @@ func TestCmdSyncLyricsFailure(t *testing.T) {
 		ApplyFunc(cmd.Open, func() error {
 			return nil
 		}).
-		ApplyMethod(index.Index{}, "Build", func() error {
+		ApplyMethod(&index.Index{}, "Build", func() error {
 			return nil
 		}).
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
@@ -628,7 +634,7 @@ func TestCmdSyncProcessorFailure(t *testing.T) {
 		ApplyFunc(cmd.Open, func() error {
 			return nil
 		}).
-		ApplyMethod(index.Index{}, "Build", func() error {
+		ApplyMethod(&index.Index{}, "Build", func() error {
 			return nil
 		}).
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
@@ -681,7 +687,7 @@ func TestCmdSyncInstallerFailure(t *testing.T) {
 		ApplyFunc(cmd.Open, func() error {
 			return nil
 		}).
-		ApplyMethod(index.Index{}, "Build", func() error {
+		ApplyMethod(&index.Index{}, "Build", func() error {
 			return nil
 		}).
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
@@ -737,7 +743,7 @@ func TestCmdSyncPlaylistEncoderFailure(t *testing.T) {
 		ApplyFunc(cmd.Open, func() error {
 			return nil
 		}).
-		ApplyMethod(index.Index{}, "Build", func() error {
+		ApplyMethod(&index.Index{}, "Build", func() error {
 			return nil
 		}).
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
@@ -792,7 +798,7 @@ func TestCmdSyncPlaylistEncoderAddFailure(t *testing.T) {
 		ApplyFunc(cmd.Open, func() error {
 			return nil
 		}).
-		ApplyMethod(index.Index{}, "Build", func() error {
+		ApplyMethod(&index.Index{}, "Build", func() error {
 			return nil
 		}).
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
@@ -848,7 +854,7 @@ func TestCmdSyncPlaylistEncoderCloseFailure(t *testing.T) {
 		ApplyFunc(cmd.Open, func() error {
 			return nil
 		}).
-		ApplyMethod(index.Index{}, "Build", func() error {
+		ApplyMethod(&index.Index{}, "Build", func() error {
 			return nil
 		}).
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {

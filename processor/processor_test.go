@@ -21,6 +21,12 @@ var track = &entity.Track{
 	Year:     1970,
 }
 
+func BenchmarkProcessor(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestProcessorDo(&testing.T{})
+	}
+}
+
 func TestProcessorDo(t *testing.T) {
 	// monkey patching
 	defer gomonkey.NewPatches().

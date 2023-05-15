@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/bogem/id3v2/v2"
 	"github.com/streambinder/spotitube/entity"
@@ -16,13 +17,19 @@ const (
 	Installed        // synced and successfully installed
 )
 
-type Index map[string]int
-
-func New() Index {
-	return make(map[string]int)
+type Index struct {
+	data map[string]int
+	lock sync.RWMutex
 }
 
-func (index Index) Build(path string, init ...int) error {
+func New() *Index {
+	return &Index{
+		make(map[string]int),
+		sync.RWMutex{},
+	}
+}
+
+func (index *Index) Build(path string, init ...int) error {
 	status := Offline
 	for _, override := range init {
 		status = override
@@ -56,10 +63,27 @@ func (index Index) Build(path string, init ...int) error {
 				continue
 			}
 
-			index[frame.Value] = status
+			index.Set(frame.Value, status)
 			break
 		}
 
 		return tag.Close()
 	})
+}
+
+func (index *Index) Set(key string, value int) {
+	index.lock.Lock()
+	defer index.lock.Unlock()
+	index.data[key] = value
+}
+
+func (index *Index) Get(key string) (int, bool) {
+	index.lock.RLock()
+	defer index.lock.RUnlock()
+	value, ok := index.data[key]
+	return value, ok
+}
+
+func (index *Index) Size() int {
+	return len(index.data)
 }

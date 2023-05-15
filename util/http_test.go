@@ -9,6 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func BenchmarkHTTP(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestSleepUntilRetry(&testing.T{})
+	}
+}
+
 func TestSleepUntilRetry(t *testing.T) {
 	var (
 		headers = http.Header{

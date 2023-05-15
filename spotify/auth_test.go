@@ -28,6 +28,12 @@ const (
 	token = `{"access_token":"access","token_type":"type","refresh_token":"refresh","expiry":"2023-04-15T12:52:29.143037+02:00"}`
 )
 
+func BenchmarkAuth(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestAuthenticate(&testing.T{})
+	}
+}
+
 func TestAuthenticate(t *testing.T) {
 	// monkey patching
 	defer gomonkey.NewPatches().

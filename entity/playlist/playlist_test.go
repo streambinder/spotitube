@@ -21,6 +21,13 @@ var (
 	}
 )
 
+func BenchmarkPlaylistU(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestEncoderM3U(&testing.T{})
+		TestEncoderPLS(&testing.T{})
+	}
+}
+
 func TestEncoderM3U(t *testing.T) {
 	assert.Nil(t, util.ErrOnly(testPlaylist.Encoder("m3u")))
 }

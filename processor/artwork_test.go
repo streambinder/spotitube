@@ -10,6 +10,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func BenchmarkArtwork(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestArtworkDo(&testing.T{})
+	}
+}
+
 func TestArtworkDo(t *testing.T) {
 	// monkey patching
 	defer gomonkey.NewPatches().

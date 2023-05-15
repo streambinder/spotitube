@@ -1,24 +1,29 @@
 package cmd
 
 import (
-	"bytes"
+	"io"
+	"log"
 	"testing"
 )
 
-func testExecute(args ...string) (stdout, stderr string, err error) {
-	var (
-		stdoutBuffer = new(bytes.Buffer)
-		stderrBuffer = new(bytes.Buffer)
-	)
+func BenchmarkRoot(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = testExecute()
+	}
+}
+
+func testExecute(args ...string) error {
+	log.SetOutput(io.Discard)
 	cmdRoot.SetArgs(args)
-	cmdRoot.SetErr(stderrBuffer)
-	cmdRoot.SetOutput(stdoutBuffer)
-	err = cmdRoot.Execute()
-	stderr = stderrBuffer.String()
-	stdout = stdoutBuffer.String()
-	return
+	cmdRoot.SetOut(io.Discard)
+	cmdRoot.SetErr(io.Discard)
+	cmdRoot.SetOutput(io.Discard)
+	return cmdRoot.Execute()
 }
 
 func TestExecute(t *testing.T) {
+	cmdRoot.SetOut(io.Discard)
+	cmdRoot.SetErr(io.Discard)
+	cmdRoot.SetOutput(io.Discard)
 	Execute()
 }

@@ -14,7 +14,7 @@ require (
 
 require (
 	github.com/stretchr/testify v1.8.2
-	golang.org/x/oauth2 v0.7.0
+	golang.org/x/oauth2 v0.8.0
 )
 
 require (
@@ -23,8 +23,8 @@ require (
 	github.com/gosimple/unidecode v1.0.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421 // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	golang.org/x/net v0.9.0 // indirect
-	golang.org/x/sys v0.7.0 // indirect
+	golang.org/x/net v0.10.0 // indirect
+	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
@@ -33,7 +33,7 @@ require (
 require (
 	github.com/PuerkitoBio/goquery v1.8.1
 	github.com/adrg/xdg v0.4.0
-	github.com/agiledragon/gomonkey/v2 v2.9.0
+	github.com/agiledragon/gomonkey/v2 v2.10.0
 	github.com/agnivade/levenshtein v1.1.1
 	github.com/bogem/id3v2/v2 v2.1.4
 	github.com/davecgh/go-spew v1.1.1 // indirect

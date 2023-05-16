@@ -118,39 +118,41 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 	}
 	for _, section := range data.Contents.TwoColumnSearchResultsRenderer.PrimaryContents.SectionListRenderer.Contents {
 		for _, result := range section.ItemSectionRenderer.Contents {
-			match := youTubeResult{
-				query: query,
-				id:    result.VideoRenderer.VideoId,
-				title: result.VideoRenderer.Title.Runs[0].Text,
-				owner: result.VideoRenderer.OwnerText.Runs[0].Text,
-				views: func(viewCount string) int {
-					if viewCount == "" {
-						return 0
-					}
-					return util.ErrWrap(0)(strconv.Atoi(strings.ReplaceAll(strings.Split(viewCount, " ")[0], ".", "")))
-				}(result.VideoRenderer.ViewCountText.SimpleText),
-				length: func(length string) int {
-					if length == "" {
-						return 0
-					}
-					var (
-						digits  = strings.Split(length, ":")
-						minutes = util.ErrWrap(0)(strconv.Atoi(digits[0]))
-						seconds = util.ErrWrap(0)(strconv.Atoi(digits[1]))
-					)
-					return minutes*60 + seconds
-				}(result.VideoRenderer.LengthText.SimpleText),
-				year: func(ago string) int {
-					yearsAgo := 0
-					if strings.Contains(ago, " year") {
-						yearsAgo = util.ErrWrap(0)(strconv.Atoi(strings.Split(ago, " year")[0]))
-					}
-					return time.Now().Year() - yearsAgo
-				}(result.VideoRenderer.PublishedTimeText.SimpleText),
-			}
+			for run, title := range result.VideoRenderer.Title.Runs {
+				match := youTubeResult{
+					query: query,
+					id:    result.VideoRenderer.VideoId,
+					title: title.Text,
+					owner: result.VideoRenderer.OwnerText.Runs[run].Text,
+					views: func(viewCount string) int {
+						if viewCount == "" {
+							return 0
+						}
+						return util.ErrWrap(0)(strconv.Atoi(strings.ReplaceAll(strings.Split(viewCount, " ")[0], ".", "")))
+					}(result.VideoRenderer.ViewCountText.SimpleText),
+					length: func(length string) int {
+						if length == "" {
+							return 0
+						}
+						var (
+							digits  = strings.Split(length, ":")
+							minutes = util.ErrWrap(0)(strconv.Atoi(digits[0]))
+							seconds = util.ErrWrap(0)(strconv.Atoi(digits[1]))
+						)
+						return minutes*60 + seconds
+					}(result.VideoRenderer.LengthText.SimpleText),
+					year: func(ago string) int {
+						yearsAgo := 0
+						if strings.Contains(ago, " year") {
+							yearsAgo = util.ErrWrap(0)(strconv.Atoi(strings.Split(ago, " year")[0]))
+						}
+						return time.Now().Year() - yearsAgo
+					}(result.VideoRenderer.PublishedTimeText.SimpleText),
+				}
 
-			if match.compliant(track) {
-				matches = append(matches, &Match{fmt.Sprintf("https://youtu.be/%s", match.id), match.score(track)})
+				if match.compliant(track) {
+					matches = append(matches, &Match{fmt.Sprintf("https://youtu.be/%s", match.id), match.score(track)})
+				}
 			}
 		}
 	}

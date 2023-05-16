@@ -103,7 +103,7 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 		if !strings.HasPrefix(strings.TrimPrefix(selection.Text(), " "), prefix) {
 			return ""
 		}
-		return strings.TrimSpace(selection.Text()[len(prefix):])
+		return strings.TrimSuffix(strings.TrimSpace(selection.Text()[len(prefix):]), ";")
 	}), "")
 	if resultJSON == "" {
 		return []*Match{}, nil

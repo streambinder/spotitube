@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func BenchmarkPLSU(b *testing.B) {
+func BenchmarkPLS(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		TestPLS(&testing.T{})
 	}

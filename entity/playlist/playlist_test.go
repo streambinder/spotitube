@@ -21,7 +21,7 @@ var (
 	}
 )
 
-func BenchmarkPlaylistU(b *testing.B) {
+func BenchmarkPlaylist(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		TestEncoderM3U(&testing.T{})
 		TestEncoderPLS(&testing.T{})

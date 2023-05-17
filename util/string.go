@@ -15,6 +15,7 @@ func UniqueFields(sentence string) (uniqueFieldsSentence string) {
 		appearances  = make(map[string]bool)
 		uniqueFields []string
 	)
+
 	for _, field := range strings.Fields(Flatten(sentence)) {
 		if appearances[field] {
 			continue
@@ -22,22 +23,35 @@ func UniqueFields(sentence string) (uniqueFieldsSentence string) {
 		appearances[field] = true
 		uniqueFields = append(uniqueFields, field)
 	}
+
 	return strings.Join(uniqueFields, " ")
 }
 
-func Excerpt(sentence string, args ...bool) string {
+func Excerpt(sentence string, args ...int) string {
 	sentence = strings.ReplaceAll(strings.ReplaceAll(sentence, "\n", " "), "\r", " ")
 
-	pad := false
+	length := 10
 	if len(args) > 0 {
-		pad = args[0]
+		length = args[0]
 	}
 
-	for len(sentence) < 10 {
-		if !pad {
-			return sentence
-		}
+	if len(sentence) > length {
+		return sentence[:length]
+	}
+
+	return sentence
+}
+
+func Pad(sentence string, args ...int) string {
+	sentence = Excerpt(sentence, args...)
+	length := 10
+	if len(args) > 0 {
+		length = args[0]
+	}
+
+	for len(sentence) < length {
 		sentence += " "
 	}
-	return sentence[:10]
+
+	return sentence
 }

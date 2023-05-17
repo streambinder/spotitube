@@ -52,19 +52,13 @@ func (index *Index) Build(path string, init ...int) error {
 			return nil
 		}
 
-		tag, err := id3v2.Open(path, id3v2.Options{Parse: true})
+		tag, err := id3.Open(path, id3v2.Options{Parse: true})
 		if err != nil {
 			return err
 		}
 
-		for _, frame := range tag.GetFrames(tag.CommonID("User defined text information frame")) {
-			frame, ok := frame.(id3v2.UserDefinedTextFrame)
-			if !(ok && strings.EqualFold(frame.UniqueIdentifier(), id3.FrameSpotifyID)) {
-				continue
-			}
-
-			index.Set(frame.Value, status)
-			break
+		if id := tag.SpotifyID(); len(id) > 0 {
+			index.Set(id, status)
 		}
 
 		return tag.Close()

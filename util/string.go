@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/gosimple/slug"
@@ -54,4 +55,27 @@ func Pad(sentence string, args ...int) string {
 	}
 
 	return sentence
+}
+
+func HumanizeBytes(bytes int) string {
+	const unit = 1000
+	if bytes < unit {
+		return fmt.Sprintf("%dB", bytes)
+	}
+
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+
+	return fmt.Sprintf("%.1f%cB",
+		float64(bytes)/float64(div), "kMGTPE"[exp])
+}
+
+func Fallback(data, fallback string) string {
+	if len(data) == 0 {
+		return fallback
+	}
+	return data
 }

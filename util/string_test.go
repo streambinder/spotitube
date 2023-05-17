@@ -12,6 +12,8 @@ func BenchmarkString(b *testing.B) {
 		TestUniqueFields(&testing.T{})
 		TestExcerpt(&testing.T{})
 		TestPad(&testing.T{})
+		TestHumanizeBytes(&testing.T{})
+		TestFallback(&testing.T{})
 	}
 }
 
@@ -36,4 +38,20 @@ func TestPad(t *testing.T) {
 	assert.Equal(t, "shorter   ", Pad("shorter"))
 	assert.Equal(t, "sho", Pad("shorter", 3))
 	assert.Equal(t, " ", Pad("", 1))
+}
+
+func TestHumanizeBytes(t *testing.T) {
+	assert.Equal(t, "1B", HumanizeBytes(1))
+	assert.Equal(t, "1.0kB", HumanizeBytes(1000))
+	assert.Equal(t, "1.5kB", HumanizeBytes(1500))
+	assert.Equal(t, "1.0MB", HumanizeBytes(1000000))
+	assert.Equal(t, "1.0GB", HumanizeBytes(1000000000))
+	assert.Equal(t, "1.0TB", HumanizeBytes(1000000000000))
+	assert.Equal(t, "1.0PB", HumanizeBytes(1000000000000000))
+	assert.Equal(t, "1.0EB", HumanizeBytes(1000000000000000000))
+}
+
+func TestFallback(t *testing.T) {
+	assert.Equal(t, "hello", Fallback("hello", "world"))
+	assert.Equal(t, "world", Fallback("", "world"))
 }

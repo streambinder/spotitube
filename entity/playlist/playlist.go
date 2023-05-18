@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/gosimple/slug"
 	"github.com/streambinder/spotitube/entity"
 )
 
@@ -25,7 +26,7 @@ func (entity Playlist) Encoder(encoding string) (playlistEncoder, error) {
 		return nil, errors.New("unsupported encoding")
 	}
 
-	if err := encoder.init(entity.Name); err != nil {
+	if err := encoder.init(slug.Make(entity.Name)); err != nil {
 		return nil, err
 	}
 

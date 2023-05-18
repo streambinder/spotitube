@@ -48,6 +48,18 @@ func TestLyricsOvhSearchNewRequestFailure(t *testing.T) {
 	assert.Error(t, util.ErrOnly(lyricsOvh{}.search(track)), "ko")
 }
 
+func TestLyricsOvhSearchNewRequestContextCanceled(t *testing.T) {
+	// monkey patching
+	defer gomonkey.ApplyFunc(http.NewRequestWithContext, func() (*http.Request, error) {
+		return nil, context.Canceled
+	}).Reset()
+
+	// testing
+	lyrics, err := lyricsOvh{}.search(track, context.Background())
+	assert.Nil(t, err)
+	assert.Nil(t, lyrics)
+}
+
 func TestLyricsOvhSearchFailure(t *testing.T) {
 	// monkey patching
 	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {

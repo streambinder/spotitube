@@ -16,11 +16,8 @@ import (
 type DirEntry struct {
 	fs.DirEntry
 
-	name     string
-	isDir    bool
-	fileMode fs.FileMode
-	info     fs.FileInfo
-	infoErr  error
+	name  string
+	isDir bool
 }
 
 func (e DirEntry) Name() string {
@@ -32,11 +29,11 @@ func (e DirEntry) IsDir() bool {
 }
 
 func (e DirEntry) Type() fs.FileMode {
-	return e.fileMode
+	return 0
 }
 
 func (e DirEntry) Info() (fs.FileInfo, error) {
-	return e.info, e.infoErr
+	return nil, nil
 }
 
 func BenchmarkIndex(b *testing.B) {

@@ -50,7 +50,7 @@ func TestLyricsOvhSearchNewRequestFailure(t *testing.T) {
 
 func TestLyricsOvhSearchNewRequestContextCanceled(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyFunc(http.NewRequestWithContext, func() (*http.Request, error) {
+	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
 		return nil, context.Canceled
 	}).Reset()
 

@@ -34,14 +34,14 @@ func (composer lyricsOvh) search(track *entity.Track, ctxs ...context.Context) (
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://api.lyrics.ovh/v1/%s/%s",
 		url.QueryEscape(track.Artists[0]),
 		url.QueryEscape(track.Title)), nil)
-	if err != nil && errors.Is(err, context.Canceled) {
-		return nil, nil
-	} else if err != nil {
+	if err != nil {
 		return nil, err
 	}
 
 	response, err := http.DefaultClient.Do(request)
-	if err != nil {
+	if err != nil && errors.Is(err, context.Canceled) {
+		return nil, nil
+	} else if err != nil {
 		return nil, err
 	}
 	defer response.Body.Close()

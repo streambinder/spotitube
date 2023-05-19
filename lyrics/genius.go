@@ -51,15 +51,15 @@ func (composer genius) search(track *entity.Track, ctxs ...context.Context) ([]b
 	}
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://api.genius.com/search?q=%s", url.QueryEscape(query)), nil)
-	if err != nil && errors.Is(err, context.Canceled) {
-		return nil, nil
-	} else if err != nil {
+	if err != nil {
 		return nil, err
 	}
 	request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("GENIUS_TOKEN")))
 
 	response, err := http.DefaultClient.Do(request)
-	if err != nil {
+	if err != nil && errors.Is(err, context.Canceled) {
+		return nil, nil
+	} else if err != nil {
 		return nil, err
 	}
 	defer response.Body.Close()
@@ -109,14 +109,14 @@ func (composer genius) search(track *entity.Track, ctxs ...context.Context) ([]b
 
 func (composer genius) fromGeniusURL(url string, ctx context.Context) ([]byte, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil && errors.Is(err, context.Canceled) {
-		return nil, nil
-	} else if err != nil {
+	if err != nil {
 		return nil, err
 	}
 
 	response, err := http.DefaultClient.Do(request)
-	if err != nil {
+	if err != nil && errors.Is(err, context.Canceled) {
+		return nil, nil
+	} else if err != nil {
 		return nil, err
 	}
 	defer response.Body.Close()

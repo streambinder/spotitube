@@ -21,12 +21,12 @@ import (
 
 const (
 	port          = 8080
-	tokenBasename = "session.json"
+	TokenBasename = "session.json"
 	closeTabHTML  = "<!DOCTYPE html><html><head><script>open(location, '_self').close();</script></head></html>"
 )
 
-var tokenPath = util.ErrWrap(filepath.Join("tmp", tokenBasename))(
-	xdg.CacheFile(filepath.Join("spotitube", tokenBasename)))
+var tokenPath = util.ErrWrap(filepath.Join("tmp", TokenBasename))(
+	xdg.CacheFile(filepath.Join("spotitube", TokenBasename)))
 
 type Client struct {
 	*spotify.Client

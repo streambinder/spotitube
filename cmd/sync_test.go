@@ -21,33 +21,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var (
-	testTrack = &entity.Track{
-		ID:          "123",
-		Title:       "Title",
-		Artists:     []string{"Artist"},
-		Album:       "Album",
-		Artwork:     entity.Artwork{URL: "http://ima.ge"},
-		Duration:    180,
-		Lyrics:      "",
-		Number:      1,
-		Year:        1970,
-		UpstreamURL: "",
-	}
-	testPlaylist = &playlist.Playlist{
-		ID:     "123",
-		Name:   "Playlist",
-		Owner:  "Owner",
-		Tracks: []*entity.Track{testTrack},
-	}
-	testAlbum = &entity.Album{
-		ID:      "123",
-		Name:    "Album",
-		Artists: []string{"Artist"},
-		Tracks:  []*entity.Track{testTrack},
-	}
-)
-
 func BenchmarkSync(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		TestCmdSync(&testing.T{})
@@ -55,8 +28,12 @@ func BenchmarkSync(b *testing.B) {
 }
 
 func TestCmdSync(t *testing.T) {
-	testTrack := testTrack
-	testTrack.ID = "TestCmdSync"
+	var (
+		_track         = &entity.Track{ID: "TestCmdSyncOfflineIndex", Title: "Title", Artists: []string{"Artist"}}
+		_trackNotFound = &entity.Track{ID: "TestCmdSyncOfflineIndexNotFound", Title: "Title", Artists: []string{"Artist"}}
+		_playlist      = &playlist.Playlist{Tracks: []*entity.Track{_track, _trackNotFound}}
+		_album         = &entity.Album{Tracks: []*entity.Track{_track}}
+	)
 
 	// monkey patching
 	defer gomonkey.NewPatches().
@@ -69,22 +46,27 @@ func TestCmdSync(t *testing.T) {
 			return &spotify.Client{}, nil
 		}).
 		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
-			ch[0] <- testTrack
+			ch[0] <- _track
+			ch[0] <- _track // to trigger duplicate check
 			return nil
 		}).
 		ApplyMethod(&spotify.Client{}, "Playlist", func(_ *spotify.Client, _ string, ch ...chan interface{}) (*playlist.Playlist, error) {
-			ch[0] <- testTrack
-			return testPlaylist, nil
+			ch[0] <- _track
+			ch[0] <- _trackNotFound // to skip inclusion in playlist
+			return _playlist, nil
 		}).
 		ApplyMethod(&spotify.Client{}, "Album", func(_ *spotify.Client, _ string, ch ...chan interface{}) (*entity.Album, error) {
-			ch[0] <- testTrack
-			return testAlbum, nil
+			ch[0] <- _track
+			return _album, nil
 		}).
 		ApplyMethod(&spotify.Client{}, "Track", func(_ *spotify.Client, _ string, ch ...chan interface{}) (*entity.Track, error) {
-			ch[0] <- testTrack
-			return testTrack, nil
+			ch[0] <- _track
+			return _track, nil
 		}).
-		ApplyFunc(provider.Search, func() ([]*provider.Match, error) {
+		ApplyFunc(provider.Search, func(track *entity.Track) ([]*provider.Match, error) {
+			if track.ID == _trackNotFound.ID {
+				return []*provider.Match{}, nil
+			}
 			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
 		}).
 		ApplyFunc(downloader.Download, func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
@@ -108,43 +90,31 @@ func TestCmdSync(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(testExecute("sync")))
-	library, err := cmdSync.Flags().GetBool("library")
+	cmd := cmdSync()
+	assert.Nil(t, util.ErrOnly(testExecute(cmd)))
+	library, err := cmd.Flags().GetBool("library")
 	assert.Nil(t, err)
 	assert.True(t, library)
-	assert.Nil(t, util.ErrOnly(testExecute("sync", "-l", "-p", "123", "-a", "123", "-t", "123")))
+	assert.Nil(t, util.ErrOnly(testExecute(cmdSync(), "-l", "-p", "123", "-a", "123", "-t", "123")))
 }
 
 func TestCmdSyncOfflineIndex(t *testing.T) {
-	testTrack := testTrack
-	testTrack.ID = "TestCmdSync"
+	_track := &entity.Track{ID: "TestCmdSyncOfflineIndex", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error { return nil }).
 		ApplyMethod(&index.Index{}, "Build", func(data *index.Index) error {
-			data.Set(testTrack.ID, index.Offline)
+			data.Set(_track.ID, index.Offline)
 			return nil
 		}).
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
 		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
-			ch[0] <- testTrack
+			ch[0] <- _track
 			return nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Playlist", func(_ *spotify.Client, _ string, ch ...chan interface{}) (*playlist.Playlist, error) {
-			ch[0] <- testTrack
-			return testPlaylist, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Album", func(_ *spotify.Client, _ string, ch ...chan interface{}) (*entity.Album, error) {
-			ch[0] <- testTrack
-			return testAlbum, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Track", func(_ *spotify.Client, _ string, ch ...chan interface{}) (*entity.Track, error) {
-			ch[0] <- testTrack
-			return testTrack, nil
 		}).
 		ApplyFunc(provider.Search, func() ([]*provider.Match, error) {
 			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
@@ -170,11 +140,8 @@ func TestCmdSyncOfflineIndex(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(testExecute("sync")))
-	library, err := cmdSync.Flags().GetBool("library")
-	assert.Nil(t, err)
-	assert.True(t, library)
-	assert.Nil(t, util.ErrOnly(testExecute("sync", "-l", "-p", "123", "-a", "123", "-t", "123")))
+	cmd := cmdSync()
+	assert.Nil(t, util.ErrOnly(testExecute(cmd)))
 }
 
 func TestCmdSyncPathFailure(t *testing.T) {
@@ -184,7 +151,7 @@ func TestCmdSyncPathFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync())), "ko")
 }
 
 func TestCmdSyncIndexFailure(t *testing.T) {
@@ -199,13 +166,10 @@ func TestCmdSyncIndexFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync())), "ko")
 }
 
 func TestCmdSyncAuthFailure(t *testing.T) {
-	testTrack := testTrack
-	testTrack.ID = "TestCmdSyncAuthFailure"
-
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(time.Sleep, func() {}).
@@ -218,31 +182,13 @@ func TestCmdSyncAuthFailure(t *testing.T) {
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, errors.New("ko")
 		}).
-		ApplyMethod(&spotify.Client{}, "Library", func() error {
-			return nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Playlist", func() (*playlist.Playlist, error) {
-			return testPlaylist, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
-			return testAlbum, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
-			return testTrack, nil
-		}).
-		ApplyMethod(&playlist.M3UEncoder{}, "Close", func() error {
-			return nil
-		}).
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync())), "ko")
 }
 
 func TestCmdSyncLibraryFailure(t *testing.T) {
-	testTrack := testTrack
-	testTrack.ID = "TestCmdSyncLibraryFailure"
-
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(time.Sleep, func() {}).
@@ -258,28 +204,13 @@ func TestCmdSyncLibraryFailure(t *testing.T) {
 		ApplyMethod(&spotify.Client{}, "Library", func() error {
 			return errors.New("ko")
 		}).
-		ApplyMethod(&spotify.Client{}, "Playlist", func() (*playlist.Playlist, error) {
-			return testPlaylist, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
-			return testAlbum, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
-			return testTrack, nil
-		}).
-		ApplyMethod(&playlist.M3UEncoder{}, "Close", func() error {
-			return nil
-		}).
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync())), "ko")
 }
 
 func TestCmdSyncPlaylistFailure(t *testing.T) {
-	testTrack := testTrack
-	testTrack.ID = "TestCmdSyncPlaylistFailure"
-
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(time.Sleep, func() {}).
@@ -292,31 +223,16 @@ func TestCmdSyncPlaylistFailure(t *testing.T) {
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
-		ApplyMethod(&spotify.Client{}, "Library", func() error {
-			return nil
-		}).
 		ApplyMethod(&spotify.Client{}, "Playlist", func() (*playlist.Playlist, error) {
 			return nil, errors.New("ko")
-		}).
-		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
-			return testAlbum, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
-			return testTrack, nil
-		}).
-		ApplyMethod(&playlist.M3UEncoder{}, "Close", func() error {
-			return nil
 		}).
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync", "-p", "123")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "-p", "123")), "ko")
 }
 
 func TestCmdSyncAlbumFailure(t *testing.T) {
-	testTrack := testTrack
-	testTrack.ID = "TestCmdSyncAlbumFailure"
-
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(time.Sleep, func() {}).
@@ -329,25 +245,13 @@ func TestCmdSyncAlbumFailure(t *testing.T) {
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
-		ApplyMethod(&spotify.Client{}, "Library", func() error {
-			return nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Playlist", func() (*playlist.Playlist, error) {
-			return testPlaylist, nil
-		}).
 		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
 			return nil, errors.New("ko")
-		}).
-		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
-			return testTrack, nil
-		}).
-		ApplyMethod(&playlist.M3UEncoder{}, "Close", func() error {
-			return nil
 		}).
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync", "-a", "123")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "-a", "123")), "ko")
 }
 
 func TestCmdSyncTrackFailure(t *testing.T) {
@@ -363,30 +267,17 @@ func TestCmdSyncTrackFailure(t *testing.T) {
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
-		ApplyMethod(&spotify.Client{}, "Library", func() error {
-			return nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Playlist", func() (*playlist.Playlist, error) {
-			return testPlaylist, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
-			return testAlbum, nil
-		}).
 		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
 			return nil, errors.New("ko")
-		}).
-		ApplyMethod(&playlist.M3UEncoder{}, "Close", func() error {
-			return nil
 		}).
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync", "-t", "123")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "-t", "123")), "ko")
 }
 
 func TestCmdSyncDecideFailure(t *testing.T) {
-	testTrack := testTrack
-	testTrack.ID = "TestCmdSyncDecideFailure"
+	_track := &entity.Track{ID: "TestCmdSyncDecideFailure", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
 	defer gomonkey.NewPatches().
@@ -402,33 +293,20 @@ func TestCmdSyncDecideFailure(t *testing.T) {
 		}).
 		ApplyMethod(&spotify.Client{}, "Library",
 			func(_ *spotify.Client, ch ...chan interface{}) error {
-				ch[0] <- testTrack
+				ch[0] <- _track
 				return nil
 			}).
-		ApplyMethod(&spotify.Client{}, "Playlist", func() (*playlist.Playlist, error) {
-			return testPlaylist, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
-			return testAlbum, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
-			return testTrack, nil
-		}).
 		ApplyFunc(provider.Search, func(*entity.Track) ([]*provider.Match, error) {
 			return nil, errors.New("ko")
 		}).
-		ApplyMethod(&playlist.M3UEncoder{}, "Close", func() error {
-			return nil
-		}).
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync())), "ko")
 }
 
 func TestCmdSyncDecideNotFound(t *testing.T) {
-	testTrack := testTrack
-	testTrack.ID = "TestCmdSyncDecideNotFound"
+	_track := &entity.Track{ID: "TestCmdSyncDecideNotFound", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
 	defer gomonkey.NewPatches().
@@ -444,33 +322,20 @@ func TestCmdSyncDecideNotFound(t *testing.T) {
 		}).
 		ApplyMethod(&spotify.Client{}, "Library",
 			func(_ *spotify.Client, ch ...chan interface{}) error {
-				ch[0] <- testTrack
+				ch[0] <- _track
 				return nil
 			}).
-		ApplyMethod(&spotify.Client{}, "Playlist", func() (*playlist.Playlist, error) {
-			return testPlaylist, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
-			return testAlbum, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
-			return testTrack, nil
-		}).
 		ApplyFunc(provider.Search, func(*entity.Track) ([]*provider.Match, error) {
 			return []*provider.Match{}, nil
-		}).
-		ApplyMethod(&playlist.M3UEncoder{}, "Close", func() error {
-			return nil
 		}).
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(testExecute("sync")))
+	assert.Nil(t, util.ErrOnly(testExecute(cmdSync())))
 }
 
 func TestCmdSyncCollectFailure(t *testing.T) {
-	testTrack := testTrack
-	testTrack.ID = "TestCmdSyncCollectFailure"
+	_track := &entity.Track{ID: "TestCmdSyncCollectFailure", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
 	defer gomonkey.NewPatches().
@@ -486,18 +351,9 @@ func TestCmdSyncCollectFailure(t *testing.T) {
 		}).
 		ApplyMethod(&spotify.Client{}, "Library",
 			func(_ *spotify.Client, ch ...chan interface{}) error {
-				ch[0] <- testTrack
+				ch[0] <- _track
 				return nil
 			}).
-		ApplyMethod(&spotify.Client{}, "Playlist", func() (*playlist.Playlist, error) {
-			return testPlaylist, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
-			return testAlbum, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
-			return testTrack, nil
-		}).
 		ApplyFunc(provider.Search, func(*entity.Track) ([]*provider.Match, error) {
 			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
 		}).
@@ -515,18 +371,14 @@ func TestCmdSyncCollectFailure(t *testing.T) {
 		ApplyFunc(lyrics.Search, func() (string, error) {
 			return "", nil
 		}).
-		ApplyMethod(&playlist.M3UEncoder{}, "Close", func() error {
-			return nil
-		}).
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync())), "ko")
 }
 
 func TestCmdSyncDownloadFailure(t *testing.T) {
-	testTrack := testTrack
-	testTrack.ID = "TestCmdSyncDownloadFailure"
+	_track := &entity.Track{ID: "TestCmdSyncDownloadFailure", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
 	defer gomonkey.NewPatches().
@@ -541,17 +393,8 @@ func TestCmdSyncDownloadFailure(t *testing.T) {
 			return &spotify.Client{}, nil
 		}).
 		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
-			ch[0] <- testTrack
+			ch[0] <- _track
 			return nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Playlist", func() (*playlist.Playlist, error) {
-			return testPlaylist, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
-			return testAlbum, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
-			return testTrack, nil
 		}).
 		ApplyFunc(provider.Search, func(*entity.Track) ([]*provider.Match, error) {
 			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
@@ -565,18 +408,14 @@ func TestCmdSyncDownloadFailure(t *testing.T) {
 		ApplyFunc(lyrics.Search, func() (string, error) {
 			return "", nil
 		}).
-		ApplyMethod(&playlist.M3UEncoder{}, "Close", func() error {
-			return nil
-		}).
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync())), "ko")
 }
 
 func TestCmdSyncLyricsFailure(t *testing.T) {
-	testTrack := testTrack
-	testTrack.ID = "TestCmdSyncLyricsFailure"
+	_track := &entity.Track{ID: "TestCmdSyncLyricsFailure", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
 	defer gomonkey.NewPatches().
@@ -591,17 +430,8 @@ func TestCmdSyncLyricsFailure(t *testing.T) {
 			return &spotify.Client{}, nil
 		}).
 		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
-			ch[0] <- testTrack
+			ch[0] <- _track
 			return nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Playlist", func() (*playlist.Playlist, error) {
-			return testPlaylist, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
-			return testAlbum, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
-			return testTrack, nil
 		}).
 		ApplyFunc(provider.Search, func() ([]*provider.Match, error) {
 			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
@@ -615,18 +445,14 @@ func TestCmdSyncLyricsFailure(t *testing.T) {
 		ApplyFunc(lyrics.Search, func() (string, error) {
 			return "", errors.New("ko")
 		}).
-		ApplyMethod(&playlist.M3UEncoder{}, "Close", func() error {
-			return nil
-		}).
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync())), "ko")
 }
 
 func TestCmdSyncProcessorFailure(t *testing.T) {
-	testTrack := testTrack
-	testTrack.ID = "TestCmdSyncProcessorFailure"
+	_track := &entity.Track{ID: "TestCmdSyncProcessorFailure", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
 	defer gomonkey.NewPatches().
@@ -641,17 +467,8 @@ func TestCmdSyncProcessorFailure(t *testing.T) {
 			return &spotify.Client{}, nil
 		}).
 		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
-			ch[0] <- testTrack
+			ch[0] <- _track
 			return nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Playlist", func() (*playlist.Playlist, error) {
-			return testPlaylist, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
-			return testAlbum, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
-			return testTrack, nil
 		}).
 		ApplyFunc(provider.Search, func() ([]*provider.Match, error) {
 			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
@@ -668,18 +485,14 @@ func TestCmdSyncProcessorFailure(t *testing.T) {
 		ApplyFunc(processor.Do, func() error {
 			return errors.New("ko")
 		}).
-		ApplyMethod(&playlist.M3UEncoder{}, "Close", func() error {
-			return nil
-		}).
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync())), "ko")
 }
 
 func TestCmdSyncInstallerFailure(t *testing.T) {
-	testTrack := testTrack
-	testTrack.ID = "TestCmdSyncInstallerFailure"
+	_track := &entity.Track{ID: "TestCmdSyncInstallerFailure", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
 	defer gomonkey.NewPatches().
@@ -694,17 +507,8 @@ func TestCmdSyncInstallerFailure(t *testing.T) {
 			return &spotify.Client{}, nil
 		}).
 		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
-			ch[0] <- testTrack
+			ch[0] <- _track
 			return nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Playlist", func() (*playlist.Playlist, error) {
-			return testPlaylist, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
-			return testAlbum, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
-			return testTrack, nil
 		}).
 		ApplyFunc(provider.Search, func() ([]*provider.Match, error) {
 			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
@@ -724,18 +528,16 @@ func TestCmdSyncInstallerFailure(t *testing.T) {
 		ApplyFunc(util.FileMoveOrCopy, func() error {
 			return errors.New("ko")
 		}).
-		ApplyMethod(&playlist.M3UEncoder{}, "Close", func() error {
-			return nil
-		}).
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync())), "ko")
 }
 
 func TestCmdSyncPlaylistEncoderFailure(t *testing.T) {
-	testTrack := testTrack
-	testTrack.ID = "TestCmdSyncPlaylistEncoderFailure"
+	_playlist := &playlist.Playlist{Tracks: []*entity.Track{
+		{ID: "TestCmdSyncPlaylistEncoderFailure", Title: "Title", Artists: []string{"Artist"}},
+	}}
 
 	// monkey patching
 	defer gomonkey.NewPatches().
@@ -749,17 +551,8 @@ func TestCmdSyncPlaylistEncoderFailure(t *testing.T) {
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
-		ApplyMethod(&spotify.Client{}, "Library", func() error {
-			return nil
-		}).
 		ApplyMethod(&spotify.Client{}, "Playlist", func() (*playlist.Playlist, error) {
-			return testPlaylist, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
-			return testAlbum, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
-			return testTrack, nil
+			return _playlist, nil
 		}).
 		ApplyFunc(provider.Search, func() ([]*provider.Match, error) {
 			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
@@ -785,12 +578,13 @@ func TestCmdSyncPlaylistEncoderFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync", "-p", "123")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "-p", "123")), "ko")
 }
 
 func TestCmdSyncPlaylistEncoderAddFailure(t *testing.T) {
-	testTrack := testTrack
-	testTrack.ID = "TestCmdSyncPlaylistEncoderFailure"
+	_playlist := &playlist.Playlist{Tracks: []*entity.Track{
+		{ID: "TestCmdSyncPlaylistEncoderAddFailure", Title: "Title", Artists: []string{"Artist"}},
+	}}
 
 	// monkey patching
 	defer gomonkey.NewPatches().
@@ -804,18 +598,9 @@ func TestCmdSyncPlaylistEncoderAddFailure(t *testing.T) {
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
-		ApplyMethod(&spotify.Client{}, "Library", func() error {
-			return nil
-		}).
 		ApplyMethod(&spotify.Client{}, "Playlist", func(_ *spotify.Client, _ string, ch ...chan interface{}) (*playlist.Playlist, error) {
-			ch[0] <- testTrack
-			return testPlaylist, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
-			return testAlbum, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
-			return testTrack, nil
+			ch[0] <- _playlist.Tracks[0]
+			return _playlist, nil
 		}).
 		ApplyFunc(provider.Search, func() ([]*provider.Match, error) {
 			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
@@ -841,12 +626,13 @@ func TestCmdSyncPlaylistEncoderAddFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync", "-p", "123")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "-p", "123")), "ko")
 }
 
 func TestCmdSyncPlaylistEncoderCloseFailure(t *testing.T) {
-	testTrack := testTrack
-	testTrack.ID = "TestCmdSyncPlaylistEncoderFailure"
+	_playlist := &playlist.Playlist{Tracks: []*entity.Track{
+		{ID: "TestCmdSyncPlaylistEncoderCloseFailure", Title: "Title", Artists: []string{"Artist"}},
+	}}
 
 	// monkey patching
 	defer gomonkey.NewPatches().
@@ -860,18 +646,9 @@ func TestCmdSyncPlaylistEncoderCloseFailure(t *testing.T) {
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
-		ApplyMethod(&spotify.Client{}, "Library", func() error {
-			return nil
-		}).
 		ApplyMethod(&spotify.Client{}, "Playlist", func(_ *spotify.Client, _ string, ch ...chan interface{}) (*playlist.Playlist, error) {
-			ch[0] <- testTrack
-			return testPlaylist, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
-			return testAlbum, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
-			return testTrack, nil
+			ch[0] <- _playlist.Tracks[0]
+			return _playlist, nil
 		}).
 		ApplyFunc(provider.Search, func() ([]*provider.Match, error) {
 			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
@@ -897,5 +674,5 @@ func TestCmdSyncPlaylistEncoderCloseFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute("sync", "-p", "123")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "-p", "123")), "ko")
 }

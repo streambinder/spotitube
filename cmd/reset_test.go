@@ -59,7 +59,7 @@ func TestCmdReset(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(testExecute("reset")))
+	assert.Nil(t, util.ErrOnly(testExecute(cmdReset())))
 }
 
 func TestCmdResetSessionFailure(t *testing.T) {
@@ -69,5 +69,5 @@ func TestCmdResetSessionFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(testExecute("reset")), "ko")
+	assert.Error(t, util.ErrOnly(testExecute(cmdReset())), "ko")
 }

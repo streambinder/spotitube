@@ -36,7 +36,7 @@ func Excerpt(sentence string, args ...int) string {
 		length = args[0]
 	}
 
-	if len(sentence) > length {
+	if len(sentence) > length && length > 0 {
 		return sentence[:length]
 	}
 
@@ -78,4 +78,13 @@ func Fallback(data, fallback string) string {
 		return fallback
 	}
 	return data
+}
+
+func ContainsEach(data string, parts ...string) bool {
+	for _, part := range parts {
+		if !strings.Contains(data, part) {
+			return false
+		}
+	}
+	return true
 }

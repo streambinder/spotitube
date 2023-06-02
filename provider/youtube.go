@@ -149,7 +149,6 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 						return time.Now().Year() - yearsAgo
 					}(result.VideoRenderer.PublishedTimeText.SimpleText),
 				}
-
 				if match.compliant(track) {
 					matches = append(matches, &Match{fmt.Sprintf("https://youtu.be/%s", match.id), match.score(track)})
 				}
@@ -165,8 +164,8 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 func (result youTubeResult) compliant(track *entity.Track) bool {
 	spec := util.UniqueFields(fmt.Sprintf("%s %s", result.owner, result.title))
 	return result.id != "" && result.year >= track.Year &&
-		strings.Contains(spec, util.UniqueFields(track.Artists[0])) &&
-		strings.Contains(spec, util.UniqueFields(track.Title))
+		util.ContainsEach(spec, strings.Split(util.UniqueFields(track.Artists[0]), " ")...) &&
+		util.ContainsEach(spec, strings.Split(util.UniqueFields(track.Song()), " ")...)
 }
 
 // score goes from 0 to 100:
@@ -210,5 +209,10 @@ func (result youTubeResult) durationAccuracy(duration int) int {
 //	ie percentage of the number of digits of views on a scale to 11
 //	(11 digits is for views of the order of 10.000.000.000, the highest reached on YouTube so far)
 func (result youTubeResult) viewsAccuracy() int {
-	return int(math.Min(float64(len(strconv.Itoa(result.views))), 11.0)) * 100 / 11
+	digits := len(strconv.Itoa(result.views))
+	// boost results with more than a million views
+	if digits > 6 {
+		digits += 2
+	}
+	return int(math.Min(float64(digits), 11.0)) * 100 / 11
 }

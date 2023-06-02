@@ -29,7 +29,7 @@ func TestCmdShow(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(testExecute("show", "path/to/track")))
+	assert.Nil(t, util.ErrOnly(testExecute(cmdShow(), "path/to/track")))
 }
 
 func TestCmdShowOpenFailure(t *testing.T) {
@@ -41,7 +41,7 @@ func TestCmdShowOpenFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(testExecute("show", "path/to/track")), "ko")
+	assert.Error(t, util.ErrOnly(testExecute(cmdShow(), "path/to/track")), "ko")
 }
 
 func TestCmdShowPictureFallback(t *testing.T) {
@@ -53,5 +53,5 @@ func TestCmdShowPictureFallback(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(testExecute("show", "path/to/track")))
+	assert.Nil(t, util.ErrOnly(testExecute(cmdShow(), "path/to/track")))
 }

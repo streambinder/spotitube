@@ -34,7 +34,14 @@ var (
 	routineSemaphores map[int](chan bool)
 	routineQueues     map[int](chan interface{})
 	indexData         = index.New()
-	cmdSync           = &cobra.Command{
+)
+
+func init() {
+	cmdRoot.AddCommand(cmdSync())
+}
+
+func cmdSync() *cobra.Command {
+	cmd := &cobra.Command{
 		Use:          "sync",
 		Short:        "Synchronize collections",
 		SilenceUsage: true,
@@ -94,16 +101,13 @@ var (
 			}
 		},
 	}
-)
-
-func init() {
-	cmdRoot.AddCommand(cmdSync)
-	cmdSync.Flags().String("path", ".", "Target synchronization path")
-	cmdSync.Flags().String("playlist-encoding", "m3u", "Target synchronization path")
-	cmdSync.Flags().BoolP("library", "l", false, "Synchronize library (auto-enabled if no collection is supplied)")
-	cmdSync.Flags().StringArrayP("playlist", "p", []string{}, "Synchronize playlist")
-	cmdSync.Flags().StringArrayP("album", "a", []string{}, "Synchronize album")
-	cmdSync.Flags().StringArrayP("track", "t", []string{}, "Synchronize track")
+	cmd.Flags().String("path", ".", "Target synchronization path")
+	cmd.Flags().String("playlist-encoding", "m3u", "Target synchronization path")
+	cmd.Flags().BoolP("library", "l", false, "Synchronize library (auto-enabled if no collection is supplied)")
+	cmd.Flags().StringArrayP("playlist", "p", []string{}, "Synchronize playlist")
+	cmd.Flags().StringArrayP("album", "a", []string{}, "Synchronize album")
+	cmd.Flags().StringArrayP("track", "t", []string{}, "Synchronize track")
+	return cmd
 }
 
 // indexer scans a possible local music library

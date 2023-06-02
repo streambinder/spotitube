@@ -10,11 +10,19 @@ import (
 
 func BenchmarkTrack(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		TestDownloadPath(&testing.T{})
+		TestSong(&testing.T{})
+		TestPath(&testing.T{})
 	}
 }
 
-func TestDownloadPath(t *testing.T) {
+func TestSong(t *testing.T) {
+	assert.Equal(t, "Song", (&Track{Title: "Song - Acoustic"}).Song())
+	assert.Equal(t, "Song", (&Track{Title: "Song - 2000 Remastered"}).Song())
+	assert.Equal(t, "Song", (&Track{Title: "Song"}).Song())
+	assert.Equal(t, "Song", (&Track{Title: "Song (with People)"}).Song())
+}
+
+func TestPath(t *testing.T) {
 	track := &Track{
 		ID:      "123",
 		Artists: []string{"Artist"},

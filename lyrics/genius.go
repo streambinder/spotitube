@@ -45,7 +45,7 @@ func (composer genius) search(track *entity.Track, ctxs ...context.Context) ([]b
 		ctx = ctxs[0]
 	}
 
-	query := track.Title
+	query := track.Song()
 	for _, artist := range track.Artists {
 		query = fmt.Sprintf("%s %s", query, artist)
 	}
@@ -87,7 +87,7 @@ func (composer genius) search(track *entity.Track, ctxs ...context.Context) ([]b
 	for _, hit := range data.Response.Hits {
 		var (
 			urlCompliant    = strings.HasPrefix(hit.Result.URL, "https://genius.com/")
-			titleCompliant  = strings.Contains(util.Flatten(hit.Result.Title), util.Flatten(track.Title))
+			titleCompliant  = strings.Contains(util.Flatten(hit.Result.Title), util.Flatten(track.Song()))
 			artistCompliant = strings.Contains(util.Flatten(hit.Result.Artist.Name), util.Flatten(track.Artists[0]))
 			distance        = levenshtein.ComputeDistance(
 				util.UniqueFields(query),

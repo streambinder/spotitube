@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/adrg/xdg"
 	"github.com/gosimple/slug"
@@ -37,6 +38,21 @@ const (
 	ArtworkFormat = "jpg"
 	LyricsFormat  = "txt"
 )
+
+// certain track titles include the variant description,
+// this functions aims to strip out that part:
+// > Title: Name - Acoustic
+// > Song:  Name
+func (track *Track) Song() (song string) {
+	// it can very easily happen to encounter tracks
+	// that contains artifacts in the title which do not
+	// really define them as songs, rather indicate
+	// the variant of the song
+	song = track.Title
+	song = strings.Split(song+" - ", " - ")[0]
+	song = strings.Split(song+" (", " (")[0]
+	return
+}
 
 func (track *Track) Path() trackPath {
 	return trackPath{track}

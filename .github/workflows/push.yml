@@ -33,6 +33,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.52.2
+          args: --verbose
   gofumpt:
     runs-on: ubuntu-latest
     steps:

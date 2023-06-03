@@ -154,8 +154,8 @@ func documentParser(data *[]byte) func(i int, s *goquery.Selection) {
 func (result geniusResult) compliant(track *entity.Track) bool {
 	spec := util.UniqueFields(fmt.Sprintf("%s %s", result.Artist.Name, result.Title))
 	return result.URL != "" &&
-		util.ContainsEach(spec, strings.Split(util.UniqueFields(track.Artists[0]), " ")...) &&
-		util.ContainsEach(spec, strings.Split(util.UniqueFields(track.Song()), " ")...)
+		util.Contains(spec, strings.Split(util.UniqueFields(track.Artists[0]), " ")...) &&
+		util.Contains(spec, strings.Split(util.UniqueFields(track.Song()), " ")...)
 }
 
 // score goes from 0 to 100 and it's built on the accuracy percentage

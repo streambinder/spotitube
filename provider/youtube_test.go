@@ -119,7 +119,7 @@ func TestYouTubeSearchPartialData(t *testing.T) {
 			Body: io.NopCloser(strings.NewReader(fmt.Sprintf(
 				resultScript,
 				result.id,
-				"",
+				blacklist[0],
 				"",
 				"",
 				"",

@@ -3,6 +3,7 @@ package util
 import (
 	"testing"
 
+	"github.com/agnivade/levenshtein"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -10,6 +11,7 @@ func BenchmarkString(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		TestFlatten(&testing.T{})
 		TestUniqueFields(&testing.T{})
+		TestLevenshteinBoundedDistance(&testing.T{})
 		TestExcerpt(&testing.T{})
 		TestPad(&testing.T{})
 		TestHumanizeBytes(&testing.T{})
@@ -26,6 +28,13 @@ func TestFlatten(t *testing.T) {
 func TestUniqueFields(t *testing.T) {
 	assert.Equal(t, "word word1", UniqueFields("word word1 word"))
 	assert.Equal(t, "word word1", UniqueFields("word word1"))
+}
+
+func TestLevenshteinBoundedDistance(t *testing.T) {
+	assert.Equal(t, levenshtein.ComputeDistance("word1", "word2"), LevenshteinBoundedDistance("wOrd1", "woRd2"))
+	assert.Equal(t, levenshtein.ComputeDistance("word1", "word3"), LevenshteinBoundedDistance("word1 wOrd2", "word2 Word3"))
+	assert.Equal(t, levenshtein.ComputeDistance("word1", "word2"), LevenshteinBoundedDistance("worD1 word1", "word2"))
+	assert.Equal(t, levenshtein.ComputeDistance("", "word2"), LevenshteinBoundedDistance("word1 word1", "word1 word2"))
 }
 
 func TestExcerpt(t *testing.T) {
@@ -61,8 +70,8 @@ func TestFallback(t *testing.T) {
 }
 
 func TestContainsEach(t *testing.T) {
-	assert.True(t, ContainsEach("hello world", "world", "hello"))
-	assert.False(t, ContainsEach("hello", "hello", "world"))
+	assert.True(t, Contains("hello world", "world", "hello"))
+	assert.False(t, Contains("hello", "hello", "world"))
 }
 
 func TestLegalizeFilename(t *testing.T) {

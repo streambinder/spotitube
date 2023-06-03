@@ -8,7 +8,10 @@ import (
 	"github.com/streambinder/spotitube/entity"
 )
 
-var providers = []Provider{}
+var (
+	providers = []Provider{}
+	blacklist = []string{"cover"}
+)
 
 type Match struct {
 	URL   string

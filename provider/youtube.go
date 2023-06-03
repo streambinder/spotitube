@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/agnivade/levenshtein"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/util"
@@ -163,9 +162,16 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 // so to ensure that only the results that pass certain pre-checks get returned
 func (result youTubeResult) compliant(track *entity.Track) bool {
 	spec := util.UniqueFields(fmt.Sprintf("%s %s", result.owner, result.title))
-	return result.id != "" && result.year >= track.Year &&
-		util.ContainsEach(spec, strings.Split(util.UniqueFields(track.Artists[0]), " ")...) &&
-		util.ContainsEach(spec, strings.Split(util.UniqueFields(track.Song()), " ")...)
+	blacklistCompliant := true
+	for _, word := range blacklist {
+		if util.Contains(spec, word) && !util.Contains(result.query, word) {
+			blacklistCompliant = false
+			break
+		}
+	}
+	return result.id != "" && result.year >= track.Year && blacklistCompliant &&
+		util.Contains(spec, strings.Split(util.UniqueFields(track.Artists[0]), " ")...) &&
+		util.Contains(spec, strings.Split(util.UniqueFields(track.Song()), " ")...)
 }
 
 // score goes from 0 to 100:
@@ -185,10 +191,7 @@ func (result youTubeResult) score(track *entity.Track) int {
 // return an accuracy percentage for result owner+title
 func (result youTubeResult) titleAccuracy() int {
 	distance := int(math.Min(
-		float64(levenshtein.ComputeDistance(
-			util.UniqueFields(result.query),
-			util.UniqueFields(fmt.Sprintf("%s %s", result.owner, result.title)),
-		)),
+		float64(util.LevenshteinBoundedDistance(result.query, fmt.Sprintf("%s %s", result.title, result.owner))),
 		50.0,
 	))
 	// return the inverse of the proportion of the distance

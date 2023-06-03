@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/agnivade/levenshtein"
 	"github.com/gosimple/slug"
 )
 
@@ -29,6 +30,29 @@ func UniqueFields(sentence string) (uniqueFieldsSentence string) {
 	}
 
 	return strings.Join(uniqueFields, " ")
+}
+
+// consider only fields in the sentences which are not in common, ie:
+// LBD("hello world", "earth hello") = LD("world", "eart")
+func LevenshteinBoundedDistance(former, latter string) int {
+	var uniqueFormer, uniqueLatter []string
+
+	former, latter = UniqueFields(former), UniqueFields(latter)
+	for _, field := range strings.Fields(former) {
+		if !Contains(latter, field) {
+			uniqueFormer = append(uniqueFormer, field)
+		}
+	}
+	for _, field := range strings.Fields(latter) {
+		if !Contains(former, field) {
+			uniqueLatter = append(uniqueLatter, field)
+		}
+	}
+
+	return levenshtein.ComputeDistance(
+		strings.Join(uniqueFormer, " "),
+		strings.Join(uniqueLatter, " "),
+	)
 }
 
 func Excerpt(sentence string, args ...int) string {
@@ -83,9 +107,10 @@ func Fallback(data, fallback string) string {
 	return data
 }
 
-func ContainsEach(data string, parts ...string) bool {
+func Contains(data string, parts ...string) bool {
 	for _, part := range parts {
-		if !strings.Contains(data, part) {
+		partWord := regexp.MustCompile("\\b" + part + "\\b")
+		if !partWord.MatchString(data) {
 			return false
 		}
 	}

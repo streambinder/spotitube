@@ -90,8 +90,9 @@ func (composer genius) search(track *entity.Track, ctxs ...context.Context) ([]b
 	)
 	for _, hit := range data.Response.Hits {
 		hit.Result.query = query
-		if hit.Result.compliant(track) && hit.Result.score(track) > score {
+		if hitScore := hit.Result.score(track); hit.Result.compliant(track) && hitScore > score {
 			url = hit.Result.URL
+			score = hitScore
 		}
 	}
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -58,14 +59,13 @@ func (FFmpegCmd) VolumeAdd(path string, delta float64) error {
 		temp   = util.FileBaseStem(path) + ".norm" + filepath.Ext(path)
 		cmd    = exec.Command("ffmpeg",
 			"-i", path,
-			"-af", fmt.Sprintf("volume=+%fdB", delta),
+			"-af", fmt.Sprintf("volume=%.1fdB", math.Abs(delta)),
 			"-y", temp,
 		)
 	)
 	cmd.Stdout = &output
 	cmd.Stderr = &output
 	if err := cmd.Run(); err != nil {
-		// errLines := strings.Split(output.String(), "\n")
 		return errors.New(output.String())
 	}
 	return os.Rename(temp, path)

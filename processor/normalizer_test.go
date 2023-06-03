@@ -30,6 +30,21 @@ func TestNormalizerDo(t *testing.T) {
 	assert.Nil(t, normalizer{}.Do(track))
 }
 
+func TestNormalizerDoReverse(t *testing.T) {
+	// monkey patching
+	defer gomonkey.NewPatches().
+		ApplyMethod(cmd.FFmpegCmd{}, "VolumeDetect", func() (float64, error) {
+			return -1, nil
+		}).
+		ApplyMethod(cmd.FFmpegCmd{}, "VolumeAdd", func() error {
+			return nil
+		}).
+		Reset()
+
+	// testing
+	assert.Nil(t, normalizer{}.Do(track))
+}
+
 func TestNormalizerDoUnsupported(t *testing.T) {
 	// testing
 	assert.NotNil(t, normalizer{}.Do("hello"))

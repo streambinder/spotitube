@@ -2,6 +2,7 @@ package processor
 
 import (
 	"errors"
+	"math"
 
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/util/cmd"
@@ -25,6 +26,13 @@ func (normalizer) Do(object interface{}) error {
 	volumeDelta, err := cmd.FFmpeg().VolumeDetect(track.Path().Download())
 	if err != nil {
 		return err
+	}
+
+	// reverse delta
+	if volumeDelta > 0 {
+		volumeDelta = 0 - volumeDelta
+	} else {
+		volumeDelta = math.Abs(volumeDelta)
 	}
 
 	return cmd.FFmpeg().VolumeAdd(track.Path().Download(), volumeDelta)

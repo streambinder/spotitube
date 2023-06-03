@@ -29,6 +29,7 @@ func cmdLookup() *cobra.Command {
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			tracks, _ := cmd.Flags().GetStringArray("track")
+			random, _ := cmd.Flags().GetBool("random")
 			client, err := spotify.Authenticate()
 			if err != nil {
 				return err
@@ -42,7 +43,12 @@ func cmdLookup() *cobra.Command {
 				func(ctx context.Context, ch chan error) {
 					defer close(providerChannel)
 					defer close(lyricsChannel)
-					if len(tracks) > 0 {
+					if random {
+						if err := client.Random(spotify.TypeTrack, 5, providerChannel, lyricsChannel); err != nil {
+							ch <- err
+							return
+						}
+					} else if len(tracks) > 0 {
 						for _, id := range tracks {
 							if _, err := client.Track(id, providerChannel, lyricsChannel); err != nil {
 								ch <- err
@@ -88,5 +94,6 @@ func cmdLookup() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringArrayP("track", "t", []string{}, "Lookup given tracks only")
+	cmd.Flags().BoolP("random", "r", false, "Lookup random track")
 	return cmd
 }

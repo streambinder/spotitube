@@ -32,9 +32,6 @@ func TestCmdLookup(t *testing.T) {
 			ch[1] <- _track
 			return nil
 		}).
-		ApplyMethod(&spotify.Client{}, "Track", func(_ *spotify.Client, _ string, ch ...chan interface{}) (*entity.Track, error) {
-			return nil, nil
-		}).
 		ApplyFunc(provider.Search, func() ([]*provider.Match, error) {
 			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
 		}).
@@ -55,9 +52,6 @@ func TestCmdLookupTrack(t *testing.T) {
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
-		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
-			return nil
-		}).
 		ApplyMethod(&spotify.Client{}, "Track", func(_ *spotify.Client, _ string, ch ...chan interface{}) (*entity.Track, error) {
 			ch[0] <- _track
 			ch[1] <- _track
@@ -73,6 +67,27 @@ func TestCmdLookupTrack(t *testing.T) {
 
 	// testing
 	assert.Nil(t, util.ErrOnly(testExecute(cmdLookup(), "-t", "123")))
+}
+
+func TestCmdLookupRandom(t *testing.T) {
+	// monkey patching
+	defer gomonkey.NewPatches().
+		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
+			return &spotify.Client{}, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Random", func() error {
+			return nil
+		}).
+		ApplyFunc(provider.Search, func() ([]*provider.Match, error) {
+			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
+		}).
+		ApplyFunc(lyrics.Search, func() (string, error) {
+			return "lyrics", nil
+		}).
+		Reset()
+
+	// testing
+	assert.Nil(t, util.ErrOnly(testExecute(cmdLookup(), "-r")))
 }
 
 func TestCmdLookupAuthFailure(t *testing.T) {
@@ -106,15 +121,26 @@ func TestCmdLookupTrackFailure(t *testing.T) {
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
-		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
-			return nil
-		}).
 		ApplyMethod(&spotify.Client{}, "Track", func(_ *spotify.Client, _ string, ch ...chan interface{}) (*entity.Track, error) {
 			return nil, errors.New("ko")
 		}).Reset()
 
 	// testing
 	assert.Error(t, util.ErrOnly(testExecute(cmdLookup(), "-t", "123")), "ko")
+}
+
+func TestCmdLookupRandomFailure(t *testing.T) {
+	// monkey patching
+	defer gomonkey.NewPatches().
+		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
+			return &spotify.Client{}, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Random", func() error {
+			return errors.New("ko")
+		}).Reset()
+
+	// testing
+	assert.Error(t, util.ErrOnly(testExecute(cmdLookup(), "-r")), "ko")
 }
 
 func TestCmdLookupSearchFailure(t *testing.T) {

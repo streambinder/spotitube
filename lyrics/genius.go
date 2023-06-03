@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -24,15 +25,18 @@ type genius struct {
 type geniusSearch struct {
 	Response struct {
 		Hits []struct {
-			Result struct {
-				URL    string
-				Title  string
-				Artist struct {
-					Name string
-				} `json:"primary_artist"`
-			}
+			Result geniusResult
 		}
 	}
+}
+
+type geniusResult struct {
+	query  string // not part of APIs
+	URL    string
+	Title  string
+	Artist struct {
+		Name string
+	} `json:"primary_artist"`
 }
 
 func init() {
@@ -81,30 +85,21 @@ func (composer genius) search(track *entity.Track, ctxs ...context.Context) ([]b
 	}
 
 	var (
-		geniusURL   string
-		minDistance = 50
+		score int
+		url   string
 	)
 	for _, hit := range data.Response.Hits {
-		var (
-			urlCompliant    = strings.HasPrefix(hit.Result.URL, "https://genius.com/")
-			titleCompliant  = strings.Contains(util.Flatten(hit.Result.Title), util.Flatten(track.Song()))
-			artistCompliant = strings.Contains(util.Flatten(hit.Result.Artist.Name), util.Flatten(track.Artists[0]))
-			distance        = levenshtein.ComputeDistance(
-				util.UniqueFields(query),
-				util.UniqueFields(fmt.Sprintf("%s %s", hit.Result.Title, hit.Result.Artist.Name)),
-			)
-		)
-		if urlCompliant && titleCompliant && artistCompliant && distance < minDistance {
-			geniusURL = hit.Result.URL
-			minDistance = distance
+		hit.Result.query = query
+		if hit.Result.compliant(track) && hit.Result.score(track) > score {
+			url = hit.Result.URL
 		}
 	}
 
-	if geniusURL == "" {
+	if url == "" {
 		return nil, nil
 	}
 
-	return composer.fromGeniusURL(geniusURL, ctx)
+	return composer.fromGeniusURL(url, ctx)
 }
 
 func (composer genius) fromGeniusURL(url string, ctx context.Context) ([]byte, error) {
@@ -151,4 +146,28 @@ func documentParser(data *[]byte) func(i int, s *goquery.Selection) {
 			s.Contents().Each(documentParser(data))
 		}
 	}
+}
+
+// compliance check works as a barrier before checking on the result score
+// so to ensure that only the results that pass certain pre-checks get returned
+func (result geniusResult) compliant(track *entity.Track) bool {
+	spec := util.UniqueFields(fmt.Sprintf("%s %s", result.Artist.Name, result.Title))
+	return result.URL != "" &&
+		util.ContainsEach(spec, strings.Split(util.UniqueFields(track.Artists[0]), " ")...) &&
+		util.ContainsEach(spec, strings.Split(util.UniqueFields(track.Song()), " ")...)
+}
+
+// score goes from 0 to 100 and it's built on the accuracy percentage
+// for result artist+title compared to the given track
+func (result geniusResult) score(track *entity.Track) int {
+	distance := int(math.Min(
+		float64(levenshtein.ComputeDistance(
+			util.UniqueFields(result.query),
+			util.UniqueFields(fmt.Sprintf("%s %s", result.Artist.Name, result.Title)),
+		)),
+		50.0,
+	))
+	// return the inverse of the proportion of the distance
+	// on a percentage scale to 50
+	return 100 - (distance * 100 / 50)
 }

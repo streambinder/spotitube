@@ -27,7 +27,7 @@ func TestUniqueFields(t *testing.T) {
 }
 
 func TestExcerpt(t *testing.T) {
-	assert.Equal(t, "long sente", Excerpt("long sentence"))
+	assert.Equal(t, "very long sente", Excerpt("very long sentence"))
 	assert.Equal(t, "shorter", Excerpt("shorter"))
 	assert.Equal(t, "short", Excerpt("short", -1))
 	assert.Equal(t, "sho", Excerpt("shorter", 3))
@@ -35,8 +35,8 @@ func TestExcerpt(t *testing.T) {
 }
 
 func TestPad(t *testing.T) {
-	assert.Equal(t, "long sente", Pad("long sentence"))
-	assert.Equal(t, "shorter   ", Pad("shorter"))
+	assert.Equal(t, "very long sente", Pad("very long sentence"))
+	assert.Equal(t, "shorter        ", Pad("shorter"))
 	assert.Equal(t, "short", Pad("short", -1))
 	assert.Equal(t, "sho", Pad("shorter", 3))
 	assert.Equal(t, " ", Pad("", 1))
@@ -59,6 +59,6 @@ func TestFallback(t *testing.T) {
 }
 
 func TestContainsEach(t *testing.T) {
-	assert.Equal(t, true, ContainsEach("hello world", "world", "hello"))
-	assert.Equal(t, false, ContainsEach("hello", "hello", "world"))
+	assert.True(t, ContainsEach("hello world", "world", "hello"))
+	assert.False(t, ContainsEach("hello", "hello", "world"))
 }

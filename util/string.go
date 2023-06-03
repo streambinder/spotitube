@@ -31,7 +31,7 @@ func UniqueFields(sentence string) (uniqueFieldsSentence string) {
 func Excerpt(sentence string, args ...int) string {
 	sentence = strings.ReplaceAll(strings.ReplaceAll(sentence, "\n", " "), "\r", " ")
 
-	length := 10
+	length := 15
 	if len(args) > 0 {
 		length = args[0]
 	}
@@ -45,7 +45,7 @@ func Excerpt(sentence string, args ...int) string {
 
 func Pad(sentence string, args ...int) string {
 	sentence = Excerpt(sentence, args...)
-	length := 10
+	length := 15
 	if len(args) > 0 {
 		length = args[0]
 	}

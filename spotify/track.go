@@ -10,6 +10,8 @@ import (
 	"github.com/zmb3/spotify/v2"
 )
 
+const TypeTrack = spotify.SearchTypeTrack
+
 func trackEntity(track *spotify.FullTrack) *entity.Track {
 	return &entity.Track{
 		ID:    track.ID.String(),

@@ -2,10 +2,13 @@ package util
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/gosimple/slug"
 )
+
+var filenameIllegalCharacters = regexp.MustCompile(`[/\\?%*:|"<>]`)
 
 func Flatten(sentence string) string {
 	return strings.ReplaceAll(slug.Make(sentence), "-", " ")
@@ -87,4 +90,8 @@ func ContainsEach(data string, parts ...string) bool {
 		}
 	}
 	return true
+}
+
+func LegalizeFilename(filename string) string {
+	return filenameIllegalCharacters.ReplaceAllString(filename, "")
 }

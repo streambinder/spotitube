@@ -14,6 +14,8 @@ func BenchmarkString(b *testing.B) {
 		TestPad(&testing.T{})
 		TestHumanizeBytes(&testing.T{})
 		TestFallback(&testing.T{})
+		TestContainsEach(&testing.T{})
+		TestLegalizeFilename(&testing.T{})
 	}
 }
 
@@ -61,4 +63,8 @@ func TestFallback(t *testing.T) {
 func TestContainsEach(t *testing.T) {
 	assert.True(t, ContainsEach("hello world", "world", "hello"))
 	assert.False(t, ContainsEach("hello", "hello", "world"))
+}
+
+func TestLegalizeFilename(t *testing.T) {
+	assert.Equal(t, "file name", LegalizeFilename(`file/\?% *:|"<>name`))
 }

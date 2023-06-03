@@ -47,7 +47,7 @@ func cmdSync() *cobra.Command {
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var (
-				path, _             = cmd.Flags().GetString("path")
+				path, _             = cmd.Flags().GetString("output")
 				playlistEncoding, _ = cmd.Flags().GetString("playlist-encoding")
 				library, _          = cmd.Flags().GetBool("library")
 				playlists, _        = cmd.Flags().GetStringArray("playlist")
@@ -101,7 +101,7 @@ func cmdSync() *cobra.Command {
 			}
 		},
 	}
-	cmd.Flags().String("path", ".", "Target synchronization path")
+	cmd.Flags().StringP("output", "o", ".", "Output synchronization path")
 	cmd.Flags().String("playlist-encoding", "m3u", "Target synchronization path")
 	cmd.Flags().BoolP("library", "l", false, "Synchronize library (auto-enabled if no collection is supplied)")
 	cmd.Flags().StringArrayP("playlist", "p", []string{}, "Synchronize playlist")

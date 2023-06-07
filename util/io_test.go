@@ -2,6 +2,7 @@ package util
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"testing"
 
@@ -43,6 +44,16 @@ func TestFileCopy(t *testing.T) {
 
 	// testing
 	assert.Nil(t, FileMoveOrCopy("/a", "/a"))
+}
+
+func TestFileAlreadyExists(t *testing.T) {
+	// monkey patching
+	defer gomonkey.ApplyFunc(os.Stat, func() (fs.FileInfo, error) {
+		return nil, nil
+	}).Reset()
+
+	// testing
+	assert.Error(t, FileMoveOrCopy("/a", "/a"), "destination already exists")
 }
 
 func TestFileCopyReadFailure(t *testing.T) {

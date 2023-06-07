@@ -1,12 +1,17 @@
 package util
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
 func FileMoveOrCopy(source, destination string) error {
+	if _, err := os.Stat(destination); err == nil {
+		return errors.New("destination already exists")
+	}
+
 	if err := os.Rename(source, destination); err == nil {
 		return nil
 	}

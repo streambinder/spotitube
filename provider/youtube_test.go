@@ -41,6 +41,13 @@ const (
 												"text": "%s"
 											}]
 										},
+										"detailedMetadataSnippets": [{
+											"snippetText": {
+												"runs": [{
+													"text": "%s"
+												}]
+											}
+										}],
 										"viewCountText": {
 											"simpleText": "%s"
 										},
@@ -62,11 +69,12 @@ const (
 )
 
 var result = youTubeResult{
-	id:     "123",
-	title:  "title",
-	owner:  "artist",
-	views:  1000000,
-	length: 180,
+	id:          "123",
+	title:       "title",
+	owner:       "artist",
+	description: misleading[0],
+	views:       1000000,
+	length:      180,
 }
 
 func BenchmarkYouTube(b *testing.B) {
@@ -86,6 +94,7 @@ func TestYouTubeSearch(t *testing.T) {
 					result.id,
 					result.title,
 					result.owner,
+					result.description,
 					resultViewsText,
 					resultLengthText,
 					resultPublishedText,
@@ -119,7 +128,8 @@ func TestYouTubeSearchPartialData(t *testing.T) {
 			Body: io.NopCloser(strings.NewReader(fmt.Sprintf(
 				resultScript,
 				result.id,
-				misleading[0],
+				"",
+				"",
 				"",
 				"",
 				"",

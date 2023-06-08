@@ -31,14 +31,10 @@ type youTubeInitialData struct {
 								VideoRenderer struct {
 									VideoId string
 									Title   struct {
-										Runs []struct {
-											Text string
-										}
+										Runs []Run
 									}
 									OwnerText struct {
-										Runs []struct {
-											Text string
-										}
+										Runs []Run
 									}
 									ViewCountText struct {
 										SimpleText string
@@ -49,6 +45,7 @@ type youTubeInitialData struct {
 									PublishedTimeText struct {
 										SimpleText string
 									}
+									DetailedMetadataSnippets []DetailedMetadataSnippet
 								}
 							}
 						}
@@ -59,14 +56,28 @@ type youTubeInitialData struct {
 	}
 }
 
+type DetailedMetadataSnippet struct {
+	SnippetText SnippetText
+}
+
+type SnippetText struct {
+	Runs []Run
+}
+
+type Run struct {
+	Text string
+}
+
 type youTubeResult struct {
-	query  string
-	id     string
-	title  string
-	owner  string
-	views  int
-	length int
-	year   int
+	track       *entity.Track
+	query       string
+	id          string
+	title       string
+	owner       string
+	description string
+	views       int
+	length      int
+	year        int
 }
 
 func init() {
@@ -119,10 +130,14 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 		for _, result := range section.ItemSectionRenderer.Contents {
 			for run, title := range result.VideoRenderer.Title.Runs {
 				match := youTubeResult{
+					track: track,
 					query: query,
 					id:    result.VideoRenderer.VideoId,
 					title: title.Text,
 					owner: result.VideoRenderer.OwnerText.Runs[run].Text,
+					description: util.First(result.VideoRenderer.DetailedMetadataSnippets, DetailedMetadataSnippet{
+						SnippetText: SnippetText{Runs: []Run{{Text: ""}}},
+					}).SnippetText.Runs[run].Text,
 					views: func(viewCount string) int {
 						if viewCount == "" {
 							return 0
@@ -162,11 +177,6 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 // so to ensure that only the results that pass certain pre-checks get returned
 func (result youTubeResult) compliant(track *entity.Track) bool {
 	spec := util.UniqueFields(fmt.Sprintf("%s %s", result.owner, result.title))
-	for _, word := range misleading {
-		if util.Contains(spec, word) && !util.Contains(result.query, word) {
-			return false
-		}
-	}
 	return result.id != "" && result.year >= track.Year &&
 		util.Contains(spec, strings.Split(util.UniqueFields(track.Artists[0]), " ")...) &&
 		util.Contains(spec, strings.Split(util.UniqueFields(track.Song()), " ")...)
@@ -174,42 +184,49 @@ func (result youTubeResult) compliant(track *entity.Track) bool {
 
 // score goes from 0 to 100:
 //
-//	0–50% is added depending on the Levenshtein distance between the query and result owner+title
-//	0-30% is added depending on the distance between the duration of the track and the result
-//	0-20% is added depending on the amount of views the result has
+//	0–50% is derived from description score
+//	0-30% is derived from duration score
+//	0-20% is derived from views score
 func (result youTubeResult) score(track *entity.Track) int {
 	var (
-		titleScore    = result.titleAccuracy() / 2
-		durationScore = result.durationAccuracy(track.Duration) * 3 / 10
-		viewsScore    = result.viewsAccuracy() / 5
+		descriptionScore = result.descriptionScore() / 2
+		durationScore    = result.durationScore() * 3 / 10
+		viewsScore       = result.viewsScore() / 5
 	)
-	return titleScore + durationScore + viewsScore
+	return descriptionScore + durationScore + viewsScore
 }
 
-// return an accuracy percentage for result owner+title
-func (result youTubeResult) titleAccuracy() int {
-	distance := int(math.Min(
-		float64(util.LevenshteinBoundedDistance(result.query, fmt.Sprintf("%s %s", result.title, result.owner))),
-		50.0,
-	))
+// return a score for result description fields (i.e. owner, title, description)
+func (result youTubeResult) descriptionScore() int {
+	var (
+		shortDescription = fmt.Sprintf("%s %s", result.title, result.owner)
+		longDescription  = util.Flatten(fmt.Sprintf("%s %s", shortDescription, result.description))
+	)
+	distance := util.LevenshteinBoundedDistance(result.query, shortDescription)
+	for _, word := range misleading {
+		if util.Contains(longDescription, word) && !util.Contains(result.query, word) {
+			distance += 5
+		}
+	}
+
 	// return the inverse of the proportion of the distance
 	// on a percentage scale to 50
-	return 100 - (distance * 100 / 50)
+	return 100 - int(math.Min(float64(distance), 50.0)*100/50)
 }
 
-// return an accuracy percentage for result duration
-func (result youTubeResult) durationAccuracy(duration int) int {
-	distance := int(math.Min(math.Abs(float64(result.length)-float64(duration)), 60.0))
+// return a score for result duration
+func (result youTubeResult) durationScore() int {
+	distance := int(math.Min(math.Abs(float64(result.length)-float64(result.track.Duration)), 60.0))
 	// return the inverse of the proportion of the distance
 	// on a percentage scale to 60
 	return 100 - (distance * 100 / 60)
 }
 
-// return an accuracy percentage for number of views
+// return a score for result's number of views
 //
 //	ie percentage of the number of digits of views on a scale to 11
 //	(11 digits is for views of the order of 10.000.000.000, the highest reached on YouTube so far)
-func (result youTubeResult) viewsAccuracy() int {
+func (result youTubeResult) viewsScore() int {
 	digits := len(strconv.Itoa(result.views))
 	// boost results with more than a million views
 	if digits > 6 {

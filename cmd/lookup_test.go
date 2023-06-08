@@ -41,7 +41,11 @@ func TestCmdLookup(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(testExecute(cmdLookup())))
+	assert.Nil(t, util.ErrOnly(testExecute(cmdLookup(), "-l")))
+}
+
+func TestCmdLookupNoTrack(t *testing.T) {
+	assert.Error(t, util.ErrOnly(testExecute(cmdLookup())), "no track has been issued")
 }
 
 func TestCmdLookupTrack(t *testing.T) {
@@ -66,7 +70,7 @@ func TestCmdLookupTrack(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(testExecute(cmdLookup(), "-t", "123")))
+	assert.Nil(t, util.ErrOnly(testExecute(cmdLookup(), "123")))
 }
 
 func TestCmdLookupRandom(t *testing.T) {
@@ -97,7 +101,7 @@ func TestCmdLookupAuthFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(testExecute(cmdLookup())), "ko")
+	assert.Error(t, util.ErrOnly(testExecute(cmdLookup(), "-l")), "ko")
 }
 
 func TestCmdLookupLibraryFailure(t *testing.T) {
@@ -112,7 +116,7 @@ func TestCmdLookupLibraryFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(testExecute(cmdLookup())), "ko")
+	assert.Error(t, util.ErrOnly(testExecute(cmdLookup(), "-l")), "ko")
 }
 
 func TestCmdLookupTrackFailure(t *testing.T) {
@@ -126,7 +130,7 @@ func TestCmdLookupTrackFailure(t *testing.T) {
 		}).Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(testExecute(cmdLookup(), "-t", "123")), "ko")
+	assert.Error(t, util.ErrOnly(testExecute(cmdLookup(), "123")), "ko")
 }
 
 func TestCmdLookupRandomFailure(t *testing.T) {
@@ -165,7 +169,7 @@ func TestCmdLookupSearchFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(testExecute(cmdLookup())))
+	assert.Nil(t, util.ErrOnly(testExecute(cmdLookup(), "-l")))
 }
 
 func TestCmdLookupSearchNotFound(t *testing.T) {
@@ -190,7 +194,7 @@ func TestCmdLookupSearchNotFound(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(testExecute(cmdLookup())))
+	assert.Nil(t, util.ErrOnly(testExecute(cmdLookup(), "-l")))
 }
 
 func TestCmdLookupLyricsFailure(t *testing.T) {
@@ -215,7 +219,7 @@ func TestCmdLookupLyricsFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(testExecute(cmdLookup())))
+	assert.Nil(t, util.ErrOnly(testExecute(cmdLookup(), "-l")))
 }
 
 func TestCmdLookupLyricsNotFound(t *testing.T) {
@@ -240,5 +244,5 @@ func TestCmdLookupLyricsNotFound(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(testExecute(cmdLookup())))
+	assert.Nil(t, util.ErrOnly(testExecute(cmdLookup(), "-l")))
 }

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/arunsworld/nursery"
@@ -14,8 +15,9 @@ import (
 )
 
 const (
-	colorReset = "\033[0m"
-	colorRed   = "\033[31m"
+	colorReset        = "\033[0m"
+	colorRed          = "\033[31m"
+	defaultRandomSize = 5
 )
 
 func init() {
@@ -28,8 +30,13 @@ func cmdLookup() *cobra.Command {
 		Short:        "Utility to lookup for tracks in order to investigate general querying behaviour",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			tracks, _ := cmd.Flags().GetStringArray("track")
+			library, _ := cmd.Flags().GetBool("library")
 			random, _ := cmd.Flags().GetBool("random")
+			randomSize, _ := cmd.Flags().GetInt("random-size")
+			if !library && !random && len(args) == 0 {
+				return errors.New("no track has been issued")
+			}
+
 			client, err := spotify.Authenticate()
 			if err != nil {
 				return err
@@ -44,21 +51,21 @@ func cmdLookup() *cobra.Command {
 					defer close(providerChannel)
 					defer close(lyricsChannel)
 					if random {
-						if err := client.Random(spotify.TypeTrack, 5, providerChannel, lyricsChannel); err != nil {
+						if err := client.Random(spotify.TypeTrack, randomSize, providerChannel, lyricsChannel); err != nil {
 							ch <- err
 							return
 						}
-					} else if len(tracks) > 0 {
-						for _, id := range tracks {
+					} else if library {
+						if err := client.Library(providerChannel, lyricsChannel); err != nil {
+							ch <- err
+							return
+						}
+					} else {
+						for _, id := range args {
 							if _, err := client.Track(id, providerChannel, lyricsChannel); err != nil {
 								ch <- err
 								return
 							}
-						}
-					} else {
-						if err := client.Library(providerChannel, lyricsChannel); err != nil {
-							ch <- err
-							return
 						}
 					}
 				},
@@ -93,7 +100,8 @@ func cmdLookup() *cobra.Command {
 			)
 		},
 	}
-	cmd.Flags().StringArrayP("track", "t", []string{}, "Lookup given tracks only")
-	cmd.Flags().BoolP("random", "r", false, "Lookup random track")
+	cmd.Flags().BoolP("library", "l", false, "Lookup personal library tracks")
+	cmd.Flags().BoolP("random", "r", false, "Lookup random tracks")
+	cmd.Flags().Int("random-size", defaultRandomSize, "Number of random tracks to load")
 	return cmd
 }

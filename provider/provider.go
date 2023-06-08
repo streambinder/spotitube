@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	providers = []Provider{}
-	blacklist = []string{"cover"}
+	providers  = []Provider{}
+	misleading = []string{"cover", "live", "karaoke"}
 )
 
 type Match struct {

@@ -162,14 +162,12 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 // so to ensure that only the results that pass certain pre-checks get returned
 func (result youTubeResult) compliant(track *entity.Track) bool {
 	spec := util.UniqueFields(fmt.Sprintf("%s %s", result.owner, result.title))
-	blacklistCompliant := true
-	for _, word := range blacklist {
+	for _, word := range misleading {
 		if util.Contains(spec, word) && !util.Contains(result.query, word) {
-			blacklistCompliant = false
-			break
+			return false
 		}
 	}
-	return result.id != "" && result.year >= track.Year && blacklistCompliant &&
+	return result.id != "" && result.year >= track.Year &&
 		util.Contains(spec, strings.Split(util.UniqueFields(track.Artists[0]), " ")...) &&
 		util.Contains(spec, strings.Split(util.UniqueFields(track.Song()), " ")...)
 }

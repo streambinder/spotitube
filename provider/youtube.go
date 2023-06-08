@@ -46,6 +46,7 @@ type youTubeInitialData struct {
 										SimpleText string
 									}
 									DetailedMetadataSnippets []DetailedMetadataSnippet
+									OwnerBadges              []OwnerBadge
 								}
 							}
 						}
@@ -60,6 +61,17 @@ type DetailedMetadataSnippet struct {
 	SnippetText SnippetText
 }
 
+type OwnerBadge struct {
+	MetadataBadgeRenderer MetadataBadgeRenderer
+}
+type MetadataBadgeRenderer struct {
+	Icon Icon
+}
+
+type Icon struct {
+	IconType string
+}
+
 type SnippetText struct {
 	Runs []Run
 }
@@ -69,15 +81,17 @@ type Run struct {
 }
 
 type youTubeResult struct {
-	track       *entity.Track
-	query       string
-	id          string
-	title       string
-	owner       string
-	description string
-	views       int
-	length      int
-	year        int
+	track                 *entity.Track
+	query                 string
+	id                    string
+	title                 string
+	owner                 string
+	description           string
+	views                 int
+	length                int
+	year                  int
+	officialArtistChannel bool
+	verifiedChannel       bool
 }
 
 func init() {
@@ -162,6 +176,16 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 						}
 						return time.Now().Year() - yearsAgo
 					}(result.VideoRenderer.PublishedTimeText.SimpleText),
+					officialArtistChannel: func(iconType string) bool {
+						return iconType == "OFFICIAL_ARTIST_BADGE"
+					}(util.First(result.VideoRenderer.OwnerBadges, OwnerBadge{
+						MetadataBadgeRenderer: MetadataBadgeRenderer{Icon: Icon{IconType: ""}},
+					}).MetadataBadgeRenderer.Icon.IconType),
+					verifiedChannel: func(iconType string) bool {
+						return iconType == "CHECK_CIRCLE_THICK"
+					}(util.First(result.VideoRenderer.OwnerBadges, OwnerBadge{
+						MetadataBadgeRenderer: MetadataBadgeRenderer{Icon: Icon{IconType: ""}},
+					}).MetadataBadgeRenderer.Icon.IconType),
 				}
 				if match.compliant(track) {
 					matches = append(matches, &Match{fmt.Sprintf("https://youtu.be/%s", match.id), match.score(track)})
@@ -184,16 +208,18 @@ func (result youTubeResult) compliant(track *entity.Track) bool {
 
 // score goes from 0 to 100:
 //
-//	0–50% is derived from description score
-//	0-30% is derived from duration score
-//	0-20% is derived from views score
+//	0–45% is derived from description score
+//	0-25% is derived from duration score
+//	0-15% is derived from views score
+//	0-15% is derived from channel credibility score
 func (result youTubeResult) score(track *entity.Track) int {
 	var (
-		descriptionScore = result.descriptionScore() / 2
-		durationScore    = result.durationScore() * 3 / 10
-		viewsScore       = result.viewsScore() / 5
+		descriptionScore = result.descriptionScore() * 45 / 100
+		durationScore    = result.durationScore() * 25 / 100
+		viewsScore       = result.viewsScore() * 15 / 100
+		channelScore     = result.channelScore() * 15 / 100
 	)
-	return descriptionScore + durationScore + viewsScore
+	return descriptionScore + durationScore + viewsScore + channelScore
 }
 
 // return a score for result description fields (i.e. owner, title, description)
@@ -233,4 +259,12 @@ func (result youTubeResult) viewsScore() int {
 		digits += 2
 	}
 	return int(math.Min(float64(digits), 11.0)) * 100 / 11
+}
+
+// return a score for result's channel according to its badges
+//
+//	0–70% is assigned if it's official
+//	0-30% is assigned if it's verified
+func (result youTubeResult) channelScore() int {
+	return util.Ternary(result.officialArtistChannel, 70, 0) + util.Ternary(result.verifiedChannel, 30, 0)
 }

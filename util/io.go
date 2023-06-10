@@ -7,8 +7,8 @@ import (
 	"strings"
 )
 
-func FileMoveOrCopy(source, destination string) error {
-	if _, err := os.Stat(destination); err == nil {
+func FileMoveOrCopy(source, destination string, overwrite ...bool) error {
+	if _, err := os.Stat(destination); err == nil && !First(overwrite, false) {
 		return errors.New("destination already exists")
 	}
 

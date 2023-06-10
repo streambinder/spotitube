@@ -14,6 +14,7 @@ import (
 const (
 	Offline   = iota // previously synced
 	Online           // needs to be synced
+	Flush            // explicitly set to be re-synced
 	Installed        // synced and successfully installed
 )
 

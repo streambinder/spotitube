@@ -62,3 +62,32 @@ func TestOpenFailure(t *testing.T) {
 	// testing
 	assert.Error(t, util.ErrOnly(Open("", id3v2.Options{})), "ko")
 }
+
+func TestClose(t *testing.T) {
+	// monkey patching
+	defer gomonkey.ApplyFunc(Open, func() (*Tag, error) {
+		return &Tag{}, nil
+	}).Reset()
+
+	// testing
+	tag, err := Open("", id3v2.Options{})
+	assert.Nil(t, err)
+	assert.Nil(t, tag.Close())
+}
+
+func TestCloseFailure(t *testing.T) {
+	// monkey patching
+	defer gomonkey.NewPatches().
+		ApplyFunc(Open, func() (*Tag, error) {
+			return &Tag{}, nil
+		}).
+		ApplyMethod(&id3v2.Tag{}, "Close", func() error {
+			return errors.New("ko")
+		}).
+		Reset()
+
+	// testing
+	tag, err := Open("", id3v2.Options{})
+	assert.Nil(t, err)
+	assert.EqualError(t, tag.Close(), "ko")
+}

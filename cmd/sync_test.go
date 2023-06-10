@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bogem/id3v2/v2"
 	"github.com/streambinder/spotitube/downloader"
 	"github.com/streambinder/spotitube/entity"
+	"github.com/streambinder/spotitube/entity/id3"
 	"github.com/streambinder/spotitube/entity/index"
 	"github.com/streambinder/spotitube/entity/playlist"
 	"github.com/streambinder/spotitube/lyrics"
@@ -63,6 +65,15 @@ func TestCmdSync(t *testing.T) {
 			ch[0] <- _track
 			return _track, nil
 		}).
+		ApplyFunc(id3.Open, func() (*id3.Tag, error) {
+			return &id3.Tag{}, nil
+		}).
+		ApplyPrivateMethod(&id3.Tag{}, "userDefinedText", func() string {
+			return "123"
+		}).
+		ApplyMethod(&id3.Tag{}, "Close", func() error {
+			return nil
+		}).
 		ApplyFunc(provider.Search, func(track *entity.Track) ([]*provider.Match, error) {
 			if track.ID == _trackNotFound.ID {
 				return []*provider.Match{}, nil
@@ -95,7 +106,7 @@ func TestCmdSync(t *testing.T) {
 	library, err := cmd.Flags().GetBool("library")
 	assert.Nil(t, err)
 	assert.True(t, library)
-	assert.Nil(t, util.ErrOnly(testExecute(cmdSync(), "-l", "-p", "123", "-a", "123", "-t", "123")))
+	assert.Nil(t, util.ErrOnly(testExecute(cmdSync(), "-l", "-p", "123", "-a", "123", "-t", "123", "-f", "path")))
 }
 
 func TestCmdSyncOfflineIndex(t *testing.T) {
@@ -274,6 +285,81 @@ func TestCmdSyncTrackFailure(t *testing.T) {
 
 	// testing
 	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "-t", "123")), "ko")
+}
+
+func TestCmdSyncFixOpenFailure(t *testing.T) {
+	// monkey patching
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyFunc(cmd.Open, func() error {
+			return nil
+		}).
+		ApplyMethod(&index.Index{}, "Build", func() error {
+			return nil
+		}).
+		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
+			return &spotify.Client{}, nil
+		}).
+		ApplyFunc(id3.Open, func() (*id3.Tag, error) {
+			return nil, errors.New("ko")
+		}).
+		Reset()
+
+	// testing
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "-f", "path")), "ko")
+}
+
+func TestCmdSyncFixSpotifyIDFailure(t *testing.T) {
+	// monkey patching
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyFunc(cmd.Open, func() error {
+			return nil
+		}).
+		ApplyMethod(&index.Index{}, "Build", func() error {
+			return nil
+		}).
+		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
+			return &spotify.Client{}, nil
+		}).
+		ApplyFunc(id3.Open, func() (*id3.Tag, error) {
+			return &id3.Tag{}, nil
+		}).
+		ApplyPrivateMethod(&id3.Tag{}, "userDefinedText", func() string {
+			return ""
+		}).
+		Reset()
+
+	// testing
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "-f", "path")), "track path does not have spotify ID metadata set")
+}
+
+func TestCmdSyncFixCloseFailure(t *testing.T) {
+	// monkey patching
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyFunc(cmd.Open, func() error {
+			return nil
+		}).
+		ApplyMethod(&index.Index{}, "Build", func() error {
+			return nil
+		}).
+		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
+			return &spotify.Client{}, nil
+		}).
+		ApplyFunc(id3.Open, func() (*id3.Tag, error) {
+			return &id3.Tag{}, nil
+		}).
+		ApplyPrivateMethod(&id3.Tag{}, "userDefinedText", func() string {
+			return "123"
+		}).
+		ApplyMethod(&id3v2.Tag{}, "Close", func() error {
+			return errors.New("ko")
+		}).
+		Reset()
+
+	// testing
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "-f", "path")), "ko")
 }
 
 func TestCmdSyncDecideFailure(t *testing.T) {

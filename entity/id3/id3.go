@@ -136,3 +136,10 @@ func (tag *Tag) UnsynchronizedLyrics() string {
 	}
 	return ""
 }
+
+func (tag *Tag) Close() error {
+	if err := tag.Tag.Close(); err != id3v2.ErrNoFile && err != nil {
+		return err
+	}
+	return nil
+}

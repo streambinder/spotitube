@@ -2,14 +2,17 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"log"
 	"os"
 
 	"github.com/arunsworld/nursery"
+	"github.com/bogem/id3v2/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/streambinder/spotitube/downloader"
 	"github.com/streambinder/spotitube/entity"
+	"github.com/streambinder/spotitube/entity/id3"
 	"github.com/streambinder/spotitube/entity/index"
 	"github.com/streambinder/spotitube/entity/playlist"
 	"github.com/streambinder/spotitube/lyrics"
@@ -53,6 +56,7 @@ func cmdSync() *cobra.Command {
 				playlists, _        = cmd.Flags().GetStringArray("playlist")
 				albums, _           = cmd.Flags().GetStringArray("album")
 				tracks, _           = cmd.Flags().GetStringArray("track")
+				fixes, _            = cmd.Flags().GetStringArray("fix")
 			)
 
 			if err := os.Chdir(path); err != nil {
@@ -62,7 +66,7 @@ func cmdSync() *cobra.Command {
 			return nursery.RunConcurrently(
 				routineIndex,
 				routineAuth,
-				routineFetch(library, playlists, albums, tracks),
+				routineFetch(library, playlists, albums, tracks, fixes),
 				routineDecide,
 				routineCollect,
 				routineProcess,
@@ -84,15 +88,11 @@ func cmdSync() *cobra.Command {
 				routineTypeMix:     make(chan interface{}, 10000),
 			}
 
-			var (
-				playlists []string
-				albums    []string
-				tracks    []string
-			)
-			playlists, _ = cmd.Flags().GetStringArray("playlist")
-			albums, _ = cmd.Flags().GetStringArray("album")
-			tracks, _ = cmd.Flags().GetStringArray("track")
-			if len(playlists)+len(albums)+len(tracks) == 0 {
+			playlists, _ := cmd.Flags().GetStringArray("playlist")
+			albums, _ := cmd.Flags().GetStringArray("album")
+			tracks, _ := cmd.Flags().GetStringArray("track")
+			fixes, _ := cmd.Flags().GetStringArray("fix")
+			if len(playlists)+len(albums)+len(tracks)+len(fixes) == 0 {
 				cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
 					if f.Name == "library" {
 						_ = f.Value.Set("true")
@@ -107,6 +107,7 @@ func cmdSync() *cobra.Command {
 	cmd.Flags().StringArrayP("playlist", "p", []string{}, "Synchronize playlist")
 	cmd.Flags().StringArrayP("album", "a", []string{}, "Synchronize album")
 	cmd.Flags().StringArrayP("track", "t", []string{}, "Synchronize track")
+	cmd.Flags().StringArrayP("fix", "f", []string{}, "Fix local track")
 	return cmd
 }
 
@@ -147,7 +148,7 @@ func routineAuth(ctx context.Context, ch chan error) {
 
 // fetcher pulls data from the upstream
 // provider, i.e. Spotify
-func routineFetch(library bool, playlists []string, albums []string, tracks []string) func(ctx context.Context, ch chan error) {
+func routineFetch(library bool, playlists, albums, tracks, fixes []string) func(ctx context.Context, ch chan error) {
 	return func(ctx context.Context, ch chan error) {
 		// remember to stop passing data to decider and mixer
 		defer close(routineQueues[routineTypeDecide])
@@ -168,6 +169,26 @@ func routineFetch(library bool, playlists []string, albums []string, tracks []st
 		}
 		for _, id := range albums {
 			if _, err := spotifyClient.Album(id, routineQueues[routineTypeDecide]); err != nil {
+				ch <- err
+				return
+			}
+		}
+		for _, path := range fixes {
+			tag, err := id3.Open(path, id3v2.Options{Parse: true})
+			if err != nil {
+				ch <- err
+				return
+			}
+
+			id := tag.SpotifyID()
+			if len(id) == 0 {
+				ch <- errors.New("track " + path + " does not have spotify ID metadata set")
+				return
+			}
+			tracks = append(tracks, id)
+			indexData.Set(id, index.Flush)
+
+			if err := tag.Close(); err != nil {
 				ch <- err
 				return
 			}
@@ -324,9 +345,12 @@ func routineInstall(ctx context.Context, ch chan error) {
 	defer close(routineSemaphores[routineTypeInstall])
 
 	for event := range routineQueues[routineTypeInstall] {
-		track := event.(*entity.Track)
+		var (
+			track     = event.(*entity.Track)
+			status, _ = indexData.Get(track.ID)
+		)
 		log.Println(util.Pad("[installer]"), util.Pad(track.Title))
-		if err := util.FileMoveOrCopy(track.Path().Download(), track.Path().Final()); err != nil {
+		if err := util.FileMoveOrCopy(track.Path().Download(), track.Path().Final(), status == index.Flush); err != nil {
 			log.Println(util.Pad("[installer]"), util.Pad(track.Title), err)
 			ch <- err
 			return

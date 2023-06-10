@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -104,7 +105,7 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 		query = fmt.Sprintf("%s %s", query, artist)
 	}
 
-	response, err := http.Get("https://www.youtube.com/results?search_query=" + url.QueryEscape(query))
+	response, err := http.Get("https://www.youtube.com/results?search_query=" + url.QueryEscape(query) + "&sp=EgIQAQ%253D%253D")
 	if err != nil {
 		return nil, err
 	}
@@ -122,14 +123,14 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 		return nil, err
 	}
 
-	resultJSON := strings.Join(document.Find("script").Map(func(i int, selection *goquery.Selection) string {
+	json := strings.Join(document.Find("script").Map(func(i int, selection *goquery.Selection) string {
 		prefix := "var ytInitialData ="
 		if !strings.HasPrefix(strings.TrimPrefix(selection.Text(), " "), prefix) {
 			return ""
 		}
 		return strings.TrimSuffix(strings.TrimSpace(selection.Text()[len(prefix):]), ";")
 	}), "")
-	if resultJSON == "" {
+	if json == "" {
 		return []*Match{}, nil
 	}
 
@@ -137,7 +138,7 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 		matches []*Match
 		data    youTubeInitialData
 	)
-	if err := jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(resultJSON), &data); err != nil {
+	if err := jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(json), &data); err != nil {
 		return nil, err
 	}
 	for _, section := range data.Contents.TwoColumnSearchResultsRenderer.PrimaryContents.SectionListRenderer.Contents {
@@ -156,7 +157,7 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 						if viewCount == "" {
 							return 0
 						}
-						return util.ErrWrap(0)(strconv.Atoi(strings.ReplaceAll(strings.Split(viewCount, " ")[0], ".", "")))
+						return util.ErrWrap(0)(strconv.Atoi(strings.Join(regexp.MustCompile("[0-9]+").FindAllString(viewCount, -1), "")))
 					}(result.VideoRenderer.ViewCountText.SimpleText),
 					length: func(length string) int {
 						if length == "" {
@@ -231,7 +232,7 @@ func (result youTubeResult) descriptionScore() int {
 	distance := util.LevenshteinBoundedDistance(result.query, shortDescription)
 	for _, word := range misleading {
 		if util.Contains(longDescription, word) && !util.Contains(result.query, word) {
-			distance += 5
+			distance += 10
 		}
 	}
 

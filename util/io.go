@@ -9,7 +9,7 @@ import (
 
 func FileMoveOrCopy(source, destination string, overwrite ...bool) error {
 	if _, err := os.Stat(destination); err == nil && !First(overwrite, false) {
-		return errors.New("destination already exists")
+		return errors.New("destination already exists: " + destination)
 	}
 
 	if err := os.Rename(source, destination); err == nil {

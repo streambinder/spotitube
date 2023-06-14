@@ -53,7 +53,7 @@ func TestFileAlreadyExists(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Error(t, FileMoveOrCopy("/a", "/a"), "destination already exists")
+	assert.Error(t, FileMoveOrCopy("/a", "/a"))
 }
 
 func TestFileCopyReadFailure(t *testing.T) {

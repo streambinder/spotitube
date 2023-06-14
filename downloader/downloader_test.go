@@ -98,5 +98,5 @@ func TestDownloadUnsupported(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, Download("http://davidepucci.it", "fname.txt", nil), "unsupported url")
+	assert.Error(t, Download("http://davidepucci.it", "fname.txt", nil))
 }

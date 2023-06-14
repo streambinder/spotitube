@@ -32,5 +32,5 @@ func Download(url, path string, processor processor.Processor, channels ...chan 
 			return downloader.download(url, path, processor, channels...)
 		}
 	}
-	return errors.New("unsupported url")
+	return errors.New("unsupported url: " + url)
 }

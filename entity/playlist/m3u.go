@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/gosimple/slug"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/util"
 )
@@ -16,7 +17,7 @@ type M3UEncoder struct {
 }
 
 func (encoder *M3UEncoder) init(name string) error {
-	encoder.target = name + ".m3u"
+	encoder.target = slug.Make(name) + ".m3u"
 	encoder.data = []byte("#EXTM3U\n")
 	return nil
 }

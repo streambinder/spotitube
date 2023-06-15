@@ -3,10 +3,8 @@ package entity
 import (
 	"fmt"
 	"path"
-	"path/filepath"
 	"strings"
 
-	"github.com/adrg/xdg"
 	"github.com/gosimple/slug"
 	"github.com/streambinder/spotitube/util"
 )
@@ -63,19 +61,19 @@ func (trackPath trackPath) Final() string {
 }
 
 func (trackPath trackPath) Download() string {
-	basename := util.LegalizeFilename(fmt.Sprintf("%s.%s", slug.Make(trackPath.track.ID), TrackFormat))
-	return util.ErrWrap(filepath.Join("tmp", basename))(
-		xdg.CacheFile(filepath.Join("spotitube", basename)))
+	return util.CacheFile(
+		util.LegalizeFilename(fmt.Sprintf("%s.%s", slug.Make(trackPath.track.ID), TrackFormat)),
+	)
 }
 
 func (trackPath trackPath) Artwork() string {
-	basename := util.LegalizeFilename(fmt.Sprintf("%s.%s", slug.Make(path.Base(trackPath.track.Artwork.URL)), ArtworkFormat))
-	return util.ErrWrap(filepath.Join("tmp", basename))(
-		xdg.CacheFile(filepath.Join("spotitube", basename)))
+	return util.CacheFile(
+		util.LegalizeFilename(fmt.Sprintf("%s.%s", slug.Make(path.Base(trackPath.track.Artwork.URL)), ArtworkFormat)),
+	)
 }
 
 func (trackPath trackPath) Lyrics() string {
-	basename := util.LegalizeFilename(fmt.Sprintf("%s.%s", slug.Make(trackPath.track.ID), LyricsFormat))
-	return util.ErrWrap(filepath.Join("tmp", basename))(
-		xdg.CacheFile(filepath.Join("spotitube", basename)))
+	return util.CacheFile(
+		util.LegalizeFilename(fmt.Sprintf("%s.%s", slug.Make(trackPath.track.ID), LyricsFormat)),
+	)
 }

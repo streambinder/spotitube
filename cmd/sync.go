@@ -134,7 +134,7 @@ func routineAuth(ctx context.Context, ch chan error) {
 	defer close(routineSemaphores[routineTypeAuth])
 
 	var err error
-	spotifyClient, err = spotify.Authenticate()
+	spotifyClient, err = spotify.Authenticate(spotify.BrowserProcessor)
 	if err != nil {
 		log.Println(util.Pad("[auth]"), err)
 		routineSemaphores[routineTypeAuth] <- false

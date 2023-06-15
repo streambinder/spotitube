@@ -5,9 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/adrg/xdg"
 	"github.com/spf13/cobra"
 	"github.com/streambinder/spotitube/spotify"
+	"github.com/streambinder/spotitube/util"
 )
 
 func init() {
@@ -20,18 +20,16 @@ func cmdReset() *cobra.Command {
 		Short:        "Clear cached objects",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			session, _ := cmd.Flags().GetBool("session")
-			cachePath, err := xdg.CacheFile("spotitube")
-			if err != nil {
-				return err
-			}
-
-			return filepath.WalkDir(cachePath, func(path string, entry fs.DirEntry, err error) error {
+			var (
+				session, _     = cmd.Flags().GetBool("session")
+				cacheDirectory = util.CacheDirectory()
+			)
+			return filepath.WalkDir(cacheDirectory, func(path string, entry fs.DirEntry, err error) error {
 				if err != nil {
 					return err
 				}
 
-				if cachePath == path || (entry.Name() == spotify.TokenBasename && !session) {
+				if cacheDirectory == path || (entry.Name() == spotify.TokenBasename && !session) {
 					return nil
 				}
 

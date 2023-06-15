@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/adrg/xdg"
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 )
@@ -13,6 +14,9 @@ import (
 func BenchmarkIO(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		TestFileCopy(&testing.T{})
+		TestFileBaseStem(&testing.T{})
+		TestCacheDirectory(&testing.T{})
+		TestCacheFile(&testing.T{})
 	}
 }
 
@@ -91,4 +95,44 @@ func TestFileCopyWriteFailure(t *testing.T) {
 
 func TestFileBaseStem(t *testing.T) {
 	assert.Equal(t, "hello", FileBaseStem("hello.txt"))
+}
+
+func TestCacheDirectory(t *testing.T) {
+	// monkey patching
+	defer gomonkey.ApplyFunc(xdg.CacheFile, func() (string, error) {
+		return "/dir/spotitube", nil
+	}).Reset()
+
+	// testing
+	assert.Equal(t, "/dir/spotitube", CacheDirectory())
+}
+
+func TestCacheDirectoryFallback(t *testing.T) {
+	// monkey patching
+	defer gomonkey.ApplyFunc(xdg.CacheFile, func() (string, error) {
+		return "", errors.New("ko")
+	}).Reset()
+
+	// testing
+	assert.Equal(t, "/tmp/spotitube", CacheDirectory())
+}
+
+func TestCacheFile(t *testing.T) {
+	// monkey patching
+	defer gomonkey.ApplyFunc(xdg.CacheFile, func() (string, error) {
+		return "/dir/spotitube", nil
+	}).Reset()
+
+	// testing
+	assert.Equal(t, "/dir/spotitube/fname.txt", CacheFile("fname.txt"))
+}
+
+func TestCacheFileFallback(t *testing.T) {
+	// monkey patching
+	defer gomonkey.ApplyFunc(xdg.CacheFile, func() (string, error) {
+		return "", errors.New("ko")
+	}).Reset()
+
+	// testing
+	assert.Equal(t, "/tmp/spotitube/fname.txt", CacheFile("fname.txt"))
 }

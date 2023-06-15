@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/adrg/xdg"
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/streambinder/spotitube/spotify"
 	"github.com/streambinder/spotitube/util"
@@ -44,9 +43,6 @@ func BenchmarkReset(b *testing.B) {
 func TestCmdReset(t *testing.T) {
 	// monkey patching
 	defer gomonkey.NewPatches().
-		ApplyFunc(xdg.CacheFile, func() (string, error) {
-			return "dir", nil
-		}).
 		ApplyFunc(filepath.WalkDir, func(path string, f func(string, fs.DirEntry, error) error) error {
 			_ = f("", DirEntry{name: "", isDir: false}, errors.New("some error"))
 			_ = f(spotify.TokenBasename, DirEntry{name: spotify.TokenBasename, isDir: false}, nil)
@@ -60,14 +56,4 @@ func TestCmdReset(t *testing.T) {
 
 	// testing
 	assert.Nil(t, util.ErrOnly(testExecute(cmdReset())))
-}
-
-func TestCmdResetSessionFailure(t *testing.T) {
-	// monkey patching
-	defer gomonkey.ApplyFunc(xdg.CacheFile, func() (string, error) {
-		return "", errors.New("ko")
-	}).Reset()
-
-	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdReset())), "ko")
 }

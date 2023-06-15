@@ -7,9 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 
-	"github.com/adrg/xdg"
 	"github.com/arunsworld/nursery"
 	"github.com/streambinder/spotitube/util"
 	"github.com/streambinder/spotitube/util/cmd"
@@ -25,8 +23,7 @@ const (
 	closeTabHTML  = "<!DOCTYPE html><html><head><script>open(location, '_self').close();</script></head></html>"
 )
 
-var tokenPath = util.ErrWrap(filepath.Join("tmp", TokenBasename))(
-	xdg.CacheFile(filepath.Join("spotitube", TokenBasename)))
+var tokenPath = util.CacheFile(TokenBasename)
 
 type Client struct {
 	*spotify.Client
@@ -35,7 +32,7 @@ type Client struct {
 	cache         map[string]interface{}
 }
 
-func Authenticate(callbacks ...string) (*Client, error) {
+func Authenticate(urlProcessor func(string) error, callbacks ...string) (*Client, error) {
 	var (
 		client        Client
 		serverMux     = http.NewServeMux()
@@ -99,7 +96,7 @@ func Authenticate(callbacks ...string) (*Client, error) {
 		},
 		// auto-launch web browser with authentication URL
 		func(ctx context.Context, ch chan error) {
-			if err := cmd.Open(authenticator.AuthURL(state)); err != nil {
+			if err := urlProcessor(authenticator.AuthURL(state)); err != nil {
 				ch <- err
 			}
 		},
@@ -148,4 +145,8 @@ func (client *Client) Persist() error {
 	}
 	defer file.Close()
 	return json.NewEncoder(file).Encode(token)
+}
+
+func BrowserProcessor(url string) error {
+	return cmd.Open(url)
 }

@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/adrg/xdg"
 )
 
 func FileMoveOrCopy(source, destination string, overwrite ...bool) error {
@@ -30,4 +32,12 @@ func FileMoveOrCopy(source, destination string, overwrite ...bool) error {
 
 func FileBaseStem(path string) string {
 	return strings.TrimSuffix(path, filepath.Ext(path))
+}
+
+func CacheDirectory() string {
+	return ErrWrap(filepath.Join(string(filepath.Separator), "tmp", "spotitube"))(xdg.CacheFile("spotitube"))
+}
+
+func CacheFile(filename string) string {
+	return filepath.Join(CacheDirectory(), filename)
 }

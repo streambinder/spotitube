@@ -1,0 +1,64 @@
+package cmd
+
+import (
+	"errors"
+	"io/fs"
+	"log"
+	"os"
+
+	"github.com/spf13/cobra"
+	"github.com/streambinder/spotitube/spotify"
+	"github.com/streambinder/spotitube/util"
+)
+
+var printProcessor = func(url string) error {
+	log.Println("Authenticate at:", url)
+	return nil
+}
+
+func init() {
+	cmdRoot.AddCommand(cmdAuth())
+}
+
+func cmdAuth() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:          "auth",
+		Short:        "Establish a Spotify session for future uses",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var (
+				remote, _ = cmd.Flags().GetBool("remote")
+				logout, _ = cmd.Flags().GetBool("logout")
+				callback  = "127.0.0.1"
+				processor = spotify.BrowserProcessor
+			)
+			if remote {
+				log.Println("In order for remote authentication to work, set DNS/hosts entry to make `spotitube.local` resolve to the Spotitube server")
+				callback = "spotitube.local"
+				processor = printProcessor
+			}
+
+			if logout {
+				if err := os.Remove(util.CacheFile(spotify.TokenBasename)); err != nil && !errors.Is(err, fs.ErrNotExist) {
+					return err
+				}
+			}
+
+			client, err := spotify.Authenticate(processor, callback)
+			if err != nil {
+				return err
+			}
+
+			username, err := client.Username()
+			if err != nil {
+				return err
+			}
+
+			log.Println("Successfully authenticated to", username)
+			return nil
+		},
+	}
+	cmd.Flags().BoolP("remote", "r", false, "Spotitube server is remote")
+	cmd.Flags().BoolP("logout", "l", false, "Logout before starting authentication process")
+	return cmd
+}

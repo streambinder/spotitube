@@ -37,7 +37,7 @@ func cmdLookup() *cobra.Command {
 				return errors.New("no track has been issued")
 			}
 
-			client, err := spotify.Authenticate()
+			client, err := spotify.Authenticate(spotify.BrowserProcessor)
 			if err != nil {
 				return err
 			}

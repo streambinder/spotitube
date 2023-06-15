@@ -52,6 +52,10 @@ func TestDownload(t *testing.T) {
 	assert.Nil(t, Download("http://youtu.be", "fname.txt", nil, ch))
 }
 
+func TestDownloadEmpty(t *testing.T) {
+	assert.Nil(t, Download("", "fname.txt", nil))
+}
+
 func TestDownloadAlreadyExists(t *testing.T) {
 	// monkey patching
 	defer gomonkey.ApplyFunc(os.ReadFile, func() ([]byte, error) {

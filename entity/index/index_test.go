@@ -9,6 +9,7 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/bogem/id3v2/v2"
+	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/entity/id3"
 	"github.com/stretchr/testify/assert"
 )
@@ -49,7 +50,7 @@ func TestBuild(t *testing.T) {
 			_ = f("", nil, errors.New("ko"))
 			_ = f("", DirEntry{name: "dir", isDir: true}, nil)
 			_ = f("fname.txt", DirEntry{name: "", isDir: false}, nil)
-			return f("fname.mp3", DirEntry{name: "", isDir: false}, nil)
+			return f("Artist - Title.mp3", DirEntry{name: "", isDir: false}, nil)
 		}).
 		ApplyFunc(id3.Open, func() (*id3.Tag, error) {
 			return &id3.Tag{}, nil
@@ -64,8 +65,9 @@ func TestBuild(t *testing.T) {
 
 	// testing
 	index := New()
+	index.Set(&entity.Track{Title: "Title", Artists: []string{"Artist"}}, Offline)
 	assert.Nil(t, index.Build("path", 0))
-	status, ok := index.Get("id")
+	status, ok := index.Get(&entity.Track{ID: "id", Artists: []string{"Artist"}, Title: "Title"})
 	assert.True(t, ok)
 	assert.Equal(t, 0, status)
 	assert.Equal(t, 1, index.Size())

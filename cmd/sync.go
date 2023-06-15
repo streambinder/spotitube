@@ -179,14 +179,13 @@ func routineFetch(library bool, playlists, albums, tracks, fixes []string) func(
 				ch <- err
 				return
 			}
-
 			id := tag.SpotifyID()
 			if len(id) == 0 {
 				ch <- errors.New("track " + path + " does not have spotify ID metadata set")
 				return
 			}
 			tracks = append(tracks, id)
-			indexData.Set(id, index.Flush)
+			indexData.SetPath(path, index.Flush)
 
 			if err := tag.Close(); err != nil {
 				ch <- err
@@ -222,9 +221,9 @@ func routineDecide(ctx context.Context, ch chan error) {
 	for event := range routineQueues[routineTypeDecide] {
 		track := event.(*entity.Track)
 
-		if status, ok := indexData.Get(track.ID); !ok {
+		if status, ok := indexData.Get(track); !ok {
 			log.Println(util.Pad("[decider]"), util.Pad(track.Title), "sync")
-			indexData.Set(track.ID, index.Online)
+			indexData.Set(track, index.Online)
 		} else if status == index.Online {
 			log.Println(util.Pad("[decider]"), util.Pad(track.Title), "skip (dup)")
 			continue
@@ -347,7 +346,7 @@ func routineInstall(ctx context.Context, ch chan error) {
 	for event := range routineQueues[routineTypeInstall] {
 		var (
 			track     = event.(*entity.Track)
-			status, _ = indexData.Get(track.ID)
+			status, _ = indexData.Get(track)
 		)
 		log.Println(util.Pad("[installer]"), util.Pad(track.Title))
 		if err := util.FileMoveOrCopy(track.Path().Download(), track.Path().Final(), status == index.Flush); err != nil {
@@ -355,7 +354,7 @@ func routineInstall(ctx context.Context, ch chan error) {
 			ch <- err
 			return
 		}
-		indexData.Set(track.ID, index.Installed)
+		indexData.Set(track, index.Installed)
 	}
 }
 
@@ -376,7 +375,7 @@ func routineMix(encoding string) func(context.Context, chan error) {
 			}
 
 			for _, track := range playlist.Tracks {
-				if trackStatus, ok := indexData.Get(track.ID); !ok || (trackStatus != index.Installed && trackStatus != index.Offline) {
+				if trackStatus, ok := indexData.Get(track); !ok || (trackStatus != index.Installed && trackStatus != index.Offline) {
 					continue
 				}
 

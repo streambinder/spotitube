@@ -16,6 +16,10 @@ type Downloader interface {
 }
 
 func Download(url, path string, processor processor.Processor, channels ...chan []byte) error {
+	if len(url) == 0 {
+		return nil
+	}
+
 	if bytes, err := os.ReadFile(path); err == nil {
 		for _, ch := range channels {
 			ch <- bytes

@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/bogem/id3v2/v2"
+	"github.com/gosimple/slug"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/entity/id3"
 )
@@ -21,6 +22,14 @@ const (
 type Index struct {
 	data map[string]int
 	lock sync.RWMutex
+}
+
+func keyFromTrack(track *entity.Track) string {
+	return keyFromPath(track.Path().Final())
+}
+
+func keyFromPath(path string) string {
+	return slug.Make(filepath.Base(path))
 }
 
 func New() *Index {
@@ -59,23 +68,29 @@ func (index *Index) Build(path string, init ...int) error {
 		}
 
 		if id := tag.SpotifyID(); len(id) > 0 {
-			index.Set(id, status)
+			index.SetPath(path, status)
 		}
 
 		return tag.Close()
 	})
 }
 
-func (index *Index) Set(key string, value int) {
+func (index *Index) Set(track *entity.Track, value int) {
 	index.lock.Lock()
 	defer index.lock.Unlock()
-	index.data[key] = value
+	index.data[keyFromTrack(track)] = value
 }
 
-func (index *Index) Get(key string) (int, bool) {
+func (index *Index) SetPath(path string, value int) {
+	index.lock.Lock()
+	defer index.lock.Unlock()
+	index.data[keyFromPath(path)] = value
+}
+
+func (index *Index) Get(track *entity.Track) (int, bool) {
 	index.lock.RLock()
 	defer index.lock.RUnlock()
-	value, ok := index.data[key]
+	value, ok := index.data[keyFromTrack(track)]
 	return value, ok
 }
 

@@ -29,10 +29,16 @@ func BenchmarkSync(b *testing.B) {
 	}
 }
 
+func cleanup() {
+	indexData = index.New()
+}
+
 func TestCmdSync(t *testing.T) {
+	t.Cleanup(cleanup)
+
 	var (
-		_track         = &entity.Track{ID: "TestCmdSyncOfflineIndex", Title: "Title", Artists: []string{"Artist"}}
-		_trackNotFound = &entity.Track{ID: "TestCmdSyncOfflineIndexNotFound", Title: "Title", Artists: []string{"Artist"}}
+		_track         = &entity.Track{ID: "TestCmdSync", Title: "Title", Artists: []string{"Artist"}}
+		_trackNotFound = &entity.Track{ID: "TestCmdSyncNotFound", Title: "Title Not Found", Artists: []string{"Artist"}}
 		_playlist      = &playlist.Playlist{Tracks: []*entity.Track{_track, _trackNotFound}}
 		_album         = &entity.Album{Tracks: []*entity.Track{_track}}
 	)
@@ -110,6 +116,8 @@ func TestCmdSync(t *testing.T) {
 }
 
 func TestCmdSyncOfflineIndex(t *testing.T) {
+	t.Cleanup(cleanup)
+
 	_track := &entity.Track{ID: "TestCmdSyncOfflineIndex", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
@@ -117,7 +125,7 @@ func TestCmdSyncOfflineIndex(t *testing.T) {
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error { return nil }).
 		ApplyMethod(&index.Index{}, "Build", func(data *index.Index) error {
-			data.Set(_track.ID, index.Offline)
+			data.Set(_track, index.Offline)
 			return nil
 		}).
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
@@ -156,6 +164,8 @@ func TestCmdSyncOfflineIndex(t *testing.T) {
 }
 
 func TestCmdSyncPathFailure(t *testing.T) {
+	t.Cleanup(cleanup)
+
 	// monkey patching
 	defer gomonkey.ApplyFunc(os.Chdir, func() error {
 		return errors.New("ko")
@@ -166,6 +176,8 @@ func TestCmdSyncPathFailure(t *testing.T) {
 }
 
 func TestCmdSyncIndexFailure(t *testing.T) {
+	t.Cleanup(cleanup)
+
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
@@ -181,6 +193,8 @@ func TestCmdSyncIndexFailure(t *testing.T) {
 }
 
 func TestCmdSyncAuthFailure(t *testing.T) {
+	t.Cleanup(cleanup)
+
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(time.Sleep, func() {}).
@@ -200,6 +214,8 @@ func TestCmdSyncAuthFailure(t *testing.T) {
 }
 
 func TestCmdSyncLibraryFailure(t *testing.T) {
+	t.Cleanup(cleanup)
+
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(time.Sleep, func() {}).
@@ -222,6 +238,8 @@ func TestCmdSyncLibraryFailure(t *testing.T) {
 }
 
 func TestCmdSyncPlaylistFailure(t *testing.T) {
+	t.Cleanup(cleanup)
+
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(time.Sleep, func() {}).
@@ -244,6 +262,8 @@ func TestCmdSyncPlaylistFailure(t *testing.T) {
 }
 
 func TestCmdSyncAlbumFailure(t *testing.T) {
+	t.Cleanup(cleanup)
+
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(time.Sleep, func() {}).
@@ -266,6 +286,8 @@ func TestCmdSyncAlbumFailure(t *testing.T) {
 }
 
 func TestCmdSyncTrackFailure(t *testing.T) {
+	t.Cleanup(cleanup)
+
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(time.Sleep, func() {}).
@@ -288,6 +310,8 @@ func TestCmdSyncTrackFailure(t *testing.T) {
 }
 
 func TestCmdSyncFixOpenFailure(t *testing.T) {
+	t.Cleanup(cleanup)
+
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(time.Sleep, func() {}).
@@ -310,6 +334,8 @@ func TestCmdSyncFixOpenFailure(t *testing.T) {
 }
 
 func TestCmdSyncFixSpotifyIDFailure(t *testing.T) {
+	t.Cleanup(cleanup)
+
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(time.Sleep, func() {}).
@@ -335,6 +361,8 @@ func TestCmdSyncFixSpotifyIDFailure(t *testing.T) {
 }
 
 func TestCmdSyncFixCloseFailure(t *testing.T) {
+	t.Cleanup(cleanup)
+
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(time.Sleep, func() {}).
@@ -363,6 +391,8 @@ func TestCmdSyncFixCloseFailure(t *testing.T) {
 }
 
 func TestCmdSyncDecideFailure(t *testing.T) {
+	t.Cleanup(cleanup)
+
 	_track := &entity.Track{ID: "TestCmdSyncDecideFailure", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
@@ -392,6 +422,8 @@ func TestCmdSyncDecideFailure(t *testing.T) {
 }
 
 func TestCmdSyncDecideNotFound(t *testing.T) {
+	t.Cleanup(cleanup)
+
 	_track := &entity.Track{ID: "TestCmdSyncDecideNotFound", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
@@ -421,6 +453,8 @@ func TestCmdSyncDecideNotFound(t *testing.T) {
 }
 
 func TestCmdSyncCollectFailure(t *testing.T) {
+	t.Cleanup(cleanup)
+
 	_track := &entity.Track{ID: "TestCmdSyncCollectFailure", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
@@ -464,6 +498,8 @@ func TestCmdSyncCollectFailure(t *testing.T) {
 }
 
 func TestCmdSyncDownloadFailure(t *testing.T) {
+	t.Cleanup(cleanup)
+
 	_track := &entity.Track{ID: "TestCmdSyncDownloadFailure", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
@@ -501,6 +537,8 @@ func TestCmdSyncDownloadFailure(t *testing.T) {
 }
 
 func TestCmdSyncLyricsFailure(t *testing.T) {
+	t.Cleanup(cleanup)
+
 	_track := &entity.Track{ID: "TestCmdSyncLyricsFailure", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
@@ -538,6 +576,8 @@ func TestCmdSyncLyricsFailure(t *testing.T) {
 }
 
 func TestCmdSyncProcessorFailure(t *testing.T) {
+	t.Cleanup(cleanup)
+
 	_track := &entity.Track{ID: "TestCmdSyncProcessorFailure", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
@@ -578,6 +618,8 @@ func TestCmdSyncProcessorFailure(t *testing.T) {
 }
 
 func TestCmdSyncInstallerFailure(t *testing.T) {
+	t.Cleanup(cleanup)
+
 	_track := &entity.Track{ID: "TestCmdSyncInstallerFailure", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
@@ -621,6 +663,8 @@ func TestCmdSyncInstallerFailure(t *testing.T) {
 }
 
 func TestCmdSyncPlaylistEncoderFailure(t *testing.T) {
+	t.Cleanup(cleanup)
+
 	_playlist := &playlist.Playlist{Tracks: []*entity.Track{
 		{ID: "TestCmdSyncPlaylistEncoderFailure", Title: "Title", Artists: []string{"Artist"}},
 	}}
@@ -668,6 +712,8 @@ func TestCmdSyncPlaylistEncoderFailure(t *testing.T) {
 }
 
 func TestCmdSyncPlaylistEncoderAddFailure(t *testing.T) {
+	t.Cleanup(cleanup)
+
 	_playlist := &playlist.Playlist{Tracks: []*entity.Track{
 		{ID: "TestCmdSyncPlaylistEncoderAddFailure", Title: "Title", Artists: []string{"Artist"}},
 	}}
@@ -716,6 +762,8 @@ func TestCmdSyncPlaylistEncoderAddFailure(t *testing.T) {
 }
 
 func TestCmdSyncPlaylistEncoderCloseFailure(t *testing.T) {
+	t.Cleanup(cleanup)
+
 	_playlist := &playlist.Playlist{Tracks: []*entity.Track{
 		{ID: "TestCmdSyncPlaylistEncoderCloseFailure", Title: "Title", Artists: []string{"Artist"}},
 	}}

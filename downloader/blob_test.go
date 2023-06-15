@@ -135,7 +135,7 @@ func TestBlobDownloadProcessorFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, blob{}.download("http://davidepucci.it", "/dev/null", stubProcessor(true, errors.New("ko"))), "ko")
+	assert.EqualError(t, blob{}.download("http://davidepucci.it", "/dev/null", stubProcessor(true, errors.New("ko"))), "ko")
 }
 
 func TestBlobDownloadFailure(t *testing.T) {
@@ -145,7 +145,7 @@ func TestBlobDownloadFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Error(t, blob{}.download("http://davidepucci.it", "/dev/null", nil), "ko")
+	assert.EqualError(t, blob{}.download("http://davidepucci.it", "/dev/null", nil), "ko")
 }
 
 func TestBlobDownloadNotFound(t *testing.T) {
@@ -177,7 +177,7 @@ func TestBlobDownloadFileCreationFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, blob{}.download("http://davidepucci.it", "/dev/null", nil), "ko")
+	assert.EqualError(t, blob{}.download("http://davidepucci.it", "/dev/null", nil), "ko")
 }
 
 func TestBlobDownloadReadFailure(t *testing.T) {
@@ -199,5 +199,5 @@ func TestBlobDownloadReadFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, blob{}.download("http://davidepucci.it", "/dev/null", nil), "ko")
+	assert.EqualError(t, blob{}.download("http://davidepucci.it", "/dev/null", nil), "ko")
 }

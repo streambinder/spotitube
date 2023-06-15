@@ -71,7 +71,7 @@ func TestSearchFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(Search(track)), "ko")
+	assert.EqualError(t, util.ErrOnly(Search(track)), "ko")
 }
 
 func TestSearchNotFound(t *testing.T) {
@@ -112,5 +112,5 @@ func TestSearchCannotCreateDir(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(Search(track)), "ko")
+	assert.EqualError(t, util.ErrOnly(Search(track)), "ko")
 }

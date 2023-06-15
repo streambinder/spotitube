@@ -68,7 +68,7 @@ func TestFileCopyReadFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, FileMoveOrCopy("/a", "/a"), "ko")
+	assert.EqualError(t, FileMoveOrCopy("/a", "/a"), "ko")
 }
 
 func TestFileCopyWriteFailure(t *testing.T) {
@@ -86,7 +86,7 @@ func TestFileCopyWriteFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, FileMoveOrCopy("/a", "/a"), "ko")
+	assert.EqualError(t, FileMoveOrCopy("/a", "/a"), "ko")
 }
 
 func TestFileBaseStem(t *testing.T) {

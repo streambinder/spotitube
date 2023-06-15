@@ -54,5 +54,5 @@ func TestProcessorDoFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, Do(track), "ko")
+	assert.EqualError(t, Do(track), "ko")
 }

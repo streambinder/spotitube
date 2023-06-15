@@ -42,5 +42,5 @@ func TestEncoderDoOpenFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Error(t, encoder{}.Do(track), "ko")
+	assert.EqualError(t, encoder{}.Do(track), "ko")
 }

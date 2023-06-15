@@ -176,7 +176,7 @@ func TestYouTubeSearchFailingRequest(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(youTube{}.search(track)), "ko")
+	assert.EqualError(t, util.ErrOnly(youTube{}.search(track)), "ko")
 }
 
 func TestYouTubeSearchFailingRequestStatus(t *testing.T) {
@@ -204,7 +204,7 @@ func TestYouTubeSearchFailingGoQuery(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(youTube{}.search(track)), "ko")
+	assert.EqualError(t, util.ErrOnly(youTube{}.search(track)), "ko")
 }
 
 func TestScraping(t *testing.T) {

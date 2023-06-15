@@ -85,5 +85,5 @@ func TestBuildOpenFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, New().Build("path"), "ko")
+	assert.EqualError(t, New().Build("path"), "ko")
 }

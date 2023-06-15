@@ -69,5 +69,5 @@ func TestCmdResetSessionFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(testExecute(cmdReset())), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdReset())), "ko")
 }

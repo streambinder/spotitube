@@ -58,7 +58,7 @@ func TestRandomFailure(t *testing.T) {
 
 	// testing
 	err := testClient().Random(TypeTrack, len(searchResult.Tracks.Tracks))
-	assert.Error(t, err, "ko")
+	assert.EqualError(t, err, "ko")
 }
 
 func TestRandomNextPageFailure(t *testing.T) {

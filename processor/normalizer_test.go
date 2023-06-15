@@ -57,5 +57,5 @@ func TestNormalizerDoFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Error(t, normalizer{}.Do(track), "ko")
+	assert.EqualError(t, normalizer{}.Do(track), "ko")
 }

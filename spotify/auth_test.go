@@ -209,7 +209,7 @@ func TestAuthenticateRecoverAndPersistTokenFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(Authenticate("127.0.0.1")), "ko")
+	assert.EqualError(t, util.ErrOnly(Authenticate("127.0.0.1")), "ko")
 }
 
 func TestAuthenticateRecoverAndPersistOpenFailure(t *testing.T) {
@@ -227,7 +227,7 @@ func TestAuthenticateRecoverAndPersistOpenFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(Authenticate("127.0.0.1")), "ko")
+	assert.EqualError(t, util.ErrOnly(Authenticate("127.0.0.1")), "ko")
 }
 
 func TestAuthenticateNotFound(t *testing.T) {

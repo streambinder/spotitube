@@ -101,7 +101,7 @@ func TestCmdLookupAuthFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(testExecute(cmdLookup(), "-l")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdLookup(), "-l")), "ko")
 }
 
 func TestCmdLookupLibraryFailure(t *testing.T) {
@@ -116,7 +116,7 @@ func TestCmdLookupLibraryFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(testExecute(cmdLookup(), "-l")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdLookup(), "-l")), "ko")
 }
 
 func TestCmdLookupTrackFailure(t *testing.T) {
@@ -130,7 +130,7 @@ func TestCmdLookupTrackFailure(t *testing.T) {
 		}).Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(testExecute(cmdLookup(), "123")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdLookup(), "123")), "ko")
 }
 
 func TestCmdLookupRandomFailure(t *testing.T) {
@@ -144,7 +144,7 @@ func TestCmdLookupRandomFailure(t *testing.T) {
 		}).Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(testExecute(cmdLookup(), "-r")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdLookup(), "-r")), "ko")
 }
 
 func TestCmdLookupSearchFailure(t *testing.T) {

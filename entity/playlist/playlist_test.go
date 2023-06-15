@@ -43,7 +43,7 @@ func TestEncoderInitFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(testPlaylist.Encoder("m3u")), "ko")
+	assert.EqualError(t, util.ErrOnly(testPlaylist.Encoder("m3u")), "ko")
 }
 
 func TestEncoderUnknown(t *testing.T) {

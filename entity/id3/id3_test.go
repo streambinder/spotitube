@@ -60,7 +60,7 @@ func TestOpenFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(Open("", id3v2.Options{})), "ko")
+	assert.EqualError(t, util.ErrOnly(Open("", id3v2.Options{})), "ko")
 }
 
 func TestClose(t *testing.T) {

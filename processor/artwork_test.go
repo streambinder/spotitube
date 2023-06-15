@@ -43,7 +43,7 @@ func TestEncoderDoDecodeFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Error(t, Artwork{}.Do(&[]byte{}), "ko")
+	assert.EqualError(t, Artwork{}.Do(&[]byte{}), "ko")
 }
 
 func TestEncoderDoEncodeFailure(t *testing.T) {
@@ -58,5 +58,5 @@ func TestEncoderDoEncodeFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, Artwork{}.Do(&[]byte{}), "ko")
+	assert.EqualError(t, Artwork{}.Do(&[]byte{}), "ko")
 }

@@ -53,7 +53,7 @@ func TestVolumeDetectFFmpegFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(FFmpeg().VolumeDetect("/dev/null")), "ko")
+	assert.Error(t, util.ErrOnly(FFmpeg().VolumeDetect("/dev/null")))
 }
 
 func TestVolumeDetectParseFloatFailure(t *testing.T) {
@@ -68,7 +68,7 @@ func TestVolumeDetectParseFloatFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(FFmpeg().VolumeDetect("/dev/null")), "ko")
+	assert.Error(t, util.ErrOnly(FFmpeg().VolumeDetect("/dev/null")))
 }
 
 func TestVolumeAdd(t *testing.T) {
@@ -78,7 +78,7 @@ func TestVolumeAdd(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Error(t, FFmpeg().VolumeAdd("/dev/null", -1), "rename /dev/null.normalized /dev/null: no such file or directory")
+	assert.EqualError(t, FFmpeg().VolumeAdd("/dev/null", -1), "rename /dev/null.norm /dev/null: no such file or directory")
 }
 
 func TestVolumeAddNothing(t *testing.T) {
@@ -92,5 +92,5 @@ func TestVolumeAddFFmpegFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Error(t, FFmpeg().VolumeAdd("/dev/null", -1), "ko")
+	assert.Error(t, FFmpeg().VolumeAdd("/dev/null", -1))
 }

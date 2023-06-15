@@ -80,7 +80,7 @@ func TestDownloadMakeDirFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, Download("http://youtu.be", "fname.txt", nil), "ko")
+	assert.EqualError(t, Download("http://youtu.be", "fname.txt", nil), "ko")
 }
 
 func TestDownloadUnsupported(t *testing.T) {

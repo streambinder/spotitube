@@ -41,7 +41,7 @@ func TestCmdShowOpenFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(testExecute(cmdShow(), "path/to/track")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdShow(), "path/to/track")), "ko")
 }
 
 func TestCmdShowPictureFallback(t *testing.T) {

@@ -45,7 +45,7 @@ func TestLyricsOvhSearchNewRequestFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(lyricsOvh{}.search(track)), "ko")
+	assert.EqualError(t, util.ErrOnly(lyricsOvh{}.search(track)), "ko")
 }
 
 func TestLyricsOvhSearchNewRequestContextCanceled(t *testing.T) {
@@ -67,7 +67,7 @@ func TestLyricsOvhSearchFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(lyricsOvh{}.search(track)), "ko")
+	assert.EqualError(t, util.ErrOnly(lyricsOvh{}.search(track)), "ko")
 }
 
 func TestLyricsOvhSearchNotFound(t *testing.T) {
@@ -142,7 +142,7 @@ func TestLyricsOvhSearchReadFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(lyricsOvh{}.search(track)), "ko")
+	assert.EqualError(t, util.ErrOnly(lyricsOvh{}.search(track)), "ko")
 }
 
 func TestLyricsOvhSearchJsonFailure(t *testing.T) {
@@ -161,5 +161,5 @@ func TestLyricsOvhSearchJsonFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(lyricsOvh{}.search(track)), "ko")
+	assert.EqualError(t, util.ErrOnly(lyricsOvh{}.search(track)), "ko")
 }

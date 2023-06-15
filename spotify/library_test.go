@@ -2,7 +2,6 @@ package spotify
 
 import (
 	"errors"
-	"net/http"
 	"syscall"
 	"testing"
 	"time"
@@ -12,7 +11,6 @@ import (
 	"github.com/streambinder/spotitube/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/zmb3/spotify/v2"
-	spotifyauth "github.com/zmb3/spotify/v2/auth"
 )
 
 var library = &spotify.SavedTrackPage{
@@ -37,7 +35,7 @@ func TestLibrary(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, (&Client{}).Library())
+	assert.Nil(t, testClient().Library())
 }
 
 func TestLibraryChannel(t *testing.T) {
@@ -52,7 +50,7 @@ func TestLibraryChannel(t *testing.T) {
 	// testing
 	channel := make(chan interface{}, 1)
 	defer close(channel)
-	err := (&Client{}).Library(channel)
+	err := testClient().Library(channel)
 	assert.Nil(t, err)
 	assert.Equal(t, library.Tracks[0].Name, ((<-channel).(*entity.Track)).Title)
 }
@@ -67,12 +65,12 @@ func TestLibraryFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly((&Client{}).Library()), "ko")
+	assert.EqualError(t, util.ErrOnly(testClient().Library()), "ko")
 }
 
 func TestLibraryNextPageFailure(t *testing.T) {
 	var (
-		client              = (&Client{spotify.New(http.DefaultClient), &spotifyauth.Authenticator{}, ""})
+		client              = testClient()
 		libraryWithNextPage = library
 	)
 	libraryWithNextPage.Next = "http://0.0.0.0"

@@ -2,7 +2,6 @@ package spotify
 
 import (
 	"errors"
-	"net/http"
 	"syscall"
 	"testing"
 	"time"
@@ -12,7 +11,6 @@ import (
 	"github.com/streambinder/spotitube/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/zmb3/spotify/v2"
-	spotifyauth "github.com/zmb3/spotify/v2/auth"
 )
 
 var searchResult = &spotify.SearchResult{
@@ -44,7 +42,7 @@ func TestRandom(t *testing.T) {
 	// testing
 	channel := make(chan interface{}, 1)
 	defer close(channel)
-	err := (&Client{}).Random(TypeTrack, len(searchResult.Tracks.Tracks), channel)
+	err := testClient().Random(TypeTrack, len(searchResult.Tracks.Tracks), channel)
 	assert.Nil(t, err)
 	assert.Equal(t, searchResult.Tracks.Tracks[0].ID.String(), (<-channel).(*entity.Track).ID)
 }
@@ -59,13 +57,13 @@ func TestRandomFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	err := (&Client{}).Random(TypeTrack, len(searchResult.Tracks.Tracks))
+	err := testClient().Random(TypeTrack, len(searchResult.Tracks.Tracks))
 	assert.Error(t, err, "ko")
 }
 
 func TestRandomNextPageFailure(t *testing.T) {
 	var (
-		client = (&Client{spotify.New(http.DefaultClient), &spotifyauth.Authenticator{}, ""})
+		client = testClient()
 		search = searchResult
 	)
 	search.Tracks.Next = "http://0.0.0.0"

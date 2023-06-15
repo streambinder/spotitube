@@ -2,7 +2,6 @@ package spotify
 
 import (
 	"errors"
-	"net/http"
 	"syscall"
 	"testing"
 	"time"
@@ -11,7 +10,6 @@ import (
 	"github.com/streambinder/spotitube/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/zmb3/spotify/v2"
-	spotifyauth "github.com/zmb3/spotify/v2/auth"
 )
 
 var fullAlbum = &spotify.FullAlbum{
@@ -43,7 +41,7 @@ func TestAlbum(t *testing.T) {
 		Reset()
 
 	// testing
-	album, err := (&Client{}).Album(fullAlbum.ID.String())
+	album, err := testClient().Album(fullAlbum.ID.String())
 	assert.Nil(t, err)
 	assert.Equal(t, fullAlbum.ID.String(), album.ID)
 	assert.Equal(t, fullAlbum.Name, album.Name)
@@ -63,7 +61,7 @@ func TestAlbumChannel(t *testing.T) {
 	// testing
 	channel := make(chan interface{}, 1)
 	defer close(channel)
-	album, err := (&Client{}).Album(fullAlbum.ID.String(), channel)
+	album, err := testClient().Album(fullAlbum.ID.String(), channel)
 	assert.Nil(t, err)
 	assert.Equal(t, album.Tracks[0], <-channel)
 }
@@ -78,12 +76,12 @@ func TestPlaylistGetAlbumFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly((&Client{}).Album(fullPlaylist.ID.String())), "ko")
+	assert.EqualError(t, util.ErrOnly(testClient().Album(fullPlaylist.ID.String())), "ko")
 }
 
 func TestAlbumNextPageFailure(t *testing.T) {
 	var (
-		client = (&Client{spotify.New(http.DefaultClient), &spotifyauth.Authenticator{}, ""})
+		client = testClient()
 		album  = fullAlbum
 	)
 	album.Tracks.Next = "http://0.0.0.0"

@@ -2,7 +2,6 @@ package spotify
 
 import (
 	"errors"
-	"net/http"
 	"syscall"
 	"testing"
 	"time"
@@ -11,12 +10,11 @@ import (
 	"github.com/streambinder/spotitube/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/zmb3/spotify/v2"
-	spotifyauth "github.com/zmb3/spotify/v2/auth"
 )
 
 var fullPlaylist = &spotify.FullPlaylist{
 	SimplePlaylist: spotify.SimplePlaylist{
-		ID:    spotify.ID("0000000000000000000000"),
+		ID:    spotify.ID("123"),
 		Name:  "Playlist",
 		Owner: spotify.User{ID: "User"},
 	},
@@ -37,13 +35,21 @@ func TestPlaylist(t *testing.T) {
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(time.Sleep, func() {}).
+		ApplyMethod(&spotify.Client{}, "CurrentUsersPlaylists", func() (*spotify.SimplePlaylistPage, error) {
+			return &spotify.SimplePlaylistPage{
+				Playlists: []spotify.SimplePlaylist{{ID: "123", Name: "Playlist"}},
+			}, nil
+		}).
 		ApplyMethod(&spotify.Client{}, "GetPlaylist", func() (*spotify.FullPlaylist, error) {
 			return fullPlaylist, nil
 		}).
 		Reset()
 
 	// testing
-	playlist, err := (&Client{}).Playlist(fullPlaylist.ID.String())
+	client := testClient()
+	_, err := client.Playlist(fullPlaylist.Name)
+	assert.Nil(t, err)
+	playlist, err := client.Playlist(fullPlaylist.Name)
 	assert.Nil(t, err)
 	assert.Equal(t, fullPlaylist.ID.String(), playlist.ID)
 	assert.Equal(t, fullPlaylist.Name, playlist.Name)
@@ -57,6 +63,9 @@ func TestPlaylistChannel(t *testing.T) {
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(time.Sleep, func() {}).
+		ApplyMethod(&spotify.Client{}, "CurrentUsersPlaylists", func() (*spotify.SimplePlaylistPage, error) {
+			return &spotify.SimplePlaylistPage{}, nil
+		}).
 		ApplyMethod(&spotify.Client{}, "GetPlaylist", func() (*spotify.FullPlaylist, error) {
 			return fullPlaylist, nil
 		}).
@@ -65,26 +74,62 @@ func TestPlaylistChannel(t *testing.T) {
 	// testing
 	channel := make(chan interface{}, 1)
 	defer close(channel)
-	playlist, err := (&Client{}).Playlist(fullPlaylist.ID.String(), channel)
+	playlist, err := testClient().Playlist(fullPlaylist.ID.String(), channel)
 	assert.Nil(t, err)
 	assert.Equal(t, playlist.Tracks[0], <-channel)
+}
+
+func TestPlaylistCurrentUsersPlaylistsFailure(t *testing.T) {
+	// monkey patching
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyMethod(&spotify.Client{}, "CurrentUsersPlaylists", func() (*spotify.SimplePlaylistPage, error) {
+			return nil, errors.New("ko")
+		}).
+		Reset()
+
+	// testing
+	assert.Error(t, util.ErrOnly(testClient().Playlist(fullPlaylist.ID.String())))
+}
+
+func TestPlaylistCurrentUsersPlaylistsNextPageFailure(t *testing.T) {
+	var (
+		client       = testClient()
+		playlistPage = &spotify.SimplePlaylistPage{}
+	)
+	playlistPage.Next = "http://0.0.0.0"
+
+	// monkey patching
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyMethod(&spotify.Client{}, "CurrentUsersPlaylists", func() (*spotify.SimplePlaylistPage, error) {
+			return playlistPage, nil
+		}).
+		Reset()
+
+	// testing
+	assert.True(t, errors.Is(util.ErrOnly(client.Playlist(fullPlaylist.ID.String())), syscall.ECONNREFUSED))
 }
 
 func TestPlaylistGetPlaylistFailure(t *testing.T) {
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(time.Sleep, func() {}).
+		ApplyMethod(&spotify.Client{}, "CurrentUsersPlaylists", func() (*spotify.SimplePlaylistPage, error) {
+			return &spotify.SimplePlaylistPage{}, nil
+		}).
 		ApplyMethod(&spotify.Client{}, "GetPlaylist", func() (*spotify.FullPlaylist, error) {
 			return nil, errors.New("ko")
-		}).Reset()
+		}).
+		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly((&Client{}).Playlist(fullPlaylist.ID.String())), "ko")
+	assert.EqualError(t, util.ErrOnly(testClient().Playlist(fullPlaylist.ID.String())), "ko")
 }
 
-func TestPlaylistNextPageFailure(t *testing.T) {
+func TestPlaylistGetPlaylistNextPageFailure(t *testing.T) {
 	var (
-		client   = (&Client{spotify.New(http.DefaultClient), &spotifyauth.Authenticator{}, ""})
+		client   = testClient()
 		playlist = fullPlaylist
 	)
 	playlist.Tracks.Next = "http://0.0.0.0"
@@ -92,6 +137,9 @@ func TestPlaylistNextPageFailure(t *testing.T) {
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(time.Sleep, func() {}).
+		ApplyMethod(&spotify.Client{}, "CurrentUsersPlaylists", func() (*spotify.SimplePlaylistPage, error) {
+			return &spotify.SimplePlaylistPage{}, nil
+		}).
 		ApplyMethod(&spotify.Client{}, "GetPlaylist", func() (*spotify.FullPlaylist, error) {
 			return playlist, nil
 		}).

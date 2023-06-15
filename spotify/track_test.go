@@ -44,7 +44,7 @@ func TestTrack(t *testing.T) {
 		Reset()
 
 	// testing
-	track, err := (&Client{}).Track(fullTrack.ID.String())
+	track, err := testClient().Track(fullTrack.ID.String())
 	assert.Nil(t, err)
 	assert.Equal(t, fullTrack.ID.String(), track.ID)
 	assert.Equal(t, fullTrack.Name, track.Title)
@@ -68,7 +68,7 @@ func TestTrackChannel(t *testing.T) {
 	// testing
 	channel := make(chan interface{}, 1)
 	defer close(channel)
-	track, err := (&Client{}).Track(fullTrack.ID.String(), channel)
+	track, err := testClient().Track(fullTrack.ID.String(), channel)
 	assert.Nil(t, err)
 	assert.Equal(t, track, <-channel)
 }
@@ -83,5 +83,5 @@ func TestTrackGetTrackFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly((&Client{}).Track(fullTrack.ID.String())), "ko")
+	assert.EqualError(t, util.ErrOnly(testClient().Track(fullTrack.ID.String())), "ko")
 }

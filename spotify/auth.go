@@ -32,6 +32,7 @@ type Client struct {
 	*spotify.Client
 	authenticator *spotifyauth.Authenticator
 	state         string
+	cache         map[string]interface{}
 }
 
 func Authenticate(callbacks ...string) (*Client, error) {
@@ -108,7 +109,7 @@ func Authenticate(callbacks ...string) (*Client, error) {
 			if err != nil {
 				ch <- err
 			} else {
-				client = Client{c, authenticator, state}
+				client = Client{c, authenticator, state, make(map[string]interface{})}
 			}
 			ch <- server.Shutdown(ctx)
 		}); err != nil {
@@ -132,7 +133,7 @@ func Recover(authenticator *spotifyauth.Authenticator, state string) (*Client, e
 	return &Client{spotify.New(
 		authenticator.Client(context.Background(), &token),
 		spotify.WithRetry(true),
-	), authenticator, state}, nil
+	), authenticator, state, make(map[string]interface{})}, nil
 }
 
 func (client *Client) Persist() error {

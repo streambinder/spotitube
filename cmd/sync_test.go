@@ -95,7 +95,7 @@ func TestCmdSync(t *testing.T) {
 		ApplyFunc(util.FileMoveOrCopy, func() error {
 			return nil
 		}).
-		ApplyMethod(&playlist.M3UEncoder{}, "Close", func() error {
+		ApplyMethod(&playlist.PLSEncoder{}, "Close", func() error {
 			return nil
 		}).
 		Reset()
@@ -145,7 +145,7 @@ func TestCmdSyncOfflineIndex(t *testing.T) {
 		ApplyFunc(util.FileMoveOrCopy, func() error {
 			return nil
 		}).
-		ApplyMethod(&playlist.M3UEncoder{}, "Close", func() error {
+		ApplyMethod(&playlist.PLSEncoder{}, "Close", func() error {
 			return nil
 		}).
 		Reset()
@@ -706,7 +706,7 @@ func TestCmdSyncPlaylistEncoderAddFailure(t *testing.T) {
 		ApplyFunc(util.FileMoveOrCopy, func() error {
 			return nil
 		}).
-		ApplyMethod(&playlist.M3UEncoder{}, "Add", func() error {
+		ApplyMethod(&playlist.PLSEncoder{}, "Add", func() error {
 			return errors.New("ko")
 		}).
 		Reset()
@@ -754,7 +754,7 @@ func TestCmdSyncPlaylistEncoderCloseFailure(t *testing.T) {
 		ApplyFunc(util.FileMoveOrCopy, func() error {
 			return nil
 		}).
-		ApplyMethod(&playlist.M3UEncoder{}, "Close", func() error {
+		ApplyMethod(&playlist.PLSEncoder{}, "Close", func() error {
 			return errors.New("ko")
 		}).
 		Reset()

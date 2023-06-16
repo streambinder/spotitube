@@ -9,6 +9,7 @@ import (
 	"github.com/streambinder/spotitube/spotify"
 	"github.com/streambinder/spotitube/util"
 	"github.com/stretchr/testify/assert"
+	zmb3 "github.com/zmb3/spotify/v2"
 )
 
 func BenchmarkAuth(b *testing.B) {
@@ -58,8 +59,8 @@ func TestCmdAuthLogoutFailure(t *testing.T) {
 
 func TestCmdAuthUsernameFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyMethod(&spotify.Client{}, "Username", func() (string, error) {
-		return "", errors.New("ko")
+	defer gomonkey.ApplyMethod(&zmb3.Client{}, "CurrentUser", func() (*zmb3.PrivateUser, error) {
+		return nil, errors.New("ko")
 	}).Reset()
 
 	// testing

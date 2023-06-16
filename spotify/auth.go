@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	port          = 8080
+	port          = 65535
 	TokenBasename = "session.json"
 	closeTabHTML  = "<!DOCTYPE html><html><head><script>open(location, '_self').close();</script></head></html>"
 )

@@ -96,6 +96,10 @@ func Authenticate(urlProcessor func(string) error, callbacks ...string) (*Client
 		},
 		// auto-launch web browser with authentication URL
 		func(ctx context.Context, ch chan error) {
+			if urlProcessor == nil {
+				return
+			}
+
 			if err := urlProcessor(authenticator.AuthURL(state)); err != nil {
 				ch <- err
 			}

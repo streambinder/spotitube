@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"errors"
+	"net/http"
 	"os"
 	"testing"
 
@@ -9,7 +10,6 @@ import (
 	"github.com/streambinder/spotitube/spotify"
 	"github.com/streambinder/spotitube/util"
 	"github.com/stretchr/testify/assert"
-	zmb3 "github.com/zmb3/spotify/v2"
 )
 
 func BenchmarkAuth(b *testing.B) {
@@ -59,10 +59,10 @@ func TestCmdAuthLogoutFailure(t *testing.T) {
 
 func TestCmdAuthUsernameFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyMethod(&zmb3.Client{}, "CurrentUser", func() (*zmb3.PrivateUser, error) {
+	defer gomonkey.ApplyPrivateMethod(&http.Client{}, "do", func() (*http.Response, error) {
 		return nil, errors.New("ko")
 	}).Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(testExecute(cmdAuth())))
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdAuth())), "ko")
 }

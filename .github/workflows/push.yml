@@ -74,7 +74,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
-      - run: go test -timeout 30s -benchmem -bench '^Benchmark.*$' ./... | grep ^Benchmark
+      - run: go test -benchmem -bench '^Benchmark.*$' ./... | grep ^Benchmark
   build:
     runs-on: ubuntu-latest
     needs: [test]

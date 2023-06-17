@@ -19,6 +19,7 @@ func cmdReset() *cobra.Command {
 		Use:          "reset",
 		Short:        "Clear cached objects",
 		SilenceUsage: true,
+		Args:         cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var (
 				session, _     = cmd.Flags().GetBool("session")

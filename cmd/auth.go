@@ -44,18 +44,7 @@ func cmdAuth() *cobra.Command {
 				}
 			}
 
-			client, err := spotify.Authenticate(processor, callback)
-			if err != nil {
-				return err
-			}
-
-			username, err := client.Username()
-			if err != nil {
-				return err
-			}
-
-			log.Println("Successfully authenticated to", username)
-			return nil
+			return util.ErrOnly(spotify.Authenticate(processor, callback))
 		},
 	}
 	cmd.Flags().BoolP("remote", "r", false, "Spotitube server is remote")

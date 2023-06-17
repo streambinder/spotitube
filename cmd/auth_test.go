@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"errors"
-	"net/http"
 	"os"
 	"testing"
 
@@ -28,9 +27,6 @@ func TestCmdAuth(t *testing.T) {
 			_ = printProcessor("")
 			return &spotify.Client{}, nil
 		}).
-		ApplyMethod(&spotify.Client{}, "Username", func() (string, error) {
-			return "username", nil
-		}).
 		Reset()
 
 	// testing
@@ -55,14 +51,4 @@ func TestCmdAuthLogoutFailure(t *testing.T) {
 
 	// testing
 	assert.EqualError(t, util.ErrOnly(testExecute(cmdAuth(), "--logout")), "ko")
-}
-
-func TestCmdAuthUsernameFailure(t *testing.T) {
-	// monkey patching
-	defer gomonkey.ApplyPrivateMethod(&http.Client{}, "do", func() (*http.Response, error) {
-		return nil, errors.New("ko")
-	}).Reset()
-
-	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdAuth())), "ko")
 }

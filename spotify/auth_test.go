@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -24,12 +25,36 @@ import (
 )
 
 const (
-	state = "S7473"
-	token = `{"access_token":"access","token_type":"type","refresh_token":"refresh","expiry":"2023-04-15T12:52:29.143037+02:00"}`
+	state   = "S7473"
+	token   = `{"access_token":"access","token_type":"type","refresh_token":"refresh","expiry":"2023-04-15T12:52:29.143037+02:00"}`
+	portMin = 49152
+	portMax = 65535
+)
+
+var (
+	ports = make(map[int]bool)
+	lock  sync.RWMutex
 )
 
 func testClient() *Client {
 	return &Client{spotify.New(http.DefaultClient), &spotifyauth.Authenticator{}, "", make(map[string]interface{})}
+}
+
+func getPort() int {
+	lock.Lock()
+	defer lock.Unlock()
+
+	port := util.RandomInt(portMax, portMin)
+	if _, ok := ports[port]; ok {
+		return getPort()
+	}
+
+	ports[port] = true
+	return port
+}
+
+func resetPort() {
+	port = 65535
 }
 
 func BenchmarkAuth(b *testing.B) {
@@ -39,6 +64,9 @@ func BenchmarkAuth(b *testing.B) {
 }
 
 func TestAuthenticate(t *testing.T) {
+	t.Cleanup(resetPort)
+	port = getPort()
+
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(Recover, func() (*Client, error) {
@@ -84,6 +112,9 @@ func TestAuthenticate(t *testing.T) {
 }
 
 func TestAuthenticateRecoverAndPersist(t *testing.T) {
+	t.Cleanup(resetPort)
+	port = getPort()
+
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(os.ReadFile, func() ([]byte, error) {
@@ -105,6 +136,9 @@ func TestAuthenticateRecoverAndPersist(t *testing.T) {
 }
 
 func TestAuthenticateRecoverOpenFailure(t *testing.T) {
+	t.Cleanup(resetPort)
+	port = getPort()
+
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(os.ReadFile, func() ([]byte, error) {
@@ -147,6 +181,9 @@ func TestAuthenticateRecoverOpenFailure(t *testing.T) {
 }
 
 func TestAuthenticateRecoverUnmarshalFailure(t *testing.T) {
+	t.Cleanup(resetPort)
+	port = getPort()
+
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(os.ReadFile, func() ([]byte, error) {
@@ -192,6 +229,9 @@ func TestAuthenticateRecoverUnmarshalFailure(t *testing.T) {
 }
 
 func TestAuthenticateRecoverAndPersistTokenFailure(t *testing.T) {
+	t.Cleanup(resetPort)
+	port = getPort()
+
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(os.ReadFile, func() ([]byte, error) {
@@ -207,6 +247,9 @@ func TestAuthenticateRecoverAndPersistTokenFailure(t *testing.T) {
 }
 
 func TestAuthenticateRecoverAndPersistOpenFailure(t *testing.T) {
+	t.Cleanup(resetPort)
+	port = getPort()
+
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(os.ReadFile, func() ([]byte, error) {
@@ -225,6 +268,9 @@ func TestAuthenticateRecoverAndPersistOpenFailure(t *testing.T) {
 }
 
 func TestAuthenticateNotFound(t *testing.T) {
+	t.Cleanup(resetPort)
+	port = getPort()
+
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(Recover, func() (*Client, error) {
@@ -267,6 +313,9 @@ func TestAuthenticateNotFound(t *testing.T) {
 }
 
 func TestAuthenticateForbidden(t *testing.T) {
+	t.Cleanup(resetPort)
+	port = getPort()
+
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(Recover, func() (*Client, error) {
@@ -309,6 +358,9 @@ func TestAuthenticateForbidden(t *testing.T) {
 }
 
 func TestAuthenticateProcessorFailure(t *testing.T) {
+	t.Cleanup(resetPort)
+	port = getPort()
+
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(Recover, func() (*Client, error) {
@@ -351,6 +403,9 @@ func TestAuthenticateProcessorFailure(t *testing.T) {
 }
 
 func TestAuthenticateServerUnserving(t *testing.T) {
+	t.Cleanup(resetPort)
+	port = getPort()
+
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(Recover, func() (*Client, error) {

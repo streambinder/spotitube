@@ -18,12 +18,14 @@ import (
 )
 
 const (
-	port          = 65535
 	TokenBasename = "session.json"
 	closeTabHTML  = "<!DOCTYPE html><html><head><script>open(location, '_self').close();</script></head></html>"
 )
 
-var tokenPath = util.CacheFile(TokenBasename)
+var (
+	port      = 65535
+	tokenPath = util.CacheFile(TokenBasename)
+)
 
 type Client struct {
 	*spotify.Client

@@ -132,7 +132,7 @@ func TestAuthenticateRecoverAndPersist(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(Authenticate(nil, "127.0.0.1")))
+	assert.Nil(t, util.ErrOnly(Authenticate(nil)))
 }
 
 func TestAuthenticateRecoverOpenFailure(t *testing.T) {
@@ -158,7 +158,7 @@ func TestAuthenticateRecoverOpenFailure(t *testing.T) {
 	// testing
 	assert.Nil(t, nursery.RunConcurrently(
 		func(ctx context.Context, ch chan error) {
-			ch <- util.ErrOnly(Authenticate(nil, "127.0.0.1"))
+			ch <- util.ErrOnly(Authenticate(nil))
 		},
 		func(ctx context.Context, ch chan error) {
 			var (
@@ -206,7 +206,7 @@ func TestAuthenticateRecoverUnmarshalFailure(t *testing.T) {
 	// testing
 	assert.Nil(t, nursery.RunConcurrently(
 		func(ctx context.Context, ch chan error) {
-			ch <- util.ErrOnly(Authenticate(nil, "127.0.0.1"))
+			ch <- util.ErrOnly(Authenticate(nil))
 		},
 		func(ctx context.Context, ch chan error) {
 			var (
@@ -243,7 +243,7 @@ func TestAuthenticateRecoverAndPersistTokenFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(Authenticate(nil, "127.0.0.1")), "ko")
+	assert.EqualError(t, util.ErrOnly(Authenticate(nil)), "ko")
 }
 
 func TestAuthenticateRecoverAndPersistOpenFailure(t *testing.T) {
@@ -264,7 +264,7 @@ func TestAuthenticateRecoverAndPersistOpenFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(Authenticate(nil, "127.0.0.1")), "ko")
+	assert.EqualError(t, util.ErrOnly(Authenticate(nil)), "ko")
 }
 
 func TestAuthenticateNotFound(t *testing.T) {
@@ -290,7 +290,7 @@ func TestAuthenticateNotFound(t *testing.T) {
 	// testing
 	assert.EqualError(t, nursery.RunConcurrently(
 		func(ctx context.Context, ch chan error) {
-			ch <- util.ErrOnly(Authenticate(nil, "127.0.0.1"))
+			ch <- util.ErrOnly(Authenticate(nil))
 		},
 		func(ctx context.Context, ch chan error) {
 			var (
@@ -335,7 +335,7 @@ func TestAuthenticateForbidden(t *testing.T) {
 	// testing
 	assert.EqualError(t, nursery.RunConcurrently(
 		func(ctx context.Context, ch chan error) {
-			ch <- util.ErrOnly(Authenticate(nil, "127.0.0.1"))
+			ch <- util.ErrOnly(Authenticate(nil))
 		},
 		func(ctx context.Context, ch chan error) {
 			var (
@@ -369,9 +369,6 @@ func TestAuthenticateProcessorFailure(t *testing.T) {
 		ApplyMethod(&Client{}, "Persist", func() error {
 			return nil
 		}).
-		ApplyFunc(cmd.Open, func() error {
-			return errors.New("ko")
-		}).
 		ApplyFunc(randstr.String, func() string {
 			return state
 		}).
@@ -380,7 +377,9 @@ func TestAuthenticateProcessorFailure(t *testing.T) {
 	// testing
 	assert.EqualError(t, nursery.RunConcurrently(
 		func(ctx context.Context, ch chan error) {
-			ch <- util.ErrOnly(Authenticate(BrowserProcessor, "127.0.0.1"))
+			ch <- util.ErrOnly(Authenticate(func(_ string) error {
+				return errors.New("ko")
+			}))
 		},
 		func(ctx context.Context, ch chan error) {
 			var (

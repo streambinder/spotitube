@@ -189,7 +189,7 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 					}).MetadataBadgeRenderer.Icon.IconType),
 				}
 				if match.compliant(track) {
-					matches = append(matches, &Match{fmt.Sprintf("https://youtu.be/%s", match.id), match.score(track)})
+					matches = append(matches, &Match{fmt.Sprintf("https://youtu.be/%s", match.id), match.score()})
 				}
 			}
 		}
@@ -209,14 +209,14 @@ func (result youTubeResult) compliant(track *entity.Track) bool {
 
 // score goes from 0 to 100:
 //
-//	0–45% is derived from description score
-//	0-25% is derived from duration score
+//	0–40% is derived from description score
+//	0-30% is derived from duration score
 //	0-15% is derived from views score
 //	0-15% is derived from channel credibility score
-func (result youTubeResult) score(track *entity.Track) int {
+func (result youTubeResult) score() int {
 	var (
-		descriptionScore = result.descriptionScore() * 45 / 100
-		durationScore    = result.durationScore() * 25 / 100
+		descriptionScore = result.descriptionScore() * 40 / 100
+		durationScore    = result.durationScore() * 30 / 100
 		viewsScore       = result.viewsScore() * 15 / 100
 		channelScore     = result.channelScore() * 15 / 100
 	)
@@ -244,6 +244,10 @@ func (result youTubeResult) descriptionScore() int {
 // return a score for result duration
 func (result youTubeResult) durationScore() int {
 	distance := int(math.Min(math.Abs(float64(result.length)-float64(result.track.Duration)), 60.0))
+	// boost results with super close duration delta
+	if distance < 5 {
+		distance = 0
+	}
 	// return the inverse of the proportion of the distance
 	// on a percentage scale to 60
 	return 100 - (distance * 100 / 60)

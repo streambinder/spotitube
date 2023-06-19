@@ -54,6 +54,7 @@ func cmdSync() *cobra.Command {
 				playlistEncoding, _ = cmd.Flags().GetString("playlist-encoding")
 				library, _          = cmd.Flags().GetBool("library")
 				playlists, _        = cmd.Flags().GetStringArray("playlist")
+				playlistsTracks, _  = cmd.Flags().GetStringArray("playlist-tracks")
 				albums, _           = cmd.Flags().GetStringArray("album")
 				tracks, _           = cmd.Flags().GetStringArray("track")
 				fixes, _            = cmd.Flags().GetStringArray("fix")
@@ -66,7 +67,7 @@ func cmdSync() *cobra.Command {
 			return nursery.RunConcurrently(
 				routineIndex,
 				routineAuth,
-				routineFetch(library, playlists, albums, tracks, fixes),
+				routineFetch(library, playlists, playlistsTracks, albums, tracks, fixes),
 				routineDecide,
 				routineCollect,
 				routineProcess,
@@ -88,11 +89,14 @@ func cmdSync() *cobra.Command {
 				routineTypeMix:     make(chan interface{}, 10000),
 			}
 
-			playlists, _ := cmd.Flags().GetStringArray("playlist")
-			albums, _ := cmd.Flags().GetStringArray("album")
-			tracks, _ := cmd.Flags().GetStringArray("track")
-			fixes, _ := cmd.Flags().GetStringArray("fix")
-			if len(playlists)+len(albums)+len(tracks)+len(fixes) == 0 {
+			var (
+				playlists, _       = cmd.Flags().GetStringArray("playlist")
+				playlistsTracks, _ = cmd.Flags().GetStringArray("playlist-tracks")
+				albums, _          = cmd.Flags().GetStringArray("album")
+				tracks, _          = cmd.Flags().GetStringArray("track")
+				fixes, _           = cmd.Flags().GetStringArray("fix")
+			)
+			if len(playlists)+len(playlistsTracks)+len(albums)+len(tracks)+len(fixes) == 0 {
 				cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
 					if f.Name == "library" {
 						_ = f.Value.Set("true")
@@ -105,6 +109,7 @@ func cmdSync() *cobra.Command {
 	cmd.Flags().String("playlist-encoding", "pls", "Target synchronization path")
 	cmd.Flags().BoolP("library", "l", false, "Synchronize library (auto-enabled if no collection is supplied)")
 	cmd.Flags().StringArrayP("playlist", "p", []string{}, "Synchronize playlist")
+	cmd.Flags().StringArray("playlist-tracks", []string{}, "Synchronize playlist tracks without playlist file")
 	cmd.Flags().StringArrayP("album", "a", []string{}, "Synchronize album")
 	cmd.Flags().StringArrayP("track", "t", []string{}, "Synchronize track")
 	cmd.Flags().StringArrayP("fix", "f", []string{}, "Fix local track")
@@ -148,7 +153,7 @@ func routineAuth(ctx context.Context, ch chan error) {
 
 // fetcher pulls data from the upstream
 // provider, i.e. Spotify
-func routineFetch(library bool, playlists, albums, tracks, fixes []string) func(ctx context.Context, ch chan error) {
+func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixes []string) func(ctx context.Context, ch chan error) {
 	return func(ctx context.Context, ch chan error) {
 		// remember to stop passing data to decider and mixer
 		defer close(routineQueues[routineTypeDecide])
@@ -200,13 +205,15 @@ func routineFetch(library bool, playlists, albums, tracks, fixes []string) func(
 		}
 
 		// some special treatment for playlists
-		for _, id := range playlists {
+		for index, id := range append(playlists, playlistsTracks...) {
 			playlist, err := spotifyClient.Playlist(id, routineQueues[routineTypeDecide])
 			if err != nil {
 				ch <- err
 				return
 			}
-			routineQueues[routineTypeMix] <- playlist
+			if index < len(playlists) {
+				routineQueues[routineTypeMix] <- playlist
+			}
 		}
 	}
 }

@@ -18,7 +18,10 @@ import (
 	"github.com/streambinder/spotitube/util"
 )
 
-const contextValueLabelMainArtist = "mainArtistOnly"
+const (
+	contextValueLabelMainArtist = "mainArtistOnly"
+	fallbackGeniustoken         = ""
+)
 
 type contextValueLabel string
 
@@ -72,7 +75,7 @@ func (composer genius) search(track *entity.Track, ctxs ...context.Context) ([]b
 	if err != nil {
 		return nil, err
 	}
-	request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("GENIUS_TOKEN")))
+	request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", util.Fallback(os.Getenv("GENIUS_TOKEN"), fallbackGeniustoken)))
 
 	response, err := http.DefaultClient.Do(request)
 	if err != nil && errors.Is(err, context.Canceled) {

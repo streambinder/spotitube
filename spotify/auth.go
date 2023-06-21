@@ -18,8 +18,10 @@ import (
 )
 
 const (
-	TokenBasename = "session.json"
-	closeTabHTML  = "<!DOCTYPE html><html><head><script>open(location, '_self').close();</script></head></html>"
+	TokenBasename      = "session.json"
+	closeTabHTML       = "<!DOCTYPE html><html><head><script>open(location, '_self').close();</script></head></html>"
+	fallbackSpotifyID  = ""
+	fallbackSpotifyKey = ""
 )
 
 var (
@@ -61,8 +63,8 @@ func Authenticate(urlProcessor func(string) error, callbacks ...string) (*Client
 			spotifyauth.ScopePlaylistModifyPublic,
 			spotifyauth.ScopePlaylistModifyPrivate,
 		),
-		spotifyauth.WithClientID(os.Getenv("SPOTIFY_ID")),
-		spotifyauth.WithClientSecret(os.Getenv("SPOTIFY_KEY")),
+		spotifyauth.WithClientID(util.Fallback(os.Getenv("SPOTIFY_ID"), fallbackSpotifyID)),
+		spotifyauth.WithClientSecret(util.Fallback(os.Getenv("SPOTIFY_KEY"), fallbackSpotifyKey)),
 	)
 	if client, err := Recover(authenticator, state); err == nil {
 		return client, client.Persist()

@@ -8,7 +8,8 @@ RUN go build -ldflags "-s -w"
 
 FROM alpine:latest
 RUN apk add --no-cache ffmpeg yt-dlp
-WORKDIR /tmp
+RUN mkdir /data
+WORKDIR /data
 COPY --from=builder /workspace/spotitube /usr/sbin/
 ENTRYPOINT ["/usr/sbin/spotitube"]
 LABEL org.opencontainers.image.source=https://github.com/streambinder/spotitube

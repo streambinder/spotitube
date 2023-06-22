@@ -232,7 +232,7 @@ func (result youTubeResult) descriptionScore() int {
 	distance := util.LevenshteinBoundedDistance(result.query, shortDescription)
 	for _, word := range misleading {
 		if util.Contains(longDescription, word) && !util.Contains(result.query, word) {
-			distance += 10
+			distance += 30
 		}
 	}
 

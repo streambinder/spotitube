@@ -3,8 +3,8 @@ package cmd
 import (
 	"context"
 	"errors"
-	"log"
 	"os"
+	"strconv"
 
 	"github.com/adrg/xdg"
 	"github.com/arunsworld/nursery"
@@ -21,6 +21,7 @@ import (
 	"github.com/streambinder/spotitube/provider"
 	"github.com/streambinder/spotitube/spotify"
 	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/util/anchor"
 )
 
 const (
@@ -38,6 +39,7 @@ var (
 	routineSemaphores map[int](chan bool)
 	routineQueues     map[int](chan interface{})
 	indexData         = index.New()
+	tui               = anchor.Window(anchor.Red)
 )
 
 func init() {
@@ -123,13 +125,14 @@ func routineIndex(ctx context.Context, ch chan error) {
 	// remember to signal fetcher
 	defer close(routineSemaphores[routineTypeIndex])
 
+	tui.Lot("index").Printf("scanning")
 	if err := indexData.Build("."); err != nil {
-		log.Println(util.Pad("[indexer]"), err)
+		tui.Printf("indexing failed: %s", err)
 		routineSemaphores[routineTypeIndex] <- false
 		ch <- err
 		return
 	}
-	log.Println(util.Pad("[indexer]"), "indexed", indexData.Size())
+	tui.Lot("index").Close(strconv.Itoa(indexData.Size()) + " tracks")
 
 	// once indexed, sidgnal fetcher
 	routineSemaphores[routineTypeIndex] <- true
@@ -139,14 +142,16 @@ func routineAuth(ctx context.Context, ch chan error) {
 	// remember to close auth semaphore
 	defer close(routineSemaphores[routineTypeAuth])
 
+	tui.Lot("auth").Printf("authenticating")
 	var err error
 	spotifyClient, err = spotify.Authenticate(spotify.BrowserProcessor)
 	if err != nil {
-		log.Println(util.Pad("[auth]"), err)
+		tui.Printf("authentication failed: %s", err)
 		routineSemaphores[routineTypeAuth] <- false
 		ch <- err
 		return
 	}
+	tui.Lot("auth").Close()
 
 	// once authenticated, signal fetcher
 	routineSemaphores[routineTypeAuth] <- true
@@ -168,18 +173,21 @@ func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixe
 		}
 
 		if library {
+			tui.Lot("fetch").Printf("fetching library")
 			if err := spotifyClient.Library(routineQueues[routineTypeDecide]); err != nil {
 				ch <- err
 				return
 			}
 		}
 		for _, id := range albums {
+			tui.Lot("fetch").Printf("fetching album %s", id)
 			if _, err := spotifyClient.Album(id, routineQueues[routineTypeDecide]); err != nil {
 				ch <- err
 				return
 			}
 		}
 		for _, path := range fixes {
+			tui.Lot("fetch").Printf("parsing track %s", path)
 			tag, err := id3.Open(path, id3v2.Options{Parse: true})
 			if err != nil {
 				ch <- err
@@ -199,6 +207,7 @@ func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixe
 			}
 		}
 		for _, id := range tracks {
+			tui.Lot("fetch").Printf("fetching track %s", id)
 			if _, err := spotifyClient.Track(id, routineQueues[routineTypeDecide]); err != nil {
 				ch <- err
 				return
@@ -207,6 +216,7 @@ func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixe
 
 		// some special treatment for playlists
 		for index, id := range append(playlists, playlistsTracks...) {
+			tui.Lot("fetch").Printf("fetching playlist %s", id)
 			playlist, err := spotifyClient.Playlist(id, routineQueues[routineTypeDecide])
 			if err != nil {
 				ch <- err
@@ -216,6 +226,7 @@ func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixe
 				routineQueues[routineTypeMix] <- playlist
 			}
 		}
+		tui.Lot("fetch").Close()
 	}
 }
 
@@ -230,30 +241,32 @@ func routineDecide(ctx context.Context, ch chan error) {
 		track := event.(*entity.Track)
 
 		if status, ok := indexData.Get(track); !ok {
-			log.Println(util.Pad("[decider]"), util.Pad(track.Title), "sync")
+			tui.Printf("sync %s by %s", track.Title, track.Artists[0])
 			indexData.Set(track, index.Online)
 		} else if status == index.Online {
-			log.Println(util.Pad("[decider]"), util.Pad(track.Title), "skip (dup)")
+			tui.Printf("skip %s by %s", track.Title, track.Artists[0])
 			continue
 		} else if status == index.Offline {
-			// log.Println(util.Pad("[decider]"), util.Pad(track.Title), "skip (offline)")
 			continue
 		}
 
+		tui.Lot("decide").Printf("%s by %s ", track.Title, track.Artists[0])
 		matches, err := provider.Search(track)
+		tui.Lot("decide").Wipe()
 		if err != nil {
 			ch <- err
 			return
 		}
 
 		if len(matches) == 0 {
-			log.Println(util.Pad("[decider]"), util.Pad(track.Title), "no result")
+			tui.AnchorPrintf("%s by %s (id: %s) not found", track.Title, track.Artists[0], track.ID)
 			continue
 		}
 
 		track.UpstreamURL = matches[0].URL
 		routineQueues[routineTypeCollect] <- track
 	}
+	tui.Lot("decide").Close()
 }
 
 // collector fetches all the needed assets
@@ -265,30 +278,32 @@ func routineCollect(ctx context.Context, ch chan error) {
 
 	for event := range routineQueues[routineTypeCollect] {
 		track := event.(*entity.Track)
-		log.Println(util.Pad("[collect]"), util.Pad(track.Title))
 		if err := nursery.RunConcurrently(
 			routineCollectAsset(track),
 			routineCollectLyrics(track),
 			routineCollectArtwork(track),
 		); err != nil {
-			log.Println(util.Pad("[collect]"), util.Pad(track.Title), err)
 			ch <- err
 			return
 		}
 		routineQueues[routineTypeProcess] <- track
 	}
+	tui.Lot("download").Close()
+	tui.Lot("compose").Close()
+	tui.Lot("paint").Close()
 }
 
 // retriever pulls a track blob corresponding
 // to the (meta)data fetched from upstream
 func routineCollectAsset(track *entity.Track) func(context.Context, chan error) {
 	return func(ctx context.Context, ch chan error) {
-		log.Println(util.Pad("[retriever]"), util.Pad(track.Title), track.UpstreamURL)
+		tui.Lot("download").Printf("%s by %s ", track.Title, track.Artists[0])
 		if err := downloader.Download(track.UpstreamURL, track.Path().Download(), nil); err != nil {
-			log.Println(util.Pad("[retriever]"), util.Pad(track.Title), err)
+			tui.AnchorPrintf("download failure: %s", err)
 			ch <- err
 			return
 		}
+		tui.Lot("download").Wipe()
 	}
 }
 
@@ -296,15 +311,16 @@ func routineCollectAsset(track *entity.Track) func(context.Context, chan error) 
 // in the fetched blob
 func routineCollectLyrics(track *entity.Track) func(context.Context, chan error) {
 	return func(ctx context.Context, ch chan error) {
-		log.Println(util.Pad("[composer]"), util.Pad(track.Title))
+		tui.Lot("compose").Printf("composing %s by %s", track.Title, track.Artists[0])
 		lyrics, err := lyrics.Search(track)
 		if err != nil {
-			log.Println(util.Pad("[composer]"), util.Pad(track.Title), err)
+			tui.AnchorPrintf("compose failure: %s", err)
 			ch <- err
 			return
 		}
+		tui.Lot("compose").Wipe()
 		track.Lyrics = lyrics
-		log.Println(util.Pad("[composer]"), util.Pad(track.Title), util.Excerpt(lyrics))
+		tui.Printf("lyrics for %s by %s: %s", track.Title, track.Artists[0], util.Excerpt(lyrics))
 	}
 }
 
@@ -315,15 +331,16 @@ func routineCollectArtwork(track *entity.Track) func(context.Context, chan error
 		artwork := make(chan []byte, 1)
 		defer close(artwork)
 
-		log.Println(util.Pad("[painter]"), util.Pad(track.Title), track.Artwork.URL)
+		tui.Lot("paint").Printf("%s by %s", track.Title, track.Artists[0])
 		if err := downloader.Download(track.Artwork.URL, track.Path().Artwork(), processor.Artwork{}, artwork); err != nil {
-			log.Println(util.Pad("[painter]"), util.Pad(track.Title), err)
+			tui.AnchorPrintf("compose failure: %s", err)
 			ch <- err
 			return
 		}
 
+		tui.Lot("paint").Wipe()
 		track.Artwork.Data = <-artwork
-		log.Println(util.Pad("[painter]"), util.Pad(track.Title), len(track.Artwork.Data))
+		tui.Printf("lyrics for %s by %s: %dB", track.Title, track.Artists[0], len(track.Artwork.Data))
 	}
 }
 
@@ -336,14 +353,16 @@ func routineProcess(ctx context.Context, ch chan error) {
 
 	for event := range routineQueues[routineTypeProcess] {
 		track := event.(*entity.Track)
-		log.Println(util.Pad("[postproc]"), util.Pad(track.Title))
+		tui.Lot("process").Printf("%s by %s", track.Title, track.Artists[0])
 		if err := processor.Do(track); err != nil {
-			log.Println(util.Pad("[postproc]"), util.Pad(track.Title), err)
+			tui.AnchorPrintf("processing failed for %s by %s: %s", track.Title, track.Artists[0], err)
 			ch <- err
 			return
 		}
+		tui.Lot("process").Wipe()
 		routineQueues[routineTypeInstall] <- track
 	}
+	tui.Lot("process").Close()
 }
 
 // installer move the blob to its final destination
@@ -356,14 +375,16 @@ func routineInstall(ctx context.Context, ch chan error) {
 			track     = event.(*entity.Track)
 			status, _ = indexData.Get(track)
 		)
-		log.Println(util.Pad("[installer]"), util.Pad(track.Title))
+		tui.Lot("install").Printf("%s by %s ", track.Title, track.Artists[0])
 		if err := util.FileMoveOrCopy(track.Path().Download(), track.Path().Final(), status == index.Flush); err != nil {
-			log.Println(util.Pad("[installer]"), util.Pad(track.Title), err)
+			tui.AnchorPrintf("installation failed for %s by %s: %s", track.Title, track.Artists[0], err)
 			ch <- err
 			return
 		}
+		tui.Lot("install").Wipe()
 		indexData.Set(track, index.Installed)
 	}
+	tui.Lot("install").Close()
 }
 
 // mixer wraps playlists to their final destination
@@ -374,10 +395,10 @@ func routineMix(encoding string) func(context.Context, chan error) {
 
 		for event := range routineQueues[routineTypeMix] {
 			playlist := event.(*playlist.Playlist)
-			log.Println(util.Pad("[mixer]"), util.Pad(playlist.Name))
+			tui.Lot("mix").Printf("%s", playlist.Name)
 			encoder, err := playlist.Encoder(encoding)
 			if err != nil {
-				log.Println(util.Pad("[mixer]"), util.Pad(playlist.Name), err)
+				tui.AnchorPrintf("mixing failed for %s: %s", playlist.Name, err)
 				ch <- err
 				return
 			}
@@ -388,7 +409,7 @@ func routineMix(encoding string) func(context.Context, chan error) {
 				}
 
 				if err := encoder.Add(track); err != nil {
-					log.Println(util.Pad("[mixer]"), util.Pad(playlist.Name), err)
+					tui.AnchorPrintf("adding track to %s failed: %s", playlist.Name, err)
 					ch <- err
 					return
 
@@ -396,10 +417,11 @@ func routineMix(encoding string) func(context.Context, chan error) {
 			}
 
 			if err := encoder.Close(); err != nil {
-				log.Println(util.Pad("[mixer]"), util.Pad(playlist.Name), err)
+				tui.AnchorPrintf("closing playlist %s failed: %s", playlist.Name, err)
 				ch <- err
 				return
 			}
 		}
+		tui.Lot("mix").Close()
 	}
 }

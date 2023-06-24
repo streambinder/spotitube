@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/adrg/xdg"
 	"github.com/arunsworld/nursery"
 	"github.com/bogem/id3v2/v2"
 	"github.com/spf13/cobra"
@@ -105,7 +106,7 @@ func cmdSync() *cobra.Command {
 			}
 		},
 	}
-	cmd.Flags().StringP("output", "o", ".", "Output synchronization path")
+	cmd.Flags().StringP("output", "o", xdg.UserDirs.Music, "Output synchronization path")
 	cmd.Flags().String("playlist-encoding", "pls", "Target synchronization path")
 	cmd.Flags().BoolP("library", "l", false, "Synchronize library (auto-enabled if no collection is supplied)")
 	cmd.Flags().StringArrayP("playlist", "p", []string{}, "Synchronize playlist")

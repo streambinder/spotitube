@@ -55,6 +55,7 @@ func cmdSync() *cobra.Command {
 			var (
 				path, _             = cmd.Flags().GetString("output")
 				playlistEncoding, _ = cmd.Flags().GetString("playlist-encoding")
+				manual, _           = cmd.Flags().GetBool("manual")
 				library, _          = cmd.Flags().GetBool("library")
 				playlists, _        = cmd.Flags().GetStringArray("playlist")
 				playlistsTracks, _  = cmd.Flags().GetStringArray("playlist-tracks")
@@ -71,7 +72,7 @@ func cmdSync() *cobra.Command {
 				routineIndex,
 				routineAuth,
 				routineFetch(library, playlists, playlistsTracks, albums, tracks, fixes),
-				routineDecide,
+				routineDecide(manual),
 				routineCollect,
 				routineProcess,
 				routineInstall,
@@ -110,6 +111,7 @@ func cmdSync() *cobra.Command {
 	}
 	cmd.Flags().StringP("output", "o", xdg.UserDirs.Music, "Output synchronization path")
 	cmd.Flags().String("playlist-encoding", "pls", "Target synchronization path")
+	cmd.Flags().BoolP("manual", "m", false, "Enable manual mode (prompts for user-issued URL to use for download")
 	cmd.Flags().BoolP("library", "l", false, "Synchronize library (auto-enabled if no collection is supplied)")
 	cmd.Flags().StringArrayP("playlist", "p", []string{}, "Synchronize playlist")
 	cmd.Flags().StringArray("playlist-tracks", []string{}, "Synchronize playlist tracks without playlist file")
@@ -232,41 +234,51 @@ func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixe
 
 // decider finds the right asset to retrieve
 // for a given track
-func routineDecide(ctx context.Context, ch chan error) {
-	// remember to stop passing data to the collector
-	// the retriever, the composer and the painter
-	defer close(routineQueues[routineTypeCollect])
+func routineDecide(manualMode bool) func(context.Context, chan error) {
+	return func(ctx context.Context, ch chan error) {
+		// remember to stop passing data to the collector
+		// the retriever, the composer and the painter
+		defer close(routineQueues[routineTypeCollect])
 
-	for event := range routineQueues[routineTypeDecide] {
-		track := event.(*entity.Track)
+		for event := range routineQueues[routineTypeDecide] {
+			track := event.(*entity.Track)
 
-		if status, ok := indexData.Get(track); !ok {
-			tui.Printf("sync %s by %s", track.Title, track.Artists[0])
-			indexData.Set(track, index.Online)
-		} else if status == index.Online {
-			tui.Printf("skip %s by %s", track.Title, track.Artists[0])
-			continue
-		} else if status == index.Offline {
-			continue
+			if status, ok := indexData.Get(track); !ok {
+				tui.Printf("sync %s by %s", track.Title, track.Artists[0])
+				indexData.Set(track, index.Online)
+			} else if status == index.Online {
+				tui.Printf("skip %s by %s", track.Title, track.Artists[0])
+				continue
+			} else if status == index.Offline {
+				continue
+			}
+
+			if manualMode {
+				tui.Lot("decide").Printf("waiting on user input")
+				track.UpstreamURL = tui.Reads("URL for %s by %s:", track.Title, track.Artists[0])
+				tui.Lot("decide").Wipe()
+				if len(track.UpstreamURL) == 0 {
+					continue
+				}
+			} else {
+				tui.Lot("decide").Printf("%s by %s", track.Title, track.Artists[0])
+				matches, err := provider.Search(track)
+				tui.Lot("decide").Wipe()
+				if err != nil {
+					ch <- err
+					return
+				}
+
+				if len(matches) == 0 {
+					tui.AnchorPrintf("%s by %s (id: %s) not found", track.Title, track.Artists[0], track.ID)
+					continue
+				}
+				track.UpstreamURL = matches[0].URL
+			}
+			routineQueues[routineTypeCollect] <- track
 		}
-
-		tui.Lot("decide").Printf("%s by %s ", track.Title, track.Artists[0])
-		matches, err := provider.Search(track)
-		tui.Lot("decide").Wipe()
-		if err != nil {
-			ch <- err
-			return
-		}
-
-		if len(matches) == 0 {
-			tui.AnchorPrintf("%s by %s (id: %s) not found", track.Title, track.Artists[0], track.ID)
-			continue
-		}
-
-		track.UpstreamURL = matches[0].URL
-		routineQueues[routineTypeCollect] <- track
+		tui.Lot("decide").Close()
 	}
-	tui.Lot("decide").Close()
 }
 
 // collector fetches all the needed assets

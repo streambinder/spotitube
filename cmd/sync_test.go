@@ -390,6 +390,34 @@ func TestCmdSyncFixCloseFailure(t *testing.T) {
 	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "-f", "path")), "ko")
 }
 
+func TestCmdSyncDecideManual(t *testing.T) {
+	t.Cleanup(cleanup)
+
+	_track := &entity.Track{ID: "TestCmdSyncDecideManual", Title: "Title", Artists: []string{"Artist"}}
+
+	// monkey patching
+	defer gomonkey.NewPatches().
+		ApplyFunc(time.Sleep, func() {}).
+		ApplyFunc(cmd.Open, func() error {
+			return nil
+		}).
+		ApplyMethod(&index.Index{}, "Build", func() error {
+			return nil
+		}).
+		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
+			return &spotify.Client{}, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Library",
+			func(_ *spotify.Client, ch ...chan interface{}) error {
+				ch[0] <- _track
+				return nil
+			}).
+		Reset()
+
+	// testing
+	assert.Nil(t, util.ErrOnly(testExecute(cmdSync(), "--manual")))
+}
+
 func TestCmdSyncDecideFailure(t *testing.T) {
 	t.Cleanup(cleanup)
 

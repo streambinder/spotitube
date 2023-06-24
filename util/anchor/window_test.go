@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/streambinder/spotitube/util"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -23,6 +24,16 @@ func TestWindow(t *testing.T) {
 	assert.Nil(t, err)
 	os.Stdout = writer
 
+	stdin := os.Stdin
+	defer func() {
+		os.Stdin = stdin
+	}()
+	stdinFile, err := os.CreateTemp(util.CacheDirectory(), "test")
+	assert.Nil(t, err)
+	defer os.Remove(stdinFile.Name())
+	assert.Nil(t, util.ErrOnly(stdinFile.Write([]byte("input\n"))))
+	os.Stdin = stdinFile
+
 	var (
 		window = Window(Normal)
 		lot    = window.Lot("lot")
@@ -35,6 +46,7 @@ func TestWindow(t *testing.T) {
 	window.shift(-2)
 	lot.Wipe()
 	lot.Close("closure")
+	window.Reads("prompt:")
 	assert.Nil(t, writer.Close())
 
 	output, err := io.ReadAll(reader)
@@ -45,4 +57,5 @@ func TestWindow(t *testing.T) {
 	assert.Contains(t, string(output), "default text 2")
 	assert.Contains(t, string(output), "lot text 2")
 	assert.Contains(t, string(output), "closure")
+	assert.Contains(t, string(output), "prompt")
 }

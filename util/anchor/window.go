@@ -1,11 +1,15 @@
 package anchor
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"strings"
 	"sync"
 
 	"atomicgo.dev/cursor"
 	"github.com/pterm/pterm"
+	"github.com/streambinder/spotitube/util"
 )
 
 const (
@@ -47,15 +51,11 @@ type anchor struct {
 }
 
 func Window(anchorColors ...pterm.Color) *window {
-	color := Normal
-	if len(anchorColors) > 0 {
-		color = pterm.Color(anchorColors[0])
-	}
 	return &window{
 		anchors:     []*anchor{},
 		lots:        []*lot{},
 		aliases:     make(map[string]int),
-		anchorColor: color,
+		anchorColor: util.First(anchorColors, Normal),
 		lock:        sync.RWMutex{},
 	}
 }
@@ -92,11 +92,7 @@ func (window *window) AnchorPrintf(format string, a ...any) {
 }
 
 func (window *window) up(lines ...int) {
-	amount := 1
-	if len(lines) > 0 {
-		amount = lines[0]
-	}
-	cursor.UpAndClear(amount)
+	cursor.UpAndClear(util.First(lines, 1))
 	cursor.StartOfLine()
 }
 
@@ -141,6 +137,18 @@ func (window *window) print(doAnchor bool, data string) {
 	} else {
 		window.shift(cursorDefault)
 	}
-
 	fmt.Print(data)
+}
+
+func (window *window) Reads(label string, a ...interface{}) (value string) {
+	window.lock.Lock()
+	defer window.lock.Unlock()
+	defer cursor.Bottom()
+	window.shift(cursorDefault)
+	fmt.Printf(label+" ", a...)
+	value, _ = bufio.NewReader(os.Stdin).ReadString('\n')
+	value = strings.TrimSpace(value)
+	value = strings.Trim(value, "\n")
+	value = strings.Trim(value, "\r")
+	return
 }

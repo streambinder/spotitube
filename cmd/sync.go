@@ -51,6 +51,7 @@ func cmdSync() *cobra.Command {
 		Use:          "sync",
 		Short:        "Synchronize collections",
 		SilenceUsage: true,
+		Args:         cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var (
 				path, _             = cmd.Flags().GetString("output")

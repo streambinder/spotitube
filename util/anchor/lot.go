@@ -4,14 +4,15 @@ import (
 	"fmt"
 
 	"atomicgo.dev/cursor"
-	"github.com/pterm/pterm"
+	"github.com/fatih/color"
+	"github.com/streambinder/spotitube/util"
 )
 
 type lot struct {
 	anchor
 	id    int
 	alias string
-	style pterm.Color
+	style *color.Color
 }
 
 func formatAlias(alias string) string {
@@ -36,12 +37,8 @@ func (lot *lot) Wipe() {
 }
 
 func (lot *lot) Close(messages ...string) {
-	message := "done"
-	if len(messages) > 0 {
-		message = messages[0]
-	}
-	lot.style = pterm.FgDarkGray
-	lot.Printf(message)
+	lot.style = color.New(color.FgWhite)
+	lot.Printf(util.First(messages, "done"))
 }
 
 func (lot *lot) write() {

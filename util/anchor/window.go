@@ -8,40 +8,32 @@ import (
 	"sync"
 
 	"atomicgo.dev/cursor"
-	"github.com/pterm/pterm"
+	"github.com/fatih/color"
 	"github.com/streambinder/spotitube/util"
 )
 
 const (
-	Black        = pterm.FgBlack
-	Blue         = pterm.FgBlue
-	Cyan         = pterm.FgCyan
-	Gray         = pterm.FgGray
-	Green        = pterm.FgGreen
-	LightBlue    = pterm.FgLightBlue
-	LightCyan    = pterm.FgLightCyan
-	LightGreen   = pterm.FgLightGreen
-	LightMagenta = pterm.FgLightMagenta
-	LightRed     = pterm.FgLightRed
-	LightWhite   = pterm.FgLightWhite
-	LightYellow  = pterm.FgLightYellow
-	Magenta      = pterm.FgMagenta
-	Normal       = pterm.FgDefault
-	Red          = pterm.FgRed
-	White        = pterm.FgWhite
-	Yellow       = pterm.FgYellow
+	Black   = color.FgBlack
+	Blue    = color.FgBlue
+	Cyan    = color.FgCyan
+	Green   = color.FgGreen
+	Magenta = color.FgMagenta
+	Normal  = color.Reset
+	Red     = color.FgRed
+	White   = color.FgWhite
+	Yellow  = color.FgYellow
 	_
 	cursorAnchor = -iota
 	cursorDefault
 )
 
-type Color pterm.Color
+type Color color.Attribute
 
 type window struct {
 	anchors     []*anchor
 	lots        []*lot
 	aliases     map[string]int
-	anchorColor pterm.Color
+	anchorColor *color.Color
 	lock        sync.RWMutex
 }
 
@@ -50,12 +42,12 @@ type anchor struct {
 	window *window
 }
 
-func Window(anchorColors ...pterm.Color) *window {
+func Window(anchorColors ...color.Attribute) *window {
 	return &window{
 		anchors:     []*anchor{},
 		lots:        []*lot{},
 		aliases:     make(map[string]int),
-		anchorColor: util.First(anchorColors, Normal),
+		anchorColor: color.New(util.First(anchorColors, Normal)),
 		lock:        sync.RWMutex{},
 	}
 }
@@ -75,7 +67,7 @@ func (window *window) Lot(alias string) *lot {
 		},
 		id:    len(window.lots),
 		alias: alias,
-		style: pterm.Bold,
+		style: color.New(color.Bold),
 	}
 	window.aliases[alias] = len(window.lots)
 	window.lots = append(window.lots, lot)
@@ -88,7 +80,7 @@ func (window *window) Printf(format string, a ...any) {
 }
 
 func (window *window) AnchorPrintf(format string, a ...any) {
-	window.print(true, pterm.FgRed.Sprintf(format, a...))
+	window.print(true, window.anchorColor.Sprintf(format, a...))
 }
 
 func (window *window) up(lines ...int) {

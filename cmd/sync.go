@@ -353,7 +353,7 @@ func routineCollectArtwork(track *entity.Track) func(context.Context, chan error
 
 		tui.Lot("paint").Wipe()
 		track.Artwork.Data = <-artwork
-		tui.Printf("lyrics for %s by %s: %dB", track.Title, track.Artists[0], len(track.Artwork.Data))
+		tui.Printf("artwork for %s by %s: %dB", track.Title, track.Artists[0], len(track.Artwork.Data))
 	}
 }
 

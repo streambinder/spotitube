@@ -22,7 +22,7 @@ func UniqueFields(sentence string) (uniqueFieldsSentence string) {
 	)
 
 	for _, field := range strings.Fields(Flatten(sentence)) {
-		if appearances[field] {
+		if appearances[field] || len(field) <= 3 {
 			continue
 		}
 		appearances[field] = true

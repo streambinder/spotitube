@@ -175,21 +175,21 @@ func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixe
 		}
 
 		if library {
-			tui.Lot("fetch").Printf("fetching library")
+			tui.Lot("fetch").Printf("library")
 			if err := spotifyClient.Library(routineQueues[routineTypeDecide]); err != nil {
 				ch <- err
 				return
 			}
 		}
 		for _, id := range albums {
-			tui.Lot("fetch").Printf("fetching album %s", id)
+			tui.Lot("fetch").Printf("album %s", id)
 			if _, err := spotifyClient.Album(id, routineQueues[routineTypeDecide]); err != nil {
 				ch <- err
 				return
 			}
 		}
 		for _, path := range fixes {
-			tui.Lot("fetch").Printf("parsing track %s", path)
+			tui.Lot("fetch").Printf("track %s", path)
 			tag, err := id3.Open(path, id3v2.Options{Parse: true})
 			if err != nil {
 				ch <- err
@@ -209,7 +209,7 @@ func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixe
 			}
 		}
 		for _, id := range tracks {
-			tui.Lot("fetch").Printf("fetching track %s", id)
+			tui.Lot("fetch").Printf("track %s", id)
 			if _, err := spotifyClient.Track(id, routineQueues[routineTypeDecide]); err != nil {
 				ch <- err
 				return
@@ -218,7 +218,7 @@ func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixe
 
 		// some special treatment for playlists
 		for index, id := range append(playlists, playlistsTracks...) {
-			tui.Lot("fetch").Printf("fetching playlist %s", id)
+			tui.Lot("fetch").Printf("playlist %s", id)
 			playlist, err := spotifyClient.Playlist(id, routineQueues[routineTypeDecide])
 			if err != nil {
 				ch <- err
@@ -309,7 +309,7 @@ func routineCollect(ctx context.Context, ch chan error) {
 // to the (meta)data fetched from upstream
 func routineCollectAsset(track *entity.Track) func(context.Context, chan error) {
 	return func(ctx context.Context, ch chan error) {
-		tui.Lot("download").Printf("%s by %s ", track.Title, track.Artists[0])
+		tui.Lot("download").Printf(track.UpstreamURL)
 		if err := downloader.Download(track.UpstreamURL, track.Path().Download(), nil); err != nil {
 			tui.AnchorPrintf("download failure: %s", err)
 			ch <- err
@@ -323,7 +323,7 @@ func routineCollectAsset(track *entity.Track) func(context.Context, chan error) 
 // in the fetched blob
 func routineCollectLyrics(track *entity.Track) func(context.Context, chan error) {
 	return func(ctx context.Context, ch chan error) {
-		tui.Lot("compose").Printf("composing %s by %s", track.Title, track.Artists[0])
+		tui.Lot("compose").Printf("%s by %s", track.Title, track.Artists[0])
 		lyrics, err := lyrics.Search(track)
 		if err != nil {
 			tui.AnchorPrintf("compose failure: %s", err)
@@ -396,7 +396,7 @@ func routineInstall(ctx context.Context, ch chan error) {
 		tui.Lot("install").Wipe()
 		indexData.Set(track, index.Installed)
 	}
-	tui.Lot("install").Close()
+	tui.Lot("install").Close(strconv.Itoa(indexData.Size(index.Installed)) + " tracks")
 }
 
 // mixer wraps playlists to their final destination

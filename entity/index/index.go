@@ -94,6 +94,18 @@ func (index *Index) Get(track *entity.Track) (int, bool) {
 	return value, ok
 }
 
-func (index *Index) Size() int {
-	return len(index.data)
+func (index *Index) Size(statuses ...int) (counter int) {
+	if len(statuses) == 0 {
+		return len(index.data)
+	}
+
+	for _, value := range index.data {
+		for _, status := range statuses {
+			if value == status {
+				counter += 1
+				break
+			}
+		}
+	}
+	return
 }

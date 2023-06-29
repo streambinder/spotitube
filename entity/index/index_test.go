@@ -71,6 +71,7 @@ func TestBuild(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, 0, status)
 	assert.Equal(t, 1, index.Size())
+	assert.Equal(t, 1, index.Size(Offline))
 }
 
 func TestBuildOpenFailure(t *testing.T) {

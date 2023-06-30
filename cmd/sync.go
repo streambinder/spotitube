@@ -175,16 +175,25 @@ func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixe
 			return
 		}
 
+		fetched := make(chan interface{}, 10000)
+		defer close(fetched)
+		go func() {
+			for event := range fetched {
+				track := event.(*entity.Track)
+				tui.Lot("fetch").Printf("%s by %s", track.Title, track.Artists[0])
+			}
+		}()
+
 		if library {
 			tui.Lot("fetch").Printf("library")
-			if err := spotifyClient.Library(routineQueues[routineTypeDecide]); err != nil {
+			if err := spotifyClient.Library(routineQueues[routineTypeDecide], fetched); err != nil {
 				ch <- err
 				return
 			}
 		}
 		for _, id := range albums {
 			tui.Lot("fetch").Printf("album %s", id)
-			if _, err := spotifyClient.Album(id, routineQueues[routineTypeDecide]); err != nil {
+			if _, err := spotifyClient.Album(id, routineQueues[routineTypeDecide], fetched); err != nil {
 				ch <- err
 				return
 			}
@@ -211,7 +220,7 @@ func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixe
 		}
 		for _, id := range tracks {
 			tui.Lot("fetch").Printf("track %s", id)
-			if _, err := spotifyClient.Track(id, routineQueues[routineTypeDecide]); err != nil {
+			if _, err := spotifyClient.Track(id, routineQueues[routineTypeDecide], fetched); err != nil {
 				ch <- err
 				return
 			}
@@ -220,7 +229,7 @@ func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixe
 		// some special treatment for playlists
 		for index, id := range append(playlists, playlistsTracks...) {
 			tui.Lot("fetch").Printf("playlist %s", id)
-			playlist, err := spotifyClient.Playlist(id, routineQueues[routineTypeDecide])
+			playlist, err := spotifyClient.Playlist(id, routineQueues[routineTypeDecide], fetched)
 			if err != nil {
 				ch <- err
 				return

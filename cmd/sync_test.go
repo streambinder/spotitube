@@ -54,8 +54,10 @@ func TestCmdSync(t *testing.T) {
 			return &spotify.Client{}, nil
 		}).
 		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
-			ch[0] <- _track
-			ch[0] <- _track // to trigger duplicate check
+			for _, c := range ch {
+				c <- _track
+				c <- _track // to trigger duplicate check
+			}
 			return nil
 		}).
 		ApplyMethod(&spotify.Client{}, "Playlist", func(_ *spotify.Client, _ string, ch ...chan interface{}) (*playlist.Playlist, error) {

@@ -10,6 +10,7 @@ FROM alpine:latest
 RUN apk add --no-cache ffmpeg yt-dlp
 RUN mkdir /data
 WORKDIR /data
+ENV XDG_MUSIC_DIR=/data
 COPY --from=builder /workspace/spotitube /usr/sbin/
 ENTRYPOINT ["/usr/sbin/spotitube"]
 LABEL org.opencontainers.image.source=https://github.com/streambinder/spotitube

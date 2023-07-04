@@ -13,10 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-        with:
-          ref: rewrite
       - uses: actions/setup-go@v3
-      - run: |
-          go test -v -run ^TestScraping$ ./...
+      - run:  go test -v -run ^TestScraping$ ./...
         env:
           TEST_SCRAPING: true

@@ -182,6 +182,7 @@ func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixe
 				track := event.(*entity.Track)
 				tui.Lot("fetch").Printf("%s by %s", track.Title, track.Artists[0])
 			}
+			tui.Lot("fetch").Close()
 		}()
 
 		if library {
@@ -238,7 +239,6 @@ func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixe
 				routineQueues[routineTypeMix] <- playlist
 			}
 		}
-		tui.Lot("fetch").Close()
 	}
 }
 

@@ -247,12 +247,9 @@ func TestAuthenticateRecoverAndPersistTokenFailure(t *testing.T) {
 }
 
 func TestAuthenticateRecoverAndPersistMkdirFailure(t *testing.T) {
-	t.Cleanup(resetPort)
-	port = getPort()
-
 	// monkey patching
 	defer gomonkey.NewPatches().
-		ApplyMethod(&spotify.Client{}, "Token", func() (*oauth2.Token, error) {
+		ApplyFunc(Recover, func() (*Client, error) {
 			return nil, nil
 		}).
 		ApplyFunc(os.MkdirAll, func() error {

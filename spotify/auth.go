@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/arunsworld/nursery"
 	"github.com/streambinder/spotitube/util"
@@ -142,6 +143,10 @@ func Recover(authenticator *spotifyauth.Authenticator, state string) (*Client, e
 }
 
 func (client *Client) Persist() error {
+	if err := os.MkdirAll(filepath.Dir(tokenPath), 0o755); err != nil {
+		return err
+	}
+
 	token, err := client.Token()
 	if err != nil {
 		return err

@@ -246,6 +246,24 @@ func TestAuthenticateRecoverAndPersistTokenFailure(t *testing.T) {
 	assert.EqualError(t, util.ErrOnly(Authenticate(nil)), "ko")
 }
 
+func TestAuthenticateRecoverAndPersistMkdirFailure(t *testing.T) {
+	t.Cleanup(resetPort)
+	port = getPort()
+
+	// monkey patching
+	defer gomonkey.NewPatches().
+		ApplyMethod(&spotify.Client{}, "Token", func() (*oauth2.Token, error) {
+			return nil, nil
+		}).
+		ApplyFunc(os.MkdirAll, func() error {
+			return errors.New("ko")
+		}).
+		Reset()
+
+	// testing
+	assert.EqualError(t, util.ErrOnly(Authenticate(nil)), "ko")
+}
+
 func TestAuthenticateRecoverAndPersistOpenFailure(t *testing.T) {
 	t.Cleanup(resetPort)
 	port = getPort()

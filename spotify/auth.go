@@ -19,15 +19,15 @@ import (
 )
 
 const (
-	TokenBasename      = "session.json"
-	closeTabHTML       = "<!DOCTYPE html><html><head><script>open(location, '_self').close();</script></head></html>"
-	fallbackSpotifyID  = ""
-	fallbackSpotifyKey = ""
+	TokenBasename = "session.json"
+	closeTabHTML  = "<!DOCTYPE html><html><head><script>open(location, '_self').close();</script></head></html>"
 )
 
 var (
-	port      = 65535
-	tokenPath = util.CacheFile(TokenBasename)
+	port               = 65535
+	tokenPath          = util.CacheFile(TokenBasename)
+	fallbackSpotifyID  = ""
+	fallbackSpotifyKey = ""
 )
 
 type Client struct {

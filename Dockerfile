@@ -1,23 +1,25 @@
+# docker run -it --rm -p 65535:65535/tcp -v ~/Music:/data -v ~/.cache:/cache ghcr.io/streambinder/spotitubeFROM golang:alpine as builder
 FROM golang:alpine as builder
 WORKDIR /workspace
-COPY go.mod .
-COPY go.sum .
+COPY . .
 RUN go mod download
 # git is garble runtime dependency
 # https://github.com/bluekeyes/go-gitdiff/issues/30
 RUN apk add --no-cache git
 RUN go install mvdan.cc/garble@latest
-COPY . .
-RUN sed -iE "s/(fallbackSpotifyID += +)\"\"$/\1\"$SPOTIFY_ID\"/g" spotify/auth.go
-RUN sed -iE "s/(fallbackSpotifyKey += +)\"\"$/\1\"$SPOTIFY_KEY\"/g" spotify/auth.go
-RUN sed -iE "s/(fallbackGeniusToken += +)\"\"$/\1\"$GENIUS_TOKEN\"/g" lyrics/genius.go
-RUN garble -literals -tiny -seed=random build
+RUN --mount=type=secret,id=SPOTIFY_ID \
+    --mount=type=secret,id=SPOTIFY_KEY \
+    --mount=type=secret,id=GENIUS_TOKEN \
+    garble -literals -tiny -seed=random build -ldflags="-X github.com/streambinder/spotitube/spotify.fallbackSpotifyID=$(cat /run/secrets/SPOTIFY_ID) -X github.com/streambinder/spotitube/spotify.fallbackSpotifyKey=$(cat /run/secrets/SPOTIFY_KEY) -X github.com/streambinder/spotitube/lyrics.fallbackGeniusToken=$(cat /run/secrets/GENIUS_TOKEN)"
 
 FROM alpine:latest
 RUN apk add --no-cache ffmpeg yt-dlp
 RUN mkdir /data
+RUN mkdir /cache
 WORKDIR /data
 ENV XDG_MUSIC_DIR=/data
+ENV XDG_CACHE_HOME=/cache
 COPY --from=builder /workspace/spotitube /usr/sbin/
+EXPOSE 65535/tcp
 ENTRYPOINT ["/usr/sbin/spotitube"]
 LABEL org.opencontainers.image.source=https://github.com/streambinder/spotitube

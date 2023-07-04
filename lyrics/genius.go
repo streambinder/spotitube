@@ -18,10 +18,9 @@ import (
 	"github.com/streambinder/spotitube/util"
 )
 
-const (
-	contextValueLabelMainArtist = "mainArtistOnly"
-	fallbackGeniusToken         = ""
-)
+const contextValueLabelMainArtist = "mainArtistOnly"
+
+var fallbackGeniusToken = ""
 
 type contextValueLabel string
 

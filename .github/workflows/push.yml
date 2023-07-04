@@ -92,6 +92,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/build-push-action@v4
         with:
+          build-args: |
+            SPOTIFY_ID="${{ secrets.SPOTIFY_ID }}"
+            SPOTIFY_KEY="${{ secrets.SPOTIFY_KEY }}"
+            GENIUS_TOKEN="${{ secrets.GENIUS_TOKEN }}"
           platforms: linux/amd64,linux/arm/v7,linux/arm64/v8
           tags: ghcr.io/streambinder/spotitube:latest
           push: ${{ github.event_name != 'pull_request' }}

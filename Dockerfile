@@ -3,8 +3,14 @@ WORKDIR /workspace
 COPY go.mod .
 COPY go.sum .
 RUN go mod download
+# git is garble runtime dependency
+RUN apk add --no-cache git
+RUN go install mvdan.cc/garble@latest
 COPY . .
-RUN go build -ldflags "-s -w"
+RUN sed -iE "s/(fallbackSpotifyID += +)\"\"$/\1\"$SPOTIFY_ID\"/g" spotify/auth.go
+RUN sed -iE "s/(fallbackSpotifyKey += +)\"\"$/\1\"$SPOTIFY_KEY\"/g" spotify/auth.go
+RUN sed -iE "s/(fallbackGeniusToken += +)\"\"$/\1\"$GENIUS_TOKEN\"/g" lyrics/genius.go
+RUN garble -literals -tiny -seed=random build
 
 FROM alpine:latest
 RUN apk add --no-cache ffmpeg yt-dlp

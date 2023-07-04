@@ -20,7 +20,7 @@ import (
 
 const (
 	contextValueLabelMainArtist = "mainArtistOnly"
-	fallbackGeniustoken         = ""
+	fallbackGeniusToken         = ""
 )
 
 type contextValueLabel string
@@ -75,7 +75,7 @@ func (composer genius) search(track *entity.Track, ctxs ...context.Context) ([]b
 	if err != nil {
 		return nil, err
 	}
-	request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", util.Fallback(os.Getenv("GENIUS_TOKEN"), fallbackGeniustoken)))
+	request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", util.Fallback(os.Getenv("GENIUS_TOKEN"), fallbackGeniusToken)))
 
 	response, err := http.DefaultClient.Do(request)
 	if err != nil && errors.Is(err, context.Canceled) {

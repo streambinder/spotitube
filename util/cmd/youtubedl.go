@@ -11,7 +11,7 @@ import (
 func YouTubeDl(url, path string) error {
 	pathExtension := filepath.Ext(path)[1:]
 	path = strings.TrimSuffix(util.FileBaseStem(path), "."+pathExtension)
-	return exec.Command("youtube-dl",
+	return exec.Command("yt-dlp",
 		"--format", "bestaudio",
 		"--extract-audio",
 		"--audio-format", pathExtension,

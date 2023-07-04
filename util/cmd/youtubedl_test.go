@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"os/exec"
 	"testing"
 
@@ -20,4 +21,12 @@ func TestYouTubeDlDownload(t *testing.T) {
 
 	// testing
 	assert.Nil(t, YouTubeDl("http://localhost", "fname.txt"))
+}
+
+func TestYouTubeDlDownloadFailure(t *testing.T) {
+	// monkey patching
+	defer gomonkey.ApplyMethod(&exec.Cmd{}, "Run", func() error { return errors.New("ko") }).Reset()
+
+	// testing
+	assert.Error(t, YouTubeDl("http://localhost", "fname.txt"))
 }

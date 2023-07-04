@@ -4,6 +4,7 @@ COPY go.mod .
 COPY go.sum .
 RUN go mod download
 # git is garble runtime dependency
+# https://github.com/bluekeyes/go-gitdiff/issues/30
 RUN apk add --no-cache git
 RUN go install mvdan.cc/garble@latest
 COPY . .

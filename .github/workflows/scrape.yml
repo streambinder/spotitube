@@ -17,3 +17,4 @@ jobs:
       - run:  go test -v -run ^TestScraping$ ./...
         env:
           TEST_SCRAPING: true
+          GENIUS_TOKEN: ${{ secrets.GENIUS_TOKEN }}

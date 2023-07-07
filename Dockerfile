@@ -3,14 +3,10 @@ FROM golang:alpine as builder
 WORKDIR /workspace
 COPY . .
 RUN go mod download
-# git is garble runtime dependency
-# https://github.com/bluekeyes/go-gitdiff/issues/30
-RUN apk add --no-cache git
-RUN go install mvdan.cc/garble@latest
 RUN --mount=type=secret,id=SPOTIFY_ID \
     --mount=type=secret,id=SPOTIFY_KEY \
     --mount=type=secret,id=GENIUS_TOKEN \
-    garble -literals -tiny -seed=random build -ldflags="-X github.com/streambinder/spotitube/spotify.fallbackSpotifyID=$(cat /run/secrets/SPOTIFY_ID) -X github.com/streambinder/spotitube/spotify.fallbackSpotifyKey=$(cat /run/secrets/SPOTIFY_KEY) -X github.com/streambinder/spotitube/lyrics.fallbackGeniusToken=$(cat /run/secrets/GENIUS_TOKEN)"
+    go build -ldflags="-s -w -X github.com/streambinder/spotitube/spotify.fallbackSpotifyID=$(cat /run/secrets/SPOTIFY_ID) -X github.com/streambinder/spotitube/spotify.fallbackSpotifyKey=$(cat /run/secrets/SPOTIFY_KEY) -X github.com/streambinder/spotitube/lyrics.fallbackGeniusToken=$(cat /run/secrets/GENIUS_TOKEN)"
 
 FROM alpine:latest
 RUN apk add --no-cache ffmpeg yt-dlp

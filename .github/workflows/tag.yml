@@ -26,7 +26,6 @@ jobs:
       - uses: actions/setup-go@v4
       - run: |
           go mod download
-          go install mvdan.cc/garble@latest
           for os in linux darwin windows; do
             for arch in arm64 amd64; do
               fname="spotitube-${os}-${arch}"
@@ -34,7 +33,7 @@ jobs:
                 fname="${fname}.exe"
               fi
               echo "building $fname..."
-              GOOS=$os GOARCH=$arch CGO_ENABLED=0 garble -literals -tiny -seed=random build -ldflags="
+              GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -ldflags="-s -w
                 -X github.com/streambinder/spotitube/spotify.fallbackSpotifyID=$SPOTIFY_ID
                 -X github.com/streambinder/spotitube/spotify.fallbackSpotifyKey=$SPOTIFY_KEY
                 -X github.com/streambinder/spotitube/lyrics.fallbackGeniusToken=$GENIUS_TOKEN

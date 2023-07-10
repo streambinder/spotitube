@@ -71,3 +71,4 @@ jobs:
             GENIUS_TOKEN=${{ secrets.GENIUS_TOKEN }}
           platforms: linux/amd64,linux/arm/v7,linux/arm64/v8
           tags: ghcr.io/streambinder/spotitube:${{ github.ref_name }}
+          push: true

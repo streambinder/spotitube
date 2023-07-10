@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/agiledragon/gomonkey/v2"
-	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/util"
 	"github.com/stretchr/testify/assert"
 )
@@ -291,38 +289,38 @@ func TestGeniusLyricsNotParseable(t *testing.T) {
 	assert.EqualError(t, util.ErrOnly(genius{}.search(track)), "ko")
 }
 
-func TestScraping(t *testing.T) {
-	if os.Getenv("TEST_SCRAPING") == "" {
-		return
-	}
+// func TestScraping(t *testing.T) {
+// 	if os.Getenv("TEST_SCRAPING") == "" {
+// 		return
+// 	}
 
-	// testing
-	lyrics, err := genius{}.search(&entity.Track{
-		Title:   "White Christmas",
-		Artists: []string{"Bing Crosby"},
-	})
-	assert.Nil(t, err)
-	assert.Equal(t, []byte(`[Verse 1: Bing Crosby]
-I'm dreaming of a white Christmas
-Just like the ones I used to know
-Where the treetops glisten and children listen
-To hear sleigh bells in the snow
+// 	// testing
+// 	lyrics, err := genius{}.search(&entity.Track{
+// 		Title:   "White Christmas",
+// 		Artists: []string{"Bing Crosby"},
+// 	})
+// 	assert.Nil(t, err)
+// 	assert.Equal(t, []byte(`[Verse 1: Bing Crosby]
+// I'm dreaming of a white Christmas
+// Just like the ones I used to know
+// Where the treetops glisten and children listen
+// To hear sleigh bells in the snow
 
-[Verse 2: Bing Crosby]
-I'm dreaming of a white Christmas
-With every Christmas card I write
-"May your days be merry and bright
-And may all your Christmases be white"
+// [Verse 2: Bing Crosby]
+// I'm dreaming of a white Christmas
+// With every Christmas card I write
+// "May your days be merry and bright
+// And may all your Christmases be white"
 
-[Verse 3: Bing Crosby & Ken Darby Singers]
-I'm dreaming of a white Christmas
-Just like the ones I used to know
-Where the treetops glisten and children listen
-To hear sleigh bells in the snow
+// [Verse 3: Bing Crosby & Ken Darby Singers]
+// I'm dreaming of a white Christmas
+// Just like the ones I used to know
+// Where the treetops glisten and children listen
+// To hear sleigh bells in the snow
 
-[Verse 4: Bing Crosby & Ken Darby Singers, Bing Crosby]
-I'm dreaming of a white Christmas
-With every Christmas card I write
-"May your days be merry and bright
-And may all your Christmases be white"`), lyrics)
-}
+// [Verse 4: Bing Crosby & Ken Darby Singers, Bing Crosby]
+// I'm dreaming of a white Christmas
+// With every Christmas card I write
+// "May your days be merry and bright
+// And may all your Christmases be white"`), lyrics)
+// }

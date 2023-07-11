@@ -1,4 +1,4 @@
-# docker run -it --rm -p 65535:65535/tcp -v ~/Music:/data -v ~/.cache:/cache ghcr.io/streambinder/spotitubeFROM golang:alpine as builder
+# docker run -it --rm -p 65535:65535/tcp -v ~/Music:/data -v ~/.cache:/cache ghcr.io/streambinder/spotitube
 FROM golang:alpine as builder
 WORKDIR /workspace
 COPY . .

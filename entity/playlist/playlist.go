@@ -8,10 +8,11 @@ import (
 )
 
 type Playlist struct {
-	ID     string
-	Name   string
-	Owner  string
-	Tracks []*entity.Track
+	ID            string
+	Name          string
+	Owner         string
+	Collaborative bool
+	Tracks        []*entity.Track
 }
 
 func (entity Playlist) Encoder(encoding string) (playlistEncoder, error) {

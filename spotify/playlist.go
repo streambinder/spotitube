@@ -15,9 +15,10 @@ const (
 
 func playlistEntity(fullPlaylist *spotify.FullPlaylist) *playlist.Playlist {
 	return &playlist.Playlist{
-		ID:    fullPlaylist.ID.String(),
-		Name:  fullPlaylist.Name,
-		Owner: fullPlaylist.Owner.ID,
+		ID:            fullPlaylist.ID.String(),
+		Name:          fullPlaylist.Name,
+		Owner:         fullPlaylist.Owner.ID,
+		Collaborative: fullPlaylist.Collaborative,
 	}
 }
 

@@ -184,7 +184,7 @@ func (result geniusResult) score() int {
 	distance := int(math.Min(
 		float64(levenshtein.ComputeDistance(
 			util.UniqueFields(result.query),
-			util.UniqueFields(fmt.Sprintf("%s %s", result.Artist.Name, result.Title)),
+			util.UniqueFields(fmt.Sprintf("%s %s", result.Title, result.Artist.Name)),
 		)),
 		50.0,
 	))

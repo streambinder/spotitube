@@ -10,7 +10,7 @@ import (
 
 var (
 	providers  = []Provider{}
-	misleading = []string{"cover", "live", "karaoke", "performance", "studio", "instrumental"}
+	misleading = []string{"cover", "live", "karaoke", "performance", "studio", "instrumental", "remix"}
 )
 
 type Match struct {

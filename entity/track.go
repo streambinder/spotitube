@@ -49,6 +49,7 @@ func (track *Track) Song() (song string) {
 	song = track.Title
 	song = strings.Split(song+" - ", " - ")[0]
 	song = strings.Split(song+" (", " (")[0]
+	song = strings.Split(song+" [", " [")[0]
 	return
 }
 

@@ -359,7 +359,7 @@ func TestCmdSyncFixSpotifyIDFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "-f", "path")), "track path does not have spotify ID metadata set")
+	assert.ErrorContains(t, util.ErrOnly(testExecute(cmdSync(), "-f", "path")), "does not have spotify ID metadata set")
 }
 
 func TestCmdSyncFixCloseFailure(t *testing.T) {

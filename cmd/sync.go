@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/adrg/xdg"
@@ -64,6 +65,12 @@ func cmdSync() *cobra.Command {
 				tracks, _           = cmd.Flags().GetStringArray("track")
 				fixes, _            = cmd.Flags().GetStringArray("fix")
 			)
+
+			for index, path := range fixes {
+				if absPath, err := filepath.Abs(path); err == nil {
+					fixes[index] = absPath
+				}
+			}
 
 			if err := os.Chdir(path); err != nil {
 				return err

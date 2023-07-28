@@ -3,7 +3,7 @@ module github.com/streambinder/spotitube
 go 1.19
 
 require (
-	atomicgo.dev/cursor v0.1.2
+	atomicgo.dev/cursor v0.1.3
 	github.com/PuerkitoBio/goquery v1.8.1
 	github.com/adrg/xdg v0.4.0
 	github.com/agiledragon/gomonkey/v2 v2.10.1

@@ -71,7 +71,14 @@ jobs:
     if: success() && github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            docs:
+              - 'docs/**'
       - uses: peter-evans/repository-dispatch@v2
+        if: steps.filter.outputs.docs == 'true'
         with:
           token: ${{ secrets.GH_ACTIONS_SPOTITUBE }}
           repository: streambinder/streambinder

@@ -34,7 +34,7 @@ In order to build a binary which contains these fields, the following formula ca
 ```bash
 go build -ldflags="
     -X github.com/streambinder/spotitube/spotify.fallbackSpotifyID='awesomeSpotifyID'
-    -X github.com/streambinder/spotitube/spotify.fallbackSpotifyKey='awesomeSpotifyID'
+    -X github.com/streambinder/spotitube/spotify.fallbackSpotifyKey='awesomeSpotifyKey'
     -X github.com/streambinder/spotitube/lyrics.fallbackGeniusToken='awesomeGeniusToken'
 "
 ```

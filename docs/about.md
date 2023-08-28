@@ -22,7 +22,7 @@ spotitube sync --playlist spotitube-sync \
     --fix /path/to/already/downloaded/track.mp3
 ```
 
-As showed in the previous example, there are several ways of indicate the ID of a resource — be it a playlist, album or track:
+As showed in the previous example, there are several ways to indicate the ID of a resource — be it a playlist, album or track:
 regardless Spotitube is given a full URL to that resource (e.g. `https://open.spotify.com/playlist/2wyZKlaKzPEUurb6KshAwQ?si=426ac1fd0fbe4cab`), a URI (e.g. `spotify:playlist:2wyZKlaKzPEUurb6KshAwQ`) or an ID (e.g. `2wyZKlaKzPEUurb6KshAwQ`), it should be smart enough to solve the effective ID resolution all by itself.
 
 Furthermore, in case of playlist, automatic aliasing of personal playlist names into their ID is applied: this enables passing playlist by name instead of ID in case user wants to synchronize personal playlists.

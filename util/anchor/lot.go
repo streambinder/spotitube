@@ -8,6 +8,10 @@ import (
 	"github.com/streambinder/spotitube/util"
 )
 
+const idle = "idle"
+
+var idleColor = color.New(color.FgWhite)
+
 type lot struct {
 	anchor
 	id    int
@@ -33,7 +37,7 @@ func (lot *lot) Printf(format string, a ...any) {
 }
 
 func (lot *lot) Wipe() {
-	lot.Printf("")
+	lot.Printf(idle)
 }
 
 func (lot *lot) Close(messages ...string) {
@@ -42,5 +46,9 @@ func (lot *lot) Close(messages ...string) {
 }
 
 func (lot *lot) write() {
-	fmt.Print(lot.style.Sprint(formatAlias(lot.alias), lot.data))
+	dataStyle := lot.style
+	if lot.data == idle {
+		dataStyle = idleColor
+	}
+	fmt.Print(lot.style.Sprint(formatAlias(lot.alias)), dataStyle.Sprint(lot.data))
 }

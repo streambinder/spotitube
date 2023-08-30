@@ -332,6 +332,7 @@ func routineCollectAsset(track *entity.Track) func(context.Context, chan error) 
 			ch <- err
 			return
 		}
+		tui.Printf("asset for %s by %s: %s", track.Title, track.Artists[0], track.UpstreamURL)
 		tui.Lot("download").Wipe()
 	}
 }

@@ -18,7 +18,10 @@ type M3UEncoder struct {
 
 func (encoder *M3UEncoder) init(name string) error {
 	encoder.target = slug.Make(name) + ".m3u"
-	encoder.data = []byte("#EXTM3U\n")
+	encoder.data = []byte(
+		fmt.Sprintf("#EXTM3U\n#PLAYLIST:%s\n", name),
+	)
+
 	return nil
 }
 

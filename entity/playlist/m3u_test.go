@@ -30,6 +30,7 @@ func TestM3U(t *testing.T) {
 	assert.Nil(t, encoder.Add(testTrack))
 	assert.Nil(t, encoder.Close())
 	assert.Equal(t, `#EXTM3U
+#PLAYLIST:Playlist
 #EXTINF:0,Artist - Title
 Artist - Title.mp3
 `, string(output))

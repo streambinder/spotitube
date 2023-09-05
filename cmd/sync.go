@@ -118,7 +118,7 @@ func cmdSync() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringP("output", "o", xdg.UserDirs.Music, "Output synchronization path")
-	cmd.Flags().String("playlist-encoding", "pls", "Target synchronization path")
+	cmd.Flags().String("playlist-encoding", "m3u", "Playlist output files encoding")
 	cmd.Flags().BoolP("manual", "m", false, "Enable manual mode (prompts for user-issued URL to use for download")
 	cmd.Flags().BoolP("library", "l", false, "Synchronize library (auto-enabled if no collection is supplied)")
 	cmd.Flags().StringArrayP("playlist", "p", []string{}, "Synchronize playlist")

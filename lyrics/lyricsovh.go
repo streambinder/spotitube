@@ -22,7 +22,7 @@ type ovhResponse struct {
 }
 
 func init() {
-	composers = append(composers, &lyricsOvh{})
+	// composers = append(composers, &lyricsOvh{})
 }
 
 func (composer lyricsOvh) search(track *entity.Track, ctxs ...context.Context) ([]byte, error) {

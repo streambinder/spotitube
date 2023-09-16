@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"errors"
 	"os"
 	"testing"
@@ -507,12 +506,10 @@ func TestCmdSyncCollectFailure(t *testing.T) {
 		ApplyFunc(provider.Search, func(*entity.Track) ([]*provider.Match, error) {
 			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
 		}).
-		ApplyFunc(routineCollectArtwork, func(*entity.Track) func(context.Context, chan error) {
-			return func(_ context.Context, ch chan error) {
-				ch <- errors.New("ko")
+		ApplyFunc(downloader.Download, func(url string, _ string, _ processor.Processor, ch ...chan []byte) error {
+			if url != "http://localhost/" {
+				return errors.New("ko")
 			}
-		}).
-		ApplyFunc(downloader.Download, func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
 			for _, c := range ch {
 				c <- []byte{}
 			}

@@ -6,7 +6,7 @@ require (
 	atomicgo.dev/cursor v0.2.0
 	github.com/PuerkitoBio/goquery v1.8.1
 	github.com/adrg/xdg v0.4.0
-	github.com/agiledragon/gomonkey/v2 v2.10.1
+	github.com/agiledragon/gomonkey/v2 v2.11.0
 	github.com/agnivade/levenshtein v1.1.1
 	github.com/arunsworld/nursery v0.6.0
 	github.com/bogem/id3v2/v2 v2.1.4

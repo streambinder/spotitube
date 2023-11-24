@@ -31,9 +31,18 @@ func (composer lyricsOvh) search(track *entity.Track, ctxs ...context.Context) (
 		ctx = ctxs[0]
 	}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://api.lyrics.ovh/v1/%s/%s",
+	return composer.get(fmt.Sprintf("https://api.lyrics.ovh/v1/%s/%s",
 		url.QueryEscape(track.Artists[0]),
-		url.QueryEscape(track.Title)), nil)
+		url.QueryEscape(track.Title)), ctx)
+}
+
+func (composer lyricsOvh) get(url string, ctxs ...context.Context) ([]byte, error) {
+	ctx := context.Background()
+	if len(ctxs) > 0 {
+		ctx = ctxs[0]
+	}
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +59,7 @@ func (composer lyricsOvh) search(track *entity.Track, ctxs ...context.Context) (
 		return nil, nil
 	} else if response.StatusCode == 429 {
 		util.SleepUntilRetry(response.Header)
-		return composer.search(track, ctx)
+		return composer.get(url, ctx)
 	} else if response.StatusCode != 200 {
 		return nil, errors.New("cannot fetch results on lyrics.ovh: " + response.Status)
 	}

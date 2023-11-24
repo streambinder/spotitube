@@ -13,6 +13,7 @@ var composers = []Composer{}
 
 type Composer interface {
 	search(*entity.Track, ...context.Context) ([]byte, error)
+	get(string, ...context.Context) ([]byte, error)
 }
 
 // not found entries return no error
@@ -59,4 +60,33 @@ func Search(track *entity.Track) (string, error) {
 	}
 
 	return string(result), os.WriteFile(track.Path().Lyrics(), result, 0o644)
+}
+
+func Get(url string) (string, error) {
+	var (
+		workers        []nursery.ConcurrentJob
+		result         []byte
+		ctxBackground  = context.Background()
+		ctx, ctxCancel = context.WithCancel(ctxBackground)
+	)
+	defer ctxCancel()
+
+	for _, composer := range composers {
+		workers = append(workers, func(c Composer) func(context.Context, chan error) {
+			return func(ctx context.Context, ch chan error) {
+				scopedLyrics, err := c.get(url, ctx)
+				if err != nil {
+					ch <- err
+					return
+				}
+
+				if len(scopedLyrics) > len(result) {
+					result = scopedLyrics
+					ctxCancel()
+				}
+			}
+		}(composer))
+	}
+
+	return string(result), nursery.RunConcurrentlyWithContext(ctx, workers...)
 }

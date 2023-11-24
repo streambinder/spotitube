@@ -220,7 +220,7 @@ func TestGeniusLyricsNewRequestFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(genius{}.fromGeniusURL("http://genius.com/test", context.Background())), "ko")
+	assert.EqualError(t, util.ErrOnly(genius{}.get("http://genius.com/test", context.Background())), "ko")
 }
 
 func TestGeniusLyricsNewRequestContextCanceled(t *testing.T) {

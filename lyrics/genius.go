@@ -120,10 +120,15 @@ func (composer genius) search(track *entity.Track, ctxs ...context.Context) ([]b
 			track, context.WithValue(ctx, contextValueLabel(contextValueLabelMainArtist), true))
 	}
 
-	return composer.fromGeniusURL(url, ctx)
+	return composer.get(url, ctx)
 }
 
-func (composer genius) fromGeniusURL(url string, ctx context.Context) ([]byte, error) {
+func (composer genius) get(url string, ctxs ...context.Context) ([]byte, error) {
+	ctx := context.Background()
+	if len(ctxs) > 0 {
+		ctx = ctxs[0]
+	}
+
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -139,7 +144,7 @@ func (composer genius) fromGeniusURL(url string, ctx context.Context) ([]byte, e
 
 	if response.StatusCode == 429 {
 		util.SleepUntilRetry(response.Header)
-		return composer.fromGeniusURL(url, ctx)
+		return composer.get(url, ctx)
 	} else if response.StatusCode != 200 {
 		return nil, errors.New("cannot fetch lyrics on genius: " + response.Status)
 	}

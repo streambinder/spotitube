@@ -114,3 +114,38 @@ func TestSearchCannotCreateDir(t *testing.T) {
 	// testing
 	assert.EqualError(t, util.ErrOnly(Search(track)), "ko")
 }
+
+func TestGet(t *testing.T) {
+	// monkey patching
+	ch := make(chan bool, 1)
+	defer gomonkey.NewPatches().
+		ApplyPrivateMethod(reflect.TypeOf(genius{}), "get", func() ([]byte, error) {
+			close(ch)
+			return []byte("glyrics"), nil
+		}).
+		ApplyPrivateMethod(reflect.TypeOf(lyricsOvh{}), "get", func() ([]byte, error) {
+			<-ch
+			return []byte("olyrics"), nil
+		}).
+		Reset()
+
+	// testing
+	lyrics, err := Get("http://localhost")
+	assert.Nil(t, err)
+	assert.Equal(t, "glyrics", lyrics)
+}
+
+func TestGetFailure(t *testing.T) {
+	// monkey patching
+	defer gomonkey.NewPatches().
+		ApplyPrivateMethod(reflect.TypeOf(genius{}), "get", func() ([]byte, error) {
+			return nil, errors.New("ko")
+		}).
+		ApplyPrivateMethod(reflect.TypeOf(lyricsOvh{}), "get", func() ([]byte, error) {
+			return nil, errors.New("ko")
+		}).
+		Reset()
+
+	// testing
+	assert.EqualError(t, util.ErrOnly(Get("http://localhost")), "ko")
+}

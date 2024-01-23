@@ -18,7 +18,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.4
 	github.com/thanhpk/randstr v1.0.6
-	github.com/zmb3/spotify/v2 v2.4.0
+	github.com/zmb3/spotify/v2 v2.4.1
 	golang.org/x/oauth2 v0.16.0
 )
 

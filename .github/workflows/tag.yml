@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
       - run: |
           go test -v -timeout 30s ./...
         env:
@@ -23,7 +23,7 @@ jobs:
     if: success()
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
       - run: |
           go mod download
           for os in linux darwin windows; do

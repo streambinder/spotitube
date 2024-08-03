@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -185,11 +186,13 @@ func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixe
 		fetched := make(chan interface{}, 10000)
 		defer close(fetched)
 		go func() {
+			counter := 0
 			for event := range fetched {
+				counter++
 				track := event.(*entity.Track)
 				tui.Lot("fetch").Printf("%s by %s", track.Title, track.Artists[0])
 			}
-			tui.Lot("fetch").Close()
+			tui.Lot("fetch").Close(fmt.Sprintf("%d tracks", counter))
 		}()
 
 		if library {
@@ -423,7 +426,9 @@ func routineMix(encoding string) func(context.Context, chan error) {
 		// block until installation is done
 		<-routineSemaphores[routineTypeInstall]
 
+		counter := 0
 		for event := range routineQueues[routineTypeMix] {
+			counter++
 			playlist := event.(*playlist.Playlist)
 			tui.Lot("mix").Printf("%s", playlist.Name)
 			encoder, err := playlist.Encoder(encoding)
@@ -452,6 +457,6 @@ func routineMix(encoding string) func(context.Context, chan error) {
 				return
 			}
 		}
-		tui.Lot("mix").Close()
+		tui.Lot("mix").Close(fmt.Sprintf("%d playlists", counter))
 	}
 }

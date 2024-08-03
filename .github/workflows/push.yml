@@ -78,7 +78,7 @@ jobs:
           filters: |
             docs:
               - 'docs/**'
-      - uses: peter-evans/repository-dispatch@v2
+      - uses: peter-evans/repository-dispatch@v3
         if: steps.filter.outputs.docs == 'true'
         with:
           token: ${{ secrets.GH_ACTIONS_SPOTITUBE }}

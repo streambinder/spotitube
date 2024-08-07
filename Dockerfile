@@ -1,5 +1,5 @@
 # docker run -it --rm -p 65535:65535/tcp -v ~/Music:/data -v ~/.cache:/cache ghcr.io/streambinder/spotitube
-FROM golang:alpine as builder
+FROM golang:alpine AS builder
 WORKDIR /workspace
 COPY . .
 RUN go mod download

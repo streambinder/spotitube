@@ -329,7 +329,7 @@ func routineCollect(ctx context.Context, ch chan error) {
 // to the (meta)data fetched from upstream
 func routineCollectAsset(track *entity.Track) func(context.Context, chan error) {
 	return func(ctx context.Context, ch chan error) {
-		tui.Lot("download").Printf(track.UpstreamURL)
+		tui.Lot("download").Print(track.UpstreamURL)
 		if err := downloader.Download(track.UpstreamURL, track.Path().Download(), nil); err != nil {
 			tui.AnchorPrintf("download failure: %s", err)
 			ch <- err

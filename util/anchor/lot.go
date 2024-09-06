@@ -23,12 +23,12 @@ func formatAlias(alias string) string {
 	return fmt.Sprintf("(%s) ", alias)
 }
 
-func (lot *lot) Printf(format string, a ...any) {
+func (lot *lot) Print(message string) {
 	lot.window.lock.Lock()
 	defer lot.window.lock.Unlock()
 	defer cursor.Bottom()
 
-	lot.data = fmt.Sprintf(format, a...)
+	lot.data = message
 	lot.window.up(len(lot.window.lots))
 	for _, lot := range lot.window.lots {
 		lot.write()
@@ -36,13 +36,17 @@ func (lot *lot) Printf(format string, a ...any) {
 	}
 }
 
+func (lot *lot) Printf(format string, a ...any) {
+	lot.Print(fmt.Sprintf(format, a...))
+}
+
 func (lot *lot) Wipe() {
-	lot.Printf(idle)
+	lot.Print(idle)
 }
 
 func (lot *lot) Close(messages ...string) {
 	lot.style = color.New(color.FgWhite)
-	lot.Printf(util.First(messages, "done"))
+	lot.Print(util.First(messages, "done"))
 }
 
 func (lot *lot) write() {

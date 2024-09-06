@@ -52,7 +52,7 @@ func TestCmdSync(t *testing.T) {
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
-		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
+		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
 			for _, c := range ch {
 				c <- _track
 				c <- _track // to trigger duplicate check
@@ -132,7 +132,7 @@ func TestCmdSyncOfflineIndex(t *testing.T) {
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
-		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
+		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
 			ch[0] <- _track
 			return nil
 		}).
@@ -409,7 +409,7 @@ func TestCmdSyncDecideManual(t *testing.T) {
 			return &spotify.Client{}, nil
 		}).
 		ApplyMethod(&spotify.Client{}, "Library",
-			func(_ *spotify.Client, ch ...chan interface{}) error {
+			func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
 				ch[0] <- _track
 				return nil
 			}).
@@ -437,7 +437,7 @@ func TestCmdSyncDecideFailure(t *testing.T) {
 			return &spotify.Client{}, nil
 		}).
 		ApplyMethod(&spotify.Client{}, "Library",
-			func(_ *spotify.Client, ch ...chan interface{}) error {
+			func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
 				ch[0] <- _track
 				return nil
 			}).
@@ -468,7 +468,7 @@ func TestCmdSyncDecideNotFound(t *testing.T) {
 			return &spotify.Client{}, nil
 		}).
 		ApplyMethod(&spotify.Client{}, "Library",
-			func(_ *spotify.Client, ch ...chan interface{}) error {
+			func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
 				ch[0] <- _track
 				return nil
 			}).
@@ -499,7 +499,7 @@ func TestCmdSyncCollectFailure(t *testing.T) {
 			return &spotify.Client{}, nil
 		}).
 		ApplyMethod(&spotify.Client{}, "Library",
-			func(_ *spotify.Client, ch ...chan interface{}) error {
+			func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
 				ch[0] <- _track
 				return nil
 			}).
@@ -541,7 +541,7 @@ func TestCmdSyncDownloadFailure(t *testing.T) {
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
-		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
+		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
 			ch[0] <- _track
 			return nil
 		}).
@@ -580,7 +580,7 @@ func TestCmdSyncLyricsFailure(t *testing.T) {
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
-		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
+		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
 			ch[0] <- _track
 			return nil
 		}).
@@ -619,7 +619,7 @@ func TestCmdSyncProcessorFailure(t *testing.T) {
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
-		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
+		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
 			ch[0] <- _track
 			return nil
 		}).
@@ -661,7 +661,7 @@ func TestCmdSyncInstallerFailure(t *testing.T) {
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
-		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
+		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
 			ch[0] <- _track
 			return nil
 		}).

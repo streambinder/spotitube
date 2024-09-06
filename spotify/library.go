@@ -7,7 +7,7 @@ import (
 	"github.com/zmb3/spotify/v2"
 )
 
-func (client *Client) Library(channels ...chan interface{}) error {
+func (client *Client) Library(limit int, channels ...chan interface{}) error {
 	var (
 		ctx          = context.Background()
 		library, err = client.CurrentUsersTracks(ctx)
@@ -16,11 +16,15 @@ func (client *Client) Library(channels ...chan interface{}) error {
 		return err
 	}
 
+	ctr := 0
 	for {
 		for _, libraryTrack := range library.Tracks {
 			track := trackEntity(&libraryTrack.FullTrack)
 			for _, ch := range channels {
 				ch <- track
+			}
+			if ctr++; limit > 0 && ctr >= limit {
+				return nil
 			}
 		}
 

@@ -33,6 +33,7 @@ func cmdLookup() *cobra.Command {
 			library, _ := cmd.Flags().GetBool("library")
 			random, _ := cmd.Flags().GetBool("random")
 			randomSize, _ := cmd.Flags().GetInt("random-size")
+			libraryLimit, _ := cmd.Flags().GetInt("library-limit")
 			if !library && !random && len(args) == 0 {
 				return errors.New("no track has been issued")
 			}
@@ -56,7 +57,7 @@ func cmdLookup() *cobra.Command {
 							return
 						}
 					} else if library {
-						if err := client.Library(providerChannel, lyricsChannel); err != nil {
+						if err := client.Library(libraryLimit, providerChannel, lyricsChannel); err != nil {
 							ch <- err
 							return
 						}
@@ -103,5 +104,6 @@ func cmdLookup() *cobra.Command {
 	cmd.Flags().BoolP("library", "l", false, "Lookup personal library tracks")
 	cmd.Flags().BoolP("random", "r", false, "Lookup random tracks")
 	cmd.Flags().Int("random-size", defaultRandomSize, "Number of random tracks to load")
+	cmd.Flags().Int("library-limit", 0, "Number of tracks to fetch from library (unlimited if 0)")
 	return cmd
 }

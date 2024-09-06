@@ -65,6 +65,7 @@ func cmdSync() *cobra.Command {
 				albums, _           = cmd.Flags().GetStringArray("album")
 				tracks, _           = cmd.Flags().GetStringArray("track")
 				fixes, _            = cmd.Flags().GetStringArray("fix")
+				libraryLimit, _     = cmd.Flags().GetInt("library-limit")
 			)
 
 			for index, path := range fixes {
@@ -80,7 +81,7 @@ func cmdSync() *cobra.Command {
 			return nursery.RunConcurrently(
 				routineIndex,
 				routineAuth,
-				routineFetch(library, playlists, playlistsTracks, albums, tracks, fixes),
+				routineFetch(library, playlists, playlistsTracks, albums, tracks, fixes, libraryLimit),
 				routineDecide(manual),
 				routineCollect,
 				routineProcess,
@@ -127,6 +128,7 @@ func cmdSync() *cobra.Command {
 	cmd.Flags().StringArrayP("album", "a", []string{}, "Synchronize album")
 	cmd.Flags().StringArrayP("track", "t", []string{}, "Synchronize track")
 	cmd.Flags().StringArrayP("fix", "f", []string{}, "Fix local track")
+	cmd.Flags().Int("library-limit", 0, "Number of tracks to fetch from library (unlimited if 0)")
 	return cmd
 }
 
@@ -170,7 +172,7 @@ func routineAuth(ctx context.Context, ch chan error) {
 
 // fetcher pulls data from the upstream
 // provider, i.e. Spotify
-func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixes []string) func(ctx context.Context, ch chan error) {
+func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixes []string, libraryLimit int) func(ctx context.Context, ch chan error) {
 	return func(ctx context.Context, ch chan error) {
 		// remember to stop passing data to decider and mixer
 		defer close(routineQueues[routineTypeDecide])
@@ -197,7 +199,7 @@ func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixe
 
 		if library {
 			tui.Lot("fetch").Printf("library")
-			if err := spotifyClient.Library(routineQueues[routineTypeDecide], fetched); err != nil {
+			if err := spotifyClient.Library(libraryLimit, routineQueues[routineTypeDecide], fetched); err != nil {
 				ch <- err
 				return
 			}

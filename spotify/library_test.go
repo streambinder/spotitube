@@ -35,7 +35,7 @@ func TestLibrary(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, testClient().Library())
+	assert.Nil(t, testClient().Library(0))
 }
 
 func TestLibraryChannel(t *testing.T) {
@@ -50,7 +50,7 @@ func TestLibraryChannel(t *testing.T) {
 	// testing
 	channel := make(chan interface{}, 1)
 	defer close(channel)
-	err := testClient().Library(channel)
+	err := testClient().Library(1, channel)
 	assert.Nil(t, err)
 	assert.Equal(t, library.Tracks[0].Name, ((<-channel).(*entity.Track)).Title)
 }
@@ -65,7 +65,7 @@ func TestLibraryFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testClient().Library()), "ko")
+	assert.EqualError(t, util.ErrOnly(testClient().Library(0)), "ko")
 }
 
 func TestLibraryNextPageFailure(t *testing.T) {
@@ -84,5 +84,5 @@ func TestLibraryNextPageFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.True(t, errors.Is(util.ErrOnly(client.Library()), syscall.ECONNREFUSED))
+	assert.True(t, errors.Is(util.ErrOnly(client.Library(0)), syscall.ECONNREFUSED))
 }

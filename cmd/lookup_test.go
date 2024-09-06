@@ -27,7 +27,7 @@ func TestCmdLookup(t *testing.T) {
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
-		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
+		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
 			ch[0] <- _track
 			ch[1] <- _track
 			return nil
@@ -110,7 +110,7 @@ func TestCmdLookupLibraryFailure(t *testing.T) {
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
-		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
+		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
 			return errors.New("ko")
 		}).
 		Reset()
@@ -155,7 +155,7 @@ func TestCmdLookupSearchFailure(t *testing.T) {
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
-		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
+		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
 			ch[0] <- _track
 			ch[1] <- _track
 			return nil
@@ -180,7 +180,7 @@ func TestCmdLookupSearchNotFound(t *testing.T) {
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
-		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
+		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
 			ch[0] <- _track
 			ch[1] <- _track
 			return nil
@@ -205,7 +205,7 @@ func TestCmdLookupLyricsFailure(t *testing.T) {
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
-		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
+		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
 			ch[0] <- _track
 			ch[1] <- _track
 			return nil
@@ -230,7 +230,7 @@ func TestCmdLookupLyricsNotFound(t *testing.T) {
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
-		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, ch ...chan interface{}) error {
+		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
 			ch[0] <- _track
 			ch[1] <- _track
 			return nil

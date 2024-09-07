@@ -33,7 +33,7 @@ func (client *Client) Album(target string, channels ...chan interface{}) (*entit
 	album := albumEntity(fullAlbum)
 	for {
 		for _, albumTrack := range fullAlbum.Tracks.Tracks {
-			track := trackEntity(&spotify.FullTrack{
+			track := trackEntity(spotify.FullTrack{
 				SimpleTrack: albumTrack,
 				Album:       fullAlbum.SimpleAlbum,
 			})

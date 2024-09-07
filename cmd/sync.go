@@ -37,11 +37,10 @@ const (
 )
 
 var (
-	spotifyClient     *spotify.Client
 	routineSemaphores map[int](chan bool)
 	routineQueues     map[int](chan interface{})
 	indexData         = index.New()
-	tui               = anchor.Window(anchor.Red)
+	tui               = anchor.New(anchor.Red)
 )
 
 func init() {
@@ -54,18 +53,18 @@ func cmdSync() *cobra.Command {
 		Short:        "Synchronize collections",
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			var (
-				path, _             = cmd.Flags().GetString("output")
-				playlistEncoding, _ = cmd.Flags().GetString("playlist-encoding")
-				manual, _           = cmd.Flags().GetBool("manual")
-				library, _          = cmd.Flags().GetBool("library")
-				playlists, _        = cmd.Flags().GetStringArray("playlist")
-				playlistsTracks, _  = cmd.Flags().GetStringArray("playlist-tracks")
-				albums, _           = cmd.Flags().GetStringArray("album")
-				tracks, _           = cmd.Flags().GetStringArray("track")
-				fixes, _            = cmd.Flags().GetStringArray("fix")
-				libraryLimit, _     = cmd.Flags().GetInt("library-limit")
+				path             = util.ErrWrap(xdg.UserDirs.Music)(cmd.Flags().GetString("output"))
+				playlistEncoding = util.ErrWrap("m3u")(cmd.Flags().GetString("playlist-encoding"))
+				manual           = util.ErrWrap(false)(cmd.Flags().GetBool("manual"))
+				library          = util.ErrWrap(false)(cmd.Flags().GetBool("library"))
+				playlists        = util.ErrWrap([]string{})(cmd.Flags().GetStringArray("playlist"))
+				playlistsTracks  = util.ErrWrap([]string{})(cmd.Flags().GetStringArray("playlist-tracks"))
+				albums           = util.ErrWrap([]string{})(cmd.Flags().GetStringArray("album"))
+				tracks           = util.ErrWrap([]string{})(cmd.Flags().GetStringArray("track"))
+				fixes            = util.ErrWrap([]string{})(cmd.Flags().GetStringArray("fix"))
+				libraryLimit     = util.ErrWrap(0)(cmd.Flags().GetInt("library-limit"))
 			)
 
 			for index, path := range fixes {
@@ -89,7 +88,7 @@ func cmdSync() *cobra.Command {
 				routineMix(playlistEncoding),
 			)
 		},
-		PreRun: func(cmd *cobra.Command, args []string) {
+		PreRun: func(cmd *cobra.Command, _ []string) {
 			routineSemaphores = map[int](chan bool){
 				routineTypeIndex:   make(chan bool, 1),
 				routineTypeAuth:    make(chan bool, 1),
@@ -104,16 +103,16 @@ func cmdSync() *cobra.Command {
 			}
 
 			var (
-				playlists, _       = cmd.Flags().GetStringArray("playlist")
-				playlistsTracks, _ = cmd.Flags().GetStringArray("playlist-tracks")
-				albums, _          = cmd.Flags().GetStringArray("album")
-				tracks, _          = cmd.Flags().GetStringArray("track")
-				fixes, _           = cmd.Flags().GetStringArray("fix")
+				playlists       = util.ErrWrap([]string{})(cmd.Flags().GetStringArray("playlist"))
+				playlistsTracks = util.ErrWrap([]string{})(cmd.Flags().GetStringArray("playlist-tracks"))
+				albums          = util.ErrWrap([]string{})(cmd.Flags().GetStringArray("album"))
+				tracks          = util.ErrWrap([]string{})(cmd.Flags().GetStringArray("track"))
+				fixes           = util.ErrWrap([]string{})(cmd.Flags().GetStringArray("fix"))
 			)
 			if len(playlists)+len(playlistsTracks)+len(albums)+len(tracks)+len(fixes) == 0 {
 				cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
 					if f.Name == "library" {
-						_ = f.Value.Set("true")
+						util.ErrSuppress(f.Value.Set("true"))
 					}
 				})
 			}
@@ -134,7 +133,7 @@ func cmdSync() *cobra.Command {
 
 // indexer scans a possible local music library
 // to be considered as already synchronized
-func routineIndex(ctx context.Context, ch chan error) {
+func routineIndex(_ context.Context, ch chan error) {
 	// remember to signal fetcher
 	defer close(routineSemaphores[routineTypeIndex])
 
@@ -151,7 +150,7 @@ func routineIndex(ctx context.Context, ch chan error) {
 	routineSemaphores[routineTypeIndex] <- true
 }
 
-func routineAuth(ctx context.Context, ch chan error) {
+func routineAuth(_ context.Context, ch chan error) {
 	// remember to close auth semaphore
 	defer close(routineSemaphores[routineTypeAuth])
 
@@ -173,7 +172,7 @@ func routineAuth(ctx context.Context, ch chan error) {
 // fetcher pulls data from the upstream
 // provider, i.e. Spotify
 func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixes []string, libraryLimit int) func(ctx context.Context, ch chan error) {
-	return func(ctx context.Context, ch chan error) {
+	return func(_ context.Context, ch chan error) {
 		// remember to stop passing data to decider and mixer
 		defer close(routineQueues[routineTypeDecide])
 		defer close(routineQueues[routineTypeMix])
@@ -197,67 +196,102 @@ func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixe
 			tui.Lot("fetch").Close(fmt.Sprintf("%d tracks", counter))
 		}()
 
-		if library {
-			tui.Lot("fetch").Printf("library")
-			if err := spotifyClient.Library(libraryLimit, routineQueues[routineTypeDecide], fetched); err != nil {
-				ch <- err
-				return
-			}
+		fixesTracks, fixesErr := routineFetchFixesIDs(fixes)
+		if fixesErr != nil {
+			ch <- fixesErr
+			return
 		}
-		for _, id := range albums {
-			tui.Lot("fetch").Printf("album %s", id)
-			if _, err := spotifyClient.Album(id, routineQueues[routineTypeDecide], fetched); err != nil {
-				ch <- err
-				return
-			}
-		}
-		for _, path := range fixes {
-			tui.Lot("fetch").Printf("track %s", path)
-			tag, err := id3.Open(path, id3v2.Options{Parse: true})
-			if err != nil {
-				ch <- err
-				return
-			}
-			id := tag.SpotifyID()
-			if len(id) == 0 {
-				ch <- errors.New("track " + path + " does not have spotify ID metadata set")
-				return
-			}
-			tracks = append(tracks, id)
-			indexData.SetPath(path, index.Flush)
+		tracks = append(tracks, fixesTracks...)
 
-			if err := tag.Close(); err != nil {
-				ch <- err
-				return
-			}
+		if err := routineFetchLibrary(library, libraryLimit, fetched); err != nil {
+			ch <- err
+			return
 		}
-		for _, id := range tracks {
-			tui.Lot("fetch").Printf("track %s", id)
-			if _, err := spotifyClient.Track(id, routineQueues[routineTypeDecide], fetched); err != nil {
-				ch <- err
-				return
-			}
+		if err := routineFetchAlbums(albums, fetched); err != nil {
+			ch <- err
+			return
 		}
-
-		// some special treatment for playlists
-		for index, id := range append(playlists, playlistsTracks...) {
-			tui.Lot("fetch").Printf("playlist %s", id)
-			playlist, err := spotifyClient.Playlist(id, routineQueues[routineTypeDecide], fetched)
-			if err != nil {
-				ch <- err
-				return
-			}
-			if index < len(playlists) {
-				routineQueues[routineTypeMix] <- playlist
-			}
+		if err := routineFetchTracks(tracks, fetched); err != nil {
+			ch <- err
+			return
+		}
+		if err := routineFetchPlaylists(append(playlists, playlistsTracks...), fetched); err != nil {
+			ch <- err
+			return
 		}
 	}
+}
+
+func routineFetchFixesIDs(fixes []string) ([]string, error) {
+	var localTracks []string
+	for _, path := range fixes {
+		tui.Lot("fetch").Printf("track %s", path)
+		tag, err := id3.Open(path, id3v2.Options{Parse: true})
+		if err != nil {
+			return nil, err
+		}
+
+		id := tag.SpotifyID()
+		if len(id) == 0 {
+			return nil, errors.New("track " + path + " does not have spotify ID metadata set")
+		}
+
+		localTracks = append(localTracks, id)
+		indexData.SetPath(path, index.Flush)
+		if err := tag.Close(); err != nil {
+			return nil, err
+		}
+	}
+	return localTracks, nil
+}
+
+func routineFetchLibrary(library bool, libraryLimit int, fetched chan interface{}) error {
+	if !library {
+		return nil
+	}
+
+	tui.Lot("fetch").Printf("library")
+	return spotifyClient.Library(libraryLimit, routineQueues[routineTypeDecide], fetched)
+}
+
+func routineFetchAlbums(albums []string, fetched chan interface{}) error {
+	for _, id := range albums {
+		tui.Lot("fetch").Printf("album %s", id)
+		if _, err := spotifyClient.Album(id, routineQueues[routineTypeDecide], fetched); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func routineFetchTracks(tracks []string, fetched chan interface{}) error {
+	for _, id := range tracks {
+		tui.Lot("fetch").Printf("track %s", id)
+		if _, err := spotifyClient.Track(id, routineQueues[routineTypeDecide], fetched); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func routineFetchPlaylists(playlists []string, fetched chan interface{}) error {
+	for index, id := range playlists {
+		tui.Lot("fetch").Printf("playlist %s", id)
+		playlist, err := spotifyClient.Playlist(id, routineQueues[routineTypeDecide], fetched)
+		if err != nil {
+			return err
+		}
+		if index < len(playlists) {
+			routineQueues[routineTypeMix] <- playlist
+		}
+	}
+	return nil
 }
 
 // decider finds the right asset to retrieve
 // for a given track
 func routineDecide(manualMode bool) func(context.Context, chan error) {
-	return func(ctx context.Context, ch chan error) {
+	return func(_ context.Context, ch chan error) {
 		// remember to stop passing data to the collector
 		// the retriever, the composer and the painter
 		defer close(routineQueues[routineTypeCollect])
@@ -306,7 +340,7 @@ func routineDecide(manualMode bool) func(context.Context, chan error) {
 // collector fetches all the needed assets
 // for a blob to be processed (basically
 // a wrapper around: retriever, composer and painter)
-func routineCollect(ctx context.Context, ch chan error) {
+func routineCollect(_ context.Context, ch chan error) {
 	// remember to stop passing data to installer
 	defer close(routineQueues[routineTypeProcess])
 
@@ -330,7 +364,7 @@ func routineCollect(ctx context.Context, ch chan error) {
 // retriever pulls a track blob corresponding
 // to the (meta)data fetched from upstream
 func routineCollectAsset(track *entity.Track) func(context.Context, chan error) {
-	return func(ctx context.Context, ch chan error) {
+	return func(_ context.Context, ch chan error) {
 		tui.Lot("download").Print(track.UpstreamURL)
 		if err := downloader.Download(track.UpstreamURL, track.Path().Download(), nil); err != nil {
 			tui.AnchorPrintf("download failure: %s", err)
@@ -345,7 +379,7 @@ func routineCollectAsset(track *entity.Track) func(context.Context, chan error) 
 // composer pulls lyrics to be inserted
 // in the fetched blob
 func routineCollectLyrics(track *entity.Track) func(context.Context, chan error) {
-	return func(ctx context.Context, ch chan error) {
+	return func(_ context.Context, ch chan error) {
 		tui.Lot("compose").Printf("%s by %s", track.Title, track.Artists[0])
 		lyrics, err := lyrics.Search(track)
 		if err != nil {
@@ -362,7 +396,7 @@ func routineCollectLyrics(track *entity.Track) func(context.Context, chan error)
 // painter pulls image blobs to be inserted
 // as artworks in the fetched blob
 func routineCollectArtwork(track *entity.Track) func(context.Context, chan error) {
-	return func(ctx context.Context, ch chan error) {
+	return func(_ context.Context, ch chan error) {
 		artwork := make(chan []byte, 1)
 		defer close(artwork)
 
@@ -382,7 +416,7 @@ func routineCollectArtwork(track *entity.Track) func(context.Context, chan error
 // postprocessor applies some further enhancements
 // e.g. combining the downloaded artwork/lyrics
 // into the blob
-func routineProcess(ctx context.Context, ch chan error) {
+func routineProcess(_ context.Context, ch chan error) {
 	// remember to stop passing data to installer
 	defer close(routineQueues[routineTypeInstall])
 
@@ -401,7 +435,7 @@ func routineProcess(ctx context.Context, ch chan error) {
 }
 
 // installer move the blob to its final destination
-func routineInstall(ctx context.Context, ch chan error) {
+func routineInstall(_ context.Context, ch chan error) {
 	// remember to signal mixer
 	defer close(routineSemaphores[routineTypeInstall])
 
@@ -424,7 +458,7 @@ func routineInstall(ctx context.Context, ch chan error) {
 
 // mixer wraps playlists to their final destination
 func routineMix(encoding string) func(context.Context, chan error) {
-	return func(ctx context.Context, ch chan error) {
+	return func(_ context.Context, ch chan error) {
 		// block until installation is done
 		<-routineSemaphores[routineTypeInstall]
 

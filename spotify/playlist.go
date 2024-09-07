@@ -13,7 +13,7 @@ const (
 	personalPlaylistsCacheID = "PersonalPlaylists"
 )
 
-func playlistEntity(fullPlaylist *spotify.FullPlaylist) *playlist.Playlist {
+func playlistEntity(fullPlaylist spotify.FullPlaylist) *playlist.Playlist {
 	return &playlist.Playlist{
 		ID:            fullPlaylist.ID.String(),
 		Name:          fullPlaylist.Name,
@@ -54,7 +54,7 @@ func (client *Client) personalPlaylists() ([]*playlist.Playlist, error) {
 
 	for {
 		for _, playlist := range userPlaylists.Playlists {
-			playlists = append(playlists, playlistEntity(&spotify.FullPlaylist{SimplePlaylist: playlist}))
+			playlists = append(playlists, playlistEntity(spotify.FullPlaylist{SimplePlaylist: playlist}))
 		}
 
 		if err := client.NextPage(ctx, userPlaylists); errors.Is(err, spotify.ErrNoMorePages) {
@@ -81,10 +81,10 @@ func (client *Client) Playlist(target string, channels ...chan interface{}) (*pl
 		return nil, err
 	}
 
-	playlist := playlistEntity(fullPlaylist)
+	playlist := playlistEntity(*fullPlaylist)
 	for {
 		for _, playlistTrack := range fullPlaylist.Tracks.Tracks {
-			track := trackEntity(&playlistTrack.Track)
+			track := trackEntity(playlistTrack.Track)
 			playlist.Tracks = append(playlist.Tracks, track)
 			for _, ch := range channels {
 				ch <- track

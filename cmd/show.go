@@ -24,7 +24,7 @@ func cmdShow() *cobra.Command {
 		Short:        "Show local tracks data",
 		SilenceUsage: true,
 		Args:         cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			bold := color.New(color.Bold)
 			for _, path := range args {
 				if err := func() error {

@@ -43,10 +43,10 @@ func BenchmarkReset(b *testing.B) {
 func TestCmdReset(t *testing.T) {
 	// monkey patching
 	defer gomonkey.NewPatches().
-		ApplyFunc(filepath.WalkDir, func(path string, f func(string, fs.DirEntry, error) error) error {
-			_ = f("", DirEntry{name: "", isDir: false}, errors.New("some error"))
-			_ = f(spotify.TokenBasename, DirEntry{name: spotify.TokenBasename, isDir: false}, nil)
-			_ = f("fname.txt", DirEntry{name: "fname.txt", isDir: false}, nil)
+		ApplyFunc(filepath.WalkDir, func(_ string, f func(string, fs.DirEntry, error) error) error {
+			util.ErrSuppress(f("", DirEntry{name: "", isDir: false}, errors.New("some error")))
+			util.ErrSuppress(f(spotify.TokenBasename, DirEntry{name: spotify.TokenBasename, isDir: false}, nil))
+			util.ErrSuppress(f("fname.txt", DirEntry{name: "fname.txt", isDir: false}, nil))
 			return nil
 		}).
 		ApplyFunc(os.RemoveAll, func() error {

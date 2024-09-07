@@ -110,7 +110,7 @@ func TestCmdLookupLibraryFailure(t *testing.T) {
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
-		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
+		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, _ int, _ ...chan interface{}) error {
 			return errors.New("ko")
 		}).
 		Reset()
@@ -125,7 +125,7 @@ func TestCmdLookupTrackFailure(t *testing.T) {
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
-		ApplyMethod(&spotify.Client{}, "Track", func(_ *spotify.Client, _ string, ch ...chan interface{}) (*entity.Track, error) {
+		ApplyMethod(&spotify.Client{}, "Track", func(_ *spotify.Client, _ string, _ ...chan interface{}) (*entity.Track, error) {
 			return nil, errors.New("ko")
 		}).Reset()
 

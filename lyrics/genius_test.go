@@ -123,7 +123,7 @@ func TestGeniusSearchHttpNotFound(t *testing.T) {
 func TestGeniusSearchTooManyRequests(t *testing.T) {
 	// monkey patching
 	var (
-		doApiCounter            = 0
+		doAPICounter            = 0
 		doCounter               = 0
 		tooManyRequestsResponse = &http.Response{
 			StatusCode: 429,
@@ -135,8 +135,8 @@ func TestGeniusSearchTooManyRequests(t *testing.T) {
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func(_ *http.Client, request *http.Request) (*http.Response, error) {
 			if strings.EqualFold(request.Host, "api.genius.com") {
-				doApiCounter++
-				if doApiCounter > 1 {
+				doAPICounter++
+				if doAPICounter > 1 {
 					return &http.Response{
 						StatusCode: 200,
 						Body: io.NopCloser(

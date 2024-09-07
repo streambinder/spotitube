@@ -19,7 +19,7 @@ func (client *Client) Library(limit int, channels ...chan interface{}) error {
 	ctr := 0
 	for {
 		for _, libraryTrack := range library.Tracks {
-			track := trackEntity(&libraryTrack.FullTrack)
+			track := trackEntity(libraryTrack.FullTrack)
 			for _, ch := range channels {
 				ch <- track
 			}

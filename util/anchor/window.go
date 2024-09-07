@@ -29,9 +29,9 @@ const (
 
 type Color color.Attribute
 
-type window struct {
+type Window struct {
 	anchors     []*anchor
-	lots        []*lot
+	lots        []*Lot
 	aliases     map[string]int
 	anchorColor *color.Color
 	lock        sync.RWMutex
@@ -39,20 +39,20 @@ type window struct {
 
 type anchor struct {
 	data   string
-	window *window
+	window *Window
 }
 
-func Window(anchorColors ...color.Attribute) *window {
-	return &window{
+func New(anchorColors ...color.Attribute) *Window {
+	return &Window{
 		anchors:     []*anchor{},
-		lots:        []*lot{},
+		lots:        []*Lot{},
 		aliases:     make(map[string]int),
 		anchorColor: color.New(util.First(anchorColors, Normal)),
 		lock:        sync.RWMutex{},
 	}
 }
 
-func (window *window) Lot(alias string) *lot {
+func (window *Window) Lot(alias string) *Lot {
 	window.lock.Lock()
 	defer window.lock.Unlock()
 
@@ -60,7 +60,7 @@ func (window *window) Lot(alias string) *lot {
 		return window.lots[id]
 	}
 
-	lot := &lot{
+	lot := &Lot{
 		anchor: anchor{
 			data:   "",
 			window: window,
@@ -75,25 +75,25 @@ func (window *window) Lot(alias string) *lot {
 	return lot
 }
 
-func (window *window) Printf(format string, a ...any) {
+func (window *Window) Printf(format string, a ...any) {
 	window.print(false, fmt.Sprintf(format, a...))
 }
 
-func (window *window) AnchorPrintf(format string, a ...any) {
+func (window *Window) AnchorPrintf(format string, a ...any) {
 	window.print(true, window.anchorColor.Sprintf(format, a...))
 }
 
-func (window *window) up(lines ...int) {
+func (window *Window) up(lines ...int) {
 	cursor.UpAndClear(util.First(lines, 1))
 	cursor.StartOfLine()
 }
 
-func (window *window) down() {
+func (window *Window) down() {
 	cursor.DownAndClear(1)
 	cursor.StartOfLine()
 }
 
-func (window *window) shift(lines int) {
+func (window *Window) shift(lines int) {
 	if lines <= 0 && lines != cursorAnchor && lines != cursorDefault {
 		return
 	}
@@ -118,7 +118,7 @@ func (window *window) shift(lines int) {
 	}
 }
 
-func (window *window) print(doAnchor bool, data string) {
+func (window *Window) print(doAnchor bool, data string) {
 	window.lock.Lock()
 	defer window.lock.Unlock()
 	defer cursor.Bottom()
@@ -132,13 +132,13 @@ func (window *window) print(doAnchor bool, data string) {
 	fmt.Print(data)
 }
 
-func (window *window) Reads(label string, a ...interface{}) (value string) {
+func (window *Window) Reads(label string, a ...interface{}) (value string) {
 	window.lock.Lock()
 	defer window.lock.Unlock()
 	defer cursor.Bottom()
 	window.shift(cursorDefault)
 	fmt.Printf(label+" ", a...)
-	value, _ = bufio.NewReader(os.Stdin).ReadString('\n')
+	value = util.ErrWrap("")(bufio.NewReader(os.Stdin).ReadString('\n'))
 	value = strings.TrimSpace(value)
 	value = strings.Trim(value, "\n")
 	value = strings.Trim(value, "\r")

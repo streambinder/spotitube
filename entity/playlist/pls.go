@@ -24,7 +24,7 @@ func (encoder *PLSEncoder) init(name string) error {
 }
 
 func (encoder *PLSEncoder) Add(track *entity.Track) error {
-	encoder.entries += 1
+	encoder.entries++
 	encoder.data = append(encoder.data, []byte(
 		fmt.Sprintf("File%d=%s\nTitle%d=%s\nLength%d=%d\n\n",
 			encoder.entries,
@@ -42,5 +42,5 @@ func (encoder *PLSEncoder) Close() error {
 	encoder.data = append(encoder.data, []byte(
 		fmt.Sprintf("NumberOfEntries=%d\n", encoder.entries),
 	)...)
-	return os.WriteFile(encoder.target, encoder.data, 0o644)
+	return os.WriteFile(encoder.target, encoder.data, 0o600)
 }

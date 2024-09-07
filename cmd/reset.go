@@ -20,9 +20,9 @@ func cmdReset() *cobra.Command {
 		Short:        "Clear cached objects",
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			var (
-				session, _     = cmd.Flags().GetBool("session")
+				session        = util.ErrWrap(false)(cmd.Flags().GetBool("session"))
 				cacheDirectory = util.CacheDirectory()
 			)
 			return filepath.WalkDir(cacheDirectory, func(path string, entry fs.DirEntry, err error) error {

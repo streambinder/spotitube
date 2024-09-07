@@ -88,10 +88,10 @@ func TestAuthenticate(t *testing.T) {
 
 	// testing
 	assert.Nil(t, nursery.RunConcurrently(
-		func(ctx context.Context, ch chan error) {
+		func(_ context.Context, ch chan error) {
 			ch <- util.ErrOnly(Authenticate(BrowserProcessor, "127.0.0.1"))
 		},
-		func(ctx context.Context, ch chan error) {
+		func(_ context.Context, _ chan error) {
 			var (
 				response *http.Response
 				err      error
@@ -157,10 +157,10 @@ func TestAuthenticateRecoverOpenFailure(t *testing.T) {
 
 	// testing
 	assert.Nil(t, nursery.RunConcurrently(
-		func(ctx context.Context, ch chan error) {
+		func(_ context.Context, ch chan error) {
 			ch <- util.ErrOnly(Authenticate(nil))
 		},
-		func(ctx context.Context, ch chan error) {
+		func(_ context.Context, _ chan error) {
 			var (
 				response *http.Response
 				err      error
@@ -205,10 +205,10 @@ func TestAuthenticateRecoverUnmarshalFailure(t *testing.T) {
 
 	// testing
 	assert.Nil(t, nursery.RunConcurrently(
-		func(ctx context.Context, ch chan error) {
+		func(_ context.Context, ch chan error) {
 			ch <- util.ErrOnly(Authenticate(nil))
 		},
-		func(ctx context.Context, ch chan error) {
+		func(_ context.Context, _ chan error) {
 			var (
 				response *http.Response
 				err      error
@@ -304,10 +304,10 @@ func TestAuthenticateNotFound(t *testing.T) {
 
 	// testing
 	assert.EqualError(t, nursery.RunConcurrently(
-		func(ctx context.Context, ch chan error) {
+		func(_ context.Context, ch chan error) {
 			ch <- util.ErrOnly(Authenticate(nil))
 		},
-		func(ctx context.Context, ch chan error) {
+		func(_ context.Context, _ chan error) {
 			var (
 				response *http.Response
 				err      error
@@ -349,10 +349,10 @@ func TestAuthenticateForbidden(t *testing.T) {
 
 	// testing
 	assert.EqualError(t, nursery.RunConcurrently(
-		func(ctx context.Context, ch chan error) {
+		func(_ context.Context, ch chan error) {
 			ch <- util.ErrOnly(Authenticate(nil))
 		},
-		func(ctx context.Context, ch chan error) {
+		func(_ context.Context, _ chan error) {
 			var (
 				response *http.Response
 				err      error
@@ -391,12 +391,12 @@ func TestAuthenticateProcessorFailure(t *testing.T) {
 
 	// testing
 	assert.EqualError(t, nursery.RunConcurrently(
-		func(ctx context.Context, ch chan error) {
+		func(_ context.Context, ch chan error) {
 			ch <- util.ErrOnly(Authenticate(func(_ string) error {
 				return errors.New("ko")
 			}))
 		},
-		func(ctx context.Context, ch chan error) {
+		func(_ context.Context, _ chan error) {
 			var (
 				response *http.Response
 				err      error

@@ -27,7 +27,7 @@ type Track struct {
 	UpstreamURL string // URL to the upstream blob the song's been downloaded from
 }
 
-type trackPath struct {
+type TrackPath struct {
 	track *Track
 }
 
@@ -53,27 +53,27 @@ func (track *Track) Song() (song string) {
 	return
 }
 
-func (track *Track) Path() trackPath {
-	return trackPath{track}
+func (track *Track) Path() TrackPath {
+	return TrackPath{track}
 }
 
-func (trackPath trackPath) Final() string {
+func (trackPath TrackPath) Final() string {
 	return util.LegalizeFilename(fmt.Sprintf("%s - %s.%s", trackPath.track.Artists[0], trackPath.track.Title, TrackFormat))
 }
 
-func (trackPath trackPath) Download() string {
+func (trackPath TrackPath) Download() string {
 	return util.CacheFile(
 		util.LegalizeFilename(fmt.Sprintf("%s.%s", slug.Make(trackPath.track.ID), TrackFormat)),
 	)
 }
 
-func (trackPath trackPath) Artwork() string {
+func (trackPath TrackPath) Artwork() string {
 	return util.CacheFile(
 		util.LegalizeFilename(fmt.Sprintf("%s.%s", slug.Make(path.Base(trackPath.track.Artwork.URL)), ArtworkFormat)),
 	)
 }
 
-func (trackPath trackPath) Lyrics() string {
+func (trackPath TrackPath) Lyrics() string {
 	return util.CacheFile(
 		util.LegalizeFilename(fmt.Sprintf("%s.%s", slug.Make(trackPath.track.ID), LyricsFormat)),
 	)

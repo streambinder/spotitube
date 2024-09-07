@@ -35,7 +35,7 @@ func TestWindow(t *testing.T) {
 	os.Stdin = stdinFile
 
 	var (
-		window = Window(Normal)
+		window = New(Normal)
 		lot    = window.Lot("lot")
 	)
 	lot.Printf("lot text 1")

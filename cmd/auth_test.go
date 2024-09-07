@@ -24,7 +24,7 @@ func TestCmdAuth(t *testing.T) {
 			return nil
 		}).
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			_ = printProcessor("")
+			util.ErrSuppress(printProcessor(""))
 			return &spotify.Client{}, nil
 		}).
 		Reset()

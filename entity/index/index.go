@@ -102,7 +102,7 @@ func (index *Index) Size(statuses ...int) (counter int) {
 	for _, value := range index.data {
 		for _, status := range statuses {
 			if value == status {
-				counter += 1
+				counter++
 				break
 			}
 		}

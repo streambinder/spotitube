@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/arunsworld/nursery"
 	"github.com/streambinder/spotitube/util"
@@ -39,9 +40,13 @@ type Client struct {
 
 func Authenticate(urlProcessor func(string) error, callbacks ...string) (*Client, error) {
 	var (
-		client        Client
-		serverMux     = http.NewServeMux()
-		server        = &http.Server{Addr: fmt.Sprintf("0.0.0.0:%d", port), Handler: serverMux}
+		client    Client
+		serverMux = http.NewServeMux()
+		server    = &http.Server{
+			Addr:              fmt.Sprintf("0.0.0.0:%d", port),
+			Handler:           serverMux,
+			ReadHeaderTimeout: 2 * time.Second,
+		}
 		state         = randstr.Hex(20)
 		callback      = "127.0.0.1"
 		clientChannel = make(chan *spotify.Client, 1)
@@ -92,7 +97,7 @@ func Authenticate(urlProcessor func(string) error, callbacks ...string) (*Client
 
 	if err := nursery.RunConcurrently(
 		// spawn web server to handle login redirection
-		func(ctx context.Context, ch chan error) {
+		func(_ context.Context, ch chan error) {
 			if err := server.ListenAndServe(); err != http.ErrServerClosed {
 				ch <- err
 				clientChannel <- nil
@@ -100,7 +105,7 @@ func Authenticate(urlProcessor func(string) error, callbacks ...string) (*Client
 			}
 		},
 		// auto-launch web browser with authentication URL
-		func(ctx context.Context, ch chan error) {
+		func(_ context.Context, ch chan error) {
 			if urlProcessor == nil {
 				return
 			}

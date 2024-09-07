@@ -20,7 +20,7 @@ func (client *Client) Random(searchType spotify.SearchType, amount int, channels
 
 	for {
 		for _, fullTrack := range search.Tracks.Tracks {
-			track := trackEntity(&fullTrack)
+			track := trackEntity(fullTrack)
 			for _, ch := range channels {
 				ch <- track
 			}

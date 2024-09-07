@@ -1,6 +1,6 @@
 # About
 
-![](assets/demo.gif)
+![demo](assets/demo.gif)
 
 Spotitube is a CLI application to authenticate to Spotify account, fetch music collections — such as account library, playlists, albums or specific tracks —, look them up on a defined set of providers — such as YouTube —, download them and inflate the downloaded assets with metadata collected from Spotify, further enriched with lyrics.
 
@@ -55,8 +55,8 @@ docker run -it --rm \
 
 The only real issue to be addressed when working with Spotitube running in headless mode, is the redirect during Spotify authentication.
 
-By default, once authenticated to Spotify via web, Spotify itself redirects to a predefined callback URL, which corresponds to http://localhost:65535.
-In order to make that redirect go against a custom server, on Spotitube Spotify app, a further callback URL has been defined, i.e. http://spotitube.local:65535.
+By default, once authenticated to Spotify via web, Spotify itself redirects to a predefined callback URL, which corresponds to `http://localhost:65535`.
+In order to make that redirect go against a custom server, on Spotitube Spotify app, a further callback URL has been defined, i.e. `http://spotitube.local:65535`.
 This is the one that is set as callback at runtime when Spotitube goes through authentication with the `--remote` flag.
 
 So, assuming the server on which Spotitube is running is reachable at 1.2.3.4, make sure the client can correctly resolve `spotitube.local` as 1.2.3.4.

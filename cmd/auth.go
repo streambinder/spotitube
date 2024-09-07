@@ -25,10 +25,10 @@ func cmdAuth() *cobra.Command {
 		Use:          "auth",
 		Short:        "Establish a Spotify session for future uses",
 		SilenceUsage: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			var (
-				remote, _ = cmd.Flags().GetBool("remote")
-				logout, _ = cmd.Flags().GetBool("logout")
+				remote    = util.ErrWrap(false)(cmd.Flags().GetBool("remote"))
+				logout    = util.ErrWrap(false)(cmd.Flags().GetBool("logout"))
 				callback  = "127.0.0.1"
 				processor = spotify.BrowserProcessor
 			)

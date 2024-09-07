@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
-      - run:  go test -v -run ^TestScraping$ ./...
+      - run: go test -v -run ^TestScraping$ ./...
         env:
           TEST_SCRAPING: true
           GENIUS_TOKEN: ${{ secrets.GENIUS_TOKEN }}

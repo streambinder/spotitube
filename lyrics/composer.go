@@ -59,7 +59,7 @@ func Search(track *entity.Track) (string, error) {
 		return "", err
 	}
 
-	return string(result), os.WriteFile(track.Path().Lyrics(), result, 0o644)
+	return string(result), os.WriteFile(track.Path().Lyrics(), result, 0o600)
 }
 
 func Get(url string) (string, error) {

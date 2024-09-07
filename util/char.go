@@ -1,7 +1,5 @@
 package util
 
-import "math/rand"
-
 func RandomAlpha() rune {
-	return rune('a' - 1 + rand.Intn(26))
+	return rune('a' - 1 + RandomInt(26))
 }

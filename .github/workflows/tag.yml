@@ -3,9 +3,23 @@ name: tag
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
 
-permissions: write-all
+permissions:
+  actions: read
+  attestations: none
+  checks: none
+  contents: read
+  deployments: none
+  id-token: none
+  issues: none
+  discussions: none
+  packages: write
+  pages: none
+  pull-requests: read
+  repository-projects: none
+  security-events: none
+  statuses: none
 
 jobs:
   test:

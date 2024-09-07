@@ -3,6 +3,7 @@ package provider
 import (
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"net/url"
@@ -30,7 +31,7 @@ type youTubeInitialData struct {
 						ItemSectionRenderer struct {
 							Contents []struct {
 								VideoRenderer struct {
-									VideoId string
+									VideoID string
 									Title   struct {
 										Runs []Run
 									}
@@ -118,12 +119,15 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 		return nil, errors.New("cannot fetch results on youtube: " + response.Status)
 	}
 
-	document, err := goquery.NewDocumentFromReader(response.Body)
+	return provider.parseResults(track, query, response.Body)
+}
+
+func (provider youTube) parseResults(track *entity.Track, query string, body io.Reader) ([]*Match, error) {
+	document, err := goquery.NewDocumentFromReader(body)
 	if err != nil {
 		return nil, err
 	}
-
-	json := strings.Join(document.Find("script").Map(func(i int, selection *goquery.Selection) string {
+	json := strings.Join(document.Find("script").Map(func(_ int, selection *goquery.Selection) string {
 		prefix := "var ytInitialData ="
 		if !strings.HasPrefix(strings.TrimPrefix(selection.Text(), " "), prefix) {
 			return ""
@@ -147,7 +151,7 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 				match := youTubeResult{
 					track: track,
 					query: query,
-					id:    result.VideoRenderer.VideoId,
+					id:    result.VideoRenderer.VideoID,
 					title: title.Text,
 					owner: result.VideoRenderer.OwnerText.Runs[run].Text,
 					description: util.First(result.VideoRenderer.DetailedMetadataSnippets, DetailedMetadataSnippet{

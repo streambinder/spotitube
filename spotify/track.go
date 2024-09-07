@@ -12,7 +12,7 @@ import (
 
 const TypeTrack = spotify.SearchTypeTrack
 
-func trackEntity(track *spotify.FullTrack) *entity.Track {
+func trackEntity(track spotify.FullTrack) *entity.Track {
 	return &entity.Track{
 		ID:    track.ID.String(),
 		Title: track.Name,
@@ -45,7 +45,7 @@ func (client *Client) Track(target string, channels ...chan interface{}) (*entit
 	if err != nil {
 		return nil, err
 	}
-	track := trackEntity(fullTrack)
+	track := trackEntity(*fullTrack)
 
 	for _, ch := range channels {
 		ch <- track

@@ -8,8 +8,7 @@ Such queues usually carry a specific track (be it part of synchronization of use
 
 The assembly line is made of the following routines:
 
-<!-- <img src="assets/design.svg"> -->
-![](assets/design.svg)
+![design](assets/design.svg)
 
 ## Indexer
 

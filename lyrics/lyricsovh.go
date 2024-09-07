@@ -55,12 +55,13 @@ func (composer lyricsOvh) get(url string, ctxs ...context.Context) ([]byte, erro
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode == 404 {
+	switch {
+	case response.StatusCode == 404:
 		return nil, nil
-	} else if response.StatusCode == 429 {
+	case response.StatusCode == 429:
 		util.SleepUntilRetry(response.Header)
 		return composer.get(url, ctx)
-	} else if response.StatusCode != 200 {
+	case response.StatusCode != 200:
 		return nil, errors.New("cannot fetch results on lyrics.ovh: " + response.Status)
 	}
 

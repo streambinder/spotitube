@@ -90,7 +90,16 @@ func (composer genius) search(track *entity.Track, ctxs ...context.Context) ([]b
 		return nil, errors.New("cannot search lyrics on genius: " + response.Status)
 	}
 
-	body, err := io.ReadAll(response.Body)
+	return composer.parseResult(track, query, mainArtistOnly, response.Body, ctxs...)
+}
+
+func (composer genius) parseResult(track *entity.Track, query string, mainArtistOnly bool, response io.Reader, ctxs ...context.Context) ([]byte, error) {
+	ctx := context.Background()
+	if len(ctxs) > 0 {
+		ctx = ctxs[0]
+	}
+
+	body, err := io.ReadAll(response)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +171,7 @@ func (composer genius) get(url string, ctxs ...context.Context) ([]byte, error) 
 }
 
 func documentParser(data *[]byte) func(i int, s *goquery.Selection) {
-	return func(i int, s *goquery.Selection) {
+	return func(_ int, s *goquery.Selection) {
 		switch goquery.NodeName(s) {
 		case "br", "div":
 			*data = append(*data, 10)

@@ -19,7 +19,7 @@ func init() {
 }
 
 func (blob) supports(url string) bool {
-	response, err := http.Head(url)
+	response, err := http.Head(url) // nolint
 	if err != nil {
 		return false
 	}
@@ -38,7 +38,7 @@ func (blob) supports(url string) bool {
 }
 
 func (blob) download(url, path string, processor processor.Processor, channels ...chan []byte) error {
-	response, err := http.Get(url)
+	response, err := http.Get(url) // nolint
 	if err != nil {
 		return err
 	}

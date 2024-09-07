@@ -1,5 +1,8 @@
 package util
 
+func ErrSuppress(_ error) {
+}
+
 func ErrWrap[T any](def T) func(T, error) T {
 	return func(value T, err error) T {
 		if err != nil {

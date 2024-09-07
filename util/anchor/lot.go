@@ -12,7 +12,7 @@ const idle = "idle"
 
 var idleColor = color.New(color.FgWhite)
 
-type lot struct {
+type Lot struct {
 	anchor
 	id    int
 	alias string
@@ -23,7 +23,7 @@ func formatAlias(alias string) string {
 	return fmt.Sprintf("(%s) ", alias)
 }
 
-func (lot *lot) Print(message string) {
+func (lot *Lot) Print(message string) {
 	lot.window.lock.Lock()
 	defer lot.window.lock.Unlock()
 	defer cursor.Bottom()
@@ -36,20 +36,20 @@ func (lot *lot) Print(message string) {
 	}
 }
 
-func (lot *lot) Printf(format string, a ...any) {
+func (lot *Lot) Printf(format string, a ...any) {
 	lot.Print(fmt.Sprintf(format, a...))
 }
 
-func (lot *lot) Wipe() {
+func (lot *Lot) Wipe() {
 	lot.Print(idle)
 }
 
-func (lot *lot) Close(messages ...string) {
+func (lot *Lot) Close(messages ...string) {
 	lot.style = color.New(color.FgWhite)
 	lot.Print(util.First(messages, "done"))
 }
 
-func (lot *lot) write() {
+func (lot *Lot) write() {
 	dataStyle := lot.style
 	if lot.data == idle {
 		dataStyle = idleColor

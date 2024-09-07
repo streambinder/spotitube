@@ -29,7 +29,7 @@ func Search(track *entity.Track) ([]*Match, error) {
 	)
 	for _, provider := range providers {
 		workers = append(workers, func(p Provider) func(ctx context.Context, ch chan error) {
-			return func(ctx context.Context, ch chan error) {
+			return func(_ context.Context, ch chan error) {
 				scopedMatches, err := p.search(track)
 				if err != nil {
 					ch <- err

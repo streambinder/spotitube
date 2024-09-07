@@ -38,5 +38,5 @@ func (encoder *M3UEncoder) Add(track *entity.Track) error {
 }
 
 func (encoder *M3UEncoder) Close() error {
-	return os.WriteFile(encoder.target, encoder.data, 0o644)
+	return os.WriteFile(encoder.target, encoder.data, 0o600)
 }

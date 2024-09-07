@@ -16,10 +16,10 @@ func BenchmarkID(b *testing.B) {
 func TestID(t *testing.T) {
 	var (
 		target    = "1234567890123456789012"
-		spotifyId = spotify.ID(target)
+		spotifyID = spotify.ID(target)
 	)
-	assert.Equal(t, id(target), spotifyId)
-	assert.Equal(t, id("spotify:track:"+target), spotifyId)
-	assert.Equal(t, id("https://open.spotify.com/track/"+target), spotifyId)
-	assert.Equal(t, id("https://open.spotify.com/track/"+target+"?si=abcdefghijklmnop"), spotifyId)
+	assert.Equal(t, id(target), spotifyID)
+	assert.Equal(t, id("spotify:track:"+target), spotifyID)
+	assert.Equal(t, id("https://open.spotify.com/track/"+target), spotifyID)
+	assert.Equal(t, id("https://open.spotify.com/track/"+target+"?si=abcdefghijklmnop"), spotifyID)
 }

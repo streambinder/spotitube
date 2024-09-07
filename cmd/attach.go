@@ -26,9 +26,9 @@ func cmdAttach() *cobra.Command {
 		Args:         cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var (
-				path      = args[0]
-				id        = args[1]
-				rename, _ = cmd.Flags().GetBool("rename")
+				path   = args[0]
+				id     = args[1]
+				rename = util.ErrWrap(false)(cmd.Flags().GetBool("rename"))
 			)
 
 			localTrack, err := id3.Open(path, id3v2.Options{Parse: false})

@@ -77,7 +77,7 @@ func cmdSync() *cobra.Command {
 				return err
 			}
 
-			return nursery.RunConcurrently(
+			if err := nursery.RunConcurrently(
 				routineIndex,
 				routineAuth,
 				routineFetch(library, playlists, playlistsTracks, albums, tracks, fixes, libraryLimit),
@@ -86,7 +86,12 @@ func cmdSync() *cobra.Command {
 				routineProcess,
 				routineInstall,
 				routineMix(playlistEncoding),
-			)
+			); err != nil {
+				return err
+			}
+
+			tui.Printf("synchronization complete")
+			return nil
 		},
 		PreRun: func(cmd *cobra.Command, _ []string) {
 			routineSemaphores = map[int](chan bool){

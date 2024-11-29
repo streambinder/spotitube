@@ -58,7 +58,7 @@ jobs:
           SPOTIFY_ID: ${{ secrets.SPOTIFY_ID }}
           SPOTIFY_KEY: ${{ secrets.SPOTIFY_KEY }}
           GENIUS_TOKEN: ${{ secrets.GENIUS_TOKEN }}
-      - uses: softprops/action-gh-release@v1
+      - uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.GH_ACTIONS_SPOTITUBE }}
           files: ./spotitube-*

@@ -50,8 +50,8 @@ func TestTrack(t *testing.T) {
 	assert.Equal(t, fullTrack.Name, track.Title)
 	assert.Equal(t, len(fullTrack.Artists), len(track.Artists))
 	assert.Equal(t, len(fullTrack.Album.Name), len(track.Album))
-	assert.Equal(t, fullTrack.Duration/1000, track.Duration)
-	assert.Equal(t, fullTrack.TrackNumber, track.Number)
+	assert.Equal(t, int(fullTrack.Duration)/1000, track.Duration)
+	assert.Equal(t, int(fullTrack.TrackNumber), track.Number)
 	assert.Equal(t, fullTrack.Album.Images[0].URL, track.Artwork.URL)
 	assert.True(t, strings.HasPrefix(fullTrack.Album.ReleaseDate, strconv.Itoa(track.Year)))
 }

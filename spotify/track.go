@@ -32,9 +32,9 @@ func trackEntity(track spotify.FullTrack) *entity.Track {
 			}(track.Album.Images),
 			Data: []byte{},
 		},
-		Duration:    track.Duration / 1000,
+		Duration:    int(track.Duration) / 1000,
 		Lyrics:      "",
-		Number:      track.TrackNumber,
+		Number:      int(track.TrackNumber),
 		Year:        util.ErrWrap(0)(strconv.Atoi(strings.Split(track.Album.ReleaseDate, "-")[0])),
 		UpstreamURL: "",
 	}

@@ -22,7 +22,7 @@ permissions:
   pull-requests: read
   repository-projects: none
   security-events: none
-  statuses: none
+  statuses: write
 
 jobs:
   commitlint:
@@ -43,6 +43,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: super-linter/super-linter@latest
         env:
           GITHUB_TOKEN: ${{ secrets.GH_ACTIONS_SPOTITUBE }}

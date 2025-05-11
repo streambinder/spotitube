@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/bogem/id3v2/v2"
+	"github.com/streambinder/spotitube/lyrics"
 )
 
 const (
@@ -120,7 +121,20 @@ func (tag *Tag) AttachedPicture() (string, []byte) {
 	return "", []byte{}
 }
 
-func (tag *Tag) SetUnsynchronizedLyrics(title, lyrics string) {
+func (tag *Tag) SetLyrics(title, lyrics string) {
+	tag.setSynchronizedLyrics(title, lyrics)
+	tag.setUnsynchronizedLyrics(title, lyrics)
+}
+
+func (tag *Tag) setSynchronizedLyrics(_, data string) {
+	if !lyrics.IsSynced(data) {
+		return
+	}
+
+	// implement me
+}
+
+func (tag *Tag) setUnsynchronizedLyrics(title, lyrics string) {
 	tag.AddUnsynchronisedLyricsFrame(id3v2.UnsynchronisedLyricsFrame{
 		Encoding:          tag.DefaultEncoding(),
 		Language:          "eng",

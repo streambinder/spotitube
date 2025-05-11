@@ -37,7 +37,7 @@ func (encoder) Do(object interface{}) error {
 	tag.SetArtworkURL(track.Artwork.URL)
 	tag.SetAttachedPicture(track.Artwork.Data)
 	tag.SetDuration(strconv.Itoa(track.Duration))
-	tag.SetUnsynchronizedLyrics(track.Title, track.Lyrics)
+	tag.SetLyrics(track.Title, track.Lyrics)
 	tag.SetTrackNumber(strconv.Itoa(track.Number))
 	tag.SetYear(strconv.Itoa(track.Year))
 	tag.SetUpstreamURL(track.UpstreamURL)

@@ -33,7 +33,7 @@ func TestOpen(t *testing.T) {
 	assert.Empty(t, tag.UnsynchronizedLyrics())
 
 	tag.SetAttachedPicture([]byte("picture"))
-	tag.SetUnsynchronizedLyrics("title", "lyrics")
+	tag.SetLyrics("title", "lyrics")
 	tag.SetTrackNumber("1")
 	tag.SetSpotifyID("Spotify ID")
 	tag.SetArtworkURL("Artwork URL")

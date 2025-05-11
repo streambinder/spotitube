@@ -23,6 +23,27 @@ func BenchmarkComposer(b *testing.B) {
 	}
 }
 
+func TestIsSynced(t *testing.T) {
+	assert.True(t, IsSynced([]byte("[00:27.37] lyrics")))
+	assert.False(t, IsSynced([]byte("lyrics")))
+	assert.True(t, IsSynced("[00:27.37] lyrics"))
+	assert.False(t, IsSynced("lyrics"))
+	assert.False(t, IsSynced(123))
+}
+
+func TestGetPlain(t *testing.T) {
+	assert.Equal(t, GetPlain("[00:27.37] lyrics"), "lyrics")
+	assert.Equal(t, GetPlain("lyrics"), "lyrics")
+}
+
+func TestChooseComposition(t *testing.T) {
+	assert.Nil(t, chooseComposition(nil, nil))
+	assert.Equal(t, chooseComposition(nil, []byte("lyrics")), []byte("lyrics"))
+	assert.Equal(t, chooseComposition([]byte("[00:27.37] lyrics"), []byte("lyrics")), []byte("[00:27.37] lyrics"))
+	assert.Equal(t, chooseComposition([]byte("lyrics"), []byte("[00:27.37] lyrics")), []byte("[00:27.37] lyrics"))
+	assert.Equal(t, chooseComposition([]byte("lyrics"), []byte("lyrics but longer")), []byte("lyrics but longer"))
+}
+
 func TestSearch(t *testing.T) {
 	// monkey patching
 	ch := make(chan bool, 1)
@@ -31,6 +52,10 @@ func TestSearch(t *testing.T) {
 		ApplyPrivateMethod(reflect.TypeOf(genius{}), "search", func() ([]byte, error) {
 			close(ch)
 			return []byte("glyrics"), nil
+		}).
+		ApplyPrivateMethod(reflect.TypeOf(lrclib{}), "search", func() ([]byte, error) {
+			<-ch
+			return []byte("[00:27.37] llyrics"), nil
 		}).
 		ApplyPrivateMethod(reflect.TypeOf(lyricsOvh{}), "search", func() ([]byte, error) {
 			<-ch
@@ -41,7 +66,7 @@ func TestSearch(t *testing.T) {
 	// testing
 	lyrics, err := Search(track)
 	assert.Nil(t, err)
-	assert.Equal(t, "glyrics", lyrics)
+	assert.Equal(t, "[00:27.37] llyrics", lyrics)
 }
 
 func TestSearchAlreadyExists(t *testing.T) {
@@ -65,6 +90,9 @@ func TestSearchFailure(t *testing.T) {
 		ApplyPrivateMethod(reflect.TypeOf(genius{}), "search", func() ([]byte, error) {
 			return nil, errors.New("ko")
 		}).
+		ApplyPrivateMethod(reflect.TypeOf(lrclib{}), "search", func() ([]byte, error) {
+			return nil, errors.New("ko")
+		}).
 		ApplyPrivateMethod(reflect.TypeOf(lyricsOvh{}), "search", func() ([]byte, error) {
 			return nil, errors.New("ko")
 		}).
@@ -81,6 +109,9 @@ func TestSearchNotFound(t *testing.T) {
 			return nil, errors.New("")
 		}).
 		ApplyPrivateMethod(reflect.TypeOf(genius{}), "search", func() ([]byte, error) {
+			return nil, nil
+		}).
+		ApplyPrivateMethod(reflect.TypeOf(lrclib{}), "search", func() ([]byte, error) {
 			return nil, nil
 		}).
 		ApplyPrivateMethod(reflect.TypeOf(lyricsOvh{}), "search", func() ([]byte, error) {
@@ -103,6 +134,9 @@ func TestSearchCannotCreateDir(t *testing.T) {
 		ApplyPrivateMethod(reflect.TypeOf(genius{}), "search", func() ([]byte, error) {
 			return []byte("lyrics"), nil
 		}).
+		ApplyPrivateMethod(reflect.TypeOf(lrclib{}), "search", func() ([]byte, error) {
+			return []byte{}, nil
+		}).
 		ApplyPrivateMethod(reflect.TypeOf(lyricsOvh{}), "search", func() ([]byte, error) {
 			return []byte{}, nil
 		}).
@@ -123,6 +157,10 @@ func TestGet(t *testing.T) {
 			close(ch)
 			return []byte("glyrics"), nil
 		}).
+		ApplyPrivateMethod(reflect.TypeOf(lrclib{}), "get", func() ([]byte, error) {
+			<-ch
+			return []byte("[00:27.37] llyrics"), nil
+		}).
 		ApplyPrivateMethod(reflect.TypeOf(lyricsOvh{}), "get", func() ([]byte, error) {
 			<-ch
 			return []byte("olyrics"), nil
@@ -132,13 +170,16 @@ func TestGet(t *testing.T) {
 	// testing
 	lyrics, err := Get("http://localhost")
 	assert.Nil(t, err)
-	assert.Equal(t, "glyrics", lyrics)
+	assert.Equal(t, "[00:27.37] llyrics", lyrics)
 }
 
 func TestGetFailure(t *testing.T) {
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyPrivateMethod(reflect.TypeOf(genius{}), "get", func() ([]byte, error) {
+			return nil, errors.New("ko")
+		}).
+		ApplyPrivateMethod(reflect.TypeOf(lrclib{}), "get", func() ([]byte, error) {
 			return nil, errors.New("ko")
 		}).
 		ApplyPrivateMethod(reflect.TypeOf(lyricsOvh{}), "get", func() ([]byte, error) {

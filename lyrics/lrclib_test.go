@@ -35,7 +35,7 @@ func TestLrclibSearch(t *testing.T) {
 	// testing
 	lyrics, err := lrclib{}.search(track, context.Background())
 	assert.Nil(t, err)
-	assert.Equal(t, []byte("[00:27.37] lyrics"), lyrics)
+	assert.Equal(t, []byte("[00:27.37]lyrics"), lyrics)
 }
 
 func TestLrclibSearchPlain(t *testing.T) {

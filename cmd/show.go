@@ -5,9 +5,9 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/bogem/id3v2/v2"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"github.com/streambinder/id3v2-sylt"
 	"github.com/streambinder/spotitube/entity/id3"
 	"github.com/streambinder/spotitube/util"
 )
@@ -45,7 +45,7 @@ func cmdShow() *cobra.Command {
 					fmt.Fprintln(table, "Artwork URL\t", util.Fallback(tag.ArtworkURL(), fallback))
 					fmt.Fprintln(table, "Duration\t", util.Fallback(fmt.Sprintf("%ss", tag.Duration()), fallback))
 					fmt.Fprintln(table, "Upstream URL\t", util.Fallback(tag.UpstreamURL(), fallback))
-					fmt.Fprintln(table, "Lyrics\t", util.Fallback(util.Excerpt(tag.UnsynchronizedLyrics(), 64), fallback))
+					fmt.Fprintln(table, "Lyrics\t", util.Fallback(util.Excerpt(util.FirstLine(tag.UnsynchronizedLyrics()), 64)+"...", fallback))
 					fmt.Fprintln(table, "Artwork\t", func(mimeType string, data []byte) string {
 						if len(data) > 0 {
 							return fmt.Sprintf("%s (%s)", mimeType, util.HumanizeBytes(len(data)))

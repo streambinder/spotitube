@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/util"
@@ -76,8 +77,9 @@ func (composer lrclib) get(url string, ctxs ...context.Context) ([]byte, error) 
 		return nil, err
 	}
 
+	lyrics := entry.PlainLyrics
 	if len(entry.SyncedLyrics) > 0 {
-		return []byte(entry.SyncedLyrics), nil
+		lyrics = entry.SyncedLyrics
 	}
-	return []byte(entry.PlainLyrics), nil
+	return []byte(regexp.MustCompile(`\[(\d{2}:\d{2}\.\d{2})\]\s+`).ReplaceAllString(lyrics, `[$1]`)), nil
 }

@@ -120,3 +120,7 @@ func Contains(data string, parts ...string) bool {
 func LegalizeFilename(filename string) string {
 	return filenameIllegalCharacters.ReplaceAllString(filename, "")
 }
+
+func FirstLine(text string) string {
+	return strings.Split(text, "\n")[0]
+}

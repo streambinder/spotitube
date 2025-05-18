@@ -1,16 +1,19 @@
 package id3
 
 import (
+	"fmt"
 	"strings"
 
-	"github.com/bogem/id3v2/v2"
+	"github.com/streambinder/id3v2-sylt"
 	"github.com/streambinder/spotitube/lyrics"
+	"github.com/streambinder/spotitube/util"
 )
 
 const (
 	frameAttachedPicture      = "Attached picture"
 	frameTrackNumber          = "Track number/Position in set"
 	frameUnsynchronizedLyrics = "Unsynchronised lyrics/text transcription"
+	frameSynchronizedLyrics   = "Synchronised lyrics/text"
 	frameSpotifyID            = "Spotify ID"
 	frameArtworkURL           = "Artwork URL"
 	frameDuration             = "Duration"
@@ -126,20 +129,47 @@ func (tag *Tag) SetLyrics(title, lyrics string) {
 	tag.setUnsynchronizedLyrics(title, lyrics)
 }
 
-func (tag *Tag) setSynchronizedLyrics(_, data string) {
+func (tag *Tag) setSynchronizedLyrics(title, data string) {
 	if !lyrics.IsSynced(data) {
 		return
 	}
 
-	// implement me
+	var syncedText []id3v2.SyncedText
+	for _, line := range lyrics.GetSync(data) {
+		syncedText = append(syncedText, id3v2.SyncedText{
+			Timestamp: line.Time,
+			Text:      line.Text,
+		})
+	}
+
+	tag.AddSynchronisedLyricsFrame(id3v2.SynchronisedLyricsFrame{
+		Encoding:          tag.DefaultEncoding(),
+		Language:          "eng",
+		TimestampFormat:   id3v2.SYLTAbsoluteMillisecondsTimestampFormat,
+		ContentType:       id3v2.SYLTLyricsContentType,
+		ContentDescriptor: title,
+		SynchronizedTexts: syncedText,
+	})
 }
 
-func (tag *Tag) setUnsynchronizedLyrics(title, lyrics string) {
+func (tag *Tag) SynchronizedLyrics() string {
+	frame, ok := tag.GetLastFrame(tag.CommonID(frameSynchronizedLyrics)).(id3v2.SynchronisedLyricsFrame)
+	if ok {
+		var lyrics []string
+		for _, line := range frame.SynchronizedTexts {
+			lyrics = append(lyrics, fmt.Sprintf("[%s]%s", util.MillisToColonMinutes(line.Timestamp), line.Text))
+		}
+		return strings.Join(lyrics, "\n")
+	}
+	return ""
+}
+
+func (tag *Tag) setUnsynchronizedLyrics(title, data string) {
 	tag.AddUnsynchronisedLyricsFrame(id3v2.UnsynchronisedLyricsFrame{
 		Encoding:          tag.DefaultEncoding(),
 		Language:          "eng",
 		ContentDescriptor: title,
-		Lyrics:            lyrics,
+		Lyrics:            lyrics.GetPlain(data),
 	})
 }
 

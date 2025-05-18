@@ -4,8 +4,8 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/bogem/id3v2/v2"
 	"github.com/spf13/cobra"
+	"github.com/streambinder/id3v2-sylt"
 	"github.com/streambinder/spotitube/downloader"
 	"github.com/streambinder/spotitube/entity/id3"
 	"github.com/streambinder/spotitube/lyrics"

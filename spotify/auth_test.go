@@ -44,7 +44,7 @@ func getPort() int {
 	lock.Lock()
 	defer lock.Unlock()
 
-	port := util.RandomInt(portMax, portMin)
+	port = util.RandomInt(portMax, portMin)
 	if _, ok := ports[port]; ok {
 		return getPort()
 	}

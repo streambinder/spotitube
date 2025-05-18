@@ -101,18 +101,21 @@ func (window *Window) shift(lines int) {
 	fmt.Println()
 	window.up()
 
-	if lines == cursorAnchor {
+	switch lines {
+	case cursorAnchor:
 		lines = len(window.lots)
-	} else if lines == cursorDefault {
+	case cursorDefault:
 		lines = len(window.lots) + len(window.anchors)
 	}
 
 	for i := 0; i < lines; i++ {
 		if i < len(window.lots) {
-			window.lots[len(window.lots)-1-i].write()
+			lotID := len(window.lots) - 1 - i
+			window.lots[lotID].write()
 		} else {
-			i := i - len(window.lots)
-			fmt.Print(window.anchors[len(window.anchors)-1-i].data)
+			anchorIndex := i - len(window.lots)
+			anchorID := len(window.anchors) - 1 - anchorIndex
+			fmt.Print(window.anchors[anchorID].data)
 		}
 		window.up()
 	}

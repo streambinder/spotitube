@@ -24,23 +24,29 @@ func BenchmarkComposer(b *testing.B) {
 }
 
 func TestIsSynced(t *testing.T) {
-	assert.True(t, IsSynced([]byte("[00:27.37] lyrics")))
+	assert.True(t, IsSynced([]byte("[00:27.37]lyrics")))
 	assert.False(t, IsSynced([]byte("lyrics")))
-	assert.True(t, IsSynced("[00:27.37] lyrics"))
+	assert.True(t, IsSynced("[00:27.37]lyrics"))
 	assert.False(t, IsSynced("lyrics"))
 	assert.False(t, IsSynced(123))
 }
 
 func TestGetPlain(t *testing.T) {
-	assert.Equal(t, GetPlain("[00:27.37] lyrics"), "lyrics")
+	assert.Equal(t, GetPlain("[00:27.37]lyrics"), "[00:27.37]lyrics")
 	assert.Equal(t, GetPlain("lyrics"), "lyrics")
+}
+
+func TestGetSync(t *testing.T) {
+	assert.Equal(t, GetSync("[00:27.37]lyrics"), []SyncedLine{{27370, "lyrics"}})
+	assert.Equal(t, GetSync("[00:27.37]lyrics\n[00:27.37]"), []SyncedLine{{27370, "lyrics"}})
+	assert.Equal(t, GetSync("lyrics"), []SyncedLine{})
 }
 
 func TestChooseComposition(t *testing.T) {
 	assert.Nil(t, chooseComposition(nil, nil))
 	assert.Equal(t, chooseComposition(nil, []byte("lyrics")), []byte("lyrics"))
-	assert.Equal(t, chooseComposition([]byte("[00:27.37] lyrics"), []byte("lyrics")), []byte("[00:27.37] lyrics"))
-	assert.Equal(t, chooseComposition([]byte("lyrics"), []byte("[00:27.37] lyrics")), []byte("[00:27.37] lyrics"))
+	assert.Equal(t, chooseComposition([]byte("[00:27.37]lyrics"), []byte("lyrics")), []byte("[00:27.37]lyrics"))
+	assert.Equal(t, chooseComposition([]byte("lyrics"), []byte("[00:27.37]lyrics")), []byte("[00:27.37]lyrics"))
 	assert.Equal(t, chooseComposition([]byte("lyrics"), []byte("lyrics but longer")), []byte("lyrics but longer"))
 }
 
@@ -55,7 +61,7 @@ func TestSearch(t *testing.T) {
 		}).
 		ApplyPrivateMethod(reflect.TypeOf(lrclib{}), "search", func() ([]byte, error) {
 			<-ch
-			return []byte("[00:27.37] llyrics"), nil
+			return []byte("[00:27.37]llyrics"), nil
 		}).
 		ApplyPrivateMethod(reflect.TypeOf(lyricsOvh{}), "search", func() ([]byte, error) {
 			<-ch
@@ -66,7 +72,7 @@ func TestSearch(t *testing.T) {
 	// testing
 	lyrics, err := Search(track)
 	assert.Nil(t, err)
-	assert.Equal(t, "[00:27.37] llyrics", lyrics)
+	assert.Equal(t, "[00:27.37]llyrics", lyrics)
 }
 
 func TestSearchAlreadyExists(t *testing.T) {
@@ -159,7 +165,7 @@ func TestGet(t *testing.T) {
 		}).
 		ApplyPrivateMethod(reflect.TypeOf(lrclib{}), "get", func() ([]byte, error) {
 			<-ch
-			return []byte("[00:27.37] llyrics"), nil
+			return []byte("[00:27.37]llyrics"), nil
 		}).
 		ApplyPrivateMethod(reflect.TypeOf(lyricsOvh{}), "get", func() ([]byte, error) {
 			<-ch
@@ -170,7 +176,7 @@ func TestGet(t *testing.T) {
 	// testing
 	lyrics, err := Get("http://localhost")
 	assert.Nil(t, err)
-	assert.Equal(t, "[00:27.37] llyrics", lyrics)
+	assert.Equal(t, "[00:27.37]llyrics", lyrics)
 }
 
 func TestGetFailure(t *testing.T) {

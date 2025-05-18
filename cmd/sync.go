@@ -10,9 +10,9 @@ import (
 
 	"github.com/adrg/xdg"
 	"github.com/arunsworld/nursery"
-	"github.com/bogem/id3v2/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"github.com/streambinder/id3v2-sylt"
 	"github.com/streambinder/spotitube/downloader"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/entity/id3"
@@ -394,7 +394,7 @@ func routineCollectLyrics(track *entity.Track) func(context.Context, chan error)
 		}
 		tui.Lot("compose").Wipe()
 		track.Lyrics = lyrics
-		tui.Printf("lyrics for %s by %s: %s", track.Title, track.Artists[0], util.Excerpt(lyrics))
+		tui.Printf("lyrics for %s by %s: %s...", track.Title, track.Artists[0], util.Excerpt(util.FirstLine(lyrics), 64))
 	}
 }
 

@@ -18,6 +18,7 @@ func BenchmarkString(b *testing.B) {
 		TestFallback(&testing.T{})
 		TestContainsEach(&testing.T{})
 		TestLegalizeFilename(&testing.T{})
+		TestFirstLine(&testing.T{})
 	}
 }
 
@@ -76,4 +77,9 @@ func TestContainsEach(t *testing.T) {
 
 func TestLegalizeFilename(t *testing.T) {
 	assert.Equal(t, "file name", LegalizeFilename(`file/\?% *:|"<>name`))
+}
+
+func TestFirstLine(t *testing.T) {
+	assert.Equal(t, "line1", FirstLine("line1\nline2"))
+	assert.Equal(t, "line", FirstLine("line"))
 }

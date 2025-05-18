@@ -9,12 +9,18 @@ import (
 
 	"github.com/arunsworld/nursery"
 	"github.com/streambinder/spotitube/entity"
+	"github.com/streambinder/spotitube/util"
 )
 
 var (
-	composers      = []Composer{}
-	reSyncedPrefix = regexp.MustCompile(`^\[\d{2}:\d{2}\.\d{2}\]\s*`)
+	composers    = []Composer{}
+	reSyncedLine = regexp.MustCompile(`^\[(\d{2}:\d{2}\.\d{2})\]\s*(.+)`)
 )
+
+type SyncedLine struct {
+	Time uint32
+	Text string
+}
 
 type Composer interface {
 	search(*entity.Track, ...context.Context) ([]byte, error)
@@ -31,19 +37,50 @@ func IsSynced(data interface{}) bool {
 	default:
 		return false
 	}
-	return reSyncedPrefix.MatchString(strings.Split(lyrics, "\n")[0])
+	return reSyncedLine.MatchString(strings.Split(lyrics, "\n")[0])
 }
 
 func GetPlain(lyrics string) string {
-	if IsSynced(lyrics) {
-		lines := strings.Split(lyrics, "\n")
-		for i, line := range lines {
-			lines[i] = reSyncedPrefix.ReplaceAllString(line, "")
-		}
-		return strings.Join(lines, "\n")
+	// In an ideal world, standards are standards and everyone follows them.
+	// Unfortunately, the world is not ideal, hence the USLT and SYLT ID3 tags
+	// aren't the standard way of distinguishing between plain and synced lyrics.
+	// Rather, it's enough for the USLT tag to be in LRC format to be considered
+	// synced. I'll leave the ideal logic commented out for future reference.
 
-	}
+	// if !IsSynced(lyrics) {
+	// 	return lyrics
+	// }
+
+	// lines := strings.Split(lyrics, "\n")
+	// for i, line := range lines {
+	// 	if matches := reSyncedLine.FindStringSubmatch(line); len(matches) == 3 {
+	// 		lines[i] = matches[2]
+	// 	}
+	// }
+	// return strings.Join(lines, "\n")
 	return lyrics
+}
+
+func GetSync(lyrics string) []SyncedLine {
+	if !IsSynced(lyrics) {
+		return []SyncedLine{}
+	}
+
+	var lines []SyncedLine
+	for _, line := range strings.Split(lyrics, "\n") {
+		matches := reSyncedLine.FindStringSubmatch(line)
+		if len(matches) != 3 {
+			continue
+		}
+
+		lines = append(lines, SyncedLine{
+			// since we're regex-testing the line first, we know for sure
+			// that the time is in the format we expect
+			Time: util.ErrWrap(uint32(0))(util.ColonMinutesToMillis(matches[1])),
+			Text: matches[2],
+		})
+	}
+	return lines
 }
 
 func chooseComposition(first, latter []byte) []byte {

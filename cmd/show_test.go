@@ -29,7 +29,7 @@ func TestCmdShow(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(testExecute(cmdShow(), "path/to/track")))
+	assert.Nil(t, util.ErrOnly(testExecute(cmdShow(), "path/to/track1", "path/to/track2")))
 }
 
 func TestCmdShowOpenFailure(t *testing.T) {

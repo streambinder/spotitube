@@ -26,7 +26,7 @@ func cmdShow() *cobra.Command {
 		Args:         cobra.MinimumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			bold := color.New(color.Bold)
-			for _, path := range args {
+			for i, path := range args {
 				if err := func() error {
 					tag, err := id3.Open(path, id3v2.Options{Parse: true})
 					if err != nil {
@@ -45,13 +45,16 @@ func cmdShow() *cobra.Command {
 					fmt.Fprintln(table, "Artwork URL\t", util.Fallback(tag.ArtworkURL(), fallback))
 					fmt.Fprintln(table, "Duration\t", util.Fallback(fmt.Sprintf("%ss", tag.Duration()), fallback))
 					fmt.Fprintln(table, "Upstream URL\t", util.Fallback(tag.UpstreamURL(), fallback))
-					fmt.Fprintln(table, "Lyrics\t", util.Fallback(util.Excerpt(util.FirstLine(tag.UnsynchronizedLyrics()), 64)+"...", fallback))
+					fmt.Fprintln(table, "Lyrics\t", util.Fallback(util.Excerpt(util.FirstLine(tag.UnsynchronizedLyrics()), 64), fallback))
 					fmt.Fprintln(table, "Artwork\t", func(mimeType string, data []byte) string {
 						if len(data) > 0 {
 							return fmt.Sprintf("%s (%s)", mimeType, util.HumanizeBytes(len(data)))
 						}
 						return fallback
 					}(tag.AttachedPicture()))
+					if len(args) > 1 && i < len(args)-1 {
+						fmt.Fprintln(table)
+					}
 					return table.Flush()
 				}(); err != nil {
 					return err

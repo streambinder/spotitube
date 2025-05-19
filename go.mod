@@ -8,7 +8,7 @@ require (
 	atomicgo.dev/cursor v0.2.0
 	github.com/PuerkitoBio/goquery v1.10.3
 	github.com/adrg/xdg v0.5.3
-	github.com/agiledragon/gomonkey/v2 v2.12.0
+	github.com/agiledragon/gomonkey/v2 v2.13.0
 	github.com/agnivade/levenshtein v1.2.0
 	github.com/arunsworld/nursery v0.6.0
 	github.com/fatih/color v1.18.0

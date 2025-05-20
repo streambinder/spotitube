@@ -22,13 +22,11 @@ func testExecute(cmd *cobra.Command, args ...string) error {
 	cmdTest.SetArgs(append([]string{cmd.Use}, args...))
 	cmdTest.SetOut(io.Discard)
 	cmdTest.SetErr(io.Discard)
-	cmdTest.SetOutput(io.Discard)
 	return cmdTest.Execute()
 }
 
 func TestExecute(_ *testing.T) {
 	cmdRoot.SetOut(io.Discard)
 	cmdRoot.SetErr(io.Discard)
-	cmdRoot.SetOutput(io.Discard)
 	Execute()
 }

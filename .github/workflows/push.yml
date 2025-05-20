@@ -102,7 +102,7 @@ jobs:
       - uses: peter-evans/repository-dispatch@v3
         if: steps.filter.outputs.docs == 'true'
         with:
-          token: ${{ secrets.GH_ACTIONS_SPOTITUBE }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           repository: streambinder/streambinder
           event-type: doc-sync
           client-payload: '{"repo": "${{ github.repository }}", "ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'

@@ -59,3 +59,39 @@ func TestWindow(t *testing.T) {
 	assert.Contains(t, string(output), "closure")
 	assert.Contains(t, string(output), "prompt")
 }
+
+func TestWindowPlain(t *testing.T) {
+	stdout := os.Stdout
+	defer func() {
+		os.Stdout = stdout
+	}()
+	reader, writer, err := os.Pipe()
+	assert.Nil(t, err)
+	os.Stdout = writer
+
+	stdin := os.Stdin
+	defer func() {
+		os.Stdin = stdin
+	}()
+	stdinFile, err := os.CreateTemp(util.CacheDirectory(), "test")
+	assert.Nil(t, err)
+	defer os.Remove(stdinFile.Name())
+	assert.Nil(t, util.ErrOnly(stdinFile.Write([]byte("input\n"))))
+	os.Stdin = stdinFile
+
+	var (
+		window = New(Normal)
+		lot    = window.Lot("lot")
+	)
+	window.EnablePlainMode()
+	lot.Printf("lot text 1")
+	window.Printf("default text 1")
+	window.AnchorPrintf("anchor text")
+	assert.Nil(t, writer.Close())
+
+	output, err := io.ReadAll(reader)
+	assert.Nil(t, err)
+	assert.Contains(t, string(output), "lot text 1")
+	assert.Contains(t, string(output), "default text 1")
+	assert.Contains(t, string(output), "anchor text")
+}

@@ -837,3 +837,23 @@ func TestCmdSyncPlaylistEncoderCloseFailure(t *testing.T) {
 	// testing
 	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "-p", "123")), "ko")
 }
+
+func TestCmdSyncPlain(t *testing.T) {
+	t.Cleanup(cleanup)
+
+	// monkey patching
+	defer gomonkey.NewPatches().
+		ApplyMethod(&index.Index{}, "Build", func() error {
+			return nil
+		}).
+		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
+			return &spotify.Client{}, nil
+		}).
+		ApplyMethod(&spotify.Client{}, "Library", func() error {
+			return nil
+		}).
+		Reset()
+
+	// testing
+	assert.Nil(t, util.ErrOnly(testExecute(cmdSync(), "--plain")))
+}

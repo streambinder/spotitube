@@ -26,6 +26,11 @@ func formatAlias(alias string) string {
 func (lot *Lot) Print(message string) {
 	lot.window.lock.Lock()
 	defer lot.window.lock.Unlock()
+
+	if lot.window.plain {
+		fmt.Println(lot.alias, message)
+		return
+	}
 	defer cursor.Bottom()
 
 	lot.data = message
@@ -45,7 +50,9 @@ func (lot *Lot) Wipe() {
 }
 
 func (lot *Lot) Close(messages ...string) {
-	lot.style = color.New(color.FgWhite)
+	if !lot.window.plain {
+		lot.style = idleColor
+	}
 	lot.Print(util.First(messages, "done"))
 }
 

@@ -30,11 +30,13 @@ const (
 type Color color.Attribute
 
 type Window struct {
-	anchors     []*anchor
-	lots        []*Lot
-	aliases     map[string]int
-	anchorColor *color.Color
-	lock        sync.RWMutex
+	anchors        []*anchor
+	lots           []*Lot
+	aliases        map[string]int
+	anchorColor    *color.Color
+	lotHeaderColor *color.Color
+	lock           sync.RWMutex
+	plain          bool
 }
 
 type anchor struct {
@@ -44,12 +46,20 @@ type anchor struct {
 
 func New(anchorColors ...color.Attribute) *Window {
 	return &Window{
-		anchors:     []*anchor{},
-		lots:        []*Lot{},
-		aliases:     make(map[string]int),
-		anchorColor: color.New(util.First(anchorColors, Normal)),
-		lock:        sync.RWMutex{},
+		anchors:        []*anchor{},
+		lots:           []*Lot{},
+		aliases:        make(map[string]int),
+		anchorColor:    color.New(util.First(anchorColors, Normal)),
+		lotHeaderColor: color.New(color.Bold),
+		lock:           sync.RWMutex{},
+		plain:          false,
 	}
+}
+
+func (window *Window) EnablePlainMode() {
+	window.anchorColor = color.New(Normal)
+	window.lotHeaderColor = color.New(Normal)
+	window.plain = true
 }
 
 func (window *Window) Lot(alias string) *Lot {
@@ -67,11 +77,14 @@ func (window *Window) Lot(alias string) *Lot {
 		},
 		id:    len(window.lots),
 		alias: alias,
-		style: color.New(color.Bold),
+		style: window.lotHeaderColor,
 	}
 	window.aliases[alias] = len(window.lots)
 	window.lots = append(window.lots, lot)
-	fmt.Println()
+
+	if !lot.window.plain {
+		fmt.Println()
+	}
 	return lot
 }
 
@@ -126,6 +139,11 @@ func (window *Window) print(doAnchor bool, data string) {
 	defer window.lock.Unlock()
 	defer cursor.Bottom()
 
+	if window.plain {
+		fmt.Println(data)
+		return
+	}
+
 	if doAnchor {
 		window.anchors = append(window.anchors, &anchor{data, window})
 		window.shift(cursorAnchor)
@@ -139,7 +157,11 @@ func (window *Window) Reads(label string, a ...interface{}) (value string) {
 	window.lock.Lock()
 	defer window.lock.Unlock()
 	defer cursor.Bottom()
-	window.shift(cursorDefault)
+
+	if !window.plain {
+		window.shift(cursorDefault)
+	}
+
 	fmt.Printf(label+" ", a...)
 	value = util.ErrWrap("")(bufio.NewReader(os.Stdin).ReadString('\n'))
 	value = strings.TrimSpace(value)

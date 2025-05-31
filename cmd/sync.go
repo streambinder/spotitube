@@ -65,7 +65,12 @@ func cmdSync() *cobra.Command {
 				tracks           = util.ErrWrap([]string{})(cmd.Flags().GetStringArray("track"))
 				fixes            = util.ErrWrap([]string{})(cmd.Flags().GetStringArray("fix"))
 				libraryLimit     = util.ErrWrap(0)(cmd.Flags().GetInt("library-limit"))
+				plain            = util.ErrWrap(false)(cmd.Flags().GetBool("plain"))
 			)
+
+			if plain {
+				tui.EnablePlainMode()
+			}
 
 			for index, path := range fixes {
 				if absPath, err := filepath.Abs(path); err == nil {
@@ -125,7 +130,7 @@ func cmdSync() *cobra.Command {
 	}
 	cmd.Flags().StringP("output", "o", xdg.UserDirs.Music, "Output synchronization path")
 	cmd.Flags().String("playlist-encoding", "m3u", "Playlist output files encoding")
-	cmd.Flags().BoolP("manual", "m", false, "Enable manual mode (prompts for user-issued URL to use for download")
+	cmd.Flags().BoolP("manual", "m", false, "Enable manual mode (prompts for user-issued URL to use for download)")
 	cmd.Flags().BoolP("library", "l", false, "Synchronize library (auto-enabled if no collection is supplied)")
 	cmd.Flags().StringArrayP("playlist", "p", []string{}, "Synchronize playlist")
 	cmd.Flags().StringArray("playlist-tracks", []string{}, "Synchronize playlist tracks without playlist file")
@@ -133,6 +138,7 @@ func cmdSync() *cobra.Command {
 	cmd.Flags().StringArrayP("track", "t", []string{}, "Synchronize track")
 	cmd.Flags().StringArrayP("fix", "f", []string{}, "Fix local track")
 	cmd.Flags().Int("library-limit", 0, "Number of tracks to fetch from library (unlimited if 0)")
+	cmd.Flags().Bool("plain", false, "Enable plain mode (no fancy TUI anchored output)")
 	return cmd
 }
 

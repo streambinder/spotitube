@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
       - run: |
-          go test -v -timeout 30s ./...
+          go test -p 1 -v -timeout 30s ./...
         env:
           XDG_MUSIC_DIR: /tmp
   build:

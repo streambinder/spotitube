@@ -70,3 +70,19 @@ spotitube auth --remote
 This should show a URL to be reached using your client's browser and which, on successful authentication, will hand further doing over to Spotitube on the server on which is running.
 
 Once there, Spotitube can be used normally on the server.
+
+### Manual mode
+
+It might very well happen that Spotitube is either not able to find a track asset on given providers (e.g. YouTube) or that it chooses the wrong one.
+In such cases, it is possible to manually choose and pass the right asset to Spotitube, using the `--manual` flag:
+
+```bash
+spotitube sync --manual --track 6SdAztAqklk1zAmUHh
+```
+
+Spotitube will patiently wait for the user to pass the URL of the track asset to download.
+This can come in useful in cases where the track has been already downloaded wrong and user wants to touch on it:
+
+```bash
+spotitube sync --manual --fix /path/to/already/downloaded/track.mp3
+```

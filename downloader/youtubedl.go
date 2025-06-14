@@ -16,7 +16,7 @@ func init() {
 }
 
 func (youTubeDl) supports(url string) bool {
-	return strings.Contains(url, "://youtu.be") || strings.Contains(url, "://youtube.com")
+	return strings.Contains(url, "://youtu.be") || strings.Contains(url, "://www.youtube.com")
 }
 
 func (youTubeDl) download(url, path string, _ processor.Processor, channels ...chan []byte) error {

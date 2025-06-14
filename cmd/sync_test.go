@@ -44,6 +44,7 @@ func TestCmdSync(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error { return nil }).
 		ApplyMethod(&index.Index{}, "Build", func() error {
@@ -113,7 +114,17 @@ func TestCmdSync(t *testing.T) {
 	library, err := cmd.Flags().GetBool("library")
 	assert.Nil(t, err)
 	assert.True(t, library)
-	assert.Nil(t, util.ErrOnly(testExecute(cmdSync(), "-l", "-p", "123", "-a", "123", "-t", "123", "-f", "path")))
+	assert.Nil(t, util.ErrOnly(testExecute(cmdSync(), "--plain", "-l", "-p", "123", "-a", "123", "-t", "123", "-f", "path")))
+}
+
+func TestCmdSyncInvalidEnvironment(t *testing.T) {
+	t.Cleanup(cleanup)
+
+	// monkey patching
+	defer gomonkey.ApplyFunc(cmd.ValidateEnvironment, func() error { return errors.New("ko") }).Reset()
+
+	// testing
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
 }
 
 func TestCmdSyncOfflineIndex(t *testing.T) {
@@ -123,6 +134,7 @@ func TestCmdSyncOfflineIndex(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error { return nil }).
 		ApplyMethod(&index.Index{}, "Build", func(data *index.Index) error {
@@ -160,20 +172,20 @@ func TestCmdSyncOfflineIndex(t *testing.T) {
 		Reset()
 
 	// testing
-	cmd := cmdSync()
-	assert.Nil(t, util.ErrOnly(testExecute(cmd)))
+	assert.Nil(t, util.ErrOnly(testExecute(cmdSync(), "--plain")))
 }
 
 func TestCmdSyncPathFailure(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	// monkey patching
-	defer gomonkey.ApplyFunc(os.Chdir, func() error {
-		return errors.New("ko")
-	}).Reset()
+	defer gomonkey.
+		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
+		ApplyFunc(os.Chdir, func() error { return errors.New("ko") }).
+		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync())), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
 }
 
 func TestCmdSyncIndexFailure(t *testing.T) {
@@ -181,6 +193,7 @@ func TestCmdSyncIndexFailure(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
 			return &spotify.Client{}, nil
 		}).
@@ -190,7 +203,7 @@ func TestCmdSyncIndexFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync())), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
 }
 
 func TestCmdSyncAuthFailure(t *testing.T) {
@@ -198,6 +211,7 @@ func TestCmdSyncAuthFailure(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error {
 			return nil
@@ -211,7 +225,7 @@ func TestCmdSyncAuthFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync())), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
 }
 
 func TestCmdSyncLibraryFailure(t *testing.T) {
@@ -219,6 +233,7 @@ func TestCmdSyncLibraryFailure(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error {
 			return nil
@@ -235,7 +250,7 @@ func TestCmdSyncLibraryFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync())), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
 }
 
 func TestCmdSyncPlaylistFailure(t *testing.T) {
@@ -243,6 +258,7 @@ func TestCmdSyncPlaylistFailure(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error {
 			return nil
@@ -259,7 +275,7 @@ func TestCmdSyncPlaylistFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "-p", "123")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")), "ko")
 }
 
 func TestCmdSyncAlbumFailure(t *testing.T) {
@@ -267,6 +283,7 @@ func TestCmdSyncAlbumFailure(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error {
 			return nil
@@ -283,7 +300,7 @@ func TestCmdSyncAlbumFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "-a", "123")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain", "-a", "123")), "ko")
 }
 
 func TestCmdSyncTrackFailure(t *testing.T) {
@@ -291,6 +308,7 @@ func TestCmdSyncTrackFailure(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error {
 			return nil
@@ -307,7 +325,7 @@ func TestCmdSyncTrackFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "-t", "123")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain", "-t", "123")), "ko")
 }
 
 func TestCmdSyncFixOpenFailure(t *testing.T) {
@@ -315,6 +333,7 @@ func TestCmdSyncFixOpenFailure(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error {
 			return nil
@@ -331,7 +350,7 @@ func TestCmdSyncFixOpenFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "-f", "path")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain", "-f", "path")), "ko")
 }
 
 func TestCmdSyncFixSpotifyIDFailure(t *testing.T) {
@@ -339,6 +358,7 @@ func TestCmdSyncFixSpotifyIDFailure(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error {
 			return nil
@@ -358,7 +378,7 @@ func TestCmdSyncFixSpotifyIDFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.ErrorContains(t, util.ErrOnly(testExecute(cmdSync(), "-f", "path")), "does not have spotify ID metadata set")
+	assert.ErrorContains(t, util.ErrOnly(testExecute(cmdSync(), "--plain", "-f", "path")), "does not have spotify ID metadata set")
 }
 
 func TestCmdSyncFixCloseFailure(t *testing.T) {
@@ -366,6 +386,7 @@ func TestCmdSyncFixCloseFailure(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error {
 			return nil
@@ -388,7 +409,7 @@ func TestCmdSyncFixCloseFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "-f", "path")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain", "-f", "path")), "ko")
 }
 
 func TestCmdSyncDecideManual(t *testing.T) {
@@ -398,6 +419,7 @@ func TestCmdSyncDecideManual(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error {
 			return nil
@@ -416,7 +438,7 @@ func TestCmdSyncDecideManual(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(testExecute(cmdSync(), "--manual")))
+	assert.Nil(t, util.ErrOnly(testExecute(cmdSync(), "--plain", "--manual")))
 }
 
 func TestCmdSyncDecideFailure(t *testing.T) {
@@ -426,6 +448,7 @@ func TestCmdSyncDecideFailure(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error {
 			return nil
@@ -447,7 +470,7 @@ func TestCmdSyncDecideFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync())), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
 }
 
 func TestCmdSyncDecideNotFound(t *testing.T) {
@@ -457,6 +480,7 @@ func TestCmdSyncDecideNotFound(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error {
 			return nil
@@ -478,7 +502,7 @@ func TestCmdSyncDecideNotFound(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(testExecute(cmdSync())))
+	assert.Nil(t, util.ErrOnly(testExecute(cmdSync(), "--plain")))
 }
 
 func TestCmdSyncCollectFailure(t *testing.T) {
@@ -488,6 +512,7 @@ func TestCmdSyncCollectFailure(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error {
 			return nil
@@ -521,7 +546,7 @@ func TestCmdSyncCollectFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync())), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
 }
 
 func TestCmdSyncDownloadFailure(t *testing.T) {
@@ -531,6 +556,7 @@ func TestCmdSyncDownloadFailure(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error {
 			return nil
@@ -560,7 +586,7 @@ func TestCmdSyncDownloadFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync())), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
 }
 
 func TestCmdSyncLyricsFailure(t *testing.T) {
@@ -570,6 +596,7 @@ func TestCmdSyncLyricsFailure(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error {
 			return nil
@@ -599,7 +626,7 @@ func TestCmdSyncLyricsFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync())), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
 }
 
 func TestCmdSyncProcessorFailure(t *testing.T) {
@@ -609,6 +636,7 @@ func TestCmdSyncProcessorFailure(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error {
 			return nil
@@ -641,7 +669,7 @@ func TestCmdSyncProcessorFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync())), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
 }
 
 func TestCmdSyncInstallerFailure(t *testing.T) {
@@ -651,6 +679,7 @@ func TestCmdSyncInstallerFailure(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error {
 			return nil
@@ -686,7 +715,7 @@ func TestCmdSyncInstallerFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync())), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
 }
 
 func TestCmdSyncPlaylistEncoderFailure(t *testing.T) {
@@ -698,6 +727,7 @@ func TestCmdSyncPlaylistEncoderFailure(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error {
 			return nil
@@ -735,7 +765,7 @@ func TestCmdSyncPlaylistEncoderFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "-p", "123")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")), "ko")
 }
 
 func TestCmdSyncPlaylistEncoderAddFailure(t *testing.T) {
@@ -747,6 +777,7 @@ func TestCmdSyncPlaylistEncoderAddFailure(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error {
 			return nil
@@ -785,7 +816,7 @@ func TestCmdSyncPlaylistEncoderAddFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "-p", "123")), "ko")
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")), "ko")
 }
 
 func TestCmdSyncPlaylistEncoderCloseFailure(t *testing.T) {
@@ -797,6 +828,7 @@ func TestCmdSyncPlaylistEncoderCloseFailure(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
 		ApplyFunc(time.Sleep, func() {}).
 		ApplyFunc(cmd.Open, func() error {
 			return nil
@@ -835,25 +867,5 @@ func TestCmdSyncPlaylistEncoderCloseFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "-p", "123")), "ko")
-}
-
-func TestCmdSyncPlain(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyMethod(&index.Index{}, "Build", func() error {
-			return nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Library", func() error {
-			return nil
-		}).
-		Reset()
-
-	// testing
-	assert.Nil(t, util.ErrOnly(testExecute(cmdSync(), "--plain")))
+	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")), "ko")
 }

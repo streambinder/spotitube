@@ -24,6 +24,7 @@ import (
 	"github.com/streambinder/spotitube/spotify"
 	"github.com/streambinder/spotitube/util"
 	"github.com/streambinder/spotitube/util/anchor"
+	commands "github.com/streambinder/spotitube/util/cmd"
 )
 
 const (
@@ -54,6 +55,10 @@ func cmdSync() *cobra.Command {
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := commands.ValidateEnvironment(); err != nil {
+				return err
+			}
+
 			var (
 				path             = util.ErrWrap(xdg.UserDirs.Music)(cmd.Flags().GetString("output"))
 				playlistEncoding = util.ErrWrap("m3u")(cmd.Flags().GetString("playlist-encoding"))

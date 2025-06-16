@@ -60,7 +60,7 @@ jobs:
           GENIUS_TOKEN: ${{ secrets.GENIUS_TOKEN }}
       - uses: softprops/action-gh-release@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_SPOTITUBE }}
           files: ./spotitube-*
           draft: false
           prerelease: false

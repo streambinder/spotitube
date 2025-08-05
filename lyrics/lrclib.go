@@ -11,7 +11,7 @@ import (
 	"regexp"
 
 	"github.com/streambinder/spotitube/entity"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 )
 
 type lrclib struct {
@@ -61,7 +61,7 @@ func (composer lrclib) get(url string, ctxs ...context.Context) ([]byte, error) 
 	case response.StatusCode == 404:
 		return nil, nil
 	case response.StatusCode == 429:
-		util.SleepUntilRetry(response.Header)
+		sys.SleepUntilRetry(response.Header)
 		return composer.get(url, ctx)
 	case response.StatusCode != 200:
 		return nil, errors.New("cannot fetch results on lrclib: " + response.Status)

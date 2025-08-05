@@ -11,7 +11,7 @@ import (
 	"github.com/streambinder/spotitube/lyrics"
 	"github.com/streambinder/spotitube/processor"
 	"github.com/streambinder/spotitube/spotify"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 )
 
 func init() {
@@ -28,7 +28,7 @@ func cmdAttach() *cobra.Command {
 			var (
 				path   = args[0]
 				id     = args[1]
-				rename = util.ErrWrap(false)(cmd.Flags().GetBool("rename"))
+				rename = sys.ErrWrap(false)(cmd.Flags().GetBool("rename"))
 			)
 
 			localTrack, err := id3.Open(path, id3v2.Options{Parse: false})
@@ -77,7 +77,7 @@ func cmdAttach() *cobra.Command {
 			}
 
 			if rename {
-				return util.FileMoveOrCopy(path, filepath.Join(filepath.Dir(path), spotifyTrack.Path().Final()))
+				return sys.FileMoveOrCopy(path, filepath.Join(filepath.Dir(path), spotifyTrack.Path().Final()))
 			}
 			return nil
 		},

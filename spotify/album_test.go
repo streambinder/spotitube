@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 	"github.com/zmb3/spotify/v2"
 )
@@ -76,7 +76,7 @@ func TestPlaylistGetAlbumFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testClient().Album(fullPlaylist.ID.String())), "ko")
+	assert.EqualError(t, sys.ErrOnly(testClient().Album(fullPlaylist.ID.String())), "ko")
 }
 
 func TestAlbumNextPageFailure(t *testing.T) {
@@ -95,5 +95,5 @@ func TestAlbumNextPageFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.True(t, errors.Is(util.ErrOnly(client.Album(fullAlbum.ID.String())), syscall.ECONNREFUSED))
+	assert.True(t, errors.Is(sys.ErrOnly(client.Album(fullAlbum.ID.String())), syscall.ECONNREFUSED))
 }

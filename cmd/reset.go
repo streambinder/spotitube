@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/streambinder/spotitube/spotify"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 )
 
 func init() {
@@ -22,8 +22,8 @@ func cmdReset() *cobra.Command {
 		Args:         cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			var (
-				session        = util.ErrWrap(false)(cmd.Flags().GetBool("session"))
-				cacheDirectory = util.CacheDirectory()
+				session        = sys.ErrWrap(false)(cmd.Flags().GetBool("session"))
+				cacheDirectory = sys.CacheDirectory()
 			)
 			return filepath.WalkDir(cacheDirectory, func(path string, entry fs.DirEntry, err error) error {
 				if err != nil {

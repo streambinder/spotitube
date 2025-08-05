@@ -8,7 +8,7 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/streambinder/spotitube/entity"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 	"github.com/zmb3/spotify/v2"
 )
@@ -77,5 +77,5 @@ func TestRandomNextPageFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.True(t, errors.Is(util.ErrOnly(client.Random(TypeTrack, len(searchResult.Tracks.Tracks))), syscall.ECONNREFUSED))
+	assert.True(t, errors.Is(sys.ErrOnly(client.Random(TypeTrack, len(searchResult.Tracks.Tracks))), syscall.ECONNREFUSED))
 }

@@ -6,7 +6,7 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/streambinder/id3v2-sylt"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -63,7 +63,7 @@ func TestOpenFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(Open("", id3v2.Options{})), "ko")
+	assert.EqualError(t, sys.ErrOnly(Open("", id3v2.Options{})), "ko")
 }
 
 func TestClose(t *testing.T) {

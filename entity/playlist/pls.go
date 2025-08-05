@@ -7,7 +7,7 @@ import (
 
 	"github.com/gosimple/slug"
 	"github.com/streambinder/spotitube/entity"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 )
 
 type PLSEncoder struct {
@@ -30,7 +30,7 @@ func (encoder *PLSEncoder) Add(track *entity.Track) error {
 			encoder.entries,
 			filepath.Base(track.Path().Final()),
 			encoder.entries,
-			util.FileBaseStem(filepath.Base(track.Path().Final())),
+			sys.FileBaseStem(filepath.Base(track.Path().Final())),
 			encoder.entries,
 			track.Duration,
 		),

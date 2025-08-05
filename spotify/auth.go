@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/arunsworld/nursery"
-	"github.com/streambinder/spotitube/util"
-	"github.com/streambinder/spotitube/util/cmd"
+	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/spotitube/sys/cmd"
 	"github.com/thanhpk/randstr"
 	"github.com/zmb3/spotify/v2"
 	spotifyauth "github.com/zmb3/spotify/v2/auth"
@@ -26,7 +26,7 @@ const (
 
 var (
 	port               = 65535
-	tokenPath          = util.CacheFile(TokenBasename)
+	tokenPath          = sys.CacheFile(TokenBasename)
 	fallbackSpotifyID  = ""
 	fallbackSpotifyKey = ""
 )
@@ -69,8 +69,8 @@ func Authenticate(urlProcessor func(string) error, callbacks ...string) (*Client
 			spotifyauth.ScopePlaylistModifyPublic,
 			spotifyauth.ScopePlaylistModifyPrivate,
 		),
-		spotifyauth.WithClientID(util.Fallback(os.Getenv("SPOTIFY_ID"), fallbackSpotifyID)),
-		spotifyauth.WithClientSecret(util.Fallback(os.Getenv("SPOTIFY_KEY"), fallbackSpotifyKey)),
+		spotifyauth.WithClientID(sys.Fallback(os.Getenv("SPOTIFY_ID"), fallbackSpotifyID)),
+		spotifyauth.WithClientSecret(sys.Fallback(os.Getenv("SPOTIFY_KEY"), fallbackSpotifyKey)),
 	)
 	if client, err := Recover(authenticator, state); err == nil {
 		return client, client.Persist()

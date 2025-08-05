@@ -11,7 +11,7 @@ import (
 	"github.com/streambinder/spotitube/lyrics"
 	"github.com/streambinder/spotitube/provider"
 	"github.com/streambinder/spotitube/spotify"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 )
 
 const (
@@ -30,10 +30,10 @@ func cmdLookup() *cobra.Command {
 		Short:        "Utility to lookup for tracks in order to investigate general querying behaviour",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			library := util.ErrWrap(false)(cmd.Flags().GetBool("library"))
-			random := util.ErrWrap(false)(cmd.Flags().GetBool("random"))
-			randomSize := util.ErrWrap(defaultRandomSize)(cmd.Flags().GetInt("random-size"))
-			libraryLimit := util.ErrWrap(0)(cmd.Flags().GetInt("library-limit"))
+			library := sys.ErrWrap(false)(cmd.Flags().GetBool("library"))
+			random := sys.ErrWrap(false)(cmd.Flags().GetBool("random"))
+			randomSize := sys.ErrWrap(defaultRandomSize)(cmd.Flags().GetInt("random-size"))
+			libraryLimit := sys.ErrWrap(0)(cmd.Flags().GetInt("library-limit"))
 			if !library && !random && len(args) == 0 {
 				return errors.New("no track has been issued")
 			}
@@ -97,11 +97,11 @@ func routineLookupProvider(providerChannel chan interface{}) func(context.Contex
 			matches, err := provider.Search(track)
 			switch {
 			case err != nil:
-				fmt.Println(colorRed+prefix, track.ID, util.Pad(track.Artists[0]), util.Pad(track.Title), err, colorReset)
+				fmt.Println(colorRed+prefix, track.ID, sys.Pad(track.Artists[0]), sys.Pad(track.Title), err, colorReset)
 			case len(matches) == 0:
-				fmt.Println(colorRed+prefix, track.ID, util.Pad(track.Artists[0]), util.Pad(track.Title), "no result", colorReset)
+				fmt.Println(colorRed+prefix, track.ID, sys.Pad(track.Artists[0]), sys.Pad(track.Title), "no result", colorReset)
 			default:
-				fmt.Println(prefix, track.ID, util.Pad(track.Artists[0]), util.Pad(track.Title), matches[0].URL, matches[0].Score)
+				fmt.Println(prefix, track.ID, sys.Pad(track.Artists[0]), sys.Pad(track.Title), matches[0].URL, matches[0].Score)
 			}
 		}
 	}
@@ -115,11 +115,11 @@ func routineLookupLyrics(lyricsChannel chan interface{}) func(context.Context, c
 			lyrics, err := lyrics.Search(track)
 			switch {
 			case err != nil:
-				fmt.Println(colorRed+prefix, track.ID, util.Pad(track.Artists[0]), util.Pad(track.Title), err, colorReset)
+				fmt.Println(colorRed+prefix, track.ID, sys.Pad(track.Artists[0]), sys.Pad(track.Title), err, colorReset)
 			case len(lyrics) == 0:
-				fmt.Println(colorRed+prefix, track.ID, util.Pad(track.Artists[0]), util.Pad(track.Title), "no result", colorReset)
+				fmt.Println(colorRed+prefix, track.ID, sys.Pad(track.Artists[0]), sys.Pad(track.Title), "no result", colorReset)
 			default:
-				fmt.Println(prefix, track.ID, util.Pad(track.Artists[0]), util.Pad(track.Title), util.Excerpt(lyrics, 80))
+				fmt.Println(prefix, track.ID, sys.Pad(track.Artists[0]), sys.Pad(track.Title), sys.Excerpt(lyrics, 80))
 			}
 		}
 	}

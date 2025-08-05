@@ -5,7 +5,7 @@ import (
 
 	"atomicgo.dev/cursor"
 	"github.com/fatih/color"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 )
 
 const idle = "idle"
@@ -53,7 +53,7 @@ func (lot *Lot) Close(messages ...string) {
 	if !lot.window.plain {
 		lot.style = idleColor
 	}
-	lot.Print(util.First(messages, "done"))
+	lot.Print(sys.First(messages, "done"))
 }
 
 func (lot *Lot) write() {

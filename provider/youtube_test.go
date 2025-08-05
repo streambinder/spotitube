@@ -13,7 +13,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/streambinder/spotitube/entity"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -104,7 +104,7 @@ func TestYouTubeSearch(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(youTube{}.search(track)))
+	assert.Nil(t, sys.ErrOnly(youTube{}.search(track)))
 }
 
 func TestYouTubeSearchMalformedData(t *testing.T) {
@@ -117,7 +117,7 @@ func TestYouTubeSearchMalformedData(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.NotNil(t, util.ErrOnly(youTube{}.search(track)))
+	assert.NotNil(t, sys.ErrOnly(youTube{}.search(track)))
 }
 
 func TestYouTubeSearchPartialData(t *testing.T) {
@@ -139,7 +139,7 @@ func TestYouTubeSearchPartialData(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(youTube{}.search(track)))
+	assert.Nil(t, sys.ErrOnly(youTube{}.search(track)))
 }
 
 func TestYouTubeSearchTooManyRequests(t *testing.T) {
@@ -153,7 +153,7 @@ func TestYouTubeSearchTooManyRequests(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(youTube{}.search(track)))
+	assert.Nil(t, sys.ErrOnly(youTube{}.search(track)))
 }
 
 func TestYouTubeSearchNoData(t *testing.T) {
@@ -166,7 +166,7 @@ func TestYouTubeSearchNoData(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(youTube{}.search(track)))
+	assert.Nil(t, sys.ErrOnly(youTube{}.search(track)))
 }
 
 func TestYouTubeSearchFailingRequest(t *testing.T) {
@@ -176,7 +176,7 @@ func TestYouTubeSearchFailingRequest(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(youTube{}.search(track)), "ko")
+	assert.EqualError(t, sys.ErrOnly(youTube{}.search(track)), "ko")
 }
 
 func TestYouTubeSearchFailingRequestStatus(t *testing.T) {
@@ -186,7 +186,7 @@ func TestYouTubeSearchFailingRequestStatus(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(youTube{}.search(track)))
+	assert.Error(t, sys.ErrOnly(youTube{}.search(track)))
 }
 
 func TestYouTubeSearchFailingGoQuery(t *testing.T) {
@@ -204,7 +204,7 @@ func TestYouTubeSearchFailingGoQuery(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(youTube{}.search(track)), "ko")
+	assert.EqualError(t, sys.ErrOnly(youTube{}.search(track)), "ko")
 }
 
 func TestScraping(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/streambinder/spotitube/spotify"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 )
 
 var printProcessor = func(url string) error {
@@ -27,8 +27,8 @@ func cmdAuth() *cobra.Command {
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			var (
-				remote    = util.ErrWrap(false)(cmd.Flags().GetBool("remote"))
-				logout    = util.ErrWrap(false)(cmd.Flags().GetBool("logout"))
+				remote    = sys.ErrWrap(false)(cmd.Flags().GetBool("remote"))
+				logout    = sys.ErrWrap(false)(cmd.Flags().GetBool("logout"))
 				callback  = "127.0.0.1"
 				processor = spotify.BrowserProcessor
 			)
@@ -39,12 +39,12 @@ func cmdAuth() *cobra.Command {
 			}
 
 			if logout {
-				if err := os.Remove(util.CacheFile(spotify.TokenBasename)); err != nil && !errors.Is(err, fs.ErrNotExist) {
+				if err := os.Remove(sys.CacheFile(spotify.TokenBasename)); err != nil && !errors.Is(err, fs.ErrNotExist) {
 					return err
 				}
 			}
 
-			return util.ErrOnly(spotify.Authenticate(processor, callback))
+			return sys.ErrOnly(spotify.Authenticate(processor, callback))
 		},
 	}
 	cmd.Flags().BoolP("remote", "r", false, "Spotitube server is remote")

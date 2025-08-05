@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -45,7 +45,7 @@ func TestLyricsOvhSearchNewRequestFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(lyricsOvh{}.search(track)), "ko")
+	assert.EqualError(t, sys.ErrOnly(lyricsOvh{}.search(track)), "ko")
 }
 
 func TestLyricsOvhSearchNewRequestContextCanceled(t *testing.T) {
@@ -67,7 +67,7 @@ func TestLyricsOvhSearchFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(lyricsOvh{}.search(track)), "ko")
+	assert.EqualError(t, sys.ErrOnly(lyricsOvh{}.search(track)), "ko")
 }
 
 func TestLyricsOvhSearchNotFound(t *testing.T) {
@@ -109,7 +109,7 @@ func TestLyricsOvhSearchTooManyRequests(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(lyricsOvh{}.search(track)))
+	assert.Nil(t, sys.ErrOnly(lyricsOvh{}.search(track)))
 }
 
 func TestLyricsOvhSearchInternalError(t *testing.T) {
@@ -123,7 +123,7 @@ func TestLyricsOvhSearchInternalError(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.NotNil(t, util.ErrOnly(lyricsOvh{}.search(track)))
+	assert.NotNil(t, sys.ErrOnly(lyricsOvh{}.search(track)))
 }
 
 func TestLyricsOvhSearchReadFailure(t *testing.T) {
@@ -142,7 +142,7 @@ func TestLyricsOvhSearchReadFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(lyricsOvh{}.search(track)), "ko")
+	assert.EqualError(t, sys.ErrOnly(lyricsOvh{}.search(track)), "ko")
 }
 
 func TestLyricsOvhSearchJsonFailure(t *testing.T) {
@@ -161,5 +161,5 @@ func TestLyricsOvhSearchJsonFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(lyricsOvh{}.search(track)), "ko")
+	assert.EqualError(t, sys.ErrOnly(lyricsOvh{}.search(track)), "ko")
 }

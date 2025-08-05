@@ -6,7 +6,7 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/streambinder/spotitube/entity"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -29,11 +29,11 @@ func BenchmarkPlaylist(b *testing.B) {
 }
 
 func TestEncoderM3U(t *testing.T) {
-	assert.Nil(t, util.ErrOnly(testPlaylist.Encoder("m3u")))
+	assert.Nil(t, sys.ErrOnly(testPlaylist.Encoder("m3u")))
 }
 
 func TestEncoderPLS(t *testing.T) {
-	assert.Nil(t, util.ErrOnly(testPlaylist.Encoder("pls")))
+	assert.Nil(t, sys.ErrOnly(testPlaylist.Encoder("pls")))
 }
 
 func TestEncoderInitFailure(t *testing.T) {
@@ -43,9 +43,9 @@ func TestEncoderInitFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testPlaylist.Encoder("m3u")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testPlaylist.Encoder("m3u")), "ko")
 }
 
 func TestEncoderUnknown(t *testing.T) {
-	assert.Error(t, util.ErrOnly(testPlaylist.Encoder("wut")), "unsupported encoding")
+	assert.Error(t, sys.ErrOnly(testPlaylist.Encoder("wut")), "unsupported encoding")
 }

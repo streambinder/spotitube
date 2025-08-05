@@ -8,7 +8,7 @@ import (
 
 	"github.com/gosimple/slug"
 	"github.com/streambinder/spotitube/entity"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 )
 
 type M3UEncoder struct {
@@ -30,7 +30,7 @@ func (encoder *M3UEncoder) Add(track *entity.Track) error {
 		fmt.Sprintf(
 			"#EXTINF:%s,%s\n%s\n",
 			strconv.Itoa(track.Duration),
-			util.FileBaseStem(filepath.Base(track.Path().Final())),
+			sys.FileBaseStem(filepath.Base(track.Path().Final())),
 			filepath.Base(track.Path().Final()),
 		),
 	)...)

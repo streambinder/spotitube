@@ -13,7 +13,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/agiledragon/gomonkey/v2"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -67,7 +67,7 @@ func TestGeniusSearchNewRequestFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(genius{}.search(track)), "ko")
+	assert.EqualError(t, sys.ErrOnly(genius{}.search(track)), "ko")
 }
 
 func TestGeniusSearchNewRequestContextCanceled(t *testing.T) {
@@ -93,7 +93,7 @@ func TestGeniusSearchMalformedData(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(genius{}.search(track)))
+	assert.Error(t, sys.ErrOnly(genius{}.search(track)))
 }
 
 func TestGeniusSearchFailure(t *testing.T) {
@@ -103,7 +103,7 @@ func TestGeniusSearchFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(genius{}.search(track)), "ko")
+	assert.EqualError(t, sys.ErrOnly(genius{}.search(track)), "ko")
 }
 
 func TestGeniusSearchHttpNotFound(t *testing.T) {
@@ -117,7 +117,7 @@ func TestGeniusSearchHttpNotFound(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.NotNil(t, util.ErrOnly(genius{}.search(track)))
+	assert.NotNil(t, sys.ErrOnly(genius{}.search(track)))
 }
 
 func TestGeniusSearchTooManyRequests(t *testing.T) {
@@ -158,7 +158,7 @@ func TestGeniusSearchTooManyRequests(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(genius{}.search(track)))
+	assert.Nil(t, sys.ErrOnly(genius{}.search(track)))
 }
 
 func TestGeniusSearchReadFailure(t *testing.T) {
@@ -177,7 +177,7 @@ func TestGeniusSearchReadFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(genius{}.search(track)), "ko")
+	assert.EqualError(t, sys.ErrOnly(genius{}.search(track)), "ko")
 }
 
 func TestGeniusSearchNotFound(t *testing.T) {
@@ -210,7 +210,7 @@ func TestGeniusLyricsGetFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(genius{}.search(track)), "ko")
+	assert.EqualError(t, sys.ErrOnly(genius{}.search(track)), "ko")
 }
 
 func TestGeniusLyricsNewRequestFailure(t *testing.T) {
@@ -220,7 +220,7 @@ func TestGeniusLyricsNewRequestFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(genius{}.get("http://genius.com/test", context.Background())), "ko")
+	assert.EqualError(t, sys.ErrOnly(genius{}.get("http://genius.com/test", context.Background())), "ko")
 }
 
 func TestGeniusLyricsNewRequestContextCanceled(t *testing.T) {
@@ -286,7 +286,7 @@ func TestGeniusLyricsNotParseable(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(genius{}.search(track)), "ko")
+	assert.EqualError(t, sys.ErrOnly(genius{}.search(track)), "ko")
 }
 
 // func TestScraping(t *testing.T) {

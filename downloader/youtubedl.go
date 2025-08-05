@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/streambinder/spotitube/processor"
-	"github.com/streambinder/spotitube/util/cmd"
+	"github.com/streambinder/spotitube/sys/cmd"
 )
 
 type youTubeDl struct {

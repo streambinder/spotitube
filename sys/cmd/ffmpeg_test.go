@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -37,7 +37,7 @@ func BenchmarkFFmpeg(b *testing.B) {
 func TestVolumeDetect(t *testing.T) {
 	// monkey patching
 	defer gomonkey.ApplyMethod(&exec.Cmd{}, "Run", func(cmd *exec.Cmd) error {
-		return util.ErrOnly(cmd.Stdout.Write([]byte(volumeDetectOutput)))
+		return sys.ErrOnly(cmd.Stdout.Write([]byte(volumeDetectOutput)))
 	}).Reset()
 
 	// testing
@@ -53,14 +53,14 @@ func TestVolumeDetectFFmpegFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(FFmpeg().VolumeDetect("/dev/null")))
+	assert.Error(t, sys.ErrOnly(FFmpeg().VolumeDetect("/dev/null")))
 }
 
 func TestVolumeDetectParseFloatFailure(t *testing.T) {
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyMethod(&exec.Cmd{}, "Run", func(cmd *exec.Cmd) error {
-			return util.ErrOnly(cmd.Stdout.Write([]byte(volumeDetectOutput)))
+			return sys.ErrOnly(cmd.Stdout.Write([]byte(volumeDetectOutput)))
 		}).
 		ApplyFunc(strconv.ParseFloat, func() (float64, error) {
 			return 0, errors.New("ko")
@@ -68,7 +68,7 @@ func TestVolumeDetectParseFloatFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(FFmpeg().VolumeDetect("/dev/null")))
+	assert.Error(t, sys.ErrOnly(FFmpeg().VolumeDetect("/dev/null")))
 }
 
 func TestVolumeAdd(t *testing.T) {

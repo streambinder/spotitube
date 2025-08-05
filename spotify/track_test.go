@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 	"github.com/zmb3/spotify/v2"
 )
@@ -83,5 +83,5 @@ func TestTrackGetTrackFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testClient().Track(fullTrack.ID.String())), "ko")
+	assert.EqualError(t, sys.ErrOnly(testClient().Track(fullTrack.ID.String())), "ko")
 }

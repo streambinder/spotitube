@@ -5,7 +5,7 @@ import (
 	"math"
 
 	"github.com/streambinder/spotitube/entity"
-	"github.com/streambinder/spotitube/util/cmd"
+	"github.com/streambinder/spotitube/sys/cmd"
 )
 
 type normalizer struct {

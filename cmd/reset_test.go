@@ -9,7 +9,7 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/streambinder/spotitube/spotify"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -44,9 +44,9 @@ func TestCmdReset(t *testing.T) {
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(filepath.WalkDir, func(_ string, f func(string, fs.DirEntry, error) error) error {
-			util.ErrSuppress(f("", DirEntry{name: "", isDir: false}, errors.New("some error")))
-			util.ErrSuppress(f(spotify.TokenBasename, DirEntry{name: spotify.TokenBasename, isDir: false}, nil))
-			util.ErrSuppress(f("fname.txt", DirEntry{name: "fname.txt", isDir: false}, nil))
+			sys.ErrSuppress(f("", DirEntry{name: "", isDir: false}, errors.New("some error")))
+			sys.ErrSuppress(f(spotify.TokenBasename, DirEntry{name: spotify.TokenBasename, isDir: false}, nil))
+			sys.ErrSuppress(f("fname.txt", DirEntry{name: "fname.txt", isDir: false}, nil))
 			return nil
 		}).
 		ApplyFunc(os.RemoveAll, func() error {
@@ -55,5 +55,5 @@ func TestCmdReset(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(testExecute(cmdReset())))
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdReset())))
 }

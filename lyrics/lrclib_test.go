@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -61,7 +61,7 @@ func TestLrclibSearchNewRequestFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(lrclib{}.search(track)), "ko")
+	assert.EqualError(t, sys.ErrOnly(lrclib{}.search(track)), "ko")
 }
 
 func TestLrclibSearchNewRequestContextCanceled(t *testing.T) {
@@ -83,7 +83,7 @@ func TestLrclibSearchFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(lrclib{}.search(track)), "ko")
+	assert.EqualError(t, sys.ErrOnly(lrclib{}.search(track)), "ko")
 }
 
 func TestLrclibSearchNotFound(t *testing.T) {
@@ -125,7 +125,7 @@ func TestLrclibSearchTooManyRequests(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(lrclib{}.search(track)))
+	assert.Nil(t, sys.ErrOnly(lrclib{}.search(track)))
 }
 
 func TestLrclibSearchInternalError(t *testing.T) {
@@ -139,7 +139,7 @@ func TestLrclibSearchInternalError(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.NotNil(t, util.ErrOnly(lrclib{}.search(track)))
+	assert.NotNil(t, sys.ErrOnly(lrclib{}.search(track)))
 }
 
 func TestLrclibSearchReadFailure(t *testing.T) {
@@ -158,7 +158,7 @@ func TestLrclibSearchReadFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(lrclib{}.search(track)), "ko")
+	assert.EqualError(t, sys.ErrOnly(lrclib{}.search(track)), "ko")
 }
 
 func TestLrclibSearchJsonFailure(t *testing.T) {
@@ -177,5 +177,5 @@ func TestLrclibSearchJsonFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(lrclib{}.search(track)), "ko")
+	assert.EqualError(t, sys.ErrOnly(lrclib{}.search(track)), "ko")
 }

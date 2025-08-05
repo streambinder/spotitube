@@ -7,7 +7,7 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/streambinder/spotitube/entity/id3"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -29,7 +29,7 @@ func TestCmdShow(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(testExecute(cmdShow(), "path/to/track1", "path/to/track2")))
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdShow(), "path/to/track1", "path/to/track2")))
 }
 
 func TestCmdShowOpenFailure(t *testing.T) {
@@ -41,7 +41,7 @@ func TestCmdShowOpenFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdShow(), "path/to/track")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdShow(), "path/to/track")), "ko")
 }
 
 func TestCmdShowPictureFallback(t *testing.T) {
@@ -53,5 +53,5 @@ func TestCmdShowPictureFallback(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(testExecute(cmdShow(), "path/to/track")))
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdShow(), "path/to/track")))
 }

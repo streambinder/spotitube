@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/streambinder/id3v2-sylt"
 	"github.com/streambinder/spotitube/entity/id3"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 )
 
 const fallback = "<unset>"
@@ -36,19 +36,19 @@ func cmdShow() *cobra.Command {
 
 					table := tabwriter.NewWriter(os.Stdout, 0, 0, 0, ' ', tabwriter.AlignRight)
 					fmt.Fprintln(table, "Path\t", bold.Sprint(path))
-					fmt.Fprintln(table, "Spotify ID\t", util.Fallback(tag.SpotifyID(), fallback))
-					fmt.Fprintln(table, "Title\t", util.Fallback(tag.Title(), fallback))
-					fmt.Fprintln(table, "Artist\t", util.Fallback(tag.Artist(), fallback))
-					fmt.Fprintln(table, "Album\t", util.Fallback(tag.Album(), fallback))
-					fmt.Fprintln(table, "Year\t", util.Fallback(tag.Year(), fallback))
-					fmt.Fprintln(table, "Track number\t", util.Fallback(tag.TrackNumber(), fallback))
-					fmt.Fprintln(table, "Artwork URL\t", util.Fallback(tag.ArtworkURL(), fallback))
-					fmt.Fprintln(table, "Duration\t", util.Fallback(fmt.Sprintf("%ss", tag.Duration()), fallback))
-					fmt.Fprintln(table, "Upstream URL\t", util.Fallback(tag.UpstreamURL(), fallback))
-					fmt.Fprintln(table, "Lyrics\t", util.Fallback(util.Excerpt(util.FirstLine(tag.UnsynchronizedLyrics()), 64), fallback))
+					fmt.Fprintln(table, "Spotify ID\t", sys.Fallback(tag.SpotifyID(), fallback))
+					fmt.Fprintln(table, "Title\t", sys.Fallback(tag.Title(), fallback))
+					fmt.Fprintln(table, "Artist\t", sys.Fallback(tag.Artist(), fallback))
+					fmt.Fprintln(table, "Album\t", sys.Fallback(tag.Album(), fallback))
+					fmt.Fprintln(table, "Year\t", sys.Fallback(tag.Year(), fallback))
+					fmt.Fprintln(table, "Track number\t", sys.Fallback(tag.TrackNumber(), fallback))
+					fmt.Fprintln(table, "Artwork URL\t", sys.Fallback(tag.ArtworkURL(), fallback))
+					fmt.Fprintln(table, "Duration\t", sys.Fallback(fmt.Sprintf("%ss", tag.Duration()), fallback))
+					fmt.Fprintln(table, "Upstream URL\t", sys.Fallback(tag.UpstreamURL(), fallback))
+					fmt.Fprintln(table, "Lyrics\t", sys.Fallback(sys.Excerpt(sys.FirstLine(tag.UnsynchronizedLyrics()), 64), fallback))
 					fmt.Fprintln(table, "Artwork\t", func(mimeType string, data []byte) string {
 						if len(data) > 0 {
-							return fmt.Sprintf("%s (%s)", mimeType, util.HumanizeBytes(len(data)))
+							return fmt.Sprintf("%s (%s)", mimeType, sys.HumanizeBytes(len(data)))
 						}
 						return fallback
 					}(tag.AttachedPicture()))

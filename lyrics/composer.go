@@ -9,7 +9,7 @@ import (
 
 	"github.com/arunsworld/nursery"
 	"github.com/streambinder/spotitube/entity"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 )
 
 var (
@@ -76,7 +76,7 @@ func GetSync(lyrics string) []SyncedLine {
 		lines = append(lines, SyncedLine{
 			// since we're regex-testing the line first, we know for sure
 			// that the time is in the format we expect
-			Time: util.ErrWrap(uint32(0))(util.ColonMinutesToMillis(matches[1])),
+			Time: sys.ErrWrap(uint32(0))(sys.ColonMinutesToMillis(matches[1])),
 			Text: matches[2],
 		})
 	}

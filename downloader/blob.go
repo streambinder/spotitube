@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/streambinder/spotitube/processor"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 )
 
 type blob struct {
@@ -69,5 +69,5 @@ func (blob) download(url, path string, processor processor.Processor, channels .
 		ch <- body
 	}
 
-	return util.ErrOnly(output.Write(body))
+	return sys.ErrOnly(output.Write(body))
 }

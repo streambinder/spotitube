@@ -5,14 +5,14 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 	"github.com/zmb3/spotify/v2"
 )
 
 func (client *Client) Random(searchType spotify.SearchType, amount int, channels ...chan interface{}) error {
 	var (
 		ctx         = context.Background()
-		search, err = client.Search(context.Background(), fmt.Sprintf("%c*", util.RandomAlpha()), searchType, spotify.Limit(amount))
+		search, err = client.Search(context.Background(), fmt.Sprintf("%c*", sys.RandomAlpha()), searchType, spotify.Limit(amount))
 	)
 	if err != nil {
 		return err

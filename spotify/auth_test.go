@@ -15,8 +15,8 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/arunsworld/nursery"
-	"github.com/streambinder/spotitube/util"
-	"github.com/streambinder/spotitube/util/cmd"
+	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/spotitube/sys/cmd"
 	"github.com/stretchr/testify/assert"
 	"github.com/thanhpk/randstr"
 	"github.com/zmb3/spotify/v2"
@@ -44,7 +44,7 @@ func getPort() int {
 	lock.Lock()
 	defer lock.Unlock()
 
-	port = util.RandomInt(portMax, portMin)
+	port = sys.RandomInt(portMax, portMin)
 	if _, ok := ports[port]; ok {
 		return getPort()
 	}
@@ -89,7 +89,7 @@ func TestAuthenticate(t *testing.T) {
 	// testing
 	assert.Nil(t, nursery.RunConcurrently(
 		func(_ context.Context, ch chan error) {
-			ch <- util.ErrOnly(Authenticate(BrowserProcessor, "127.0.0.1"))
+			ch <- sys.ErrOnly(Authenticate(BrowserProcessor, "127.0.0.1"))
 		},
 		func(_ context.Context, _ chan error) {
 			var (
@@ -132,7 +132,7 @@ func TestAuthenticateRecoverAndPersist(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(Authenticate(nil)))
+	assert.Nil(t, sys.ErrOnly(Authenticate(nil)))
 }
 
 func TestAuthenticateRecoverOpenFailure(t *testing.T) {
@@ -158,7 +158,7 @@ func TestAuthenticateRecoverOpenFailure(t *testing.T) {
 	// testing
 	assert.Nil(t, nursery.RunConcurrently(
 		func(_ context.Context, ch chan error) {
-			ch <- util.ErrOnly(Authenticate(nil))
+			ch <- sys.ErrOnly(Authenticate(nil))
 		},
 		func(_ context.Context, _ chan error) {
 			var (
@@ -206,7 +206,7 @@ func TestAuthenticateRecoverUnmarshalFailure(t *testing.T) {
 	// testing
 	assert.Nil(t, nursery.RunConcurrently(
 		func(_ context.Context, ch chan error) {
-			ch <- util.ErrOnly(Authenticate(nil))
+			ch <- sys.ErrOnly(Authenticate(nil))
 		},
 		func(_ context.Context, _ chan error) {
 			var (
@@ -243,7 +243,7 @@ func TestAuthenticateRecoverAndPersistTokenFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(Authenticate(nil)), "ko")
+	assert.EqualError(t, sys.ErrOnly(Authenticate(nil)), "ko")
 }
 
 func TestAuthenticateRecoverAndPersistMkdirFailure(t *testing.T) {
@@ -258,7 +258,7 @@ func TestAuthenticateRecoverAndPersistMkdirFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(Authenticate(nil)), "ko")
+	assert.EqualError(t, sys.ErrOnly(Authenticate(nil)), "ko")
 }
 
 func TestAuthenticateRecoverAndPersistOpenFailure(t *testing.T) {
@@ -279,7 +279,7 @@ func TestAuthenticateRecoverAndPersistOpenFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(Authenticate(nil)), "ko")
+	assert.EqualError(t, sys.ErrOnly(Authenticate(nil)), "ko")
 }
 
 func TestAuthenticateNotFound(t *testing.T) {
@@ -305,7 +305,7 @@ func TestAuthenticateNotFound(t *testing.T) {
 	// testing
 	assert.EqualError(t, nursery.RunConcurrently(
 		func(_ context.Context, ch chan error) {
-			ch <- util.ErrOnly(Authenticate(nil))
+			ch <- sys.ErrOnly(Authenticate(nil))
 		},
 		func(_ context.Context, _ chan error) {
 			var (
@@ -350,7 +350,7 @@ func TestAuthenticateForbidden(t *testing.T) {
 	// testing
 	assert.EqualError(t, nursery.RunConcurrently(
 		func(_ context.Context, ch chan error) {
-			ch <- util.ErrOnly(Authenticate(nil))
+			ch <- sys.ErrOnly(Authenticate(nil))
 		},
 		func(_ context.Context, _ chan error) {
 			var (
@@ -392,7 +392,7 @@ func TestAuthenticateProcessorFailure(t *testing.T) {
 	// testing
 	assert.EqualError(t, nursery.RunConcurrently(
 		func(_ context.Context, ch chan error) {
-			ch <- util.ErrOnly(Authenticate(func(_ string) error {
+			ch <- sys.ErrOnly(Authenticate(func(_ string) error {
 				return errors.New("ko")
 			}))
 		},
@@ -437,5 +437,5 @@ func TestAuthenticateServerUnserving(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(Authenticate(nil)), "ko")
+	assert.EqualError(t, sys.ErrOnly(Authenticate(nil)), "ko")
 }

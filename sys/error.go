@@ -1,4 +1,4 @@
-package util
+package sys
 
 func ErrSuppress(_ error) {
 }

@@ -17,8 +17,8 @@ import (
 	"github.com/streambinder/spotitube/processor"
 	"github.com/streambinder/spotitube/provider"
 	"github.com/streambinder/spotitube/spotify"
-	"github.com/streambinder/spotitube/util"
-	"github.com/streambinder/spotitube/util/cmd"
+	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/spotitube/sys/cmd"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -100,7 +100,7 @@ func TestCmdSync(t *testing.T) {
 		ApplyFunc(processor.Do, func() error {
 			return nil
 		}).
-		ApplyFunc(util.FileMoveOrCopy, func() error {
+		ApplyFunc(sys.FileMoveOrCopy, func() error {
 			return nil
 		}).
 		ApplyMethod(&playlist.M3UEncoder{}, "Close", func() error {
@@ -110,11 +110,11 @@ func TestCmdSync(t *testing.T) {
 
 	// testing
 	cmd := cmdSync()
-	assert.Nil(t, util.ErrOnly(testExecute(cmd)))
+	assert.Nil(t, sys.ErrOnly(testExecute(cmd)))
 	library, err := cmd.Flags().GetBool("library")
 	assert.Nil(t, err)
 	assert.True(t, library)
-	assert.Nil(t, util.ErrOnly(testExecute(cmdSync(), "--plain", "-l", "-p", "123", "-a", "123", "-t", "123", "-f", "path")))
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-l", "-p", "123", "-a", "123", "-t", "123", "-f", "path")))
 }
 
 func TestCmdSyncInvalidEnvironment(t *testing.T) {
@@ -124,7 +124,7 @@ func TestCmdSyncInvalidEnvironment(t *testing.T) {
 	defer gomonkey.ApplyFunc(cmd.ValidateEnvironment, func() error { return errors.New("ko") }).Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
 }
 
 func TestCmdSyncOfflineIndex(t *testing.T) {
@@ -163,7 +163,7 @@ func TestCmdSyncOfflineIndex(t *testing.T) {
 		ApplyFunc(processor.Do, func() error {
 			return nil
 		}).
-		ApplyFunc(util.FileMoveOrCopy, func() error {
+		ApplyFunc(sys.FileMoveOrCopy, func() error {
 			return nil
 		}).
 		ApplyMethod(&playlist.M3UEncoder{}, "Close", func() error {
@@ -172,7 +172,7 @@ func TestCmdSyncOfflineIndex(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(testExecute(cmdSync(), "--plain")))
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")))
 }
 
 func TestCmdSyncPathFailure(t *testing.T) {
@@ -185,7 +185,7 @@ func TestCmdSyncPathFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
 }
 
 func TestCmdSyncIndexFailure(t *testing.T) {
@@ -203,7 +203,7 @@ func TestCmdSyncIndexFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
 }
 
 func TestCmdSyncAuthFailure(t *testing.T) {
@@ -225,7 +225,7 @@ func TestCmdSyncAuthFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
 }
 
 func TestCmdSyncLibraryFailure(t *testing.T) {
@@ -250,7 +250,7 @@ func TestCmdSyncLibraryFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
 }
 
 func TestCmdSyncPlaylistFailure(t *testing.T) {
@@ -275,7 +275,7 @@ func TestCmdSyncPlaylistFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")), "ko")
 }
 
 func TestCmdSyncAlbumFailure(t *testing.T) {
@@ -300,7 +300,7 @@ func TestCmdSyncAlbumFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain", "-a", "123")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-a", "123")), "ko")
 }
 
 func TestCmdSyncTrackFailure(t *testing.T) {
@@ -325,7 +325,7 @@ func TestCmdSyncTrackFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain", "-t", "123")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-t", "123")), "ko")
 }
 
 func TestCmdSyncFixOpenFailure(t *testing.T) {
@@ -350,7 +350,7 @@ func TestCmdSyncFixOpenFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain", "-f", "path")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-f", "path")), "ko")
 }
 
 func TestCmdSyncFixSpotifyIDFailure(t *testing.T) {
@@ -378,7 +378,7 @@ func TestCmdSyncFixSpotifyIDFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.ErrorContains(t, util.ErrOnly(testExecute(cmdSync(), "--plain", "-f", "path")), "does not have spotify ID metadata set")
+	assert.ErrorContains(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-f", "path")), "does not have spotify ID metadata set")
 }
 
 func TestCmdSyncFixCloseFailure(t *testing.T) {
@@ -409,7 +409,7 @@ func TestCmdSyncFixCloseFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain", "-f", "path")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-f", "path")), "ko")
 }
 
 func TestCmdSyncDecideManual(t *testing.T) {
@@ -438,7 +438,7 @@ func TestCmdSyncDecideManual(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(testExecute(cmdSync(), "--plain", "--manual")))
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "--manual")))
 }
 
 func TestCmdSyncDecideFailure(t *testing.T) {
@@ -470,7 +470,7 @@ func TestCmdSyncDecideFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
 }
 
 func TestCmdSyncDecideNotFound(t *testing.T) {
@@ -502,7 +502,7 @@ func TestCmdSyncDecideNotFound(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(testExecute(cmdSync(), "--plain")))
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")))
 }
 
 func TestCmdSyncCollectFailure(t *testing.T) {
@@ -546,7 +546,7 @@ func TestCmdSyncCollectFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
 }
 
 func TestCmdSyncDownloadFailure(t *testing.T) {
@@ -586,7 +586,7 @@ func TestCmdSyncDownloadFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
 }
 
 func TestCmdSyncLyricsFailure(t *testing.T) {
@@ -626,7 +626,7 @@ func TestCmdSyncLyricsFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
 }
 
 func TestCmdSyncProcessorFailure(t *testing.T) {
@@ -669,7 +669,7 @@ func TestCmdSyncProcessorFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
 }
 
 func TestCmdSyncInstallerFailure(t *testing.T) {
@@ -709,13 +709,13 @@ func TestCmdSyncInstallerFailure(t *testing.T) {
 		ApplyFunc(processor.Do, func() error {
 			return nil
 		}).
-		ApplyFunc(util.FileMoveOrCopy, func() error {
+		ApplyFunc(sys.FileMoveOrCopy, func() error {
 			return errors.New("ko")
 		}).
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
 }
 
 func TestCmdSyncPlaylistEncoderFailure(t *testing.T) {
@@ -756,7 +756,7 @@ func TestCmdSyncPlaylistEncoderFailure(t *testing.T) {
 		ApplyFunc(processor.Do, func() error {
 			return nil
 		}).
-		ApplyFunc(util.FileMoveOrCopy, func() error {
+		ApplyFunc(sys.FileMoveOrCopy, func() error {
 			return nil
 		}).
 		ApplyMethod(playlist.Playlist{}, "Encoder", func() (any, error) {
@@ -765,7 +765,7 @@ func TestCmdSyncPlaylistEncoderFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")), "ko")
 }
 
 func TestCmdSyncPlaylistEncoderAddFailure(t *testing.T) {
@@ -807,7 +807,7 @@ func TestCmdSyncPlaylistEncoderAddFailure(t *testing.T) {
 		ApplyFunc(processor.Do, func() error {
 			return nil
 		}).
-		ApplyFunc(util.FileMoveOrCopy, func() error {
+		ApplyFunc(sys.FileMoveOrCopy, func() error {
 			return nil
 		}).
 		ApplyMethod(&playlist.M3UEncoder{}, "Add", func() error {
@@ -816,7 +816,7 @@ func TestCmdSyncPlaylistEncoderAddFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")), "ko")
 }
 
 func TestCmdSyncPlaylistEncoderCloseFailure(t *testing.T) {
@@ -858,7 +858,7 @@ func TestCmdSyncPlaylistEncoderCloseFailure(t *testing.T) {
 		ApplyFunc(processor.Do, func() error {
 			return nil
 		}).
-		ApplyFunc(util.FileMoveOrCopy, func() error {
+		ApplyFunc(sys.FileMoveOrCopy, func() error {
 			return nil
 		}).
 		ApplyMethod(&playlist.M3UEncoder{}, "Close", func() error {
@@ -867,5 +867,5 @@ func TestCmdSyncPlaylistEncoderCloseFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")), "ko")
 }

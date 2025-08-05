@@ -22,9 +22,9 @@ import (
 	"github.com/streambinder/spotitube/processor"
 	"github.com/streambinder/spotitube/provider"
 	"github.com/streambinder/spotitube/spotify"
-	"github.com/streambinder/spotitube/util"
-	"github.com/streambinder/spotitube/util/anchor"
-	commands "github.com/streambinder/spotitube/util/cmd"
+	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/spotitube/sys/anchor"
+	commands "github.com/streambinder/spotitube/sys/cmd"
 )
 
 const (
@@ -60,17 +60,17 @@ func cmdSync() *cobra.Command {
 			}
 
 			var (
-				path             = util.ErrWrap(xdg.UserDirs.Music)(cmd.Flags().GetString("output"))
-				playlistEncoding = util.ErrWrap("m3u")(cmd.Flags().GetString("playlist-encoding"))
-				manual           = util.ErrWrap(false)(cmd.Flags().GetBool("manual"))
-				library          = util.ErrWrap(false)(cmd.Flags().GetBool("library"))
-				playlists        = util.ErrWrap([]string{})(cmd.Flags().GetStringArray("playlist"))
-				playlistsTracks  = util.ErrWrap([]string{})(cmd.Flags().GetStringArray("playlist-tracks"))
-				albums           = util.ErrWrap([]string{})(cmd.Flags().GetStringArray("album"))
-				tracks           = util.ErrWrap([]string{})(cmd.Flags().GetStringArray("track"))
-				fixes            = util.ErrWrap([]string{})(cmd.Flags().GetStringArray("fix"))
-				libraryLimit     = util.ErrWrap(0)(cmd.Flags().GetInt("library-limit"))
-				plain            = util.ErrWrap(false)(cmd.Flags().GetBool("plain"))
+				path             = sys.ErrWrap(xdg.UserDirs.Music)(cmd.Flags().GetString("output"))
+				playlistEncoding = sys.ErrWrap("m3u")(cmd.Flags().GetString("playlist-encoding"))
+				manual           = sys.ErrWrap(false)(cmd.Flags().GetBool("manual"))
+				library          = sys.ErrWrap(false)(cmd.Flags().GetBool("library"))
+				playlists        = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("playlist"))
+				playlistsTracks  = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("playlist-tracks"))
+				albums           = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("album"))
+				tracks           = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("track"))
+				fixes            = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("fix"))
+				libraryLimit     = sys.ErrWrap(0)(cmd.Flags().GetInt("library-limit"))
+				plain            = sys.ErrWrap(false)(cmd.Flags().GetBool("plain"))
 			)
 
 			if plain {
@@ -118,16 +118,16 @@ func cmdSync() *cobra.Command {
 			}
 
 			var (
-				playlists       = util.ErrWrap([]string{})(cmd.Flags().GetStringArray("playlist"))
-				playlistsTracks = util.ErrWrap([]string{})(cmd.Flags().GetStringArray("playlist-tracks"))
-				albums          = util.ErrWrap([]string{})(cmd.Flags().GetStringArray("album"))
-				tracks          = util.ErrWrap([]string{})(cmd.Flags().GetStringArray("track"))
-				fixes           = util.ErrWrap([]string{})(cmd.Flags().GetStringArray("fix"))
+				playlists       = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("playlist"))
+				playlistsTracks = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("playlist-tracks"))
+				albums          = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("album"))
+				tracks          = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("track"))
+				fixes           = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("fix"))
 			)
 			if len(playlists)+len(playlistsTracks)+len(albums)+len(tracks)+len(fixes) == 0 {
 				cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
 					if f.Name == "library" {
-						util.ErrSuppress(f.Value.Set("true"))
+						sys.ErrSuppress(f.Value.Set("true"))
 					}
 				})
 			}
@@ -405,7 +405,7 @@ func routineCollectLyrics(track *entity.Track) func(context.Context, chan error)
 		}
 		tui.Lot("compose").Wipe()
 		track.Lyrics = lyrics
-		tui.Printf("lyrics for %s by %s: %s...", track.Title, track.Artists[0], util.Excerpt(util.FirstLine(lyrics), 64))
+		tui.Printf("lyrics for %s by %s: %s...", track.Title, track.Artists[0], sys.Excerpt(sys.FirstLine(lyrics), 64))
 	}
 }
 
@@ -425,7 +425,7 @@ func routineCollectArtwork(track *entity.Track) func(context.Context, chan error
 
 		tui.Lot("paint").Wipe()
 		track.Artwork.Data = <-artwork
-		tui.Printf("artwork for %s by %s: %s", track.Title, track.Artists[0], util.HumanizeBytes(len(track.Artwork.Data)))
+		tui.Printf("artwork for %s by %s: %s", track.Title, track.Artists[0], sys.HumanizeBytes(len(track.Artwork.Data)))
 	}
 }
 
@@ -461,7 +461,7 @@ func routineInstall(_ context.Context, ch chan error) {
 			status, _ = indexData.Get(track)
 		)
 		tui.Lot("install").Printf("%s by %s ", track.Title, track.Artists[0])
-		if err := util.FileMoveOrCopy(track.Path().Download(), track.Path().Final(), status == index.Flush); err != nil {
+		if err := sys.FileMoveOrCopy(track.Path().Download(), track.Path().Final(), status == index.Flush); err != nil {
 			tui.AnchorPrintf("installation failed for %s by %s: %s", track.Title, track.Artists[0], err)
 			ch <- err
 			return

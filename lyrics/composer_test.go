@@ -8,7 +8,7 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/streambinder/spotitube/entity"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -105,7 +105,7 @@ func TestSearchFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(Search(track)), "ko")
+	assert.EqualError(t, sys.ErrOnly(Search(track)), "ko")
 }
 
 func TestSearchNotFound(t *testing.T) {
@@ -152,7 +152,7 @@ func TestSearchCannotCreateDir(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(Search(track)), "ko")
+	assert.EqualError(t, sys.ErrOnly(Search(track)), "ko")
 }
 
 func TestGet(t *testing.T) {
@@ -194,5 +194,5 @@ func TestGetFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(Get("http://localhost")), "ko")
+	assert.EqualError(t, sys.ErrOnly(Get("http://localhost")), "ko")
 }

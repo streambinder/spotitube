@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/gosimple/slug"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 )
 
 type Artwork struct {
@@ -58,23 +58,23 @@ func (track *Track) Path() TrackPath {
 }
 
 func (trackPath TrackPath) Final() string {
-	return util.LegalizeFilename(fmt.Sprintf("%s - %s.%s", trackPath.track.Artists[0], trackPath.track.Title, TrackFormat))
+	return sys.LegalizeFilename(fmt.Sprintf("%s - %s.%s", trackPath.track.Artists[0], trackPath.track.Title, TrackFormat))
 }
 
 func (trackPath TrackPath) Download() string {
-	return util.CacheFile(
-		util.LegalizeFilename(fmt.Sprintf("%s.%s", slug.Make(trackPath.track.ID), TrackFormat)),
+	return sys.CacheFile(
+		sys.LegalizeFilename(fmt.Sprintf("%s.%s", slug.Make(trackPath.track.ID), TrackFormat)),
 	)
 }
 
 func (trackPath TrackPath) Artwork() string {
-	return util.CacheFile(
-		util.LegalizeFilename(fmt.Sprintf("%s.%s", slug.Make(path.Base(trackPath.track.Artwork.URL)), ArtworkFormat)),
+	return sys.CacheFile(
+		sys.LegalizeFilename(fmt.Sprintf("%s.%s", slug.Make(path.Base(trackPath.track.Artwork.URL)), ArtworkFormat)),
 	)
 }
 
 func (trackPath TrackPath) Lyrics() string {
-	return util.CacheFile(
-		util.LegalizeFilename(fmt.Sprintf("%s.%s", slug.Make(trackPath.track.ID), LyricsFormat)),
+	return sys.CacheFile(
+		sys.LegalizeFilename(fmt.Sprintf("%s.%s", slug.Make(trackPath.track.ID), LyricsFormat)),
 	)
 }

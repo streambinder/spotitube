@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 	"github.com/zmb3/spotify/v2"
 )
@@ -89,7 +89,7 @@ func TestPlaylistCurrentUsersPlaylistsFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Error(t, util.ErrOnly(testClient().Playlist(fullPlaylist.ID.String())))
+	assert.Error(t, sys.ErrOnly(testClient().Playlist(fullPlaylist.ID.String())))
 }
 
 func TestPlaylistCurrentUsersPlaylistsNextPageFailure(t *testing.T) {
@@ -108,7 +108,7 @@ func TestPlaylistCurrentUsersPlaylistsNextPageFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.True(t, errors.Is(util.ErrOnly(client.Playlist(fullPlaylist.ID.String())), syscall.ECONNREFUSED))
+	assert.True(t, errors.Is(sys.ErrOnly(client.Playlist(fullPlaylist.ID.String())), syscall.ECONNREFUSED))
 }
 
 func TestPlaylistGetPlaylistFailure(t *testing.T) {
@@ -124,7 +124,7 @@ func TestPlaylistGetPlaylistFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testClient().Playlist(fullPlaylist.ID.String())), "ko")
+	assert.EqualError(t, sys.ErrOnly(testClient().Playlist(fullPlaylist.ID.String())), "ko")
 }
 
 func TestPlaylistGetPlaylistNextPageFailure(t *testing.T) {
@@ -146,5 +146,5 @@ func TestPlaylistGetPlaylistNextPageFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.True(t, errors.Is(util.ErrOnly(client.Playlist(fullPlaylist.ID.String())), syscall.ECONNREFUSED))
+	assert.True(t, errors.Is(sys.ErrOnly(client.Playlist(fullPlaylist.ID.String())), syscall.ECONNREFUSED))
 }

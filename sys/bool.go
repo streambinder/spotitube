@@ -1,4 +1,4 @@
-package util
+package sys
 
 func Ternary[T any](expression bool, pass, otherwise T) T {
 	if expression {

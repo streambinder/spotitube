@@ -7,7 +7,7 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/streambinder/spotitube/spotify"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,13 +24,13 @@ func TestCmdAuth(t *testing.T) {
 			return nil
 		}).
 		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			util.ErrSuppress(printProcessor(""))
+			sys.ErrSuppress(printProcessor(""))
 			return &spotify.Client{}, nil
 		}).
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(testExecute(cmdAuth(), "--remote", "--logout")))
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdAuth(), "--remote", "--logout")))
 }
 
 func TestCmdAuthFailure(t *testing.T) {
@@ -40,7 +40,7 @@ func TestCmdAuthFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdAuth())), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAuth())), "ko")
 }
 
 func TestCmdAuthLogoutFailure(t *testing.T) {
@@ -50,5 +50,5 @@ func TestCmdAuthLogoutFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdAuth(), "--logout")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAuth(), "--logout")), "ko")
 }

@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -28,10 +28,10 @@ func TestWindow(t *testing.T) {
 	defer func() {
 		os.Stdin = stdin
 	}()
-	stdinFile, err := os.CreateTemp(util.CacheDirectory(), "test")
+	stdinFile, err := os.CreateTemp(sys.CacheDirectory(), "test")
 	assert.Nil(t, err)
 	defer os.Remove(stdinFile.Name())
-	assert.Nil(t, util.ErrOnly(stdinFile.Write([]byte("input\n"))))
+	assert.Nil(t, sys.ErrOnly(stdinFile.Write([]byte("input\n"))))
 	os.Stdin = stdinFile
 
 	var (
@@ -73,10 +73,10 @@ func TestWindowPlain(t *testing.T) {
 	defer func() {
 		os.Stdin = stdin
 	}()
-	stdinFile, err := os.CreateTemp(util.CacheDirectory(), "test")
+	stdinFile, err := os.CreateTemp(sys.CacheDirectory(), "test")
 	assert.Nil(t, err)
 	defer os.Remove(stdinFile.Name())
-	assert.Nil(t, util.ErrOnly(stdinFile.Write([]byte("input\n"))))
+	assert.Nil(t, sys.ErrOnly(stdinFile.Write([]byte("input\n"))))
 	os.Stdin = stdinFile
 
 	var (

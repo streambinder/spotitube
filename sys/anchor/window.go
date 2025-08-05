@@ -9,7 +9,7 @@ import (
 
 	"atomicgo.dev/cursor"
 	"github.com/fatih/color"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 )
 
 const (
@@ -49,7 +49,7 @@ func New(anchorColors ...color.Attribute) *Window {
 		anchors:        []*anchor{},
 		lots:           []*Lot{},
 		aliases:        make(map[string]int),
-		anchorColor:    color.New(util.First(anchorColors, Normal)),
+		anchorColor:    color.New(sys.First(anchorColors, Normal)),
 		lotHeaderColor: color.New(color.Bold),
 		lock:           sync.RWMutex{},
 		plain:          false,
@@ -97,7 +97,7 @@ func (window *Window) AnchorPrintf(format string, a ...any) {
 }
 
 func (window *Window) up(lines ...int) {
-	cursor.UpAndClear(util.First(lines, 1))
+	cursor.UpAndClear(sys.First(lines, 1))
 	cursor.StartOfLine()
 }
 
@@ -163,7 +163,7 @@ func (window *Window) Reads(label string, a ...interface{}) (value string) {
 	}
 
 	fmt.Printf(label+" ", a...)
-	value = util.ErrWrap("")(bufio.NewReader(os.Stdin).ReadString('\n'))
+	value = sys.ErrWrap("")(bufio.NewReader(os.Stdin).ReadString('\n'))
 	value = strings.TrimSpace(value)
 	value = strings.Trim(value, "\n")
 	value = strings.Trim(value, "\r")

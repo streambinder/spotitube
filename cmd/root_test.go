@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 )
 
 func BenchmarkRoot(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		util.ErrSuppress(testExecute(cmdRoot))
+		sys.ErrSuppress(testExecute(cmdRoot))
 	}
 }
 

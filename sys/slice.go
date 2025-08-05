@@ -1,4 +1,4 @@
-package util
+package sys
 
 func First[T any](slice []T, fallback T) T {
 	if len(slice) > 0 {

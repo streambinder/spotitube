@@ -11,7 +11,7 @@ import (
 	"github.com/streambinder/id3v2-sylt"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/entity/id3"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -48,9 +48,9 @@ func TestBuild(t *testing.T) {
 	// monkey patching
 	defer gomonkey.NewPatches().
 		ApplyFunc(filepath.WalkDir, func(_ string, f func(string, fs.DirEntry, error) error) error {
-			util.ErrSuppress(f("", nil, errors.New("ko")))
-			util.ErrSuppress(f("", DirEntry{name: "dir", isDir: true}, nil))
-			util.ErrSuppress(f("fname.txt", DirEntry{name: "", isDir: false}, nil))
+			sys.ErrSuppress(f("", nil, errors.New("ko")))
+			sys.ErrSuppress(f("", DirEntry{name: "dir", isDir: true}, nil))
+			sys.ErrSuppress(f("fname.txt", DirEntry{name: "", isDir: false}, nil))
 			return f("Artist - Title.mp3", DirEntry{name: "", isDir: false}, nil)
 		}).
 		ApplyFunc(id3.Open, func() (*id3.Tag, error) {

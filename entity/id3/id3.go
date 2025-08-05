@@ -6,7 +6,7 @@ import (
 
 	"github.com/streambinder/id3v2-sylt"
 	"github.com/streambinder/spotitube/lyrics"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 )
 
 const (
@@ -157,7 +157,7 @@ func (tag *Tag) SynchronizedLyrics() string {
 	if ok {
 		var lyrics []string
 		for _, line := range frame.SynchronizedTexts {
-			lyrics = append(lyrics, fmt.Sprintf("[%s]%s", util.MillisToColonMinutes(line.Timestamp), line.Text))
+			lyrics = append(lyrics, fmt.Sprintf("[%s]%s", sys.MillisToColonMinutes(line.Timestamp), line.Text))
 		}
 		return strings.Join(lyrics, "\n")
 	}

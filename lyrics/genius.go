@@ -15,7 +15,7 @@ import (
 	"github.com/agnivade/levenshtein"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/streambinder/spotitube/entity"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 )
 
 const contextValueLabelMainArtist = "mainArtistOnly"
@@ -74,7 +74,7 @@ func (composer genius) search(track *entity.Track, ctxs ...context.Context) ([]b
 	if err != nil {
 		return nil, err
 	}
-	request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", util.Fallback(os.Getenv("GENIUS_TOKEN"), fallbackGeniusToken)))
+	request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", sys.Fallback(os.Getenv("GENIUS_TOKEN"), fallbackGeniusToken)))
 
 	response, err := http.DefaultClient.Do(request)
 	if err != nil && errors.Is(err, context.Canceled) {
@@ -84,7 +84,7 @@ func (composer genius) search(track *entity.Track, ctxs ...context.Context) ([]b
 	}
 	defer response.Body.Close()
 	if response.StatusCode == 429 {
-		util.SleepUntilRetry(response.Header)
+		sys.SleepUntilRetry(response.Header)
 		return composer.search(track, ctx)
 	} else if response.StatusCode != 200 {
 		return nil, errors.New("cannot search lyrics on genius: " + response.Status)
@@ -152,7 +152,7 @@ func (composer genius) get(url string, ctxs ...context.Context) ([]byte, error) 
 	defer response.Body.Close()
 
 	if response.StatusCode == 429 {
-		util.SleepUntilRetry(response.Header)
+		sys.SleepUntilRetry(response.Header)
 		return composer.get(url, ctx)
 	} else if response.StatusCode != 200 {
 		return nil, errors.New("cannot fetch lyrics on genius: " + response.Status)
@@ -186,10 +186,10 @@ func documentParser(data *[]byte) func(i int, s *goquery.Selection) {
 // compliance check works as a barrier before checking on the result score
 // so to ensure that only the results that pass certain pre-checks get returned
 func (result geniusResult) compliant() bool {
-	spec := util.UniqueFields(fmt.Sprintf("%s %s", result.Artist.Name, result.Title))
+	spec := sys.UniqueFields(fmt.Sprintf("%s %s", result.Artist.Name, result.Title))
 	return result.URL != "" &&
-		util.Contains(spec, strings.Split(util.UniqueFields(result.track.Artists[0]), " ")...) &&
-		util.Contains(spec, strings.Split(util.UniqueFields(result.track.Song()), " ")...)
+		sys.Contains(spec, strings.Split(sys.UniqueFields(result.track.Artists[0]), " ")...) &&
+		sys.Contains(spec, strings.Split(sys.UniqueFields(result.track.Song()), " ")...)
 }
 
 // score goes from 0 to 100 and it's built on the accuracy percentage
@@ -197,8 +197,8 @@ func (result geniusResult) compliant() bool {
 func (result geniusResult) score() int {
 	distance := int(math.Min(
 		float64(levenshtein.ComputeDistance(
-			util.UniqueFields(result.query),
-			util.UniqueFields(fmt.Sprintf("%s %s", result.Title, result.Artist.Name)),
+			sys.UniqueFields(result.query),
+			sys.UniqueFields(fmt.Sprintf("%s %s", result.Title, result.Artist.Name)),
 		)),
 		50.0,
 	))

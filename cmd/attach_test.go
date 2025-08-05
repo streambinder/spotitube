@@ -11,7 +11,7 @@ import (
 	"github.com/streambinder/spotitube/lyrics"
 	"github.com/streambinder/spotitube/processor"
 	"github.com/streambinder/spotitube/spotify"
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -48,7 +48,7 @@ func TestCmdAttach(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.Nil(t, util.ErrOnly(testExecute(cmdAttach(), "/path", "spotifyid")))
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdAttach(), "/path", "spotifyid")))
 }
 
 func TestCmdAttachOpenFailure(t *testing.T) {
@@ -58,7 +58,7 @@ func TestCmdAttachOpenFailure(t *testing.T) {
 	}).Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdAttach(), "/path", "spotifyid")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAttach(), "/path", "spotifyid")), "ko")
 }
 
 func TestCmdAttachAuthFailure(t *testing.T) {
@@ -73,7 +73,7 @@ func TestCmdAttachAuthFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdAttach(), "/path", "spotifyid")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAttach(), "/path", "spotifyid")), "ko")
 }
 
 func TestCmdAttachTrackFailure(t *testing.T) {
@@ -91,7 +91,7 @@ func TestCmdAttachTrackFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdAttach(), "/path", "spotifyid")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAttach(), "/path", "spotifyid")), "ko")
 }
 
 func TestCmdAttachLyricsFailure(t *testing.T) {
@@ -114,7 +114,7 @@ func TestCmdAttachLyricsFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdAttach(), "/path", "spotifyid")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAttach(), "/path", "spotifyid")), "ko")
 }
 
 func TestCmdAttacDownloadFailure(t *testing.T) {
@@ -140,7 +140,7 @@ func TestCmdAttacDownloadFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdAttach(), "/path", "spotifyid")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAttach(), "/path", "spotifyid")), "ko")
 }
 
 func TestCmdAttachSaveFailure(t *testing.T) {
@@ -170,7 +170,7 @@ func TestCmdAttachSaveFailure(t *testing.T) {
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdAttach(), "/path", "spotifyid")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAttach(), "/path", "spotifyid")), "ko")
 }
 
 func TestCmdAttachRenameFailure(t *testing.T) {
@@ -197,11 +197,11 @@ func TestCmdAttachRenameFailure(t *testing.T) {
 		ApplyMethod(&id3v2.Tag{}, "Save", func() error {
 			return nil
 		}).
-		ApplyFunc(util.FileMoveOrCopy, func() error {
+		ApplyFunc(sys.FileMoveOrCopy, func() error {
 			return errors.New("ko")
 		}).
 		Reset()
 
 	// testing
-	assert.EqualError(t, util.ErrOnly(testExecute(cmdAttach(), "--rename", "/path", "spotifyid")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAttach(), "--rename", "/path", "spotifyid")), "ko")
 }

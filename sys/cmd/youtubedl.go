@@ -7,14 +7,14 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/streambinder/spotitube/util"
+	"github.com/streambinder/spotitube/sys"
 )
 
 func YouTubeDl(url, path string) error {
 	var (
 		output bytes.Buffer
 		ext    = filepath.Ext(path)[1:]
-		stem   = strings.TrimSuffix(util.FileBaseStem(path), "."+ext)
+		stem   = strings.TrimSuffix(sys.FileBaseStem(path), "."+ext)
 		cmd    = exec.Command("yt-dlp",
 			"--format", "bestaudio",
 			"--extract-audio",

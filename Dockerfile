@@ -13,7 +13,8 @@ RUN apk add --no-cache ffmpeg yt-dlp && \
     mkdir /data && \
     mkdir /cache && \
     adduser -S spotitube && \
-    chown -R spotitube /data /cache
+    chown -R spotitube /data /cache && \
+    chmod -R 777 /cache
 USER spotitube
 WORKDIR /data
 ENV XDG_MUSIC_DIR=/data

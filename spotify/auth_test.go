@@ -69,6 +69,9 @@ func TestAuthenticate(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(os.Getenv, func() string {
+			return "value"
+		}).
 		ApplyFunc(Recover, func() (*Client, error) {
 			return nil, errors.New("ko")
 		}).
@@ -111,12 +114,51 @@ func TestAuthenticate(t *testing.T) {
 	))
 }
 
+func TestAuthenticateNoClientID(t *testing.T) {
+	t.Cleanup(resetPort)
+	port = getPort()
+
+	// monkey patching
+	defer gomonkey.NewPatches().
+		ApplyFunc(os.Getenv, func(env string) string {
+			if env == "SPOTIFY_ID" {
+				return ""
+			}
+			return "value"
+		}).
+		Reset()
+
+	// testing
+	assert.Error(t, sys.ErrOnly(Authenticate(nil)))
+}
+
+func TestAuthenticateNoClientSecret(t *testing.T) {
+	t.Cleanup(resetPort)
+	port = getPort()
+
+	// monkey patching
+	defer gomonkey.NewPatches().
+		ApplyFunc(os.Getenv, func(env string) string {
+			if env == "SPOTIFY_KEY" {
+				return ""
+			}
+			return "value"
+		}).
+		Reset()
+
+	// testing
+	assert.Error(t, sys.ErrOnly(Authenticate(nil)))
+}
+
 func TestAuthenticateRecoverAndPersist(t *testing.T) {
 	t.Cleanup(resetPort)
 	port = getPort()
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(os.Getenv, func() string {
+			return "value"
+		}).
 		ApplyFunc(os.ReadFile, func() ([]byte, error) {
 			return []byte(token), nil
 		}).
@@ -141,6 +183,9 @@ func TestAuthenticateRecoverOpenFailure(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(os.Getenv, func() string {
+			return "value"
+		}).
 		ApplyFunc(os.ReadFile, func() ([]byte, error) {
 			return nil, errors.New("ko")
 		}).
@@ -186,6 +231,9 @@ func TestAuthenticateRecoverUnmarshalFailure(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(os.Getenv, func() string {
+			return "value"
+		}).
 		ApplyFunc(os.ReadFile, func() ([]byte, error) {
 			return []byte(token), nil
 		}).
@@ -234,6 +282,9 @@ func TestAuthenticateRecoverAndPersistTokenFailure(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(os.Getenv, func() string {
+			return "value"
+		}).
 		ApplyFunc(os.ReadFile, func() ([]byte, error) {
 			return []byte(token), nil
 		}).
@@ -249,6 +300,9 @@ func TestAuthenticateRecoverAndPersistTokenFailure(t *testing.T) {
 func TestAuthenticateRecoverAndPersistMkdirFailure(t *testing.T) {
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(os.Getenv, func() string {
+			return "value"
+		}).
 		ApplyFunc(Recover, func() (*Client, error) {
 			return nil, nil
 		}).
@@ -267,6 +321,9 @@ func TestAuthenticateRecoverAndPersistOpenFailure(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(os.Getenv, func() string {
+			return "value"
+		}).
 		ApplyFunc(os.ReadFile, func() ([]byte, error) {
 			return []byte(token), nil
 		}).
@@ -288,6 +345,9 @@ func TestAuthenticateNotFound(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(os.Getenv, func() string {
+			return "value"
+		}).
 		ApplyFunc(Recover, func() (*Client, error) {
 			return nil, errors.New("ko")
 		}).
@@ -333,6 +393,9 @@ func TestAuthenticateForbidden(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(os.Getenv, func() string {
+			return "value"
+		}).
 		ApplyFunc(Recover, func() (*Client, error) {
 			return nil, errors.New("ko")
 		}).
@@ -378,6 +441,9 @@ func TestAuthenticateProcessorFailure(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(os.Getenv, func() string {
+			return "value"
+		}).
 		ApplyFunc(Recover, func() (*Client, error) {
 			return nil, errors.New("ko")
 		}).
@@ -422,6 +488,9 @@ func TestAuthenticateServerUnserving(t *testing.T) {
 
 	// monkey patching
 	defer gomonkey.NewPatches().
+		ApplyFunc(os.Getenv, func() string {
+			return "value"
+		}).
 		ApplyFunc(Recover, func() (*Client, error) {
 			return nil, errors.New("ko")
 		}).

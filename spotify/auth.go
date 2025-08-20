@@ -59,6 +59,16 @@ func Authenticate(urlProcessor func(string) error, callbacks ...string) (*Client
 		callback = callbacks[0]
 	}
 
+	clientID := sys.Fallback(os.Getenv("SPOTIFY_ID"), fallbackSpotifyID)
+	if clientID == "" {
+		return nil, errors.New("SPOTIFY_ID not set")
+	}
+
+	clientSecret := sys.Fallback(os.Getenv("SPOTIFY_KEY"), fallbackSpotifyKey)
+	if clientSecret == "" {
+		return nil, errors.New("SPOTIFY_KEY not set")
+	}
+
 	authenticator := spotifyauth.New(
 		spotifyauth.WithRedirectURL(fmt.Sprintf("http://%s:%d/callback", callback, port)),
 		spotifyauth.WithScopes(
@@ -69,8 +79,8 @@ func Authenticate(urlProcessor func(string) error, callbacks ...string) (*Client
 			spotifyauth.ScopePlaylistModifyPublic,
 			spotifyauth.ScopePlaylistModifyPrivate,
 		),
-		spotifyauth.WithClientID(sys.Fallback(os.Getenv("SPOTIFY_ID"), fallbackSpotifyID)),
-		spotifyauth.WithClientSecret(sys.Fallback(os.Getenv("SPOTIFY_KEY"), fallbackSpotifyKey)),
+		spotifyauth.WithClientID(clientID),
+		spotifyauth.WithClientSecret(clientSecret),
 	)
 	if client, err := Recover(authenticator, state); err == nil {
 		return client, client.Persist()

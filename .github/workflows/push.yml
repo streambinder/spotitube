@@ -40,7 +40,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - run: ln -sv .github/linters/commitlint.config.js ./
-      - uses: super-linter/super-linter/slim@5119dcd8011e92182ce8219d9e9efc82f16fddb6
+      - uses: super-linter/super-linter/slim@ffde3b2b33b745cb612d787f669ef9442b1339a6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VALIDATE_ALL_CODEBASE: ${{ !contains(github.event_name, 'pull_request') }}

@@ -16,7 +16,7 @@ func albumEntity(album *spotify.FullAlbum) *entity.Album {
 			for _, artist := range artists {
 				flatArtists = append(flatArtists, artist.Name)
 			}
-			return
+			return flatArtists
 		}(album.Artists),
 	}
 }

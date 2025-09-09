@@ -107,5 +107,5 @@ func (index *Index) Size(statuses ...int) (counter int) {
 			}
 		}
 	}
-	return
+	return counter
 }

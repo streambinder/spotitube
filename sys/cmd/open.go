@@ -22,5 +22,5 @@ func Open(url string, oses ...string) (err error) {
 	default:
 		err = fmt.Errorf("unsupported platform")
 	}
-	return
+	return err
 }

@@ -50,7 +50,7 @@ func (track *Track) Song() (song string) {
 	song = strings.Split(song+" - ", " - ")[0]
 	song = strings.Split(song+" (", " (")[0]
 	song = strings.Split(song+" [", " [")[0]
-	return
+	return song
 }
 
 func (track *Track) Path() TrackPath {

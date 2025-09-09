@@ -167,5 +167,5 @@ func (window *Window) Reads(label string, a ...interface{}) (value string) {
 	value = strings.TrimSpace(value)
 	value = strings.Trim(value, "\n")
 	value = strings.Trim(value, "\r")
-	return
+	return value
 }

@@ -51,7 +51,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
       - run: |
           PATH="$PATH:$(go env GOPATH)/bin"
           export PATH
@@ -94,7 +94,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
       - run: |
           echo Testing...
           go test -p 1 -v -timeout 30s ./...
@@ -131,7 +131,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
       - run: go test -benchmem -bench '^Benchmark.*$' ./... | grep ^Benchmark
   build:
     runs-on: ubuntu-latest

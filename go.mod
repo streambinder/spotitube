@@ -18,7 +18,7 @@ require (
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/pflag v1.0.10
 	github.com/streambinder/id3v2-sylt v0.0.0-20250518085742-fbdd8d5d8b8b
-	github.com/stretchr/testify v1.11.0
+	github.com/stretchr/testify v1.11.1
 	github.com/thanhpk/randstr v1.0.6
 	github.com/zmb3/spotify/v2 v2.4.3
 	golang.org/x/oauth2 v0.31.0

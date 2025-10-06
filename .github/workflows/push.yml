@@ -39,7 +39,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - run: ln -sv .github/linters/commitlint.config.js ./
+      - run: mv -vf .github/linters/* ./
       - uses: super-linter/super-linter/slim@ffde3b2b33b745cb612d787f669ef9442b1339a6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
-      - uses: codespell-project/actions-codespell@406322ec52dd7b488e48c1c4b82e2a8b3a1bf630
+      - uses: codespell-project/actions-codespell@8f01853be192eb0f849a5c7d721450e7a467c579
         with:
           check_filenames: true
   super-linter:

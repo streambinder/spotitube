@@ -167,5 +167,13 @@ func (window *Window) Reads(label string, a ...interface{}) (value string) {
 	value = strings.TrimSpace(value)
 	value = strings.Trim(value, "\n")
 	value = strings.Trim(value, "\r")
+
+	// Clear the blank line created by Enter, then move up to the prompt line without clearing it
+	if !window.plain {
+		cursor.ClearLine()
+		cursor.Up(1)
+		cursor.StartOfLine()
+	}
+
 	return value
 }

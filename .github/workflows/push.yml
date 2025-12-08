@@ -40,7 +40,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - run: mv -vf .github/linters/* ./
-      - uses: super-linter/super-linter/slim@2bdd90ed3262e023ac84bf8fe35dc480721fc1f2
+      - uses: super-linter/super-linter/slim@502f4fe48a81a392756e173e39a861f8c8efe056
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VALIDATE_ALL_CODEBASE: ${{ !contains(github.event_name, 'pull_request') }}

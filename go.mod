@@ -15,7 +15,7 @@ require (
 	github.com/gosimple/slug v1.15.0
 	github.com/json-iterator/go v1.1.12
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
-	github.com/spf13/cobra v1.10.1
+	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/streambinder/id3v2-sylt v0.0.0-20250518085742-fbdd8d5d8b8b
 	github.com/stretchr/testify v1.11.1

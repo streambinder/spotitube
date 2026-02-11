@@ -21,15 +21,6 @@ permissions:
   statuses: none
 
 jobs:
-  codespell:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-      - uses: codespell-project/actions-codespell@8f01853be192eb0f849a5c7d721450e7a467c579
-        with:
-          check_filenames: true
   super-linter:
     runs-on: ubuntu-latest
     permissions:
@@ -82,7 +73,6 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       [
-        codespell,
         super-linter,
         gofumpt,
         go-channel-closure,

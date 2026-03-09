@@ -1,8 +1,6 @@
 module github.com/streambinder/spotitube
 
-go 1.24.0
-
-toolchain go1.24.1
+go 1.25.0
 
 require (
 	atomicgo.dev/cursor v0.2.0
@@ -21,7 +19,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/thanhpk/randstr v1.0.6
 	github.com/zmb3/spotify/v2 v2.4.3
-	golang.org/x/oauth2 v0.35.0
+	golang.org/x/oauth2 v0.36.0
 )
 
 require (

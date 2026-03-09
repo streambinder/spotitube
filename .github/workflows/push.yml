@@ -43,6 +43,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417
+        with:
+          go-version-file: go.mod
       - run: |
           PATH="$PATH:$(go env GOPATH)/bin"
           export PATH
@@ -85,6 +87,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417
+        with:
+          go-version-file: go.mod
       - run: |
           echo Testing...
           go test -p 1 -v -timeout 30s ./...
@@ -122,6 +126,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417
+        with:
+          go-version-file: go.mod
       - run: go test -benchmem -bench '^Benchmark.*$' ./... | grep ^Benchmark
   build:
     runs-on: ubuntu-latest

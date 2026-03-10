@@ -30,6 +30,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417
         with:
+          go-version-file: go.mod
           cache: false
       - run: |
           go test -p 1 -v -timeout 30s ./...
@@ -45,6 +46,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417
         with:
+          go-version-file: go.mod
           cache: false
       - run: |
           go mod download

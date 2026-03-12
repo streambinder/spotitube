@@ -21,6 +21,7 @@ func TestCmdShow(t *testing.T) {
 	defer mockey.UnPatchAll()
 	mockey.Mock(id3.Open).Return(&id3.Tag{}, nil).Build()
 	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "AttachedPicture")).Return("image/jpeg", []byte("some picture data")).Build()
+	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "Duration")).Return("60").Build()
 
 	// testing
 	assert.Nil(t, sys.ErrOnly(testExecute(cmdShow(), "path/to/track1", "path/to/track2")))

@@ -60,11 +60,12 @@ func (tag *Tag) userDefinedText(key string) string {
 		return value
 	}
 
-	for _, frame := range tag.GetFrames(tag.CommonID("User defined text information frame")) {
-		frame, ok := frame.(id3v2.UserDefinedTextFrame)
-		if ok {
-			tag.Cache[frame.UniqueIdentifier()] = frame.Value
+	for _, rawFrame := range tag.GetFrames(tag.CommonID("User defined text information frame")) {
+		frame, ok := rawFrame.(id3v2.UserDefinedTextFrame)
+		if !ok {
+			continue
 		}
+		tag.Cache[frame.UniqueIdentifier()] = frame.Value
 
 		if strings.EqualFold(frame.UniqueIdentifier(), key) {
 			return frame.Value

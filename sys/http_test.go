@@ -40,3 +40,12 @@ func TestSleepUntilRetryInvalidHeader(t *testing.T) {
 	SleepUntilRetry(http.Header{"Retry-After": []string{"not-a-number"}})
 	assert.Equal(t, duration, defaultRetryWait)
 }
+
+func TestSleepUntilRetryCapped(t *testing.T) {
+	var duration time.Duration
+	sleepFn = func(d time.Duration) { duration = d }
+	defer func() { sleepFn = time.Sleep }()
+
+	SleepUntilRetry(http.Header{"Retry-After": []string{"999"}})
+	assert.Equal(t, duration, maxRetryWait)
+}

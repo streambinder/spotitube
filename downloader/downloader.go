@@ -29,7 +29,7 @@ func Download(url, path string, processor processor.Processor, channels ...chan 
 
 	for _, downloader := range downloaders {
 		if downloader.supports(url) {
-			if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 				return err
 			}
 

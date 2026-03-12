@@ -76,21 +76,35 @@ func (composer genius) search(track *entity.Track, ctxs ...context.Context) ([]b
 	}
 	request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", sys.Fallback(os.Getenv("GENIUS_TOKEN"), fallbackGeniusToken)))
 
-	response, err := http.DefaultClient.Do(request)
-	if err != nil && errors.Is(err, context.Canceled) {
-		return nil, nil
-	} else if err != nil {
-		return nil, err
-	}
-	defer response.Body.Close()
-	if response.StatusCode == 429 {
-		sys.SleepUntilRetry(response.Header)
-		return composer.search(track, ctx)
-	} else if response.StatusCode != 200 {
-		return nil, errors.New("cannot search lyrics on genius: " + response.Status)
-	}
+	for attempt := 0; attempt < sys.MaxRetries; attempt++ {
+		result, retry, searchErr := func() ([]byte, bool, error) {
+			response, err := http.DefaultClient.Do(request)
+			if err != nil && errors.Is(err, context.Canceled) {
+				return nil, false, nil
+			} else if err != nil {
+				return nil, false, err
+			}
+			defer response.Body.Close()
 
-	return composer.parseResult(track, query, mainArtistOnly, response.Body, ctxs...)
+			if response.StatusCode == 429 {
+				sys.SleepUntilRetry(response.Header)
+				return nil, true, nil
+			} else if response.StatusCode != 200 {
+				return nil, false, errors.New("cannot search lyrics on genius: " + response.Status)
+			}
+
+			parsed, parseErr := composer.parseResult(track, query, mainArtistOnly, response.Body, ctxs...)
+			return parsed, false, parseErr
+		}()
+		if retry {
+			// rebuild request since body was consumed
+			request, _ = http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://api.genius.com/search?q=%s", url.QueryEscape(query)), nil)
+			request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", sys.Fallback(os.Getenv("GENIUS_TOKEN"), fallbackGeniusToken)))
+			continue
+		}
+		return result, searchErr
+	}
+	return nil, errors.New("genius search: max retries exceeded")
 }
 
 func (composer genius) parseResult(track *entity.Track, query string, mainArtistOnly bool, response io.Reader, ctxs ...context.Context) ([]byte, error) {
@@ -143,31 +157,41 @@ func (composer genius) get(url string, ctxs ...context.Context) ([]byte, error) 
 		return nil, err
 	}
 
-	response, err := http.DefaultClient.Do(request)
-	if err != nil && errors.Is(err, context.Canceled) {
-		return nil, nil
-	} else if err != nil {
-		return nil, err
+	for attempt := 0; attempt < sys.MaxRetries; attempt++ {
+		result, retry, getErr := func() ([]byte, bool, error) {
+			response, err := http.DefaultClient.Do(request)
+			if err != nil && errors.Is(err, context.Canceled) {
+				return nil, false, nil
+			} else if err != nil {
+				return nil, false, err
+			}
+			defer response.Body.Close()
+
+			if response.StatusCode == 429 {
+				sys.SleepUntilRetry(response.Header)
+				return nil, true, nil
+			} else if response.StatusCode != 200 {
+				return nil, false, errors.New("cannot fetch lyrics on genius: " + response.Status)
+			}
+
+			document, parseErr := goquery.NewDocumentFromReader(response.Body)
+			if parseErr != nil {
+				return nil, false, parseErr
+			}
+
+			var data []byte
+			document.Find("div[data-lyrics-container='true']").Contents().
+				Each(documentParser(&data))
+			return data, false, nil
+		}()
+		if retry {
+			// rebuild request since body was consumed
+			request, _ = http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+			continue
+		}
+		return result, getErr
 	}
-	defer response.Body.Close()
-
-	if response.StatusCode == 429 {
-		sys.SleepUntilRetry(response.Header)
-		return composer.get(url, ctx)
-	} else if response.StatusCode != 200 {
-		return nil, errors.New("cannot fetch lyrics on genius: " + response.Status)
-	}
-
-	document, err := goquery.NewDocumentFromReader(response.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	var data []byte
-	document.Find("div[data-lyrics-container='true']").Contents().
-		Each(documentParser(&data))
-
-	return data, nil
+	return nil, errors.New("genius get: max retries exceeded")
 }
 
 func documentParser(data *[]byte) func(i int, s *goquery.Selection) {

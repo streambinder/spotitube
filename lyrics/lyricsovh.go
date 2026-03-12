@@ -47,33 +47,43 @@ func (composer lyricsOvh) get(url string, ctxs ...context.Context) ([]byte, erro
 		return nil, err
 	}
 
-	response, err := http.DefaultClient.Do(request)
-	if err != nil && errors.Is(err, context.Canceled) {
-		return nil, nil
-	} else if err != nil {
-		return nil, err
-	}
-	defer response.Body.Close()
+	for attempt := 0; attempt < sys.MaxRetries; attempt++ {
+		result, retry, getErr := func() ([]byte, bool, error) {
+			response, err := http.DefaultClient.Do(request)
+			if err != nil && errors.Is(err, context.Canceled) {
+				return nil, false, nil
+			} else if err != nil {
+				return nil, false, err
+			}
+			defer response.Body.Close()
 
-	switch {
-	case response.StatusCode == 404:
-		return nil, nil
-	case response.StatusCode == 429:
-		sys.SleepUntilRetry(response.Header)
-		return composer.get(url, ctx)
-	case response.StatusCode != 200:
-		return nil, errors.New("cannot fetch results on lyrics.ovh: " + response.Status)
-	}
+			switch {
+			case response.StatusCode == 404:
+				return nil, false, nil
+			case response.StatusCode == 429:
+				sys.SleepUntilRetry(response.Header)
+				return nil, true, nil
+			case response.StatusCode != 200:
+				return nil, false, errors.New("cannot fetch results on lyrics.ovh: " + response.Status)
+			}
 
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		return nil, err
-	}
+			body, readErr := io.ReadAll(response.Body)
+			if readErr != nil {
+				return nil, false, readErr
+			}
 
-	entry := new(ovhResponse)
-	if err := json.Unmarshal(body, entry); err != nil {
-		return nil, err
+			entry := new(ovhResponse)
+			if unmarshalErr := json.Unmarshal(body, entry); unmarshalErr != nil {
+				return nil, false, unmarshalErr
+			}
+			return []byte(entry.Lyrics), false, nil
+		}()
+		if retry {
+			// rebuild request since body was consumed
+			request, _ = http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+			continue
+		}
+		return result, getErr
 	}
-
-	return []byte(entry.Lyrics), nil
+	return nil, errors.New("lyrics.ovh: max retries exceeded")
 }

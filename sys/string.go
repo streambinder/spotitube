@@ -109,7 +109,7 @@ func Fallback(data, fallback string) string {
 
 func Contains(data string, parts ...string) bool {
 	for _, part := range parts {
-		partWord := regexp.MustCompile("\\b" + part + "\\b")
+		partWord := regexp.MustCompile(`\b` + regexp.QuoteMeta(part) + `\b`)
 		if !partWord.MatchString(data) {
 			return false
 		}

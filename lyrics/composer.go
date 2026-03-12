@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/arunsworld/nursery"
 	"github.com/streambinder/spotitube/entity"
@@ -111,6 +112,7 @@ func Search(track *entity.Track) (string, error) {
 	var (
 		workers        []nursery.ConcurrentJob
 		result         []byte
+		mu             sync.Mutex
 		ctxBackground  = context.Background()
 		ctx, ctxCancel = context.WithCancel(ctxBackground)
 	)
@@ -125,12 +127,14 @@ func Search(track *entity.Track) (string, error) {
 					return
 				}
 
+				mu.Lock()
 				if choice := chooseComposition(lyrics, result); choice != nil {
 					result = choice
 					if IsSynced(choice) {
 						ctxCancel()
 					}
 				}
+				mu.Unlock()
 			}
 		}(composer))
 	}
@@ -143,7 +147,7 @@ func Search(track *entity.Track) (string, error) {
 		return "", nil
 	}
 
-	if err := os.MkdirAll(filepath.Dir(track.Path().Lyrics()), os.ModePerm); err != nil {
+	if err := os.MkdirAll(filepath.Dir(track.Path().Lyrics()), 0o755); err != nil {
 		return "", err
 	}
 
@@ -154,6 +158,7 @@ func Get(url string) (string, error) {
 	var (
 		workers        []nursery.ConcurrentJob
 		result         []byte
+		mu             sync.Mutex
 		ctxBackground  = context.Background()
 		ctx, ctxCancel = context.WithCancel(ctxBackground)
 	)
@@ -168,15 +173,20 @@ func Get(url string) (string, error) {
 					return
 				}
 
+				mu.Lock()
 				if choice := chooseComposition(lyrics, result); choice != nil {
 					result = choice
 					if IsSynced(choice) {
 						ctxCancel()
 					}
 				}
+				mu.Unlock()
 			}
 		}(composer))
 	}
 
-	return string(result), nursery.RunConcurrentlyWithContext(ctx, workers...)
+	if err := nursery.RunConcurrentlyWithContext(ctx, workers...); err != nil {
+		return "", err
+	}
+	return string(result), nil
 }

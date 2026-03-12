@@ -1,7 +1,6 @@
 package processor
 
 import (
-	"bufio"
 	"bytes"
 	"errors"
 	"image"
@@ -25,13 +24,13 @@ func (Artwork) Do(object interface{}) error {
 		return errors.New("processor does not support such object")
 	}
 
-	image, _, err := image.Decode(bytes.NewReader(*data))
+	img, _, err := image.Decode(bytes.NewReader(*data))
 	if err != nil {
 		return err
 	}
 
 	var resized bytes.Buffer
-	if err := jpeg.Encode(bufio.NewWriter(&resized), resize.Resize(300, 0, image, resize.Lanczos3), nil); err != nil {
+	if err := jpeg.Encode(&resized, resize.Resize(300, 0, img, resize.Lanczos3), nil); err != nil {
 		return err
 	}
 

@@ -53,7 +53,7 @@ func (index *Index) Build(path string, init ...int) error {
 		}
 
 		// skip any inner directory from walk
-		if entry.IsDir() && entry.Name() != path {
+		if entry.IsDir() && entry.Name() != filepath.Base(path) {
 			return fs.SkipDir
 		}
 
@@ -95,6 +95,9 @@ func (index *Index) Get(track *entity.Track) (int, bool) {
 }
 
 func (index *Index) Size(statuses ...int) (counter int) {
+	index.lock.RLock()
+	defer index.lock.RUnlock()
+
 	if len(statuses) == 0 {
 		return len(index.data)
 	}

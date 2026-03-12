@@ -57,6 +57,25 @@ func TestOpen(t *testing.T) {
 	assert.Equal(t, "", tag.userDefinedText("not existing"))
 }
 
+func TestUserDefinedTextInvalidFrame(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(id3v2.Open).To(func(_ string, _ id3v2.Options) (*id3v2.Tag, error) {
+		tag := id3v2.NewEmptyTag()
+		// add a non-UserDefinedTextFrame to the TXXX frame ID to trigger continue
+		tag.AddFrame(tag.CommonID("User defined text information frame"), id3v2.TextFrame{
+			Encoding: tag.DefaultEncoding(),
+			Text:     "invalid",
+		})
+		return tag, nil
+	}).Build()
+
+	// testing
+	tag, err := Open("", id3v2.Options{})
+	assert.Nil(t, err)
+	assert.Equal(t, "", tag.userDefinedText("nonexistent"))
+}
+
 func TestOpenFailure(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()

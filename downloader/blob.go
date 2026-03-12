@@ -59,8 +59,8 @@ func (blob) download(url, path string, processor processor.Processor, channels .
 		return err
 	}
 
-	if processor != nil && processor.Applies(body) {
-		if err := processor.Do(body); err != nil {
+	if processor != nil && processor.Applies(&body) {
+		if err := processor.Do(&body); err != nil {
 			return err
 		}
 	}

@@ -14,6 +14,8 @@ import (
 	"github.com/streambinder/spotitube/sys"
 )
 
+var reLrclibWhitespace = regexp.MustCompile(`\[(\d{2}:\d{2}\.\d{2})\]\s+`)
+
 type lrclib struct {
 	Composer
 }
@@ -49,37 +51,48 @@ func (composer lrclib) get(url string, ctxs ...context.Context) ([]byte, error) 
 		return nil, err
 	}
 
-	response, err := http.DefaultClient.Do(request)
-	if err != nil && errors.Is(err, context.Canceled) {
-		return nil, nil
-	} else if err != nil {
-		return nil, err
-	}
-	defer response.Body.Close()
+	for attempt := 0; attempt < sys.MaxRetries; attempt++ {
+		result, retry, getErr := func() ([]byte, bool, error) {
+			response, err := http.DefaultClient.Do(request)
+			if err != nil && errors.Is(err, context.Canceled) {
+				return nil, false, nil
+			} else if err != nil {
+				return nil, false, err
+			}
+			defer response.Body.Close()
 
-	switch {
-	case response.StatusCode == 404:
-		return nil, nil
-	case response.StatusCode == 429:
-		sys.SleepUntilRetry(response.Header)
-		return composer.get(url, ctx)
-	case response.StatusCode != 200:
-		return nil, errors.New("cannot fetch results on lrclib: " + response.Status)
-	}
+			switch {
+			case response.StatusCode == 404:
+				return nil, false, nil
+			case response.StatusCode == 429:
+				sys.SleepUntilRetry(response.Header)
+				return nil, true, nil
+			case response.StatusCode != 200:
+				return nil, false, errors.New("cannot fetch results on lrclib: " + response.Status)
+			}
 
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		return nil, err
-	}
+			body, readErr := io.ReadAll(response.Body)
+			if readErr != nil {
+				return nil, false, readErr
+			}
 
-	entry := new(lrclibResponse)
-	if err := json.Unmarshal(body, entry); err != nil {
-		return nil, err
-	}
+			entry := new(lrclibResponse)
+			if unmarshalErr := json.Unmarshal(body, entry); unmarshalErr != nil {
+				return nil, false, unmarshalErr
+			}
 
-	lyrics := entry.PlainLyrics
-	if len(entry.SyncedLyrics) > 0 {
-		lyrics = entry.SyncedLyrics
+			lyrics := entry.PlainLyrics
+			if len(entry.SyncedLyrics) > 0 {
+				lyrics = entry.SyncedLyrics
+			}
+			return []byte(reLrclibWhitespace.ReplaceAllString(lyrics, `[$1]`)), false, nil
+		}()
+		if retry {
+			// rebuild request since body was consumed
+			request, _ = http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+			continue
+		}
+		return result, getErr
 	}
-	return []byte(regexp.MustCompile(`\[(\d{2}:\d{2}\.\d{2})\]\s+`).ReplaceAllString(lyrics, `[$1]`)), nil
+	return nil, errors.New("lrclib: max retries exceeded")
 }

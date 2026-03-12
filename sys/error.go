@@ -1,5 +1,7 @@
 package sys
 
+import "fmt"
+
 func ErrSuppress(_ error) {
 }
 
@@ -22,5 +24,9 @@ func ErrOnly(parameters ...any) error {
 		return nil
 	}
 
-	return err.(error)
+	casted, ok := err.(error)
+	if !ok {
+		return fmt.Errorf("%v", err)
+	}
+	return casted
 }

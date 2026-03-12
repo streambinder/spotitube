@@ -98,6 +98,21 @@ func TestLrclibSearchNotFound(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+func TestLrclibSearchMaxRetriesExceeded(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(sys.SleepUntilRetry).Return().Build()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 429,
+			Body:       io.NopCloser(strings.NewReader("")),
+		}, nil
+	}).Build()
+
+	// testing
+	assert.EqualError(t, sys.ErrOnly(lrclib{}.search(track)), "lrclib: max retries exceeded")
+}
+
 func TestLrclibSearchTooManyRequests(t *testing.T) {
 	// monkey patching
 	doCounter := 0

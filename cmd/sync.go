@@ -78,9 +78,8 @@ func cmdSync() *cobra.Command {
 			}
 
 			for index, path := range fixes {
-				if absPath, err := filepath.Abs(path); err == nil {
-					fixes[index] = absPath
-				}
+				absPath, absErr := filepath.Abs(path)
+				fixes[index] = sys.Ternary(absErr == nil, absPath, path)
 			}
 
 			if err := os.Chdir(path); err != nil {
@@ -451,7 +450,7 @@ func routineProcess(_ context.Context, ch chan error) {
 }
 
 // installer move the blob to its final destination
-func routineInstall(_ context.Context, ch chan error) {
+func routineInstall(ctx context.Context, ch chan error) {
 	// remember to signal mixer
 	defer close(routineSemaphores[routineTypeInstall])
 

@@ -138,6 +138,18 @@ func TestYouTubeSearchPartialData(t *testing.T) {
 	assert.Nil(t, sys.ErrOnly(youTube{}.search(track)))
 }
 
+func TestYouTubeSearchMaxRetriesExceeded(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(sys.SleepUntilRetry).Return().Build()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).To(func(_ string) (*http.Response, error) {
+		return &http.Response{StatusCode: 429, Body: io.NopCloser(strings.NewReader(""))}, nil
+	}).Build()
+
+	// testing
+	assert.EqualError(t, sys.ErrOnly(youTube{}.search(track)), "youtube: max retries exceeded")
+}
+
 func TestYouTubeSearchTooManyRequests(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()

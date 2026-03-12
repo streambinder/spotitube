@@ -43,7 +43,7 @@ func Authenticate(urlProcessor func(string) error, callbacks ...string) (*Client
 		client    Client
 		serverMux = http.NewServeMux()
 		server    = &http.Server{
-			Addr:              fmt.Sprintf("0.0.0.0:%d", port),
+			Addr:              fmt.Sprintf("127.0.0.1:%d", port),
 			Handler:           serverMux,
 			ReadHeaderTimeout: 2 * time.Second,
 		}

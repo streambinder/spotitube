@@ -43,7 +43,12 @@ func cmdShow() *cobra.Command {
 					fmt.Fprintln(table, "Year\t", sys.Fallback(tag.Year(), fallback))
 					fmt.Fprintln(table, "Track number\t", sys.Fallback(tag.TrackNumber(), fallback))
 					fmt.Fprintln(table, "Artwork URL\t", sys.Fallback(tag.ArtworkURL(), fallback))
-					fmt.Fprintln(table, "Duration\t", sys.Fallback(fmt.Sprintf("%ss", tag.Duration()), fallback))
+					fmt.Fprintln(table, "Duration\t", func(d string) string {
+						if len(d) == 0 {
+							return fallback
+						}
+						return d + "s"
+					}(tag.Duration()))
 					fmt.Fprintln(table, "Upstream URL\t", sys.Fallback(tag.UpstreamURL(), fallback))
 					fmt.Fprintln(table, "Lyrics\t", sys.Fallback(sys.Excerpt(sys.FirstLine(tag.UnsynchronizedLyrics()), 64), fallback))
 					fmt.Fprintln(table, "Artwork\t", func(mimeType string, data []byte) string {

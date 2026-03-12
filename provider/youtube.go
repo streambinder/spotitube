@@ -106,20 +106,30 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 		query = fmt.Sprintf("%s %s", query, artist)
 	}
 
-	response, err := http.Get("https://www.youtube.com/results?search_query=" + url.QueryEscape(query) + "&sp=EgIQAQ%253D%253D")
-	if err != nil {
-		return nil, err
-	}
-	defer response.Body.Close()
+	for attempt := 0; attempt < sys.MaxRetries; attempt++ {
+		matches, retry, err := func() ([]*Match, bool, error) {
+			response, err := http.Get("https://www.youtube.com/results?search_query=" + url.QueryEscape(query) + "&sp=EgIQAQ%253D%253D")
+			if err != nil {
+				return nil, false, err
+			}
+			defer response.Body.Close()
 
-	if response.StatusCode == 429 {
-		sys.SleepUntilRetry(response.Header)
-		return provider.search(track)
-	} else if response.StatusCode != 200 {
-		return nil, errors.New("cannot fetch results on youtube: " + response.Status)
-	}
+			if response.StatusCode == 429 {
+				sys.SleepUntilRetry(response.Header)
+				return nil, true, nil
+			} else if response.StatusCode != 200 {
+				return nil, false, errors.New("cannot fetch results on youtube: " + response.Status)
+			}
 
-	return provider.parseResults(track, query, response.Body)
+			result, parseErr := provider.parseResults(track, query, response.Body)
+			return result, false, parseErr
+		}()
+		if retry {
+			continue
+		}
+		return matches, err
+	}
+	return nil, errors.New("youtube: max retries exceeded")
 }
 
 func (provider youTube) parseResults(track *entity.Track, query string, body io.Reader) ([]*Match, error) {
@@ -147,16 +157,16 @@ func (provider youTube) parseResults(track *entity.Track, query string, body io.
 	}
 	for _, section := range data.Contents.TwoColumnSearchResultsRenderer.PrimaryContents.SectionListRenderer.Contents {
 		for _, result := range section.ItemSectionRenderer.Contents {
-			for run, title := range result.VideoRenderer.Title.Runs {
+			for _, title := range result.VideoRenderer.Title.Runs {
 				match := youTubeResult{
 					track: track,
 					query: query,
 					id:    result.VideoRenderer.VideoID,
 					title: title.Text,
-					owner: result.VideoRenderer.OwnerText.Runs[run].Text,
-					description: sys.First(result.VideoRenderer.DetailedMetadataSnippets, DetailedMetadataSnippet{
+					owner: sys.First(result.VideoRenderer.OwnerText.Runs, Run{}).Text,
+					description: sys.First(sys.First(result.VideoRenderer.DetailedMetadataSnippets, DetailedMetadataSnippet{
 						SnippetText: SnippetText{Runs: []Run{{Text: ""}}},
-					}).SnippetText.Runs[run].Text,
+					}).SnippetText.Runs, Run{}).Text,
 					views: func(viewCount string) int {
 						if viewCount == "" {
 							return 0

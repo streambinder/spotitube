@@ -3,7 +3,6 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 	"github.com/streambinder/spotitube/spotify"
-	"github.com/streambinder/spotitube/sys"
 )
 
 var (
@@ -14,6 +13,6 @@ var (
 	}
 )
 
-func Execute() {
-	sys.ErrSuppress(cmdRoot.Execute())
+func Execute() error {
+	return cmdRoot.Execute()
 }

@@ -118,6 +118,43 @@ func TestGeniusSearchHttpNotFound(t *testing.T) {
 	assert.NotNil(t, sys.ErrOnly(genius{}.search(track)))
 }
 
+func TestGeniusSearchMaxRetriesExceeded(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(sys.SleepUntilRetry).Return().Build()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 429,
+			Body:       io.NopCloser(strings.NewReader("")),
+		}, nil
+	}).Build()
+
+	// testing
+	assert.EqualError(t, sys.ErrOnly(genius{}.search(track)), "genius search: max retries exceeded")
+}
+
+func TestGeniusGetMaxRetriesExceeded(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(sys.SleepUntilRetry).Return().Build()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, request *http.Request) (*http.Response, error) {
+		if strings.EqualFold(request.Host, "api.genius.com") {
+			return &http.Response{
+				StatusCode: 200,
+				Body: io.NopCloser(
+					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0]))),
+			}, nil
+		}
+		return &http.Response{
+			StatusCode: 429,
+			Body:       io.NopCloser(strings.NewReader("")),
+		}, nil
+	}).Build()
+
+	// testing
+	assert.EqualError(t, sys.ErrOnly(genius{}.search(track)), "genius get: max retries exceeded")
+}
+
 func TestGeniusSearchTooManyRequests(t *testing.T) {
 	// monkey patching
 	var (

@@ -1,5 +1,5 @@
 package sys
 
 func RandomAlpha() rune {
-	return rune('a' - 1 + RandomInt(26))
+	return rune('a' + RandomInt(26))
 }

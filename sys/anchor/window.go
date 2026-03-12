@@ -168,12 +168,12 @@ func (window *Window) Reads(label string, a ...interface{}) (value string) {
 	value = strings.Trim(value, "\n")
 	value = strings.Trim(value, "\r")
 
-	// Clear the blank line created by Enter, then move up to the prompt line without clearing it
+	// erase the blank line left by Enter, then move back up to the prompt line
+	// (raw escape to avoid incrementing autoheight — the prompt line replaces
+	// the space that shift already accounted for)
 	if !window.plain {
-		cursor.ClearLine()
-		cursor.Up(1)
 		cursor.StartOfLine()
+		fmt.Print("\033[J\033[1A")
 	}
-
 	return value
 }

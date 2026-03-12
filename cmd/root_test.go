@@ -28,5 +28,5 @@ func testExecute(cmd *cobra.Command, args ...string) error {
 func TestExecute(_ *testing.T) {
 	cmdRoot.SetOut(io.Discard)
 	cmdRoot.SetErr(io.Discard)
-	_ = Execute()
+	sys.ErrSuppress(Execute())
 }

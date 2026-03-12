@@ -306,7 +306,7 @@ func routineFetchPlaylists(playlists []string, playlistsWithFile int, fetched ch
 // decider finds the right asset to retrieve
 // for a given track
 func routineDecide(manualMode bool) func(context.Context, chan error) {
-	return func(_ context.Context, ch chan error) {
+	return func(_ context.Context, _ chan error) {
 		// remember to stop passing data to the collector
 		// the retriever, the composer and the painter
 		defer close(routineQueues[routineTypeCollect])

@@ -65,11 +65,6 @@ func TestSearch(t *testing.T) {
 		<-ch
 		return []byte("[00:27.37]llyrics"), nil
 	}).Build()
-	mockey.Mock(mockey.GetMethod(lyricsOvh{}, "search")).To(func(_ lyricsOvh, _ *entity.Track, _ ...context.Context) ([]byte, error) {
-		<-ch
-		return []byte("olyrics"), nil
-	}).Build()
-
 	// testing
 	lyrics, err := Search(track)
 	assert.Nil(t, err)
@@ -93,8 +88,6 @@ func TestSearchFailure(t *testing.T) {
 	mockey.Mock(os.ReadFile).Return(nil, errors.New("")).Build()
 	mockey.Mock(mockey.GetMethod(genius{}, "search")).Return(nil, errors.New("ko")).Build()
 	mockey.Mock(mockey.GetMethod(lrclib{}, "search")).Return(nil, errors.New("ko")).Build()
-	mockey.Mock(mockey.GetMethod(lyricsOvh{}, "search")).Return(nil, errors.New("ko")).Build()
-
 	// testing
 	assert.EqualError(t, sys.ErrOnly(Search(track)), "ko")
 }
@@ -105,8 +98,6 @@ func TestSearchNotFound(t *testing.T) {
 	mockey.Mock(os.ReadFile).Return(nil, errors.New("")).Build()
 	mockey.Mock(mockey.GetMethod(genius{}, "search")).Return(nil, nil).Build()
 	mockey.Mock(mockey.GetMethod(lrclib{}, "search")).Return(nil, nil).Build()
-	mockey.Mock(mockey.GetMethod(lyricsOvh{}, "search")).Return(nil, nil).Build()
-
 	// testing
 	lyrics, err := Search(track)
 	assert.Nil(t, err)
@@ -119,7 +110,6 @@ func TestSearchCannotCreateDir(t *testing.T) {
 	mockey.Mock(os.ReadFile).Return(nil, errors.New("")).Build()
 	mockey.Mock(mockey.GetMethod(genius{}, "search")).Return([]byte("lyrics"), nil).Build()
 	mockey.Mock(mockey.GetMethod(lrclib{}, "search")).Return([]byte{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(lyricsOvh{}, "search")).Return([]byte{}, nil).Build()
 	mockey.Mock(os.MkdirAll).Return(errors.New("ko")).Build()
 
 	// testing
@@ -132,7 +122,6 @@ func TestSearchWriteFileFailure(t *testing.T) {
 	mockey.Mock(os.ReadFile).Return(nil, errors.New("")).Build()
 	mockey.Mock(mockey.GetMethod(genius{}, "search")).Return([]byte("lyrics"), nil).Build()
 	mockey.Mock(mockey.GetMethod(lrclib{}, "search")).Return([]byte{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(lyricsOvh{}, "search")).Return([]byte{}, nil).Build()
 	mockey.Mock(os.MkdirAll).Return(nil).Build()
 	mockey.Mock(os.WriteFile).Return(errors.New("ko")).Build()
 
@@ -152,11 +141,6 @@ func TestGet(t *testing.T) {
 		<-ch
 		return []byte("[00:27.37]llyrics"), nil
 	}).Build()
-	mockey.Mock(mockey.GetMethod(lyricsOvh{}, "get")).To(func(_ lyricsOvh, _ string, _ ...context.Context) ([]byte, error) {
-		<-ch
-		return []byte("olyrics"), nil
-	}).Build()
-
 	// testing
 	lyrics, err := Get("http://localhost")
 	assert.Nil(t, err)
@@ -168,8 +152,6 @@ func TestGetFailure(t *testing.T) {
 	defer mockey.UnPatchAll()
 	mockey.Mock(mockey.GetMethod(genius{}, "get")).Return(nil, errors.New("ko")).Build()
 	mockey.Mock(mockey.GetMethod(lrclib{}, "get")).Return(nil, errors.New("ko")).Build()
-	mockey.Mock(mockey.GetMethod(lyricsOvh{}, "get")).Return(nil, errors.New("ko")).Build()
-
 	// testing
 	assert.EqualError(t, sys.ErrOnly(Get("http://localhost")), "ko")
 }

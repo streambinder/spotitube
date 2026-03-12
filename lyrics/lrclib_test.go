@@ -125,7 +125,11 @@ func TestLrclibGetRetryRequestBuildFailure(t *testing.T) {
 			return nil, errors.New("ko")
 		}
 		req := &http.Request{Method: method, Header: make(http.Header)}
-		req.URL, _ = neturl.Parse(url)
+		parsedURL, parseErr := neturl.Parse(url)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		req.URL = parsedURL
 		return req, nil
 	}).Build()
 	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {

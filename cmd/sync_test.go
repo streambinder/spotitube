@@ -327,8 +327,41 @@ func TestCmdSyncDecideFailure(t *testing.T) {
 		return nil, errors.New("ko")
 	}).Build()
 
-	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
+	// testing: search failure is non-fatal, track gets skipped
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")))
+}
+
+func TestCmdSyncDecideCircuitBreaker(t *testing.T) {
+	t.Cleanup(cleanup)
+
+	tracks := []*entity.Track{
+		{ID: "cb1", Title: "Title1", Artists: []string{"Artist"}},
+		{ID: "cb2", Title: "Title2", Artists: []string{"Artist"}},
+		{ID: "cb3", Title: "Title3", Artists: []string{"Artist"}},
+		{ID: "cb4", Title: "Title4", Artists: []string{"Artist"}},
+	}
+
+	// monkey patching
+	searchCount := 0
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "Build")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
+		for _, track := range tracks {
+			ch[0] <- track
+		}
+		return nil
+	}).Build()
+	mockey.Mock(provider.Search).To(func(*entity.Track) ([]*provider.Match, error) {
+		searchCount++
+		return nil, errors.New("ko")
+	}).Build()
+
+	// testing: 4th track should be skipped by circuit breaker (only 3 searches)
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")))
+	assert.Equal(t, 3, searchCount)
 }
 
 func TestCmdSyncDecideNotFound(t *testing.T) {

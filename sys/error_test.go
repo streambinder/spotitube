@@ -19,7 +19,7 @@ func TestUtilErrWrap(t *testing.T) {
 	assert.True(t, !ErrWrap(true)(func() (bool, error) { return false, nil }()))
 }
 
-func TestUtilErrSuppress(t *testing.T) {
+func TestUtilErrSuppress(_ *testing.T) {
 	ErrSuppress(errors.New("suppressed"))
 }
 

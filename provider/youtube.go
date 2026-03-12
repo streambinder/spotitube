@@ -110,6 +110,12 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 		matches, retry, err := func() ([]*Match, bool, error) {
 			response, err := http.Get("https://www.youtube.com/results?search_query=" + url.QueryEscape(query) + "&sp=EgIQAQ%253D%253D")
 			if err != nil {
+				// google captcha/sorry page causes a redirect loop;
+				// this won't resolve by retrying — fail fast and let the
+				// caller's circuit breaker handle the cascade
+				if strings.Contains(err.Error(), "stopped after") && strings.Contains(err.Error(), "redirects") {
+					return nil, false, fmt.Errorf("youtube: blocked by google captcha")
+				}
 				return nil, false, err
 			}
 			defer response.Body.Close()

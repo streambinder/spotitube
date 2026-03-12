@@ -311,6 +311,11 @@ func routineDecide(manualMode bool) func(context.Context, chan error) {
 		// the retriever, the composer and the painter
 		defer close(routineQueues[routineTypeCollect])
 
+		// consecutive search failures trigger a circuit breaker:
+		// if all providers fail repeatedly, stop wasting time retrying
+		consecutiveFailures := 0
+		const maxConsecutiveFailures = 3
+
 		for event := range routineQueues[routineTypeDecide] {
 			track := event.(*entity.Track)
 
@@ -332,14 +337,21 @@ func routineDecide(manualMode bool) func(context.Context, chan error) {
 					continue
 				}
 			} else {
+				if consecutiveFailures >= maxConsecutiveFailures {
+					tui.AnchorPrintf("%s by %s (id: %s) skipped: search unavailable", track.Title, track.Artists[0], track.ID)
+					continue
+				}
+
 				tui.Lot("decide").Printf("%s by %s", track.Title, track.Artists[0])
 				matches, err := provider.Search(track)
 				tui.Lot("decide").Wipe()
 				if err != nil {
-					ch <- err
-					return
+					consecutiveFailures++
+					tui.AnchorPrintf("%s by %s (id: %s) search failed: %v", track.Title, track.Artists[0], track.ID, err)
+					continue
 				}
 
+				consecutiveFailures = 0
 				if len(matches) == 0 {
 					tui.AnchorPrintf("%s by %s (id: %s) not found", track.Title, track.Artists[0], track.ID)
 					continue
@@ -450,7 +462,7 @@ func routineProcess(_ context.Context, ch chan error) {
 }
 
 // installer move the blob to its final destination
-func routineInstall(ctx context.Context, ch chan error) {
+func routineInstall(_ context.Context, ch chan error) {
 	// remember to signal mixer
 	defer close(routineSemaphores[routineTypeInstall])
 

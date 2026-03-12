@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	neturl "net/url"
 	"strings"
 	"testing"
 
@@ -111,6 +112,31 @@ func TestLrclibSearchMaxRetriesExceeded(t *testing.T) {
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(lrclib{}.search(track)), "lrclib: max retries exceeded")
+}
+
+func TestLrclibGetRetryRequestBuildFailure(t *testing.T) {
+	// monkey patching
+	callCount := 0
+	defer mockey.UnPatchAll()
+	mockey.Mock(sys.SleepUntilRetry).Return().Build()
+	mockey.Mock(http.NewRequestWithContext).To(func(_ context.Context, method, url string, _ io.Reader) (*http.Request, error) {
+		callCount++
+		if callCount > 1 {
+			return nil, errors.New("ko")
+		}
+		req := &http.Request{Method: method, Header: make(http.Header)}
+		req.URL, _ = neturl.Parse(url)
+		return req, nil
+	}).Build()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 429,
+			Body:       io.NopCloser(strings.NewReader("")),
+		}, nil
+	}).Build()
+
+	// testing
+	assert.EqualError(t, sys.ErrOnly(lrclib{}.get("http://localhost/")), "ko")
 }
 
 func TestLrclibSearchTooManyRequests(t *testing.T) {

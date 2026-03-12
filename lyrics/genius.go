@@ -98,7 +98,11 @@ func (composer genius) search(track *entity.Track, ctxs ...context.Context) ([]b
 		}()
 		if retry {
 			// rebuild request since body was consumed
-			request, _ = http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://api.genius.com/search?q=%s", url.QueryEscape(query)), nil)
+			var reqErr error
+			request, reqErr = http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://api.genius.com/search?q=%s", url.QueryEscape(query)), nil)
+			if reqErr != nil {
+				return nil, reqErr
+			}
 			request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", sys.Fallback(os.Getenv("GENIUS_TOKEN"), fallbackGeniusToken)))
 			continue
 		}
@@ -186,7 +190,11 @@ func (composer genius) get(url string, ctxs ...context.Context) ([]byte, error) 
 		}()
 		if retry {
 			// rebuild request since body was consumed
-			request, _ = http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+			var reqErr error
+			request, reqErr = http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+			if reqErr != nil {
+				return nil, reqErr
+			}
 			continue
 		}
 		return result, getErr

@@ -167,6 +167,17 @@ func TestYouTubeSearchTooManyRequests(t *testing.T) {
 	assert.Nil(t, sys.ErrOnly(youTube{}.search(track)))
 }
 
+func TestYouTubeSearchRedirectLoop(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).To(func(_ string) (*http.Response, error) {
+		return nil, errors.New(`Get "https://www.google.com/sorry/index?continue=...": stopped after 10 redirects`)
+	}).Build()
+
+	// testing: captcha redirect fails fast without retrying
+	assert.EqualError(t, sys.ErrOnly(youTube{}.search(track)), "youtube: blocked by google captcha")
+}
+
 func TestYouTubeSearchNoData(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()

@@ -23,7 +23,7 @@ const (
 	White   = color.FgWhite
 	Yellow  = color.FgYellow
 	_
-	cursorAnchor = -iota
+	_ = -iota
 	cursorDefault
 )
 
@@ -107,17 +107,14 @@ func (window *Window) down() {
 }
 
 func (window *Window) shift(lines int) {
-	if lines <= 0 && lines != cursorAnchor && lines != cursorDefault {
+	if lines <= 0 && lines != cursorDefault {
 		return
 	}
 
 	fmt.Println()
 	window.up()
 
-	switch lines {
-	case cursorAnchor:
-		lines = len(window.lots)
-	case cursorDefault:
+	if lines == cursorDefault {
 		lines = len(window.lots) + len(window.anchors)
 	}
 
@@ -144,13 +141,11 @@ func (window *Window) print(doAnchor bool, data string) {
 		return
 	}
 
+	window.shift(cursorDefault)
+	fmt.Print(data)
 	if doAnchor {
 		window.anchors = append(window.anchors, &anchor{data, window})
-		window.shift(cursorAnchor)
-	} else {
-		window.shift(cursorDefault)
 	}
-	fmt.Print(data)
 }
 
 func (window *Window) Reads(label string, a ...interface{}) (value string) {

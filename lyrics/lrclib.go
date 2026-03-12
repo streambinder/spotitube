@@ -89,7 +89,11 @@ func (composer lrclib) get(url string, ctxs ...context.Context) ([]byte, error) 
 		}()
 		if retry {
 			// rebuild request since body was consumed
-			request, _ = http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+			var reqErr error
+			request, reqErr = http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+			if reqErr != nil {
+				return nil, reqErr
+			}
 			continue
 		}
 		return result, getErr

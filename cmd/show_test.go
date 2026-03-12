@@ -2,10 +2,9 @@ package cmd
 
 import (
 	"errors"
-	"reflect"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/entity/id3"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
@@ -19,14 +18,9 @@ func BenchmarkShow(b *testing.B) {
 
 func TestCmdShow(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(id3.Open, func() (*id3.Tag, error) {
-			return &id3.Tag{}, nil
-		}).
-		ApplyMethod(reflect.TypeOf(&id3.Tag{}), "AttachedPicture", func() (string, []byte) {
-			return "image/jpeg", []byte("some picture data")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(id3.Open).Return(&id3.Tag{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "AttachedPicture")).Return("image/jpeg", []byte("some picture data")).Build()
 
 	// testing
 	assert.Nil(t, sys.ErrOnly(testExecute(cmdShow(), "path/to/track1", "path/to/track2")))
@@ -34,11 +28,8 @@ func TestCmdShow(t *testing.T) {
 
 func TestCmdShowOpenFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(id3.Open, func() (*id3.Tag, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(id3.Open).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdShow(), "path/to/track")), "ko")
@@ -46,11 +37,8 @@ func TestCmdShowOpenFailure(t *testing.T) {
 
 func TestCmdShowPictureFallback(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(id3.Open, func() (*id3.Tag, error) {
-			return &id3.Tag{}, nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(id3.Open).Return(&id3.Tag{}, nil).Build()
 
 	// testing
 	assert.Nil(t, sys.ErrOnly(testExecute(cmdShow(), "path/to/track")))

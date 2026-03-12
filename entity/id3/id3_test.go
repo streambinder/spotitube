@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/streambinder/id3v2-sylt"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
@@ -18,9 +18,10 @@ func BenchmarkID3(b *testing.B) {
 
 func TestOpen(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyFunc(id3v2.Open, func() (*id3v2.Tag, error) {
+	defer mockey.UnPatchAll()
+	mockey.Mock(id3v2.Open).To(func(_ string, _ id3v2.Options) (*id3v2.Tag, error) {
 		return id3v2.NewEmptyTag(), nil
-	}).Reset()
+	}).Build()
 
 	// testing
 	tag, err := Open("", id3v2.Options{})
@@ -58,9 +59,8 @@ func TestOpen(t *testing.T) {
 
 func TestOpenFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyFunc(id3v2.Open, func() (*id3v2.Tag, error) {
-		return nil, errors.New("ko")
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(id3v2.Open).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(Open("", id3v2.Options{})), "ko")
@@ -68,9 +68,8 @@ func TestOpenFailure(t *testing.T) {
 
 func TestClose(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyFunc(Open, func() (*Tag, error) {
-		return &Tag{}, nil
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(Open).Return(&Tag{}, nil).Build()
 
 	// testing
 	tag, err := Open("", id3v2.Options{})
@@ -80,17 +79,24 @@ func TestClose(t *testing.T) {
 
 func TestCloseFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(Open, func() (*Tag, error) {
-			return &Tag{}, nil
-		}).
-		ApplyMethod(&id3v2.Tag{}, "Close", func() error {
-			return errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(Open).Return(&Tag{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&id3v2.Tag{}, "Close")).Return(errors.New("ko")).Build()
 
 	// testing
 	tag, err := Open("", id3v2.Options{})
 	assert.Nil(t, err)
 	assert.EqualError(t, tag.Close(), "ko")
+}
+
+func TestCloseErrNoFile(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(Open).Return(&Tag{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&id3v2.Tag{}, "Close")).Return(id3v2.ErrNoFile).Build()
+
+	// testing
+	tag, err := Open("", id3v2.Options{})
+	assert.Nil(t, err)
+	assert.Nil(t, tag.Close())
 }

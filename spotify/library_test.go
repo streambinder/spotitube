@@ -4,9 +4,8 @@ import (
 	"errors"
 	"syscall"
 	"testing"
-	"time"
 
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
@@ -27,12 +26,8 @@ func BenchmarkLibrary(b *testing.B) {
 
 func TestLibrary(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyMethod(&spotify.Client{}, "CurrentUsersTracks", func() (*spotify.SavedTrackPage, error) {
-			return library, nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUsersTracks")).Return(library, nil).Build()
 
 	// testing
 	assert.Nil(t, testClient().Library(0))
@@ -40,12 +35,8 @@ func TestLibrary(t *testing.T) {
 
 func TestLibraryChannel(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyMethod(&spotify.Client{}, "CurrentUsersTracks", func() (*spotify.SavedTrackPage, error) {
-			return library, nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUsersTracks")).Return(library, nil).Build()
 
 	// testing
 	channel := make(chan interface{}, 1)
@@ -57,31 +48,23 @@ func TestLibraryChannel(t *testing.T) {
 
 func TestLibraryFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyMethod(&spotify.Client{}, "CurrentUsersTracks", func() (*spotify.SavedTrackPage, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUsersTracks")).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testClient().Library(0)), "ko")
 }
 
 func TestLibraryNextPageFailure(t *testing.T) {
-	var (
-		client              = testClient()
-		libraryWithNextPage = library
-	)
-	libraryWithNextPage.Next = "http://0.0.0.0"
+	client := testClient()
+	// shallow copy to avoid mutating package-level fixture
+	libraryCopy := *library
+	libraryCopy.Next = "http://0.0.0.0"
+	defer func() { libraryCopy.Next = "" }()
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyMethod(&spotify.Client{}, "CurrentUsersTracks", func() (*spotify.SavedTrackPage, error) {
-			return libraryWithNextPage, nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUsersTracks")).Return(&libraryCopy, nil).Build()
 
 	// testing
 	assert.True(t, errors.Is(sys.ErrOnly(client.Library(0)), syscall.ECONNREFUSED))

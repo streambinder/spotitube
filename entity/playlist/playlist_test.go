@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
@@ -38,9 +38,8 @@ func TestEncoderPLS(t *testing.T) {
 
 func TestEncoderInitFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyPrivateMethod(&M3UEncoder{}, "init", func() error {
-		return errors.New("ko")
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&M3UEncoder{}, "init")).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testPlaylist.Encoder("m3u")), "ko")

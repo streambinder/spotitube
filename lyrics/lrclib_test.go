@@ -6,12 +6,10 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"reflect"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
@@ -24,13 +22,14 @@ func BenchmarkLrclib(b *testing.B) {
 
 func TestLrclibSearch(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: 200,
 			Body: io.NopCloser(
 				strings.NewReader(`{"syncedLyrics": "[00:27.37] lyrics", "plainLyrics": "lyrics"}`)),
 		}, nil
-	}).Reset()
+	}).Build()
 
 	// testing
 	lyrics, err := lrclib{}.search(track, context.Background())
@@ -40,13 +39,14 @@ func TestLrclibSearch(t *testing.T) {
 
 func TestLrclibSearchPlain(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: 200,
 			Body: io.NopCloser(
 				strings.NewReader(`{"plainLyrics": "lyrics"}`)),
 		}, nil
-	}).Reset()
+	}).Build()
 
 	// testing
 	lyrics, err := lrclib{}.search(track, context.Background())
@@ -56,9 +56,8 @@ func TestLrclibSearchPlain(t *testing.T) {
 
 func TestLrclibSearchNewRequestFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyFunc(http.NewRequestWithContext, func() (*http.Request, error) {
-		return nil, errors.New("ko")
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(http.NewRequestWithContext).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(lrclib{}.search(track)), "ko")
@@ -66,9 +65,8 @@ func TestLrclibSearchNewRequestFailure(t *testing.T) {
 
 func TestLrclibSearchNewRequestContextCanceled(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
-		return nil, context.Canceled
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).Return(nil, context.Canceled).Build()
 
 	// testing
 	lyrics, err := lrclib{}.search(track, context.Background())
@@ -78,9 +76,8 @@ func TestLrclibSearchNewRequestContextCanceled(t *testing.T) {
 
 func TestLrclibSearchFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
-		return nil, errors.New("ko")
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(lrclib{}.search(track)), "ko")
@@ -88,13 +85,12 @@ func TestLrclibSearchFailure(t *testing.T) {
 
 func TestLrclibSearchNotFound(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 404,
-			Body: io.NopCloser(
-				strings.NewReader("")),
-		}, nil
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).Return(&http.Response{
+		StatusCode: 404,
+		Body: io.NopCloser(
+			strings.NewReader("")),
+	}, nil).Build()
 
 	// testing
 	lyrics, err := lrclib{}.search(track)
@@ -105,24 +101,23 @@ func TestLrclibSearchNotFound(t *testing.T) {
 func TestLrclibSearchTooManyRequests(t *testing.T) {
 	// monkey patching
 	doCounter := 0
-	defer gomonkey.NewPatches().
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
-			doCounter++
-			if doCounter > 1 {
-				return &http.Response{
-					StatusCode: 200,
-					Body: io.NopCloser(
-						strings.NewReader(`{"syncedLyrics": "[00:27.37] lyrics", "plainLyrics": "lyrics"}`)),
-				}, nil
-			}
+	defer mockey.UnPatchAll()
+	mockey.Mock(sys.SleepUntilRetry).Return().Build()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
+		doCounter++
+		if doCounter > 1 {
 			return &http.Response{
-				StatusCode: 429,
+				StatusCode: 200,
 				Body: io.NopCloser(
-					strings.NewReader("")),
+					strings.NewReader(`{"syncedLyrics": "[00:27.37] lyrics", "plainLyrics": "lyrics"}`)),
 			}, nil
-		}).
-		Reset()
+		}
+		return &http.Response{
+			StatusCode: 429,
+			Body: io.NopCloser(
+				strings.NewReader("")),
+		}, nil
+	}).Build()
 
 	// testing
 	assert.Nil(t, sys.ErrOnly(lrclib{}.search(track)))
@@ -130,13 +125,12 @@ func TestLrclibSearchTooManyRequests(t *testing.T) {
 
 func TestLrclibSearchInternalError(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 500,
-			Body: io.NopCloser(
-				strings.NewReader("")),
-		}, nil
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).Return(&http.Response{
+		StatusCode: 500,
+		Body: io.NopCloser(
+			strings.NewReader("")),
+	}, nil).Build()
 
 	// testing
 	assert.NotNil(t, sys.ErrOnly(lrclib{}.search(track)))
@@ -144,18 +138,15 @@ func TestLrclibSearchInternalError(t *testing.T) {
 
 func TestLrclibSearchReadFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
-			return &http.Response{
-				StatusCode: 200,
-				Body: io.NopCloser(
-					strings.NewReader(`{"syncedLyrics": "[00:27.37] lyrics", "plainLyrics": "lyrics"}`)),
-			}, nil
-		}).
-		ApplyFunc(io.ReadAll, func() ([]byte, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 200,
+			Body: io.NopCloser(
+				strings.NewReader(`{"syncedLyrics": "[00:27.37] lyrics", "plainLyrics": "lyrics"}`)),
+		}, nil
+	}).Build()
+	mockey.Mock(io.ReadAll).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(lrclib{}.search(track)), "ko")
@@ -163,18 +154,15 @@ func TestLrclibSearchReadFailure(t *testing.T) {
 
 func TestLrclibSearchJsonFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
-			return &http.Response{
-				StatusCode: 200,
-				Body: io.NopCloser(
-					strings.NewReader(`{"syncedLyrics": "[00:27.37] lyrics", "plainLyrics": "lyrics"}`)),
-			}, nil
-		}).
-		ApplyFunc(json.Unmarshal, func() error {
-			return errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 200,
+			Body: io.NopCloser(
+				strings.NewReader(`{"syncedLyrics": "[00:27.37] lyrics", "plainLyrics": "lyrics"}`)),
+		}, nil
+	}).Build()
+	mockey.Mock(json.Unmarshal).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(lrclib{}.search(track)), "ko")

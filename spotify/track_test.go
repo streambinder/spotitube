@@ -5,9 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 	"github.com/zmb3/spotify/v2"
@@ -36,12 +35,8 @@ func BenchmarkTrack(b *testing.B) {
 
 func TestTrack(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyMethod(&spotify.Client{}, "GetTrack", func() (*spotify.FullTrack, error) {
-			return &fullTrack, nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetTrack")).Return(&fullTrack, nil).Build()
 
 	// testing
 	track, err := testClient().Track(fullTrack.ID.String())
@@ -58,12 +53,8 @@ func TestTrack(t *testing.T) {
 
 func TestTrackChannel(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyMethod(&spotify.Client{}, "GetTrack", func() (*spotify.FullTrack, error) {
-			return &fullTrack, nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetTrack")).Return(&fullTrack, nil).Build()
 
 	// testing
 	channel := make(chan interface{}, 1)
@@ -75,12 +66,8 @@ func TestTrackChannel(t *testing.T) {
 
 func TestTrackGetTrackFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyMethod(&spotify.Client{}, "GetTrack", func() (*spotify.FullTrack, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetTrack")).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testClient().Track(fullTrack.ID.String())), "ko")

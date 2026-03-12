@@ -5,7 +5,7 @@ import (
 	"os/exec"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,7 +17,8 @@ func BenchmarkYouTubeDl(b *testing.B) {
 
 func TestYouTubeDlDownload(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyMethod(&exec.Cmd{}, "Run", func() error { return nil }).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).Return(nil).Build()
 
 	// testing
 	assert.Nil(t, YouTubeDl("http://localhost", "fname.txt"))
@@ -25,7 +26,8 @@ func TestYouTubeDlDownload(t *testing.T) {
 
 func TestYouTubeDlDownloadFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyMethod(&exec.Cmd{}, "Run", func() error { return errors.New("ko") }).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.Error(t, YouTubeDl("http://localhost", "fname.txt"))

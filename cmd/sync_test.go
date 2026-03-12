@@ -4,9 +4,8 @@ import (
 	"errors"
 	"os"
 	"testing"
-	"time"
 
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/streambinder/id3v2-sylt"
 	"github.com/streambinder/spotitube/downloader"
 	"github.com/streambinder/spotitube/entity"
@@ -43,70 +42,50 @@ func TestCmdSync(t *testing.T) {
 	)
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyFunc(cmd.Open, func() error { return nil }).
-		ApplyMethod(&index.Index{}, "Build", func() error {
-			return nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
-			for _, c := range ch {
-				c <- _track
-				c <- _track // to trigger duplicate check
-			}
-			return nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Playlist", func(_ *spotify.Client, _ string, ch ...chan interface{}) (*playlist.Playlist, error) {
-			ch[0] <- _track
-			ch[0] <- _trackNotFound // to skip inclusion in playlist
-			return _playlist, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Album", func(_ *spotify.Client, _ string, ch ...chan interface{}) (*entity.Album, error) {
-			ch[0] <- _track
-			return _album, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Track", func(_ *spotify.Client, _ string, ch ...chan interface{}) (*entity.Track, error) {
-			ch[0] <- _track
-			return _track, nil
-		}).
-		ApplyFunc(id3.Open, func() (*id3.Tag, error) {
-			return &id3.Tag{}, nil
-		}).
-		ApplyPrivateMethod(&id3.Tag{}, "userDefinedText", func() string {
-			return "123"
-		}).
-		ApplyMethod(&id3.Tag{}, "Close", func() error {
-			return nil
-		}).
-		ApplyFunc(provider.Search, func(track *entity.Track) ([]*provider.Match, error) {
-			if track.ID == _trackNotFound.ID {
-				return []*provider.Match{}, nil
-			}
-			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
-		}).
-		ApplyFunc(downloader.Download, func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
-			for _, c := range ch {
-				c <- []byte{}
-			}
-			return nil
-		}).
-		ApplyFunc(lyrics.Search, func() (string, error) {
-			return "lyrics", nil
-		}).
-		ApplyFunc(processor.Do, func() error {
-			return nil
-		}).
-		ApplyFunc(sys.FileMoveOrCopy, func() error {
-			return nil
-		}).
-		ApplyMethod(&playlist.M3UEncoder{}, "Close", func() error {
-			return nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "Build")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
+		for _, c := range ch {
+			c <- _track
+			c <- _track // to trigger duplicate check
+		}
+		return nil
+	}).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Playlist")).To(func(_ string, ch ...chan interface{}) (*playlist.Playlist, error) {
+		ch[0] <- _track
+		ch[0] <- _trackNotFound // to skip inclusion in playlist
+		return _playlist, nil
+	}).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Album")).To(func(_ string, ch ...chan interface{}) (*entity.Album, error) {
+		ch[0] <- _track
+		return _album, nil
+	}).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Track")).To(func(_ string, ch ...chan interface{}) (*entity.Track, error) {
+		ch[0] <- _track
+		return _track, nil
+	}).Build()
+	mockey.Mock(id3.Open).Return(&id3.Tag{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "userDefinedText")).Return("123").Build()
+	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "Close")).Return(nil).Build()
+	mockey.Mock(provider.Search).To(func(track *entity.Track) ([]*provider.Match, error) {
+		if track.ID == _trackNotFound.ID {
+			return []*provider.Match{}, nil
+		}
+		return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
+	}).Build()
+	mockey.Mock(downloader.Download).To(func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+		for _, c := range ch {
+			c <- []byte{}
+		}
+		return nil
+	}).Build()
+	mockey.Mock(lyrics.Search).Return("lyrics", nil).Build()
+	mockey.Mock(processor.Do).Return(nil).Build()
+	mockey.Mock(sys.FileMoveOrCopy).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&playlist.M3UEncoder{}, "Close")).Return(nil).Build()
 
 	// testing
 	cmd := cmdSync()
@@ -121,7 +100,8 @@ func TestCmdSyncInvalidEnvironment(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	// monkey patching
-	defer gomonkey.ApplyFunc(cmd.ValidateEnvironment, func() error { return errors.New("ko") }).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
@@ -133,43 +113,29 @@ func TestCmdSyncOfflineIndex(t *testing.T) {
 	_track := &entity.Track{ID: "TestCmdSyncOfflineIndex", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyFunc(cmd.Open, func() error { return nil }).
-		ApplyMethod(&index.Index{}, "Build", func(data *index.Index) error {
-			data.Set(_track, index.Offline)
-			return nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
-			ch[0] <- _track
-			return nil
-		}).
-		ApplyFunc(provider.Search, func() ([]*provider.Match, error) {
-			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
-		}).
-		ApplyFunc(downloader.Download, func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
-			for _, c := range ch {
-				c <- []byte{}
-			}
-			return nil
-		}).
-		ApplyFunc(lyrics.Search, func() (string, error) {
-			return "lyrics", nil
-		}).
-		ApplyFunc(processor.Do, func() error {
-			return nil
-		}).
-		ApplyFunc(sys.FileMoveOrCopy, func() error {
-			return nil
-		}).
-		ApplyMethod(&playlist.M3UEncoder{}, "Close", func() error {
-			return nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "Build")).To(func(data *index.Index, _ string, _ ...int) error {
+		data.Set(_track, index.Offline)
+		return nil
+	}).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
+		ch[0] <- _track
+		return nil
+	}).Build()
+	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()
+	mockey.Mock(downloader.Download).To(func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+		for _, c := range ch {
+			c <- []byte{}
+		}
+		return nil
+	}).Build()
+	mockey.Mock(lyrics.Search).Return("lyrics", nil).Build()
+	mockey.Mock(processor.Do).Return(nil).Build()
+	mockey.Mock(sys.FileMoveOrCopy).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&playlist.M3UEncoder{}, "Close")).Return(nil).Build()
 
 	// testing
 	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")))
@@ -179,10 +145,9 @@ func TestCmdSyncPathFailure(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	// monkey patching
-	defer gomonkey.
-		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
-		ApplyFunc(os.Chdir, func() error { return errors.New("ko") }).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(os.Chdir).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
@@ -192,15 +157,10 @@ func TestCmdSyncIndexFailure(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&index.Index{}, "Build", func() error {
-			return errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "Build")).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
@@ -210,19 +170,11 @@ func TestCmdSyncAuthFailure(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyFunc(cmd.Open, func() error {
-			return nil
-		}).
-		ApplyMethod(&index.Index{}, "Build", func() error {
-			return nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "Build")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
@@ -232,22 +184,12 @@ func TestCmdSyncLibraryFailure(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyFunc(cmd.Open, func() error {
-			return nil
-		}).
-		ApplyMethod(&index.Index{}, "Build", func() error {
-			return nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Library", func() error {
-			return errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "Build")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
@@ -257,22 +199,12 @@ func TestCmdSyncPlaylistFailure(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyFunc(cmd.Open, func() error {
-			return nil
-		}).
-		ApplyMethod(&index.Index{}, "Build", func() error {
-			return nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Playlist", func() (*playlist.Playlist, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "Build")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Playlist")).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")), "ko")
@@ -282,22 +214,12 @@ func TestCmdSyncAlbumFailure(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyFunc(cmd.Open, func() error {
-			return nil
-		}).
-		ApplyMethod(&index.Index{}, "Build", func() error {
-			return nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Album", func() (*entity.Album, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "Build")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Album")).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-a", "123")), "ko")
@@ -307,22 +229,12 @@ func TestCmdSyncTrackFailure(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyFunc(cmd.Open, func() error {
-			return nil
-		}).
-		ApplyMethod(&index.Index{}, "Build", func() error {
-			return nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "Build")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Track")).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-t", "123")), "ko")
@@ -332,22 +244,12 @@ func TestCmdSyncFixOpenFailure(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyFunc(cmd.Open, func() error {
-			return nil
-		}).
-		ApplyMethod(&index.Index{}, "Build", func() error {
-			return nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyFunc(id3.Open, func() (*id3.Tag, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "Build")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(id3.Open).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-f", "path")), "ko")
@@ -357,25 +259,13 @@ func TestCmdSyncFixSpotifyIDFailure(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyFunc(cmd.Open, func() error {
-			return nil
-		}).
-		ApplyMethod(&index.Index{}, "Build", func() error {
-			return nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyFunc(id3.Open, func() (*id3.Tag, error) {
-			return &id3.Tag{}, nil
-		}).
-		ApplyPrivateMethod(&id3.Tag{}, "userDefinedText", func() string {
-			return ""
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "Build")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(id3.Open).Return(&id3.Tag{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "userDefinedText")).Return("").Build()
 
 	// testing
 	assert.ErrorContains(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-f", "path")), "does not have spotify ID metadata set")
@@ -385,28 +275,14 @@ func TestCmdSyncFixCloseFailure(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyFunc(cmd.Open, func() error {
-			return nil
-		}).
-		ApplyMethod(&index.Index{}, "Build", func() error {
-			return nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyFunc(id3.Open, func() (*id3.Tag, error) {
-			return &id3.Tag{}, nil
-		}).
-		ApplyPrivateMethod(&id3.Tag{}, "userDefinedText", func() string {
-			return "123"
-		}).
-		ApplyMethod(&id3v2.Tag{}, "Close", func() error {
-			return errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "Build")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(id3.Open).Return(&id3.Tag{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "userDefinedText")).Return("123").Build()
+	mockey.Mock(mockey.GetMethod(&id3v2.Tag{}, "Close")).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-f", "path")), "ko")
@@ -418,24 +294,15 @@ func TestCmdSyncDecideManual(t *testing.T) {
 	_track := &entity.Track{ID: "TestCmdSyncDecideManual", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyFunc(cmd.Open, func() error {
-			return nil
-		}).
-		ApplyMethod(&index.Index{}, "Build", func() error {
-			return nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Library",
-			func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
-				ch[0] <- _track
-				return nil
-			}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "Build")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
+		ch[0] <- _track
+		return nil
+	}).Build()
 
 	// testing
 	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "--manual")))
@@ -447,27 +314,18 @@ func TestCmdSyncDecideFailure(t *testing.T) {
 	_track := &entity.Track{ID: "TestCmdSyncDecideFailure", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyFunc(cmd.Open, func() error {
-			return nil
-		}).
-		ApplyMethod(&index.Index{}, "Build", func() error {
-			return nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Library",
-			func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
-				ch[0] <- _track
-				return nil
-			}).
-		ApplyFunc(provider.Search, func(*entity.Track) ([]*provider.Match, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "Build")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
+		ch[0] <- _track
+		return nil
+	}).Build()
+	mockey.Mock(provider.Search).To(func(*entity.Track) ([]*provider.Match, error) {
+		return nil, errors.New("ko")
+	}).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
@@ -479,27 +337,18 @@ func TestCmdSyncDecideNotFound(t *testing.T) {
 	_track := &entity.Track{ID: "TestCmdSyncDecideNotFound", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyFunc(cmd.Open, func() error {
-			return nil
-		}).
-		ApplyMethod(&index.Index{}, "Build", func() error {
-			return nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Library",
-			func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
-				ch[0] <- _track
-				return nil
-			}).
-		ApplyFunc(provider.Search, func(*entity.Track) ([]*provider.Match, error) {
-			return []*provider.Match{}, nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "Build")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
+		ch[0] <- _track
+		return nil
+	}).Build()
+	mockey.Mock(provider.Search).To(func(*entity.Track) ([]*provider.Match, error) {
+		return []*provider.Match{}, nil
+	}).Build()
 
 	// testing
 	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")))
@@ -511,39 +360,28 @@ func TestCmdSyncCollectFailure(t *testing.T) {
 	_track := &entity.Track{ID: "TestCmdSyncCollectFailure", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyFunc(cmd.Open, func() error {
-			return nil
-		}).
-		ApplyMethod(&index.Index{}, "Build", func() error {
-			return nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Library",
-			func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
-				ch[0] <- _track
-				return nil
-			}).
-		ApplyFunc(provider.Search, func(*entity.Track) ([]*provider.Match, error) {
-			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
-		}).
-		ApplyFunc(downloader.Download, func(url string, _ string, _ processor.Processor, ch ...chan []byte) error {
-			if url != "http://localhost/" {
-				return errors.New("ko")
-			}
-			for _, c := range ch {
-				c <- []byte{}
-			}
-			return nil
-		}).
-		ApplyFunc(lyrics.Search, func() (string, error) {
-			return "", nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "Build")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
+		ch[0] <- _track
+		return nil
+	}).Build()
+	mockey.Mock(provider.Search).To(func(*entity.Track) ([]*provider.Match, error) {
+		return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
+	}).Build()
+	mockey.Mock(downloader.Download).To(func(url string, _ string, _ processor.Processor, ch ...chan []byte) error {
+		if url != "http://localhost/" {
+			return errors.New("ko")
+		}
+		for _, c := range ch {
+			c <- []byte{}
+		}
+		return nil
+	}).Build()
+	mockey.Mock(lyrics.Search).Return("", nil).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
@@ -555,35 +393,25 @@ func TestCmdSyncDownloadFailure(t *testing.T) {
 	_track := &entity.Track{ID: "TestCmdSyncDownloadFailure", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyFunc(cmd.Open, func() error {
-			return nil
-		}).
-		ApplyMethod(&index.Index{}, "Build", func() error {
-			return nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
-			ch[0] <- _track
-			return nil
-		}).
-		ApplyFunc(provider.Search, func(*entity.Track) ([]*provider.Match, error) {
-			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
-		}).
-		ApplyFunc(downloader.Download, func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
-			for _, c := range ch {
-				c <- []byte{}
-			}
-			return errors.New("ko")
-		}).
-		ApplyFunc(lyrics.Search, func() (string, error) {
-			return "", nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "Build")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
+		ch[0] <- _track
+		return nil
+	}).Build()
+	mockey.Mock(provider.Search).To(func(*entity.Track) ([]*provider.Match, error) {
+		return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
+	}).Build()
+	mockey.Mock(downloader.Download).To(func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+		for _, c := range ch {
+			c <- []byte{}
+		}
+		return errors.New("ko")
+	}).Build()
+	mockey.Mock(lyrics.Search).Return("", nil).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
@@ -595,35 +423,23 @@ func TestCmdSyncLyricsFailure(t *testing.T) {
 	_track := &entity.Track{ID: "TestCmdSyncLyricsFailure", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyFunc(cmd.Open, func() error {
-			return nil
-		}).
-		ApplyMethod(&index.Index{}, "Build", func() error {
-			return nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
-			ch[0] <- _track
-			return nil
-		}).
-		ApplyFunc(provider.Search, func() ([]*provider.Match, error) {
-			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
-		}).
-		ApplyFunc(downloader.Download, func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
-			for _, c := range ch {
-				c <- []byte{}
-			}
-			return nil
-		}).
-		ApplyFunc(lyrics.Search, func() (string, error) {
-			return "", errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "Build")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
+		ch[0] <- _track
+		return nil
+	}).Build()
+	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()
+	mockey.Mock(downloader.Download).To(func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+		for _, c := range ch {
+			c <- []byte{}
+		}
+		return nil
+	}).Build()
+	mockey.Mock(lyrics.Search).Return("", errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
@@ -635,38 +451,24 @@ func TestCmdSyncProcessorFailure(t *testing.T) {
 	_track := &entity.Track{ID: "TestCmdSyncProcessorFailure", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyFunc(cmd.Open, func() error {
-			return nil
-		}).
-		ApplyMethod(&index.Index{}, "Build", func() error {
-			return nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
-			ch[0] <- _track
-			return nil
-		}).
-		ApplyFunc(provider.Search, func() ([]*provider.Match, error) {
-			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
-		}).
-		ApplyFunc(downloader.Download, func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
-			for _, c := range ch {
-				c <- []byte{}
-			}
-			return nil
-		}).
-		ApplyFunc(lyrics.Search, func() (string, error) {
-			return "lyrics", nil
-		}).
-		ApplyFunc(processor.Do, func() error {
-			return errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "Build")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
+		ch[0] <- _track
+		return nil
+	}).Build()
+	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()
+	mockey.Mock(downloader.Download).To(func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+		for _, c := range ch {
+			c <- []byte{}
+		}
+		return nil
+	}).Build()
+	mockey.Mock(lyrics.Search).Return("lyrics", nil).Build()
+	mockey.Mock(processor.Do).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
@@ -678,41 +480,25 @@ func TestCmdSyncInstallerFailure(t *testing.T) {
 	_track := &entity.Track{ID: "TestCmdSyncInstallerFailure", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyFunc(cmd.Open, func() error {
-			return nil
-		}).
-		ApplyMethod(&index.Index{}, "Build", func() error {
-			return nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Library", func(_ *spotify.Client, _ int, ch ...chan interface{}) error {
-			ch[0] <- _track
-			return nil
-		}).
-		ApplyFunc(provider.Search, func() ([]*provider.Match, error) {
-			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
-		}).
-		ApplyFunc(downloader.Download, func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
-			for _, c := range ch {
-				c <- []byte{}
-			}
-			return nil
-		}).
-		ApplyFunc(lyrics.Search, func() (string, error) {
-			return "lyrics", nil
-		}).
-		ApplyFunc(processor.Do, func() error {
-			return nil
-		}).
-		ApplyFunc(sys.FileMoveOrCopy, func() error {
-			return errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "Build")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
+		ch[0] <- _track
+		return nil
+	}).Build()
+	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()
+	mockey.Mock(downloader.Download).To(func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+		for _, c := range ch {
+			c <- []byte{}
+		}
+		return nil
+	}).Build()
+	mockey.Mock(lyrics.Search).Return("lyrics", nil).Build()
+	mockey.Mock(processor.Do).Return(nil).Build()
+	mockey.Mock(sys.FileMoveOrCopy).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
@@ -726,43 +512,23 @@ func TestCmdSyncPlaylistEncoderFailure(t *testing.T) {
 	}}
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyFunc(cmd.Open, func() error {
-			return nil
-		}).
-		ApplyMethod(&index.Index{}, "Build", func() error {
-			return nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Playlist", func() (*playlist.Playlist, error) {
-			return _playlist, nil
-		}).
-		ApplyFunc(provider.Search, func() ([]*provider.Match, error) {
-			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
-		}).
-		ApplyFunc(downloader.Download, func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
-			for _, c := range ch {
-				c <- []byte{}
-			}
-			return nil
-		}).
-		ApplyFunc(lyrics.Search, func() (string, error) {
-			return "lyrics", nil
-		}).
-		ApplyFunc(processor.Do, func() error {
-			return nil
-		}).
-		ApplyFunc(sys.FileMoveOrCopy, func() error {
-			return nil
-		}).
-		ApplyMethod(playlist.Playlist{}, "Encoder", func() (any, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "Build")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Playlist")).Return(_playlist, nil).Build()
+	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()
+	mockey.Mock(downloader.Download).To(func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+		for _, c := range ch {
+			c <- []byte{}
+		}
+		return nil
+	}).Build()
+	mockey.Mock(lyrics.Search).Return("lyrics", nil).Build()
+	mockey.Mock(processor.Do).Return(nil).Build()
+	mockey.Mock(sys.FileMoveOrCopy).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(playlist.Playlist{}, "Encoder")).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")), "ko")
@@ -776,44 +542,26 @@ func TestCmdSyncPlaylistEncoderAddFailure(t *testing.T) {
 	}}
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyFunc(cmd.Open, func() error {
-			return nil
-		}).
-		ApplyMethod(&index.Index{}, "Build", func() error {
-			return nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Playlist", func(_ *spotify.Client, _ string, ch ...chan interface{}) (*playlist.Playlist, error) {
-			ch[0] <- _playlist.Tracks[0]
-			return _playlist, nil
-		}).
-		ApplyFunc(provider.Search, func() ([]*provider.Match, error) {
-			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
-		}).
-		ApplyFunc(downloader.Download, func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
-			for _, c := range ch {
-				c <- []byte{}
-			}
-			return nil
-		}).
-		ApplyFunc(lyrics.Search, func() (string, error) {
-			return "lyrics", nil
-		}).
-		ApplyFunc(processor.Do, func() error {
-			return nil
-		}).
-		ApplyFunc(sys.FileMoveOrCopy, func() error {
-			return nil
-		}).
-		ApplyMethod(&playlist.M3UEncoder{}, "Add", func() error {
-			return errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "Build")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Playlist")).To(func(_ string, ch ...chan interface{}) (*playlist.Playlist, error) {
+		ch[0] <- _playlist.Tracks[0]
+		return _playlist, nil
+	}).Build()
+	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()
+	mockey.Mock(downloader.Download).To(func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+		for _, c := range ch {
+			c <- []byte{}
+		}
+		return nil
+	}).Build()
+	mockey.Mock(lyrics.Search).Return("lyrics", nil).Build()
+	mockey.Mock(processor.Do).Return(nil).Build()
+	mockey.Mock(sys.FileMoveOrCopy).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&playlist.M3UEncoder{}, "Add")).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")), "ko")
@@ -827,44 +575,26 @@ func TestCmdSyncPlaylistEncoderCloseFailure(t *testing.T) {
 	}}
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(cmd.ValidateEnvironment, func() error { return nil }).
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyFunc(cmd.Open, func() error {
-			return nil
-		}).
-		ApplyMethod(&index.Index{}, "Build", func() error {
-			return nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Playlist", func(_ *spotify.Client, _ string, ch ...chan interface{}) (*playlist.Playlist, error) {
-			ch[0] <- _playlist.Tracks[0]
-			return _playlist, nil
-		}).
-		ApplyFunc(provider.Search, func() ([]*provider.Match, error) {
-			return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
-		}).
-		ApplyFunc(downloader.Download, func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
-			for _, c := range ch {
-				c <- []byte{}
-			}
-			return nil
-		}).
-		ApplyFunc(lyrics.Search, func() (string, error) {
-			return "lyrics", nil
-		}).
-		ApplyFunc(processor.Do, func() error {
-			return nil
-		}).
-		ApplyFunc(sys.FileMoveOrCopy, func() error {
-			return nil
-		}).
-		ApplyMethod(&playlist.M3UEncoder{}, "Close", func() error {
-			return errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "Build")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Playlist")).To(func(_ string, ch ...chan interface{}) (*playlist.Playlist, error) {
+		ch[0] <- _playlist.Tracks[0]
+		return _playlist, nil
+	}).Build()
+	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()
+	mockey.Mock(downloader.Download).To(func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+		for _, c := range ch {
+			c <- []byte{}
+		}
+		return nil
+	}).Build()
+	mockey.Mock(lyrics.Search).Return("lyrics", nil).Build()
+	mockey.Mock(processor.Do).Return(nil).Build()
+	mockey.Mock(sys.FileMoveOrCopy).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&playlist.M3UEncoder{}, "Close")).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")), "ko")

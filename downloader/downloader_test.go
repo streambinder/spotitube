@@ -5,11 +5,10 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/sys/cmd"
 	"github.com/stretchr/testify/assert"
 )
@@ -22,29 +21,10 @@ func BenchmarkDownload(b *testing.B) {
 
 func TestDownload(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(os.ReadFile, func() ([]byte, error) {
-			return nil, errors.New("not exists")
-		}).
-		ApplyFunc(os.MkdirAll, func() error {
-			return nil
-		}).
-		ApplyFunc(cmd.YouTubeDl, func() error {
-			return nil
-		}).
-		ApplyPrivateMethod(reflect.TypeOf(youTubeDl{}), "download", func() error {
-			return nil
-		}).
-		ApplyPrivateMethod(reflect.TypeOf(youTubeDl{}), "supports", func() bool {
-			return true
-		}).
-		ApplyPrivateMethod(reflect.TypeOf(blob{}), "download", func() error {
-			return nil
-		}).
-		ApplyPrivateMethod(reflect.TypeOf(blob{}), "supports", func() bool {
-			return false
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.ReadFile).Return(nil, errors.New("not exists")).Build()
+	mockey.Mock(os.MkdirAll).Return(nil).Build()
+	mockey.Mock(cmd.YouTubeDl).Return(nil).Build()
 
 	// testing
 	ch := make(chan []byte, 1)
@@ -58,9 +38,8 @@ func TestDownloadEmpty(t *testing.T) {
 
 func TestDownloadAlreadyExists(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyFunc(os.ReadFile, func() ([]byte, error) {
-		return []byte{}, nil
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.ReadFile).Return([]byte{}, nil).Build()
 
 	// testing
 	ch := make(chan []byte, 1)
@@ -70,14 +49,9 @@ func TestDownloadAlreadyExists(t *testing.T) {
 
 func TestDownloadMakeDirFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(os.ReadFile, func() ([]byte, error) {
-			return nil, errors.New("not exists")
-		}).
-		ApplyFunc(os.MkdirAll, func() error {
-			return errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.ReadFile).Return(nil, errors.New("not exists")).Build()
+	mockey.Mock(os.MkdirAll).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, Download("http://youtu.be", "fname.txt", nil), "ko")
@@ -85,22 +59,25 @@ func TestDownloadMakeDirFailure(t *testing.T) {
 
 func TestDownloadUnsupported(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(os.ReadFile, func() ([]byte, error) {
-			return nil, errors.New("not exists")
-		}).
-		ApplyFunc(cmd.YouTubeDl, func() error {
-			return nil
-		}).
-		ApplyMethod(http.DefaultClient, "Head", func() (*http.Response, error) {
-			return &http.Response{
-				StatusCode: 200,
-				Body:       io.NopCloser(strings.NewReader("")),
-				Header:     map[string][]string{"Content-Type": {"text/plain"}},
-			}, nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.ReadFile).Return(nil, errors.New("not exists")).Build()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Head")).Return(&http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(strings.NewReader("")),
+		Header:     map[string][]string{"Content-Type": {"text/plain"}},
+	}, nil).Build()
 
 	// testing
 	assert.Error(t, Download("http://davidepucci.it", "fname.txt", nil))
+}
+
+func TestDownloadYouTubeDlFailure(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.ReadFile).Return(nil, errors.New("not exists")).Build()
+	mockey.Mock(os.MkdirAll).Return(nil).Build()
+	mockey.Mock(cmd.YouTubeDl).Return(errors.New("ko")).Build()
+
+	// testing
+	assert.EqualError(t, Download("http://youtu.be", "fname.txt", nil), "ko")
 }

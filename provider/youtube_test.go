@@ -8,10 +8,9 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
@@ -85,23 +84,22 @@ func BenchmarkYouTube(b *testing.B) {
 
 func TestYouTubeSearch(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyMethod(http.DefaultClient, "Get", func() (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 200,
-			Body: io.NopCloser(strings.NewReader(
-				fmt.Sprintf(
-					resultScript,
-					result.id,
-					result.title,
-					result.owner,
-					result.description,
-					resultViewsText,
-					resultLengthText,
-					resultPublishedText,
-				),
-			)),
-		}, nil
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(&http.Response{
+		StatusCode: 200,
+		Body: io.NopCloser(strings.NewReader(
+			fmt.Sprintf(
+				resultScript,
+				result.id,
+				result.title,
+				result.owner,
+				result.description,
+				resultViewsText,
+				resultLengthText,
+				resultPublishedText,
+			),
+		)),
+	}, nil).Build()
 
 	// testing
 	assert.Nil(t, sys.ErrOnly(youTube{}.search(track)))
@@ -109,12 +107,11 @@ func TestYouTubeSearch(t *testing.T) {
 
 func TestYouTubeSearchMalformedData(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyMethod(http.DefaultClient, "Get", func() (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 200,
-			Body:       io.NopCloser(strings.NewReader(`<script>var ytInitialData = {"content": {}`)),
-		}, nil
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(&http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(strings.NewReader(`<script>var ytInitialData = {"content": {}`)),
+	}, nil).Build()
 
 	// testing
 	assert.NotNil(t, sys.ErrOnly(youTube{}.search(track)))
@@ -122,21 +119,20 @@ func TestYouTubeSearchMalformedData(t *testing.T) {
 
 func TestYouTubeSearchPartialData(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyMethod(http.DefaultClient, "Get", func() (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 200,
-			Body: io.NopCloser(strings.NewReader(fmt.Sprintf(
-				resultScript,
-				result.id,
-				"",
-				"",
-				"",
-				"",
-				"",
-				"",
-			))),
-		}, nil
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(&http.Response{
+		StatusCode: 200,
+		Body: io.NopCloser(strings.NewReader(fmt.Sprintf(
+			resultScript,
+			result.id,
+			"",
+			"",
+			"",
+			"",
+			"",
+			"",
+		))),
+	}, nil).Build()
 
 	// testing
 	assert.Nil(t, sys.ErrOnly(youTube{}.search(track)))
@@ -144,13 +140,16 @@ func TestYouTubeSearchPartialData(t *testing.T) {
 
 func TestYouTubeSearchTooManyRequests(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyMethodSeq(http.DefaultClient, "Get", []gomonkey.OutputCell{
-			{Values: gomonkey.Params{&http.Response{StatusCode: 429, Body: io.NopCloser(strings.NewReader(""))}, nil}},
-			{Values: gomonkey.Params{&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(""))}, nil}},
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(sys.SleepUntilRetry).Return().Build()
+	callCount := 0
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).To(func(_ string) (*http.Response, error) {
+		callCount++
+		if callCount == 1 {
+			return &http.Response{StatusCode: 429, Body: io.NopCloser(strings.NewReader(""))}, nil
+		}
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(""))}, nil
+	}).Build()
 
 	// testing
 	assert.Nil(t, sys.ErrOnly(youTube{}.search(track)))
@@ -158,12 +157,11 @@ func TestYouTubeSearchTooManyRequests(t *testing.T) {
 
 func TestYouTubeSearchNoData(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyMethod(http.DefaultClient, "Get", func() (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 200,
-			Body:       io.NopCloser(strings.NewReader("<script>some unmatching script</script>")),
-		}, nil
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(&http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(strings.NewReader("<script>some unmatching script</script>")),
+	}, nil).Build()
 
 	// testing
 	assert.Nil(t, sys.ErrOnly(youTube{}.search(track)))
@@ -171,9 +169,8 @@ func TestYouTubeSearchNoData(t *testing.T) {
 
 func TestYouTubeSearchFailingRequest(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyMethod(http.DefaultClient, "Get", func() (*http.Response, error) {
-		return nil, errors.New("ko")
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(youTube{}.search(track)), "ko")
@@ -181,9 +178,10 @@ func TestYouTubeSearchFailingRequest(t *testing.T) {
 
 func TestYouTubeSearchFailingRequestStatus(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyMethod(http.DefaultClient, "Get", func() (*http.Response, error) {
-		return &http.Response{StatusCode: 500, Body: io.NopCloser(strings.NewReader(""))}, nil
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(
+		&http.Response{StatusCode: 500, Body: io.NopCloser(strings.NewReader(""))}, nil,
+	).Build()
 
 	// testing
 	assert.Error(t, sys.ErrOnly(youTube{}.search(track)))
@@ -191,17 +189,12 @@ func TestYouTubeSearchFailingRequestStatus(t *testing.T) {
 
 func TestYouTubeSearchFailingGoQuery(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(goquery.NewDocumentFromReader, func() (*goquery.Document, error) {
-			return nil, errors.New("ko")
-		}).
-		ApplyMethod(http.DefaultClient, "Get", func() (*http.Response, error) {
-			return &http.Response{
-				StatusCode: 200,
-				Body:       io.NopCloser(strings.NewReader("<script>some unmatching script</script>")),
-			}, nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(goquery.NewDocumentFromReader).Return(nil, errors.New("ko")).Build()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(&http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(strings.NewReader("<script>some unmatching script</script>")),
+	}, nil).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(youTube{}.search(track)), "ko")

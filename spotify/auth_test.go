@@ -13,15 +13,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agiledragon/gomonkey/v2"
 	"github.com/arunsworld/nursery"
+	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/streambinder/spotitube/sys/cmd"
 	"github.com/stretchr/testify/assert"
 	"github.com/thanhpk/randstr"
 	"github.com/zmb3/spotify/v2"
 	spotifyauth "github.com/zmb3/spotify/v2/auth"
-	"golang.org/x/oauth2"
 )
 
 const (
@@ -68,26 +67,13 @@ func TestAuthenticate(t *testing.T) {
 	port = getPort()
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(os.Getenv, func() string {
-			return "value"
-		}).
-		ApplyFunc(Recover, func() (*Client, error) {
-			return nil, errors.New("ko")
-		}).
-		ApplyMethod(&Client{}, "Persist", func() error {
-			return nil
-		}).
-		ApplyFunc(cmd.Open, func() error {
-			return nil
-		}).
-		ApplyFunc(randstr.String, func() string {
-			return state
-		}).
-		ApplyMethod(spotifyauth.Authenticator{}, "Token", func() (*oauth2.Token, error) {
-			return nil, nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Getenv).Return("value").Build()
+	mockey.Mock(Recover).Return(nil, errors.New("ko")).Build()
+	mockey.Mock(mockey.GetMethod(&Client{}, "Persist")).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(randstr.String).Return(state).Build()
+	mockey.Mock(mockey.GetMethod(spotifyauth.Authenticator{}, "Token")).Return(nil, nil).Build()
 
 	// testing
 	assert.Nil(t, nursery.RunConcurrently(
@@ -119,14 +105,13 @@ func TestAuthenticateNoClientID(t *testing.T) {
 	port = getPort()
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(os.Getenv, func(env string) string {
-			if env == "SPOTIFY_ID" {
-				return ""
-			}
-			return "value"
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Getenv).To(func(env string) string {
+		if env == "SPOTIFY_ID" {
+			return ""
+		}
+		return "value"
+	}).Build()
 
 	// testing
 	assert.Error(t, sys.ErrOnly(Authenticate(nil)))
@@ -137,14 +122,13 @@ func TestAuthenticateNoClientSecret(t *testing.T) {
 	port = getPort()
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(os.Getenv, func(env string) string {
-			if env == "SPOTIFY_KEY" {
-				return ""
-			}
-			return "value"
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Getenv).To(func(env string) string {
+		if env == "SPOTIFY_KEY" {
+			return ""
+		}
+		return "value"
+	}).Build()
 
 	// testing
 	assert.Error(t, sys.ErrOnly(Authenticate(nil)))
@@ -155,23 +139,12 @@ func TestAuthenticateRecoverAndPersist(t *testing.T) {
 	port = getPort()
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(os.Getenv, func() string {
-			return "value"
-		}).
-		ApplyFunc(os.ReadFile, func() ([]byte, error) {
-			return []byte(token), nil
-		}).
-		ApplyFunc(os.OpenFile, func() (*os.File, error) {
-			return &os.File{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Token", func() (*oauth2.Token, error) {
-			return nil, nil
-		}).
-		ApplyMethod(&json.Encoder{}, "Encode", func() error {
-			return nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Getenv).Return("value").Build()
+	mockey.Mock(os.ReadFile).Return([]byte(token), nil).Build()
+	mockey.Mock(os.OpenFile).Return(&os.File{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Token")).Return(nil, nil).Build()
+	mockey.Mock(mockey.GetMethod(&json.Encoder{}, "Encode")).Return(nil).Build()
 
 	// testing
 	assert.Nil(t, sys.ErrOnly(Authenticate(nil)))
@@ -182,23 +155,12 @@ func TestAuthenticateRecoverOpenFailure(t *testing.T) {
 	port = getPort()
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(os.Getenv, func() string {
-			return "value"
-		}).
-		ApplyFunc(os.ReadFile, func() ([]byte, error) {
-			return nil, errors.New("ko")
-		}).
-		ApplyMethod(&Client{}, "Persist", func() error {
-			return nil
-		}).
-		ApplyFunc(randstr.String, func() string {
-			return state
-		}).
-		ApplyMethod(spotifyauth.Authenticator{}, "Token", func() (*oauth2.Token, error) {
-			return nil, nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Getenv).Return("value").Build()
+	mockey.Mock(os.ReadFile).Return(nil, errors.New("ko")).Build()
+	mockey.Mock(mockey.GetMethod(&Client{}, "Persist")).Return(nil).Build()
+	mockey.Mock(randstr.String).Return(state).Build()
+	mockey.Mock(mockey.GetMethod(spotifyauth.Authenticator{}, "Token")).Return(nil, nil).Build()
 
 	// testing
 	assert.Nil(t, nursery.RunConcurrently(
@@ -230,26 +192,13 @@ func TestAuthenticateRecoverUnmarshalFailure(t *testing.T) {
 	port = getPort()
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(os.Getenv, func() string {
-			return "value"
-		}).
-		ApplyFunc(os.ReadFile, func() ([]byte, error) {
-			return []byte(token), nil
-		}).
-		ApplyFunc(json.Unmarshal, func() error {
-			return errors.New("ko")
-		}).
-		ApplyMethod(&Client{}, "Persist", func() error {
-			return nil
-		}).
-		ApplyFunc(randstr.String, func() string {
-			return state
-		}).
-		ApplyMethod(spotifyauth.Authenticator{}, "Token", func() (*oauth2.Token, error) {
-			return nil, nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Getenv).Return("value").Build()
+	mockey.Mock(os.ReadFile).Return([]byte(token), nil).Build()
+	mockey.Mock(json.Unmarshal).Return(errors.New("ko")).Build()
+	mockey.Mock(mockey.GetMethod(&Client{}, "Persist")).Return(nil).Build()
+	mockey.Mock(randstr.String).Return(state).Build()
+	mockey.Mock(mockey.GetMethod(spotifyauth.Authenticator{}, "Token")).Return(nil, nil).Build()
 
 	// testing
 	assert.Nil(t, nursery.RunConcurrently(
@@ -281,17 +230,10 @@ func TestAuthenticateRecoverAndPersistTokenFailure(t *testing.T) {
 	port = getPort()
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(os.Getenv, func() string {
-			return "value"
-		}).
-		ApplyFunc(os.ReadFile, func() ([]byte, error) {
-			return []byte(token), nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Token", func() (*oauth2.Token, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Getenv).Return("value").Build()
+	mockey.Mock(os.ReadFile).Return([]byte(token), nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Token")).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(Authenticate(nil)), "ko")
@@ -299,17 +241,10 @@ func TestAuthenticateRecoverAndPersistTokenFailure(t *testing.T) {
 
 func TestAuthenticateRecoverAndPersistMkdirFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(os.Getenv, func() string {
-			return "value"
-		}).
-		ApplyFunc(Recover, func() (*Client, error) {
-			return nil, nil
-		}).
-		ApplyFunc(os.MkdirAll, func() error {
-			return errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Getenv).Return("value").Build()
+	mockey.Mock(Recover).Return(nil, nil).Build()
+	mockey.Mock(os.MkdirAll).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(Authenticate(nil)), "ko")
@@ -320,20 +255,11 @@ func TestAuthenticateRecoverAndPersistOpenFailure(t *testing.T) {
 	port = getPort()
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(os.Getenv, func() string {
-			return "value"
-		}).
-		ApplyFunc(os.ReadFile, func() ([]byte, error) {
-			return []byte(token), nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Token", func() (*oauth2.Token, error) {
-			return nil, nil
-		}).
-		ApplyFunc(os.OpenFile, func() (*os.File, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Getenv).Return("value").Build()
+	mockey.Mock(os.ReadFile).Return([]byte(token), nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Token")).Return(nil, nil).Build()
+	mockey.Mock(os.OpenFile).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(Authenticate(nil)), "ko")
@@ -344,23 +270,12 @@ func TestAuthenticateNotFound(t *testing.T) {
 	port = getPort()
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(os.Getenv, func() string {
-			return "value"
-		}).
-		ApplyFunc(Recover, func() (*Client, error) {
-			return nil, errors.New("ko")
-		}).
-		ApplyMethod(&Client{}, "Persist", func() error {
-			return nil
-		}).
-		ApplyFunc(randstr.String, func() string {
-			return state
-		}).
-		ApplyMethod(spotifyauth.Authenticator{}, "Token", func() (*oauth2.Token, error) {
-			return nil, nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Getenv).Return("value").Build()
+	mockey.Mock(Recover).Return(nil, errors.New("ko")).Build()
+	mockey.Mock(mockey.GetMethod(&Client{}, "Persist")).Return(nil).Build()
+	mockey.Mock(randstr.String).Return(state).Build()
+	mockey.Mock(mockey.GetMethod(spotifyauth.Authenticator{}, "Token")).Return(nil, nil).Build()
 
 	// testing
 	assert.EqualError(t, nursery.RunConcurrently(
@@ -392,23 +307,12 @@ func TestAuthenticateForbidden(t *testing.T) {
 	port = getPort()
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(os.Getenv, func() string {
-			return "value"
-		}).
-		ApplyFunc(Recover, func() (*Client, error) {
-			return nil, errors.New("ko")
-		}).
-		ApplyMethod(&Client{}, "Persist", func() error {
-			return nil
-		}).
-		ApplyFunc(randstr.String, func() string {
-			return state
-		}).
-		ApplyMethod(spotifyauth.Authenticator{}, "Token", func() (*oauth2.Token, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Getenv).Return("value").Build()
+	mockey.Mock(Recover).Return(nil, errors.New("ko")).Build()
+	mockey.Mock(mockey.GetMethod(&Client{}, "Persist")).Return(nil).Build()
+	mockey.Mock(randstr.String).Return(state).Build()
+	mockey.Mock(mockey.GetMethod(spotifyauth.Authenticator{}, "Token")).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, nursery.RunConcurrently(
@@ -440,20 +344,11 @@ func TestAuthenticateProcessorFailure(t *testing.T) {
 	port = getPort()
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(os.Getenv, func() string {
-			return "value"
-		}).
-		ApplyFunc(Recover, func() (*Client, error) {
-			return nil, errors.New("ko")
-		}).
-		ApplyMethod(&Client{}, "Persist", func() error {
-			return nil
-		}).
-		ApplyFunc(randstr.String, func() string {
-			return state
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Getenv).Return("value").Build()
+	mockey.Mock(Recover).Return(nil, errors.New("ko")).Build()
+	mockey.Mock(mockey.GetMethod(&Client{}, "Persist")).Return(nil).Build()
+	mockey.Mock(randstr.String).Return(state).Build()
 
 	// testing
 	assert.EqualError(t, nursery.RunConcurrently(
@@ -487,23 +382,12 @@ func TestAuthenticateServerUnserving(t *testing.T) {
 	port = getPort()
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(os.Getenv, func() string {
-			return "value"
-		}).
-		ApplyFunc(Recover, func() (*Client, error) {
-			return nil, errors.New("ko")
-		}).
-		ApplyMethod(&Client{}, "Persist", func() error {
-			return nil
-		}).
-		ApplyFunc(randstr.String, func() string {
-			return state
-		}).
-		ApplyFunc(net.Listen, func() (net.Listener, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Getenv).Return("value").Build()
+	mockey.Mock(Recover).Return(nil, errors.New("ko")).Build()
+	mockey.Mock(mockey.GetMethod(&Client{}, "Persist")).Return(nil).Build()
+	mockey.Mock(randstr.String).Return(state).Build()
+	mockey.Mock(net.Listen).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(Authenticate(nil)), "ko")

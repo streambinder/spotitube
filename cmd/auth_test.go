@@ -2,10 +2,11 @@ package cmd
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/spotify"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
@@ -19,15 +20,12 @@ func BenchmarkAuth(b *testing.B) {
 
 func TestCmdAuth(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(os.Remove, func() error {
-			return nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			sys.ErrSuppress(printProcessor(""))
-			return &spotify.Client{}, nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Remove).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).To(func(_ func(string) error, _ ...string) (*spotify.Client, error) {
+		sys.ErrSuppress(printProcessor(""))
+		return &spotify.Client{}, nil
+	}).Build()
 
 	// testing
 	assert.Nil(t, sys.ErrOnly(testExecute(cmdAuth(), "--remote", "--logout")))
@@ -35,9 +33,8 @@ func TestCmdAuth(t *testing.T) {
 
 func TestCmdAuthFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-		return nil, errors.New("ko")
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(spotify.Authenticate).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAuth())), "ko")
@@ -45,10 +42,19 @@ func TestCmdAuthFailure(t *testing.T) {
 
 func TestCmdAuthLogoutFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyFunc(os.Remove, func() error {
-		return errors.New("ko")
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Remove).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAuth(), "--logout")), "ko")
+}
+
+func TestCmdAuthLogoutNotExists(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Remove).Return(fs.ErrNotExist).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+
+	// testing
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdAuth(), "--logout")))
 }

@@ -2,11 +2,12 @@ package cmd
 
 import (
 	"errors"
+	"os"
 	"os/exec"
 	"strconv"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
@@ -36,9 +37,10 @@ func BenchmarkFFmpeg(b *testing.B) {
 
 func TestVolumeDetect(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyMethod(&exec.Cmd{}, "Run", func(cmd *exec.Cmd) error {
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).To(func(cmd *exec.Cmd) error {
 		return sys.ErrOnly(cmd.Stdout.Write([]byte(volumeDetectOutput)))
-	}).Reset()
+	}).Build()
 
 	// testing
 	delta, err := FFmpeg().VolumeDetect("/dev/null")
@@ -48,9 +50,8 @@ func TestVolumeDetect(t *testing.T) {
 
 func TestVolumeDetectFFmpegFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyMethod(&exec.Cmd{}, "Run", func() error {
-		return errors.New("ko")
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.Error(t, sys.ErrOnly(FFmpeg().VolumeDetect("/dev/null")))
@@ -58,27 +59,45 @@ func TestVolumeDetectFFmpegFailure(t *testing.T) {
 
 func TestVolumeDetectParseFloatFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyMethod(&exec.Cmd{}, "Run", func(cmd *exec.Cmd) error {
-			return sys.ErrOnly(cmd.Stdout.Write([]byte(volumeDetectOutput)))
-		}).
-		ApplyFunc(strconv.ParseFloat, func() (float64, error) {
-			return 0, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).To(func(cmd *exec.Cmd) error {
+		return sys.ErrOnly(cmd.Stdout.Write([]byte(volumeDetectOutput)))
+	}).Build()
+	mockey.Mock(strconv.ParseFloat).Return(0.0, errors.New("ko")).Build()
 
 	// testing
 	assert.Error(t, sys.ErrOnly(FFmpeg().VolumeDetect("/dev/null")))
 }
 
-func TestVolumeAdd(t *testing.T) {
+func TestVolumeDetectNoMatch(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyMethod(&exec.Cmd{}, "Run", func() error {
-		return nil
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).To(func(cmd *exec.Cmd) error {
+		return sys.ErrOnly(cmd.Stdout.Write([]byte("no volume info here")))
+	}).Build()
 
 	// testing
-	assert.EqualError(t, FFmpeg().VolumeAdd("/dev/null", -1), "rename /dev/null.norm /dev/null: no such file or directory")
+	assert.EqualError(t, sys.ErrOnly(FFmpeg().VolumeDetect("/dev/null")), "cannot parse max_volume for given track")
+}
+
+func TestVolumeAdd(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).Return(nil).Build()
+	mockey.Mock(os.Rename).Return(nil).Build()
+
+	// testing
+	assert.Nil(t, FFmpeg().VolumeAdd("/dev/null", -1))
+}
+
+func TestVolumeAddRenameFailure(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).Return(nil).Build()
+	mockey.Mock(os.Rename).Return(errors.New("ko")).Build()
+
+	// testing
+	assert.EqualError(t, FFmpeg().VolumeAdd("/dev/null", -1), "ko")
 }
 
 func TestVolumeAddNothing(t *testing.T) {
@@ -87,9 +106,8 @@ func TestVolumeAddNothing(t *testing.T) {
 
 func TestVolumeAddFFmpegFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyMethod(&exec.Cmd{}, "Run", func() error {
-		return errors.New("ko")
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.Error(t, FFmpeg().VolumeAdd("/dev/null", -1))

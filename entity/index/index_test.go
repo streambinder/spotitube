@@ -4,10 +4,9 @@ import (
 	"errors"
 	"io/fs"
 	"path/filepath"
-	"reflect"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/streambinder/id3v2-sylt"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/entity/id3"
@@ -46,23 +45,16 @@ func BenchmarkIndex(b *testing.B) {
 
 func TestBuild(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(filepath.WalkDir, func(_ string, f func(string, fs.DirEntry, error) error) error {
-			sys.ErrSuppress(f("", nil, errors.New("ko")))
-			sys.ErrSuppress(f("", DirEntry{name: "dir", isDir: true}, nil))
-			sys.ErrSuppress(f("fname.txt", DirEntry{name: "", isDir: false}, nil))
-			return f("Artist - Title.mp3", DirEntry{name: "", isDir: false}, nil)
-		}).
-		ApplyFunc(id3.Open, func() (*id3.Tag, error) {
-			return &id3.Tag{}, nil
-		}).
-		ApplyPrivateMethod(reflect.TypeOf(&id3.Tag{}), "userDefinedText", func() string {
-			return "id"
-		}).
-		ApplyPrivateMethod(reflect.TypeOf(&id3v2.Tag{}), "Close", func() error {
-			return nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(filepath.WalkDir).To(func(_ string, f fs.WalkDirFunc) error {
+		sys.ErrSuppress(f("", nil, errors.New("ko")))
+		sys.ErrSuppress(f("", DirEntry{name: "dir", isDir: true}, nil))
+		sys.ErrSuppress(f("fname.txt", DirEntry{name: "", isDir: false}, nil))
+		return f("Artist - Title.mp3", DirEntry{name: "", isDir: false}, nil)
+	}).Build()
+	mockey.Mock(id3.Open).Return(&id3.Tag{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "userDefinedText")).Return("id").Build()
+	mockey.Mock(mockey.GetMethod(&id3v2.Tag{}, "Close")).Return(nil).Build()
 
 	// testing
 	index := New()
@@ -77,14 +69,25 @@ func TestBuild(t *testing.T) {
 
 func TestBuildOpenFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(filepath.WalkDir, func(_ string, f func(string, fs.DirEntry, error) error) error {
-			return f("fname.mp3", DirEntry{name: "", isDir: false}, nil)
-		}).
-		ApplyFunc(id3.Open, func() (*id3.Tag, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(filepath.WalkDir).To(func(_ string, f fs.WalkDirFunc) error {
+		return f("fname.mp3", DirEntry{name: "", isDir: false}, nil)
+	}).Build()
+	mockey.Mock(id3.Open).Return(nil, errors.New("ko")).Build()
+
+	// testing
+	assert.EqualError(t, New().Build("path"), "ko")
+}
+
+func TestBuildCloseFailure(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(filepath.WalkDir).To(func(_ string, f fs.WalkDirFunc) error {
+		return f("fname.mp3", DirEntry{name: "", isDir: false}, nil)
+	}).Build()
+	mockey.Mock(id3.Open).Return(&id3.Tag{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "userDefinedText")).Return("").Build()
+	mockey.Mock(mockey.GetMethod(&id3v2.Tag{}, "Close")).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, New().Build("path"), "ko")

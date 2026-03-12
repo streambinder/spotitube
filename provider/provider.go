@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"sort"
+	"sync"
 
 	"github.com/arunsworld/nursery"
 	"github.com/streambinder/spotitube/entity"
@@ -26,6 +27,7 @@ func Search(track *entity.Track) ([]*Match, error) {
 	var (
 		workers []nursery.ConcurrentJob
 		matches []*Match
+		mu      sync.Mutex
 	)
 	for _, provider := range providers {
 		workers = append(workers, func(p Provider) func(ctx context.Context, ch chan error) {
@@ -35,7 +37,9 @@ func Search(track *entity.Track) ([]*Match, error) {
 					ch <- err
 					return
 				}
+				mu.Lock()
 				matches = append(matches, scopedMatches...)
+				mu.Unlock()
 			}
 		}(provider))
 	}

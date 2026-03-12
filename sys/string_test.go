@@ -23,7 +23,8 @@ func BenchmarkString(b *testing.B) {
 }
 
 func TestFlatten(t *testing.T) {
-	assert.Equal(t, "word word1", UniqueFields("word word1"))
+	assert.Equal(t, "hello world", Flatten("hello-world"))
+	assert.Equal(t, "hello world", Flatten("Hello World"))
 }
 
 func TestUniqueFields(t *testing.T) {
@@ -44,6 +45,8 @@ func TestExcerpt(t *testing.T) {
 	assert.Equal(t, "short", Excerpt("short", -1))
 	assert.Equal(t, "sho", Excerpt("shorter", 3))
 	assert.Empty(t, Excerpt(""))
+	assert.Equal(t, "line1 line2", Excerpt("line1\nline2", 20))
+	assert.Equal(t, "line1 line2", Excerpt("line1\rline2", 20))
 }
 
 func TestPad(t *testing.T) {

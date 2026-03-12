@@ -2,10 +2,9 @@ package provider
 
 import (
 	"errors"
-	"reflect"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
@@ -30,12 +29,11 @@ func BenchmarkProvider(b *testing.B) {
 
 func TestSearch(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(youTube{}), "search", func() ([]*Match, error) {
-		return []*Match{
-			{URL: "url1", Score: 3},
-			{URL: "url2", Score: 1},
-		}, nil
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(youTube{}, "search")).Return([]*Match{
+		{URL: "url1", Score: 3},
+		{URL: "url2", Score: 1},
+	}, nil).Build()
 
 	// testing
 	matches, err := Search(track)
@@ -45,9 +43,8 @@ func TestSearch(t *testing.T) {
 
 func TestSearchFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(youTube{}), "search", func() ([]*Match, error) {
-		return nil, errors.New("ko")
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(youTube{}, "search")).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(Search(track)), "ko")

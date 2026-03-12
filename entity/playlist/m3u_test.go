@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,10 +19,11 @@ func TestM3U(t *testing.T) {
 	var output []byte
 
 	// monkey patching
-	defer gomonkey.ApplyFunc(os.WriteFile, func(_ string, data []byte, _ fs.FileMode) error {
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.WriteFile).To(func(_ string, data []byte, _ fs.FileMode) error {
 		output = data
 		return nil
-	}).Reset()
+	}).Build()
 
 	// testing
 	encoder := &M3UEncoder{}

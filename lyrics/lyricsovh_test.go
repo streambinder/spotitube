@@ -6,12 +6,10 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"reflect"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
@@ -24,13 +22,14 @@ func BenchmarkLyricsOVH(b *testing.B) {
 
 func TestLyricsOvhSearch(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: 200,
 			Body: io.NopCloser(
 				strings.NewReader(`{"lyrics": "lyrics"}`)),
 		}, nil
-	}).Reset()
+	}).Build()
 
 	// testing
 	lyrics, err := lyricsOvh{}.search(track, context.Background())
@@ -40,9 +39,8 @@ func TestLyricsOvhSearch(t *testing.T) {
 
 func TestLyricsOvhSearchNewRequestFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyFunc(http.NewRequestWithContext, func() (*http.Request, error) {
-		return nil, errors.New("ko")
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(http.NewRequestWithContext).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(lyricsOvh{}.search(track)), "ko")
@@ -50,9 +48,8 @@ func TestLyricsOvhSearchNewRequestFailure(t *testing.T) {
 
 func TestLyricsOvhSearchNewRequestContextCanceled(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
-		return nil, context.Canceled
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).Return(nil, context.Canceled).Build()
 
 	// testing
 	lyrics, err := lyricsOvh{}.search(track, context.Background())
@@ -62,9 +59,8 @@ func TestLyricsOvhSearchNewRequestContextCanceled(t *testing.T) {
 
 func TestLyricsOvhSearchFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
-		return nil, errors.New("ko")
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(lyricsOvh{}.search(track)), "ko")
@@ -72,13 +68,12 @@ func TestLyricsOvhSearchFailure(t *testing.T) {
 
 func TestLyricsOvhSearchNotFound(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 404,
-			Body: io.NopCloser(
-				strings.NewReader("")),
-		}, nil
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).Return(&http.Response{
+		StatusCode: 404,
+		Body: io.NopCloser(
+			strings.NewReader("")),
+	}, nil).Build()
 
 	// testing
 	lyrics, err := lyricsOvh{}.search(track)
@@ -89,24 +84,23 @@ func TestLyricsOvhSearchNotFound(t *testing.T) {
 func TestLyricsOvhSearchTooManyRequests(t *testing.T) {
 	// monkey patching
 	doCounter := 0
-	defer gomonkey.NewPatches().
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
-			doCounter++
-			if doCounter > 1 {
-				return &http.Response{
-					StatusCode: 200,
-					Body: io.NopCloser(
-						strings.NewReader(`{"lyrics": "lyrics"}`)),
-				}, nil
-			}
+	defer mockey.UnPatchAll()
+	mockey.Mock(sys.SleepUntilRetry).Return().Build()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
+		doCounter++
+		if doCounter > 1 {
 			return &http.Response{
-				StatusCode: 429,
+				StatusCode: 200,
 				Body: io.NopCloser(
-					strings.NewReader("")),
+					strings.NewReader(`{"lyrics": "lyrics"}`)),
 			}, nil
-		}).
-		Reset()
+		}
+		return &http.Response{
+			StatusCode: 429,
+			Body: io.NopCloser(
+				strings.NewReader("")),
+		}, nil
+	}).Build()
 
 	// testing
 	assert.Nil(t, sys.ErrOnly(lyricsOvh{}.search(track)))
@@ -114,13 +108,12 @@ func TestLyricsOvhSearchTooManyRequests(t *testing.T) {
 
 func TestLyricsOvhSearchInternalError(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 500,
-			Body: io.NopCloser(
-				strings.NewReader("")),
-		}, nil
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).Return(&http.Response{
+		StatusCode: 500,
+		Body: io.NopCloser(
+			strings.NewReader("")),
+	}, nil).Build()
 
 	// testing
 	assert.NotNil(t, sys.ErrOnly(lyricsOvh{}.search(track)))
@@ -128,18 +121,15 @@ func TestLyricsOvhSearchInternalError(t *testing.T) {
 
 func TestLyricsOvhSearchReadFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
-			return &http.Response{
-				StatusCode: 200,
-				Body: io.NopCloser(
-					strings.NewReader(`{"lyrics": "lyrics"}`)),
-			}, nil
-		}).
-		ApplyFunc(io.ReadAll, func() ([]byte, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 200,
+			Body: io.NopCloser(
+				strings.NewReader(`{"lyrics": "lyrics"}`)),
+		}, nil
+	}).Build()
+	mockey.Mock(io.ReadAll).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(lyricsOvh{}.search(track)), "ko")
@@ -147,18 +137,15 @@ func TestLyricsOvhSearchReadFailure(t *testing.T) {
 
 func TestLyricsOvhSearchJsonFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
-			return &http.Response{
-				StatusCode: 200,
-				Body: io.NopCloser(
-					strings.NewReader(`{"lyrics": "lyrics"}`)),
-			}, nil
-		}).
-		ApplyFunc(json.Unmarshal, func() error {
-			return errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 200,
+			Body: io.NopCloser(
+				strings.NewReader(`{"lyrics": "lyrics"}`)),
+		}, nil
+	}).Build()
+	mockey.Mock(json.Unmarshal).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(lyricsOvh{}.search(track)), "ko")

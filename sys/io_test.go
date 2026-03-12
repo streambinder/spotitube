@@ -2,12 +2,11 @@ package sys
 
 import (
 	"errors"
-	"io/fs"
 	"os"
 	"testing"
 
 	"github.com/adrg/xdg"
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -31,20 +30,11 @@ func TestFileMove(t *testing.T) {
 
 func TestFileCopy(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(os.Rename, func() error {
-			return errors.New("not renaming")
-		}).
-		ApplyFunc(os.ReadFile, func() ([]byte, error) {
-			return []byte{}, nil
-		}).
-		ApplyFunc(os.WriteFile, func() error {
-			return nil
-		}).
-		ApplyFunc(os.Remove, func() error {
-			return nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Rename).Return(errors.New("not renaming")).Build()
+	mockey.Mock(os.ReadFile).Return([]byte{}, nil).Build()
+	mockey.Mock(os.WriteFile).Return(nil).Build()
+	mockey.Mock(os.Remove).Return(nil).Build()
 
 	// testing
 	assert.Nil(t, FileMoveOrCopy("/a", "/a"))
@@ -52,24 +42,40 @@ func TestFileCopy(t *testing.T) {
 
 func TestFileAlreadyExists(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyFunc(os.Stat, func() (fs.FileInfo, error) {
-		return nil, nil
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Stat).Return(nil, nil).Build()
 
 	// testing
 	assert.Error(t, FileMoveOrCopy("/a", "/a"))
 }
 
+func TestFileAlreadyExistsOverwrite(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Stat).Return(nil, nil).Build()
+	mockey.Mock(os.Rename).Return(nil).Build()
+
+	// testing
+	assert.Nil(t, FileMoveOrCopy("/a", "/b", true))
+}
+
+func TestFileCopyRemoveFailure(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Rename).Return(errors.New("not renaming")).Build()
+	mockey.Mock(os.ReadFile).Return([]byte{}, nil).Build()
+	mockey.Mock(os.WriteFile).Return(nil).Build()
+	mockey.Mock(os.Remove).Return(errors.New("ko")).Build()
+
+	// testing
+	assert.EqualError(t, FileMoveOrCopy("/a", "/a"), "ko")
+}
+
 func TestFileCopyReadFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(os.Rename, func() error {
-			return errors.New("not renaming")
-		}).
-		ApplyFunc(os.ReadFile, func() ([]byte, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Rename).Return(errors.New("not renaming")).Build()
+	mockey.Mock(os.ReadFile).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, FileMoveOrCopy("/a", "/a"), "ko")
@@ -77,17 +83,10 @@ func TestFileCopyReadFailure(t *testing.T) {
 
 func TestFileCopyWriteFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(os.Rename, func() error {
-			return errors.New("not renaming")
-		}).
-		ApplyFunc(os.ReadFile, func() ([]byte, error) {
-			return []byte{}, nil
-		}).
-		ApplyFunc(os.WriteFile, func() error {
-			return errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Rename).Return(errors.New("not renaming")).Build()
+	mockey.Mock(os.ReadFile).Return([]byte{}, nil).Build()
+	mockey.Mock(os.WriteFile).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, FileMoveOrCopy("/a", "/a"), "ko")
@@ -99,9 +98,8 @@ func TestFileBaseStem(t *testing.T) {
 
 func TestCacheDirectory(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyFunc(xdg.CacheFile, func() (string, error) {
-		return "/dir/spotitube", nil
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(xdg.CacheFile).Return("/dir/spotitube", nil).Build()
 
 	// testing
 	assert.Equal(t, "/dir/spotitube", CacheDirectory())
@@ -109,9 +107,8 @@ func TestCacheDirectory(t *testing.T) {
 
 func TestCacheDirectoryFallback(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyFunc(xdg.CacheFile, func() (string, error) {
-		return "", errors.New("ko")
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(xdg.CacheFile).Return("", errors.New("ko")).Build()
 
 	// testing
 	assert.Equal(t, "/tmp/spotitube", CacheDirectory())
@@ -119,9 +116,8 @@ func TestCacheDirectoryFallback(t *testing.T) {
 
 func TestCacheFile(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyFunc(xdg.CacheFile, func() (string, error) {
-		return "/dir/spotitube", nil
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(xdg.CacheFile).Return("/dir/spotitube", nil).Build()
 
 	// testing
 	assert.Equal(t, "/dir/spotitube/fname.txt", CacheFile("fname.txt"))
@@ -129,9 +125,8 @@ func TestCacheFile(t *testing.T) {
 
 func TestCacheFileFallback(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyFunc(xdg.CacheFile, func() (string, error) {
-		return "", errors.New("ko")
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(xdg.CacheFile).Return("", errors.New("ko")).Build()
 
 	// testing
 	assert.Equal(t, "/tmp/spotitube/fname.txt", CacheFile("fname.txt"))

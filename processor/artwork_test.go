@@ -6,7 +6,7 @@ import (
 	"image/jpeg"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,14 +18,11 @@ func BenchmarkArtwork(b *testing.B) {
 
 func TestArtworkDo(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(image.Decode, func() (image.Image, string, error) {
-			return image.NewRGBA(image.Rectangle{image.Pt(0, 0), image.Pt(0, 0)}), "", nil
-		}).
-		ApplyFunc(jpeg.Encode, func() error {
-			return nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(image.Decode).Return(
+		image.NewRGBA(image.Rectangle{image.Pt(0, 0), image.Pt(0, 0)}), "", nil,
+	).Build()
+	mockey.Mock(jpeg.Encode).Return(nil).Build()
 
 	// testing
 	assert.Nil(t, Artwork{}.Do(&[]byte{}))
@@ -36,26 +33,24 @@ func TestArtworkDoUnsupported(t *testing.T) {
 	assert.NotNil(t, Artwork{}.Do(track))
 }
 
-func TestEncoderDoDecodeFailure(t *testing.T) {
+func TestArtworkDoDecodeFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyFunc(image.Decode, func() (image.Image, string, error) {
-		return image.NewRGBA(image.Rectangle{image.Pt(0, 0), image.Pt(0, 0)}), "", errors.New("ko")
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(image.Decode).Return(
+		image.NewRGBA(image.Rectangle{image.Pt(0, 0), image.Pt(0, 0)}), "", errors.New("ko"),
+	).Build()
 
 	// testing
 	assert.EqualError(t, Artwork{}.Do(&[]byte{}), "ko")
 }
 
-func TestEncoderDoEncodeFailure(t *testing.T) {
+func TestArtworkDoEncodeFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(image.Decode, func() (image.Image, string, error) {
-			return image.NewRGBA(image.Rectangle{image.Pt(0, 0), image.Pt(0, 0)}), "", nil
-		}).
-		ApplyFunc(jpeg.Encode, func() error {
-			return errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(image.Decode).Return(
+		image.NewRGBA(image.Rectangle{image.Pt(0, 0), image.Pt(0, 0)}), "", nil,
+	).Build()
+	mockey.Mock(jpeg.Encode).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, Artwork{}.Do(&[]byte{}), "ko")

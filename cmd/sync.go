@@ -231,7 +231,7 @@ func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixe
 			ch <- err
 			return
 		}
-		if err := routineFetchPlaylists(append(playlists, playlistsTracks...), fetched); err != nil {
+		if err := routineFetchPlaylists(append(playlists, playlistsTracks...), len(playlists), fetched); err != nil {
 			ch <- err
 			return
 		}
@@ -290,14 +290,14 @@ func routineFetchTracks(tracks []string, fetched chan interface{}) error {
 	return nil
 }
 
-func routineFetchPlaylists(playlists []string, fetched chan interface{}) error {
+func routineFetchPlaylists(playlists []string, playlistsWithFile int, fetched chan interface{}) error {
 	for index, id := range playlists {
 		tui.Lot("fetch").Printf("playlist %s", id)
 		playlist, err := spotifyClient.Playlist(id, routineQueues[routineTypeDecide], fetched)
 		if err != nil {
 			return err
 		}
-		if index < len(playlists) {
+		if index < playlistsWithFile {
 			routineQueues[routineTypeMix] <- playlist
 		}
 	}

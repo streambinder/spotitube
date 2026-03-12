@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/streambinder/id3v2-sylt"
 	"github.com/streambinder/spotitube/downloader"
 	"github.com/streambinder/spotitube/entity"
@@ -25,27 +25,16 @@ func TestCmdAttach(t *testing.T) {
 	_track := &entity.Track{ID: "TestCmdAttach", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(id3v2.Open, func() (*id3v2.Tag, error) {
-			return id3v2.NewEmptyTag(), nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
-			return _track, nil
-		}).
-		ApplyFunc(lyrics.Search, func() (string, error) {
-			return "", nil
-		}).
-		ApplyFunc(downloader.Download, func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
-			ch[0] <- []byte{}
-			return nil
-		}).
-		ApplyMethod(&id3v2.Tag{}, "Save", func() error {
-			return nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(id3v2.Open).Return(id3v2.NewEmptyTag(), nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Track")).Return(_track, nil).Build()
+	mockey.Mock(lyrics.Search).Return("", nil).Build()
+	mockey.Mock(downloader.Download).To(func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+		ch[0] <- []byte{}
+		return nil
+	}).Build()
+	mockey.Mock(mockey.GetMethod(&id3v2.Tag{}, "Save")).Return(nil).Build()
 
 	// testing
 	assert.Nil(t, sys.ErrOnly(testExecute(cmdAttach(), "/path", "spotifyid")))
@@ -53,9 +42,8 @@ func TestCmdAttach(t *testing.T) {
 
 func TestCmdAttachOpenFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyFunc(id3v2.Open, func() (*id3v2.Tag, error) {
-		return nil, errors.New("ko")
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(id3v2.Open).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAttach(), "/path", "spotifyid")), "ko")
@@ -63,14 +51,9 @@ func TestCmdAttachOpenFailure(t *testing.T) {
 
 func TestCmdAttachAuthFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(id3v2.Open, func() (*id3v2.Tag, error) {
-			return id3v2.NewEmptyTag(), nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(id3v2.Open).Return(id3v2.NewEmptyTag(), nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAttach(), "/path", "spotifyid")), "ko")
@@ -78,17 +61,10 @@ func TestCmdAttachAuthFailure(t *testing.T) {
 
 func TestCmdAttachTrackFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(id3v2.Open, func() (*id3v2.Tag, error) {
-			return id3v2.NewEmptyTag(), nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(id3v2.Open).Return(id3v2.NewEmptyTag(), nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Track")).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAttach(), "/path", "spotifyid")), "ko")
@@ -98,20 +74,11 @@ func TestCmdAttachLyricsFailure(t *testing.T) {
 	_track := &entity.Track{ID: "TestCmdAttachLyricsFailure", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(id3v2.Open, func() (*id3v2.Tag, error) {
-			return id3v2.NewEmptyTag(), nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
-			return _track, nil
-		}).
-		ApplyFunc(lyrics.Search, func() (string, error) {
-			return "", errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(id3v2.Open).Return(id3v2.NewEmptyTag(), nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Track")).Return(_track, nil).Build()
+	mockey.Mock(lyrics.Search).Return("", errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAttach(), "/path", "spotifyid")), "ko")
@@ -121,23 +88,12 @@ func TestCmdAttacDownloadFailure(t *testing.T) {
 	_track := &entity.Track{ID: "TestCmdAttacDownloadFailure", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(id3v2.Open, func() (*id3v2.Tag, error) {
-			return id3v2.NewEmptyTag(), nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
-			return _track, nil
-		}).
-		ApplyFunc(lyrics.Search, func() (string, error) {
-			return "", nil
-		}).
-		ApplyFunc(downloader.Download, func() error {
-			return errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(id3v2.Open).Return(id3v2.NewEmptyTag(), nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Track")).Return(_track, nil).Build()
+	mockey.Mock(lyrics.Search).Return("", nil).Build()
+	mockey.Mock(downloader.Download).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAttach(), "/path", "spotifyid")), "ko")
@@ -147,27 +103,16 @@ func TestCmdAttachSaveFailure(t *testing.T) {
 	_track := &entity.Track{ID: "TestCmdAttachSaveFailure", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(id3v2.Open, func() (*id3v2.Tag, error) {
-			return id3v2.NewEmptyTag(), nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
-			return _track, nil
-		}).
-		ApplyFunc(lyrics.Search, func() (string, error) {
-			return "", nil
-		}).
-		ApplyFunc(downloader.Download, func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
-			ch[0] <- []byte{}
-			return nil
-		}).
-		ApplyMethod(&id3v2.Tag{}, "Save", func() error {
-			return errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(id3v2.Open).Return(id3v2.NewEmptyTag(), nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Track")).Return(_track, nil).Build()
+	mockey.Mock(lyrics.Search).Return("", nil).Build()
+	mockey.Mock(downloader.Download).To(func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+		ch[0] <- []byte{}
+		return nil
+	}).Build()
+	mockey.Mock(mockey.GetMethod(&id3v2.Tag{}, "Save")).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAttach(), "/path", "spotifyid")), "ko")
@@ -177,30 +122,17 @@ func TestCmdAttachRenameFailure(t *testing.T) {
 	_track := &entity.Track{ID: "TestCmdAttachRenameFailure", Title: "Title", Artists: []string{"Artist"}}
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(id3v2.Open, func() (*id3v2.Tag, error) {
-			return id3v2.NewEmptyTag(), nil
-		}).
-		ApplyFunc(spotify.Authenticate, func() (*spotify.Client, error) {
-			return &spotify.Client{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "Track", func() (*entity.Track, error) {
-			return _track, nil
-		}).
-		ApplyFunc(lyrics.Search, func() (string, error) {
-			return "", nil
-		}).
-		ApplyFunc(downloader.Download, func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
-			ch[0] <- []byte{}
-			return nil
-		}).
-		ApplyMethod(&id3v2.Tag{}, "Save", func() error {
-			return nil
-		}).
-		ApplyFunc(sys.FileMoveOrCopy, func() error {
-			return errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(id3v2.Open).Return(id3v2.NewEmptyTag(), nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Track")).Return(_track, nil).Build()
+	mockey.Mock(lyrics.Search).Return("", nil).Build()
+	mockey.Mock(downloader.Download).To(func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+		ch[0] <- []byte{}
+		return nil
+	}).Build()
+	mockey.Mock(mockey.GetMethod(&id3v2.Tag{}, "Save")).Return(nil).Build()
+	mockey.Mock(sys.FileMoveOrCopy).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAttach(), "--rename", "/path", "spotifyid")), "ko")

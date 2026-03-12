@@ -8,6 +8,8 @@ import (
 
 const defaultRetryWait = 5 * time.Second
 
+var sleepFn = time.Sleep
+
 func SleepUntilRetry(headers http.Header) {
 	waitDuration := defaultRetryWait
 	if header := headers.Get("Retry-After"); header != "" {
@@ -15,5 +17,5 @@ func SleepUntilRetry(headers http.Header) {
 			waitDuration = time.Duration(seconds) * time.Second
 		}
 	}
-	time.Sleep(waitDuration)
+	sleepFn(waitDuration)
 }

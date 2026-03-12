@@ -20,6 +20,7 @@ func TestSong(t *testing.T) {
 	assert.Equal(t, "Song", (&Track{Title: "Song - 2000 Remastered"}).Song())
 	assert.Equal(t, "Song", (&Track{Title: "Song"}).Song())
 	assert.Equal(t, "Song", (&Track{Title: "Song (with People)"}).Song())
+	assert.Equal(t, "Song", (&Track{Title: "Song [Live]"}).Song())
 }
 
 func TestPath(t *testing.T) {

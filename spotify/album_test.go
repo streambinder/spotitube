@@ -4,9 +4,8 @@ import (
 	"errors"
 	"syscall"
 	"testing"
-	"time"
 
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 	"github.com/zmb3/spotify/v2"
@@ -33,12 +32,8 @@ func BenchmarkAlbum(b *testing.B) {
 
 func TestAlbum(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyMethod(&spotify.Client{}, "GetAlbum", func() (*spotify.FullAlbum, error) {
-			return fullAlbum, nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetAlbum")).Return(fullAlbum, nil).Build()
 
 	// testing
 	album, err := testClient().Album(fullAlbum.ID.String())
@@ -51,12 +46,8 @@ func TestAlbum(t *testing.T) {
 
 func TestAlbumChannel(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyMethod(&spotify.Client{}, "GetAlbum", func() (*spotify.FullAlbum, error) {
-			return fullAlbum, nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetAlbum")).Return(fullAlbum, nil).Build()
 
 	// testing
 	channel := make(chan interface{}, 1)
@@ -66,33 +57,25 @@ func TestAlbumChannel(t *testing.T) {
 	assert.Equal(t, album.Tracks[0], <-channel)
 }
 
-func TestPlaylistGetAlbumFailure(t *testing.T) {
+func TestAlbumGetAlbumFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyMethod(&spotify.Client{}, "GetAlbum", func() (*spotify.FullAlbum, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetAlbum")).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testClient().Album(fullPlaylist.ID.String())), "ko")
 }
 
 func TestAlbumNextPageFailure(t *testing.T) {
-	var (
-		client = testClient()
-		album  = fullAlbum
-	)
-	album.Tracks.Next = "http://0.0.0.0"
+	client := testClient()
+	// shallow copy to avoid mutating package-level fixture
+	albumCopy := *fullAlbum
+	albumCopy.Tracks.Next = "http://0.0.0.0"
+	defer func() { albumCopy.Tracks.Next = "" }()
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyMethod(&spotify.Client{}, "GetAlbum", func() (*spotify.FullAlbum, error) {
-			return album, nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetAlbum")).Return(&albumCopy, nil).Build()
 
 	// testing
 	assert.True(t, errors.Is(sys.ErrOnly(client.Album(fullAlbum.ID.String())), syscall.ECONNREFUSED))

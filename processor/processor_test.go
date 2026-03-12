@@ -2,10 +2,9 @@ package processor
 
 import (
 	"errors"
-	"reflect"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/stretchr/testify/assert"
 )
@@ -29,14 +28,9 @@ func BenchmarkProcessor(b *testing.B) {
 
 func TestProcessorDo(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyPrivateMethod(reflect.TypeOf(normalizer{}), "Do", func() error {
-			return nil
-		}).
-		ApplyPrivateMethod(reflect.TypeOf(encoder{}), "Do", func() error {
-			return nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(normalizer{}, "Do")).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(encoder{}, "Do")).Return(nil).Build()
 
 	// testing
 	assert.Nil(t, Do(track))
@@ -44,14 +38,9 @@ func TestProcessorDo(t *testing.T) {
 
 func TestProcessorDoFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyPrivateMethod(reflect.TypeOf(normalizer{}), "Do", func() error {
-			return nil
-		}).
-		ApplyPrivateMethod(reflect.TypeOf(encoder{}), "Do", func() error {
-			return errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(normalizer{}, "Do")).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(encoder{}, "Do")).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, Do(track), "ko")

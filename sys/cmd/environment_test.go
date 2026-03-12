@@ -5,7 +5,7 @@ import (
 	"os/exec"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,7 +17,8 @@ func BenchmarkEnvironment(b *testing.B) {
 
 func TestValidateEnvironment(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyFunc(exec.LookPath, func() (string, error) { return "", nil }).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(exec.LookPath).Return("", nil).Build()
 
 	// testing
 	assert.Nil(t, ValidateEnvironment())
@@ -25,13 +26,28 @@ func TestValidateEnvironment(t *testing.T) {
 
 func TestValidateEnvironmentNoFFmpeg(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyFunc(exec.LookPath, func(file string) (string, error) {
+	defer mockey.UnPatchAll()
+	mockey.Mock(exec.LookPath).To(func(file string) (string, error) {
 		if file == "ffmpeg" {
 			return "", fmt.Errorf("no ffmpeg")
 		}
 		return "", nil
-	}).Reset()
+	}).Build()
 
 	// testing
 	assert.Error(t, ValidateEnvironment(), "command \"ffmpeg\" not found in PATH")
+}
+
+func TestValidateEnvironmentNoYtDlp(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(exec.LookPath).To(func(file string) (string, error) {
+		if file == "yt-dlp" {
+			return "", fmt.Errorf("no yt-dlp")
+		}
+		return "", nil
+	}).Build()
+
+	// testing
+	assert.Error(t, ValidateEnvironment(), "command \"yt-dlp\" not found in PATH")
 }

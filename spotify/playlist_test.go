@@ -4,9 +4,8 @@ import (
 	"errors"
 	"syscall"
 	"testing"
-	"time"
 
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 	"github.com/zmb3/spotify/v2"
@@ -33,17 +32,11 @@ func BenchmarkPlaylist(b *testing.B) {
 
 func TestPlaylist(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyMethod(&spotify.Client{}, "CurrentUsersPlaylists", func() (*spotify.SimplePlaylistPage, error) {
-			return &spotify.SimplePlaylistPage{
-				Playlists: []spotify.SimplePlaylist{{ID: "123", Name: "Playlist"}},
-			}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "GetPlaylist", func() (*spotify.FullPlaylist, error) {
-			return fullPlaylist, nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUsersPlaylists")).Return(&spotify.SimplePlaylistPage{
+		Playlists: []spotify.SimplePlaylist{{ID: "123", Name: "Playlist"}},
+	}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetPlaylist")).Return(fullPlaylist, nil).Build()
 
 	// testing
 	client := testClient()
@@ -61,15 +54,9 @@ func TestPlaylist(t *testing.T) {
 
 func TestPlaylistChannel(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyMethod(&spotify.Client{}, "CurrentUsersPlaylists", func() (*spotify.SimplePlaylistPage, error) {
-			return &spotify.SimplePlaylistPage{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "GetPlaylist", func() (*spotify.FullPlaylist, error) {
-			return fullPlaylist, nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUsersPlaylists")).Return(&spotify.SimplePlaylistPage{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetPlaylist")).Return(fullPlaylist, nil).Build()
 
 	// testing
 	channel := make(chan interface{}, 1)
@@ -81,12 +68,8 @@ func TestPlaylistChannel(t *testing.T) {
 
 func TestPlaylistCurrentUsersPlaylistsFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyMethod(&spotify.Client{}, "CurrentUsersPlaylists", func() (*spotify.SimplePlaylistPage, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUsersPlaylists")).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.Error(t, sys.ErrOnly(testClient().Playlist(fullPlaylist.ID.String())))
@@ -100,12 +83,8 @@ func TestPlaylistCurrentUsersPlaylistsNextPageFailure(t *testing.T) {
 	playlistPage.Next = "http://0.0.0.0"
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyMethod(&spotify.Client{}, "CurrentUsersPlaylists", func() (*spotify.SimplePlaylistPage, error) {
-			return playlistPage, nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUsersPlaylists")).Return(playlistPage, nil).Build()
 
 	// testing
 	assert.True(t, errors.Is(sys.ErrOnly(client.Playlist(fullPlaylist.ID.String())), syscall.ECONNREFUSED))
@@ -113,37 +92,25 @@ func TestPlaylistCurrentUsersPlaylistsNextPageFailure(t *testing.T) {
 
 func TestPlaylistGetPlaylistFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyMethod(&spotify.Client{}, "CurrentUsersPlaylists", func() (*spotify.SimplePlaylistPage, error) {
-			return &spotify.SimplePlaylistPage{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "GetPlaylist", func() (*spotify.FullPlaylist, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUsersPlaylists")).Return(&spotify.SimplePlaylistPage{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetPlaylist")).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testClient().Playlist(fullPlaylist.ID.String())), "ko")
 }
 
 func TestPlaylistGetPlaylistNextPageFailure(t *testing.T) {
-	var (
-		client   = testClient()
-		playlist = fullPlaylist
-	)
-	playlist.Tracks.Next = "http://0.0.0.0"
+	client := testClient()
+	// shallow copy to avoid mutating package-level fixture
+	playlistCopy := *fullPlaylist
+	playlistCopy.Tracks.Next = "http://0.0.0.0"
+	defer func() { playlistCopy.Tracks.Next = "" }()
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyMethod(&spotify.Client{}, "CurrentUsersPlaylists", func() (*spotify.SimplePlaylistPage, error) {
-			return &spotify.SimplePlaylistPage{}, nil
-		}).
-		ApplyMethod(&spotify.Client{}, "GetPlaylist", func() (*spotify.FullPlaylist, error) {
-			return playlist, nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUsersPlaylists")).Return(&spotify.SimplePlaylistPage{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetPlaylist")).Return(&playlistCopy, nil).Build()
 
 	// testing
 	assert.True(t, errors.Is(sys.ErrOnly(client.Playlist(fullPlaylist.ID.String())), syscall.ECONNREFUSED))

@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
-	"github.com/streambinder/id3v2-sylt"
+	"github.com/bytedance/mockey"
+	id3v2 "github.com/streambinder/id3v2-sylt"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,14 +17,9 @@ func BenchmarkEncoder(b *testing.B) {
 
 func TestEncoderDo(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(id3v2.Open, func() (*id3v2.Tag, error) {
-			return id3v2.NewEmptyTag(), nil
-		}).
-		ApplyMethod(&id3v2.Tag{}, "Save", func() error {
-			return nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(id3v2.Open).Return(id3v2.NewEmptyTag(), nil).Build()
+	mockey.Mock(mockey.GetMethod(&id3v2.Tag{}, "Save")).Return(nil).Build()
 
 	// testing
 	assert.Nil(t, encoder{}.Do(track))
@@ -37,9 +32,18 @@ func TestEncoderDoUnsupported(t *testing.T) {
 
 func TestEncoderDoOpenFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyFunc(id3v2.Open, func() (*id3v2.Tag, error) {
-		return nil, errors.New("ko")
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(id3v2.Open).Return(nil, errors.New("ko")).Build()
+
+	// testing
+	assert.EqualError(t, encoder{}.Do(track), "ko")
+}
+
+func TestEncoderDoSaveFailure(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(id3v2.Open).Return(id3v2.NewEmptyTag(), nil).Build()
+	mockey.Mock(mockey.GetMethod(&id3v2.Tag{}, "Save")).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, encoder{}.Do(track), "ko")

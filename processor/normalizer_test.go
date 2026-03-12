@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/sys/cmd"
 	"github.com/stretchr/testify/assert"
 )
@@ -17,14 +17,9 @@ func BenchmarkNormalizer(b *testing.B) {
 
 func TestNormalizerDo(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyMethod(cmd.FFmpegCmd{}, "VolumeDetect", func() (float64, error) {
-			return 1, nil
-		}).
-		ApplyMethod(cmd.FFmpegCmd{}, "VolumeAdd", func() error {
-			return nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(cmd.FFmpegCmd{}, "VolumeDetect")).Return(float64(1), nil).Build()
+	mockey.Mock(mockey.GetMethod(cmd.FFmpegCmd{}, "VolumeAdd")).Return(nil).Build()
 
 	// testing
 	assert.Nil(t, normalizer{}.Do(track))
@@ -32,14 +27,9 @@ func TestNormalizerDo(t *testing.T) {
 
 func TestNormalizerDoReverse(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyMethod(cmd.FFmpegCmd{}, "VolumeDetect", func() (float64, error) {
-			return -1, nil
-		}).
-		ApplyMethod(cmd.FFmpegCmd{}, "VolumeAdd", func() error {
-			return nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(cmd.FFmpegCmd{}, "VolumeDetect")).Return(float64(-1), nil).Build()
+	mockey.Mock(mockey.GetMethod(cmd.FFmpegCmd{}, "VolumeAdd")).Return(nil).Build()
 
 	// testing
 	assert.Nil(t, normalizer{}.Do(track))
@@ -52,9 +42,18 @@ func TestNormalizerDoUnsupported(t *testing.T) {
 
 func TestNormalizerDoFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyMethod(cmd.FFmpegCmd{}, "VolumeDetect", func() (float64, error) {
-		return 0, errors.New("ko")
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(cmd.FFmpegCmd{}, "VolumeDetect")).Return(float64(0), errors.New("ko")).Build()
+
+	// testing
+	assert.EqualError(t, normalizer{}.Do(track), "ko")
+}
+
+func TestNormalizerDoVolumeAddFailure(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(cmd.FFmpegCmd{}, "VolumeDetect")).Return(float64(-1), nil).Build()
+	mockey.Mock(mockey.GetMethod(cmd.FFmpegCmd{}, "VolumeAdd")).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, normalizer{}.Do(track), "ko")

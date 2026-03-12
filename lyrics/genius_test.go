@@ -6,13 +6,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
@@ -39,7 +37,8 @@ func BenchmarkGenius(b *testing.B) {
 
 func TestGeniusSearch(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func(_ *http.Client, request *http.Request) (*http.Response, error) {
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, request *http.Request) (*http.Response, error) {
 		if strings.EqualFold(request.Host, "api.genius.com") {
 			return &http.Response{
 				StatusCode: 200,
@@ -52,7 +51,7 @@ func TestGeniusSearch(t *testing.T) {
 			Body: io.NopCloser(
 				strings.NewReader(`<div data-lyrics-container="true">verse<br/><span>lyrics</span></div>`)),
 		}, nil
-	}).Reset()
+	}).Build()
 
 	// testing
 	lyrics, err := genius{}.search(track, context.Background())
@@ -62,9 +61,8 @@ func TestGeniusSearch(t *testing.T) {
 
 func TestGeniusSearchNewRequestFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyFunc(http.NewRequestWithContext, func() (*http.Request, error) {
-		return nil, errors.New("ko")
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(http.NewRequestWithContext).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(genius{}.search(track)), "ko")
@@ -72,9 +70,8 @@ func TestGeniusSearchNewRequestFailure(t *testing.T) {
 
 func TestGeniusSearchNewRequestContextCanceled(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
-		return nil, context.Canceled
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).Return(nil, context.Canceled).Build()
 
 	// testing
 	lyrics, err := genius{}.search(track)
@@ -84,13 +81,14 @@ func TestGeniusSearchNewRequestContextCanceled(t *testing.T) {
 
 func TestGeniusSearchMalformedData(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: 200,
 			Body: io.NopCloser(
 				strings.NewReader(`{"response": {}`)),
 		}, nil
-	}).Reset()
+	}).Build()
 
 	// testing
 	assert.Error(t, sys.ErrOnly(genius{}.search(track)))
@@ -98,9 +96,8 @@ func TestGeniusSearchMalformedData(t *testing.T) {
 
 func TestGeniusSearchFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
-		return nil, errors.New("ko")
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(genius{}.search(track)), "ko")
@@ -108,13 +105,14 @@ func TestGeniusSearchFailure(t *testing.T) {
 
 func TestGeniusSearchHttpNotFound(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: 404,
 			Body: io.NopCloser(
 				strings.NewReader("")),
 		}, nil
-	}).Reset()
+	}).Build()
 
 	// testing
 	assert.NotNil(t, sys.ErrOnly(genius{}.search(track)))
@@ -131,31 +129,30 @@ func TestGeniusSearchTooManyRequests(t *testing.T) {
 				strings.NewReader("")),
 		}
 	)
-	defer gomonkey.NewPatches().
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func(_ *http.Client, request *http.Request) (*http.Response, error) {
-			if strings.EqualFold(request.Host, "api.genius.com") {
-				doAPICounter++
-				if doAPICounter > 1 {
-					return &http.Response{
-						StatusCode: 200,
-						Body: io.NopCloser(
-							strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0]))),
-					}, nil
-				}
-				return tooManyRequestsResponse, nil
-			}
-			doCounter++
-			if doCounter > 1 {
+	defer mockey.UnPatchAll()
+	mockey.Mock(sys.SleepUntilRetry).Return().Build()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, request *http.Request) (*http.Response, error) {
+		if strings.EqualFold(request.Host, "api.genius.com") {
+			doAPICounter++
+			if doAPICounter > 1 {
 				return &http.Response{
 					StatusCode: 200,
 					Body: io.NopCloser(
-						strings.NewReader(`<div data-lyrics-container="true">verse<br/><span>lyrics</span></div>`)),
+						strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0]))),
 				}, nil
 			}
 			return tooManyRequestsResponse, nil
-		}).
-		Reset()
+		}
+		doCounter++
+		if doCounter > 1 {
+			return &http.Response{
+				StatusCode: 200,
+				Body: io.NopCloser(
+					strings.NewReader(`<div data-lyrics-container="true">verse<br/><span>lyrics</span></div>`)),
+			}, nil
+		}
+		return tooManyRequestsResponse, nil
+	}).Build()
 
 	// testing
 	assert.Nil(t, sys.ErrOnly(genius{}.search(track)))
@@ -163,18 +160,15 @@ func TestGeniusSearchTooManyRequests(t *testing.T) {
 
 func TestGeniusSearchReadFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
-			return &http.Response{
-				StatusCode: 200,
-				Body: io.NopCloser(
-					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0]))),
-			}, nil
-		}).
-		ApplyFunc(io.ReadAll, func() ([]byte, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 200,
+			Body: io.NopCloser(
+				strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0]))),
+		}, nil
+	}).Build()
+	mockey.Mock(io.ReadAll).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(genius{}.search(track)), "ko")
@@ -182,13 +176,14 @@ func TestGeniusSearchReadFailure(t *testing.T) {
 
 func TestGeniusSearchNotFound(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func() (*http.Response, error) {
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: 200,
 			Body: io.NopCloser(
 				strings.NewReader(`{"response": {"hits": []}}`)),
 		}, nil
-	}).Reset()
+	}).Build()
 
 	// testing
 	lyrics, err := genius{}.search(track)
@@ -198,7 +193,8 @@ func TestGeniusSearchNotFound(t *testing.T) {
 
 func TestGeniusLyricsGetFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func(_ *http.Client, request *http.Request) (*http.Response, error) {
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, request *http.Request) (*http.Response, error) {
 		if strings.EqualFold(request.Host, "api.genius.com") {
 			return &http.Response{
 				StatusCode: 200,
@@ -207,7 +203,7 @@ func TestGeniusLyricsGetFailure(t *testing.T) {
 			}, nil
 		}
 		return nil, errors.New("ko")
-	}).Reset()
+	}).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(genius{}.search(track)), "ko")
@@ -215,9 +211,8 @@ func TestGeniusLyricsGetFailure(t *testing.T) {
 
 func TestGeniusLyricsNewRequestFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyFunc(http.NewRequestWithContext, func() (*http.Request, error) {
-		return nil, errors.New("ko")
-	}).Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(http.NewRequestWithContext).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(genius{}.get("http://genius.com/test", context.Background())), "ko")
@@ -225,7 +220,8 @@ func TestGeniusLyricsNewRequestFailure(t *testing.T) {
 
 func TestGeniusLyricsNewRequestContextCanceled(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func(_ *http.Client, request *http.Request) (*http.Response, error) {
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, request *http.Request) (*http.Response, error) {
 		if strings.EqualFold(request.Host, "api.genius.com") {
 			return &http.Response{
 				StatusCode: 200,
@@ -234,7 +230,7 @@ func TestGeniusLyricsNewRequestContextCanceled(t *testing.T) {
 			}, nil
 		}
 		return nil, context.Canceled
-	}).Reset()
+	}).Build()
 
 	// testing
 	lyrics, err := genius{}.search(track)
@@ -244,7 +240,8 @@ func TestGeniusLyricsNewRequestContextCanceled(t *testing.T) {
 
 func TestGeniusLyricsNotFound(t *testing.T) {
 	// monkey patching
-	defer gomonkey.ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func(_ *http.Client, request *http.Request) (*http.Response, error) {
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, request *http.Request) (*http.Response, error) {
 		if strings.EqualFold(request.Host, "api.genius.com") {
 			return &http.Response{
 				StatusCode: 200,
@@ -256,7 +253,7 @@ func TestGeniusLyricsNotFound(t *testing.T) {
 			StatusCode: 500,
 			Body:       io.NopCloser(strings.NewReader("")),
 		}, nil
-	}).Reset()
+	}).Build()
 
 	// testing
 	lyrics, err := genius{}.search(track)
@@ -266,24 +263,21 @@ func TestGeniusLyricsNotFound(t *testing.T) {
 
 func TestGeniusLyricsNotParseable(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyPrivateMethod(reflect.TypeOf(http.DefaultClient), "do", func(_ *http.Client, request *http.Request) (*http.Response, error) {
-			if strings.EqualFold(request.Host, "api.genius.com") {
-				return &http.Response{
-					StatusCode: 200,
-					Body: io.NopCloser(
-						strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0]))),
-				}, nil
-			}
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, request *http.Request) (*http.Response, error) {
+		if strings.EqualFold(request.Host, "api.genius.com") {
 			return &http.Response{
 				StatusCode: 200,
-				Body:       io.NopCloser(strings.NewReader("")),
+				Body: io.NopCloser(
+					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0]))),
 			}, nil
-		}).
-		ApplyFunc(goquery.NewDocumentFromReader, func() (*goquery.Document, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+		}
+		return &http.Response{
+			StatusCode: 200,
+			Body:       io.NopCloser(strings.NewReader("")),
+		}, nil
+	}).Build()
+	mockey.Mock(goquery.NewDocumentFromReader).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(genius{}.search(track)), "ko")

@@ -4,9 +4,8 @@ import (
 	"errors"
 	"syscall"
 	"testing"
-	"time"
 
-	"github.com/agiledragon/gomonkey/v2"
+	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
@@ -32,12 +31,8 @@ func BenchmarkRandom(b *testing.B) {
 
 func TestRandom(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyMethod(&spotify.Client{}, "Search", func() (*spotify.SearchResult, error) {
-			return searchResult, nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Search")).Return(searchResult, nil).Build()
 
 	// testing
 	channel := make(chan interface{}, 1)
@@ -49,12 +44,8 @@ func TestRandom(t *testing.T) {
 
 func TestRandomFailure(t *testing.T) {
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyMethod(&spotify.Client{}, "Search", func() (*spotify.SearchResult, error) {
-			return nil, errors.New("ko")
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Search")).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	err := testClient().Random(TypeTrack, len(searchResult.Tracks.Tracks))
@@ -62,19 +53,17 @@ func TestRandomFailure(t *testing.T) {
 }
 
 func TestRandomNextPageFailure(t *testing.T) {
-	var (
-		client = testClient()
-		search = searchResult
-	)
-	search.Tracks.Next = "http://0.0.0.0"
+	client := testClient()
+	// shallow copy to avoid mutating package-level fixture
+	searchCopy := *searchResult
+	tracksCopy := *searchResult.Tracks
+	tracksCopy.Next = "http://0.0.0.0"
+	searchCopy.Tracks = &tracksCopy
+	defer func() { tracksCopy.Next = "" }()
 
 	// monkey patching
-	defer gomonkey.NewPatches().
-		ApplyFunc(time.Sleep, func() {}).
-		ApplyMethod(&spotify.Client{}, "Search", func() (*spotify.SearchResult, error) {
-			return search, nil
-		}).
-		Reset()
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Search")).Return(&searchCopy, nil).Build()
 
 	// testing
 	assert.True(t, errors.Is(sys.ErrOnly(client.Random(TypeTrack, len(searchResult.Tracks.Tracks))), syscall.ECONNREFUSED))

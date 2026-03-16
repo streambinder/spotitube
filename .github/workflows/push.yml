@@ -149,7 +149,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+      - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294
         with:
           secrets: |
             SPOTIFY_ID=${{ secrets.SPOTIFY_ID }}

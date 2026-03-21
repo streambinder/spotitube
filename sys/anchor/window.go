@@ -163,12 +163,12 @@ func (window *Window) Reads(label string, a ...interface{}) (value string) {
 	value = strings.Trim(value, "\n")
 	value = strings.Trim(value, "\r")
 
-	// erase the blank line left by Enter, then move back up to the prompt line
-	// (raw escape to avoid incrementing autoheight — the prompt line replaces
-	// the space that shift already accounted for)
 	if !window.plain {
-		cursor.StartOfLine()
-		fmt.Print("\033[J\033[1A")
+		// enter's \n moved the cursor down 1 outside cursor package's tracking;
+		// decrement autoheight via cursor.Down(1) then physically move back up
+		// with a raw escape so the cursor position is unchanged but the count is right
+		cursor.Down(1)
+		fmt.Print("\033[1A")
 	}
 	return value
 }

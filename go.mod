@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	atomicgo.dev/cursor v0.2.0
-	github.com/PuerkitoBio/goquery v1.11.0
+	github.com/PuerkitoBio/goquery v1.12.0
 	github.com/adrg/xdg v0.5.3
 	github.com/agnivade/levenshtein v1.2.1
 	github.com/arunsworld/nursery v0.6.0
@@ -38,8 +38,8 @@ require (
 	github.com/smarty/assertions v1.15.0 // indirect
 	github.com/smartystreets/goconvey v1.8.1 // indirect
 	golang.org/x/arch v0.25.0 // indirect
-	golang.org/x/net v0.51.0 // indirect
+	golang.org/x/net v0.52.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
-	golang.org/x/text v0.34.0 // indirect
+	golang.org/x/text v0.35.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

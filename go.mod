@@ -9,7 +9,7 @@ require (
 	github.com/agnivade/levenshtein v1.2.1
 	github.com/arunsworld/nursery v0.6.0
 	github.com/bytedance/mockey v1.4.5
-	github.com/fatih/color v1.18.0
+	github.com/fatih/color v1.19.0
 	github.com/gosimple/slug v1.15.0
 	github.com/json-iterator/go v1.1.12
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646

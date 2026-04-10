@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/bogem/id3v2/v2"
 	"github.com/bytedance/mockey"
-	"github.com/streambinder/id3v2-sylt"
 	"github.com/streambinder/spotitube/downloader"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/entity/id3"

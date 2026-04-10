@@ -5,9 +5,9 @@ import (
 	"os"
 	"text/tabwriter"
 
+	"github.com/bogem/id3v2/v2"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	"github.com/streambinder/id3v2-sylt"
 	"github.com/streambinder/spotitube/entity/id3"
 	"github.com/streambinder/spotitube/sys"
 )

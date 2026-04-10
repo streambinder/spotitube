@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/bogem/id3v2/v2"
 	"github.com/bytedance/mockey"
-	id3v2 "github.com/streambinder/id3v2-sylt"
 	"github.com/stretchr/testify/assert"
 )
 

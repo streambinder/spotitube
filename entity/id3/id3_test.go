@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/bogem/id3v2/v2"
 	"github.com/bytedance/mockey"
-	"github.com/streambinder/id3v2-sylt"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
@@ -32,7 +32,6 @@ func TestOpen(t *testing.T) {
 	assert.Empty(t, mimeType)
 	assert.Empty(t, image)
 	assert.Empty(t, tag.UnsynchronizedLyrics())
-	assert.Empty(t, tag.SynchronizedLyrics())
 
 	tag.SetAttachedPicture([]byte("picture"))
 	tag.SetLyrics("title", "lyrics")
@@ -47,7 +46,6 @@ func TestOpen(t *testing.T) {
 	assert.Equal(t, "image/jpeg", mimeType)
 	assert.Equal(t, []byte("picture"), image)
 	assert.Equal(t, "[01:01.15]lyrics", tag.UnsynchronizedLyrics())
-	assert.Equal(t, "[01:01.15]lyrics", tag.SynchronizedLyrics())
 	assert.Equal(t, "1", tag.TrackNumber())
 	assert.Equal(t, "Spotify ID", tag.SpotifyID())
 	assert.Equal(t, "Artwork URL", tag.ArtworkURL())

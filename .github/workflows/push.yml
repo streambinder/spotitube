@@ -63,7 +63,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
-      - run: test "$(grep -rc --exclude-dir=".git*" 'http.Get(\|http.Head(\|http.DefaultClient.Do(')" = "$(grep -rc --exclude-dir=".git*" '.Body.Close()')"
+      - run: test "$(grep -rc --exclude-dir=".git*" 'http.Get(\|http.Head(\|http.DefaultClient.Do(\|httpClient.Get(')" = "$(grep -rc --exclude-dir=".git*" '.Body.Close()')"
   go-mockey-unpatch:
     runs-on: ubuntu-latest
     steps:

@@ -87,6 +87,7 @@ func Authenticate(urlProcessor func(string) error, callbacks ...string) (*Client
 	}
 
 	serverMux.HandleFunc("/callback", func(writer http.ResponseWriter, request *http.Request) {
+		request.Body = http.MaxBytesReader(writer, request.Body, 1<<20)
 		fmt.Fprintln(writer, closeTabHTML)
 		token, err := authenticator.Token(request.Context(), state, request)
 		if err != nil {
@@ -172,7 +173,12 @@ func (client *Client) Persist() error {
 		return err
 	}
 	defer file.Close()
-	return json.NewEncoder(file).Encode(token)
+	data, err := json.Marshal(token) //nolint:gosec // G117: intentional token persistence to 0o600 local file, not accidental secret exposure
+	if err != nil {
+		return err
+	}
+	_, err = file.Write(data)
+	return err
 }
 
 func BrowserProcessor(url string) error {

@@ -19,4 +19,4 @@ jobs:
       - run: go test -v -run ^TestScraping$ ./...
         env:
           TEST_SCRAPING: true
-          GENIUS_TOKEN: ${{ secrets.GENIUS_TOKEN }}
+          GENIUS_TOKEN: ${{ secrets.GENIUS_TOKEN }} # zizmor: ignore[secrets-outside-env]

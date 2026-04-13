@@ -23,7 +23,12 @@ func FileMoveOrCopy(source, destination string, overwrite ...bool) error {
 		return err
 	}
 
-	if err := os.WriteFile(destination, input, 0o600); err != nil {
+	destFile, err := os.OpenFile(filepath.Clean(destination), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+	if _, err := destFile.Write(input); err != nil {
 		return err
 	}
 

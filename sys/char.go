@@ -1,5 +1,7 @@
 package sys
 
+var alphaRunes = []rune("abcdefghijklmnopqrstuvwxyz")
+
 func RandomAlpha() rune {
-	return rune('a' + RandomInt(26))
+	return alphaRunes[RandomInt(len(alphaRunes))]
 }

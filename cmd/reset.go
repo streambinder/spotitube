@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/streambinder/spotitube/spotify"
@@ -25,6 +26,11 @@ func cmdReset() *cobra.Command {
 				session        = sys.ErrWrap(false)(cmd.Flags().GetBool("session"))
 				cacheDirectory = sys.CacheDirectory()
 			)
+			root, err := os.OpenRoot(cacheDirectory)
+			if err != nil {
+				return err
+			}
+			defer root.Close()
 			return filepath.WalkDir(cacheDirectory, func(path string, entry fs.DirEntry, err error) error {
 				if err != nil {
 					return err
@@ -34,7 +40,14 @@ func cmdReset() *cobra.Command {
 					return nil
 				}
 
-				return os.RemoveAll(path)
+				rel := strings.TrimPrefix(path, cacheDirectory+string(filepath.Separator))
+				if err := root.RemoveAll(rel); err != nil {
+					return err
+				}
+				if entry.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
 			})
 		},
 	}

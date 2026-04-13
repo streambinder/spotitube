@@ -2,7 +2,6 @@ package spotify
 
 import (
 	"errors"
-	"syscall"
 	"testing"
 
 	"github.com/bytedance/mockey"
@@ -53,18 +52,11 @@ func TestRandomFailure(t *testing.T) {
 }
 
 func TestRandomNextPageFailure(t *testing.T) {
-	client := testClient()
-	// shallow copy to avoid mutating package-level fixture
-	searchCopy := *searchResult
-	tracksCopy := *searchResult.Tracks
-	tracksCopy.Next = "http://0.0.0.0"
-	searchCopy.Tracks = &tracksCopy
-	defer func() { tracksCopy.Next = "" }()
-
 	// monkey patching
 	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Search")).Return(&searchCopy, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Search")).Return(searchResult, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "NextPage")).Return(errors.New("ko")).Build()
 
 	// testing
-	assert.True(t, errors.Is(sys.ErrOnly(client.Random(TypeTrack, len(searchResult.Tracks.Tracks))), syscall.ECONNREFUSED))
+	assert.EqualError(t, sys.ErrOnly(testClient().Random(TypeTrack, len(searchResult.Tracks.Tracks))), "ko")
 }

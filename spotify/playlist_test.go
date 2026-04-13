@@ -2,7 +2,6 @@ package spotify
 
 import (
 	"errors"
-	"syscall"
 	"testing"
 
 	"github.com/bytedance/mockey"
@@ -76,18 +75,13 @@ func TestPlaylistCurrentUsersPlaylistsFailure(t *testing.T) {
 }
 
 func TestPlaylistCurrentUsersPlaylistsNextPageFailure(t *testing.T) {
-	var (
-		client       = testClient()
-		playlistPage = &spotify.SimplePlaylistPage{}
-	)
-	playlistPage.Next = "http://0.0.0.0"
-
 	// monkey patching
 	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUsersPlaylists")).Return(playlistPage, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUsersPlaylists")).Return(&spotify.SimplePlaylistPage{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "NextPage")).Return(errors.New("ko")).Build()
 
 	// testing
-	assert.True(t, errors.Is(sys.ErrOnly(client.Playlist(fullPlaylist.ID.String())), syscall.ECONNREFUSED))
+	assert.EqualError(t, sys.ErrOnly(testClient().Playlist(fullPlaylist.ID.String())), "ko")
 }
 
 func TestPlaylistGetPlaylistFailure(t *testing.T) {
@@ -101,17 +95,21 @@ func TestPlaylistGetPlaylistFailure(t *testing.T) {
 }
 
 func TestPlaylistGetPlaylistNextPageFailure(t *testing.T) {
-	client := testClient()
-	// shallow copy to avoid mutating package-level fixture
-	playlistCopy := *fullPlaylist
-	playlistCopy.Tracks.Next = "http://0.0.0.0"
-	defer func() { playlistCopy.Tracks.Next = "" }()
-
+	// pre-seed personalPlaylists cache so personalPlaylists() is skipped,
+	// ensuring the NextPage mock fires only in Playlist's own pagination loop
+	client := &Client{
+		testClient().Client,
+		testClient().authenticator,
+		testClient().state,
+		map[string]interface{}{
+			personalPlaylistsCacheID: map[string]string{},
+		},
+	}
 	// monkey patching
 	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUsersPlaylists")).Return(&spotify.SimplePlaylistPage{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetPlaylist")).Return(&playlistCopy, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetPlaylist")).Return(fullPlaylist, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "NextPage")).Return(errors.New("ko")).Build()
 
 	// testing
-	assert.True(t, errors.Is(sys.ErrOnly(client.Playlist(fullPlaylist.ID.String())), syscall.ECONNREFUSED))
+	assert.EqualError(t, sys.ErrOnly(client.Playlist(fullPlaylist.ID.String())), "ko")
 }

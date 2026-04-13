@@ -91,10 +91,11 @@ func (client *Client) Playlist(target string, channels ...chan interface{}) (*pl
 			}
 		}
 
-		if err := client.NextPage(ctx, &fullPlaylist.Tracks); errors.Is(err, spotify.ErrNoMorePages) {
+		if err := client.NextPage(ctx, &fullPlaylist.Tracks); err != nil {
+			if !errors.Is(err, spotify.ErrNoMorePages) {
+				return nil, err
+			}
 			break
-		} else if err != nil {
-			return nil, err
 		}
 	}
 

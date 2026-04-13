@@ -40,65 +40,114 @@ func BenchmarkReset(b *testing.B) {
 	}
 }
 
-func TestCmdReset(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(filepath.WalkDir).To(func(_ string, f fs.WalkDirFunc) error {
-		// skip root entry (cacheDirectory == path)
-		if err := f("", DirEntry{name: "", isDir: false}, nil); err != nil {
+func mockWalkDir(cacheDir string, entries []struct {
+	name  string
+	isDir bool
+},
+) func(string, fs.WalkDirFunc) error {
+	return func(_ string, f fs.WalkDirFunc) error {
+		// first entry is always the root (cacheDirectory == path)
+		if err := f(cacheDir, DirEntry{name: cacheDir, isDir: true}, nil); err != nil {
 			return err
 		}
-		// token should be preserved (no --session)
-		if err := f(spotify.TokenBasename, DirEntry{name: spotify.TokenBasename, isDir: false}, nil); err != nil {
-			return err
+		for _, e := range entries {
+			err := f(filepath.Join(cacheDir, e.name), DirEntry{name: e.name, isDir: e.isDir}, nil)
+			if err == filepath.SkipDir {
+				continue // replicate real WalkDir behavior: SkipDir skips subtree, not an error
+			}
+			if err != nil {
+				return err
+			}
 		}
-		// other files should be removed
-		return f("fname.txt", DirEntry{name: "fname.txt", isDir: false}, nil)
-	}).Build()
-	mockey.Mock(os.RemoveAll).Return(nil).Build()
+		return nil
+	}
+}
 
-	// testing
+func TestCmdReset(t *testing.T) {
+	root, _ := os.MkdirTemp("", "spotitube-reset-test")
+	defer os.RemoveAll(root)
+
+	defer mockey.UnPatchAll()
+	mockey.Mock(sys.CacheDirectory).Return(root).Build()
+	mockey.Mock(filepath.WalkDir).To(mockWalkDir(root, []struct {
+		name  string
+		isDir bool
+	}{
+		{spotify.TokenBasename, false}, // should be preserved (no --session)
+		{"fname.txt", false},           // should be removed
+	})).Build()
+	mockey.Mock((*os.Root).RemoveAll).Return(nil).Build()
+
 	assert.Nil(t, sys.ErrOnly(testExecute(cmdReset())))
 }
 
-func TestCmdResetSession(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(filepath.WalkDir).To(func(_ string, f fs.WalkDirFunc) error {
-		if err := f("", DirEntry{name: "", isDir: false}, nil); err != nil {
-			return err
-		}
-		// with --session, token should also be removed
-		return f(spotify.TokenBasename, DirEntry{name: spotify.TokenBasename, isDir: false}, nil)
-	}).Build()
-	mockey.Mock(os.RemoveAll).Return(nil).Build()
+func TestCmdResetDirectory(t *testing.T) {
+	root, _ := os.MkdirTemp("", "spotitube-reset-test")
+	defer os.RemoveAll(root)
 
-	// testing
+	defer mockey.UnPatchAll()
+	mockey.Mock(sys.CacheDirectory).Return(root).Build()
+	mockey.Mock(filepath.WalkDir).To(mockWalkDir(root, []struct {
+		name  string
+		isDir bool
+	}{
+		{"subdir", true}, // directory entry should trigger SkipDir
+	})).Build()
+	mockey.Mock((*os.Root).RemoveAll).Return(nil).Build()
+
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdReset())))
+}
+
+func TestCmdResetOpenRootFailure(t *testing.T) {
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.OpenRoot).Return(nil, errors.New("ko")).Build()
+
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdReset())), "ko")
+}
+
+func TestCmdResetSession(t *testing.T) {
+	root, _ := os.MkdirTemp("", "spotitube-reset-test")
+	defer os.RemoveAll(root)
+
+	defer mockey.UnPatchAll()
+	mockey.Mock(sys.CacheDirectory).Return(root).Build()
+	mockey.Mock(filepath.WalkDir).To(mockWalkDir(root, []struct {
+		name  string
+		isDir bool
+	}{
+		{spotify.TokenBasename, false}, // with --session, token should also be removed
+	})).Build()
+	mockey.Mock((*os.Root).RemoveAll).Return(nil).Build()
+
 	assert.Nil(t, sys.ErrOnly(testExecute(cmdReset(), "--session")))
 }
 
 func TestCmdResetWalkDirError(t *testing.T) {
-	// monkey patching
+	root, _ := os.MkdirTemp("", "spotitube-reset-test")
+	defer os.RemoveAll(root)
+
 	defer mockey.UnPatchAll()
+	mockey.Mock(sys.CacheDirectory).Return(root).Build()
 	mockey.Mock(filepath.WalkDir).To(func(_ string, f fs.WalkDirFunc) error {
-		return f("", DirEntry{name: "", isDir: false}, errors.New("ko"))
+		return f(root, DirEntry{name: root, isDir: true}, errors.New("ko"))
 	}).Build()
 
-	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdReset())), "ko")
 }
 
 func TestCmdResetRemoveFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(filepath.WalkDir).To(func(_ string, f fs.WalkDirFunc) error {
-		if err := f("", DirEntry{name: "", isDir: false}, nil); err != nil {
-			return err
-		}
-		return f("fname.txt", DirEntry{name: "fname.txt", isDir: false}, nil)
-	}).Build()
-	mockey.Mock(os.RemoveAll).Return(errors.New("ko")).Build()
+	root, _ := os.MkdirTemp("", "spotitube-reset-test")
+	defer os.RemoveAll(root)
 
-	// testing
+	defer mockey.UnPatchAll()
+	mockey.Mock(sys.CacheDirectory).Return(root).Build()
+	mockey.Mock(filepath.WalkDir).To(mockWalkDir(root, []struct {
+		name  string
+		isDir bool
+	}{
+		{"fname.txt", false},
+	})).Build()
+	mockey.Mock((*os.Root).RemoveAll).Return(errors.New("ko")).Build()
+
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdReset())), "ko")
 }

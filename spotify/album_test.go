@@ -2,7 +2,6 @@ package spotify
 
 import (
 	"errors"
-	"syscall"
 	"testing"
 
 	"github.com/bytedance/mockey"
@@ -67,16 +66,11 @@ func TestAlbumGetAlbumFailure(t *testing.T) {
 }
 
 func TestAlbumNextPageFailure(t *testing.T) {
-	client := testClient()
-	// shallow copy to avoid mutating package-level fixture
-	albumCopy := *fullAlbum
-	albumCopy.Tracks.Next = "http://0.0.0.0"
-	defer func() { albumCopy.Tracks.Next = "" }()
-
 	// monkey patching
 	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetAlbum")).Return(&albumCopy, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetAlbum")).Return(fullAlbum, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "NextPage")).Return(errors.New("ko")).Build()
 
 	// testing
-	assert.True(t, errors.Is(sys.ErrOnly(client.Album(fullAlbum.ID.String())), syscall.ECONNREFUSED))
+	assert.EqualError(t, sys.ErrOnly(testClient().Album(fullAlbum.ID.String())), "ko")
 }

@@ -33,7 +33,8 @@ func TestFileCopy(t *testing.T) {
 	defer mockey.UnPatchAll()
 	mockey.Mock(os.Rename).Return(errors.New("not renaming")).Build()
 	mockey.Mock(os.ReadFile).Return([]byte{}, nil).Build()
-	mockey.Mock(os.WriteFile).Return(nil).Build()
+	mockey.Mock(os.OpenFile).Return(os.NewFile(0, ""), nil).Build()
+	mockey.Mock((*os.File).Write).Return(0, nil).Build()
 	mockey.Mock(os.Remove).Return(nil).Build()
 
 	// testing
@@ -64,7 +65,8 @@ func TestFileCopyRemoveFailure(t *testing.T) {
 	defer mockey.UnPatchAll()
 	mockey.Mock(os.Rename).Return(errors.New("not renaming")).Build()
 	mockey.Mock(os.ReadFile).Return([]byte{}, nil).Build()
-	mockey.Mock(os.WriteFile).Return(nil).Build()
+	mockey.Mock(os.OpenFile).Return(os.NewFile(0, ""), nil).Build()
+	mockey.Mock((*os.File).Write).Return(0, nil).Build()
 	mockey.Mock(os.Remove).Return(errors.New("ko")).Build()
 
 	// testing
@@ -81,12 +83,24 @@ func TestFileCopyReadFailure(t *testing.T) {
 	assert.EqualError(t, FileMoveOrCopy("/a", "/a"), "ko")
 }
 
-func TestFileCopyWriteFailure(t *testing.T) {
+func TestFileCopyOpenFailure(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
 	mockey.Mock(os.Rename).Return(errors.New("not renaming")).Build()
 	mockey.Mock(os.ReadFile).Return([]byte{}, nil).Build()
-	mockey.Mock(os.WriteFile).Return(errors.New("ko")).Build()
+	mockey.Mock(os.OpenFile).Return(nil, errors.New("ko")).Build()
+
+	// testing
+	assert.EqualError(t, FileMoveOrCopy("/a", "/a"), "ko")
+}
+
+func TestFileCopyWriteFailure(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Rename).Return(errors.New("not renaming")).Build()
+	mockey.Mock(os.ReadFile).Return([]byte("data"), nil).Build()
+	mockey.Mock(os.OpenFile).Return(os.NewFile(0, ""), nil).Build()
+	mockey.Mock((*os.File).Write).Return(0, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, FileMoveOrCopy("/a", "/a"), "ko")

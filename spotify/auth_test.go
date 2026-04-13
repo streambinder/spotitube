@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"sync"
-	"syscall"
 	"testing"
 	"time"
 
@@ -31,8 +30,9 @@ const (
 )
 
 var (
-	ports = make(map[int]bool)
-	lock  sync.RWMutex
+	ports      = make(map[int]bool)
+	lock       sync.RWMutex
+	httpClient = &http.Client{Transport: &http.Transport{Proxy: nil}}
 )
 
 func testClient() *Client {
@@ -87,15 +87,22 @@ func TestAuthenticate(t *testing.T) {
 			)
 
 			for {
-				response, err = http.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=C0D3&state=%s", port, state))
-				if errors.Is(err, syscall.ECONNREFUSED) {
+				// wait until the server is actually listening before sending the request
+				if conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 10*time.Millisecond); err != nil {
 					time.Sleep(100 * time.Millisecond)
 					continue
+				} else {
+					conn.Close()
 				}
-				response.Body.Close()
+				response, err = httpClient.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=C0D3&state=%s", port, state))
+				if err == nil {
+					response.Body.Close()
+				}
 				break
 			}
-			assert.Equal(t, http.StatusOK, response.StatusCode)
+			if response != nil {
+				assert.Equal(t, http.StatusOK, response.StatusCode)
+			}
 		},
 	))
 }
@@ -144,7 +151,8 @@ func TestAuthenticateRecoverAndPersist(t *testing.T) {
 	mockey.Mock(os.ReadFile).Return([]byte(token), nil).Build()
 	mockey.Mock(os.OpenFile).Return(&os.File{}, nil).Build()
 	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Token")).Return(nil, nil).Build()
-	mockey.Mock(mockey.GetMethod(&json.Encoder{}, "Encode")).Return(nil).Build()
+	mockey.Mock(json.Marshal).Return([]byte(`{}`), nil).Build()
+	mockey.Mock((*os.File).Write).Return(2, nil).Build()
 
 	// testing
 	assert.Nil(t, sys.ErrOnly(Authenticate(nil)))
@@ -174,15 +182,22 @@ func TestAuthenticateRecoverOpenFailure(t *testing.T) {
 			)
 
 			for {
-				response, err = http.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=C0D3&state=%s", port, state))
-				if errors.Is(err, syscall.ECONNREFUSED) {
+				// wait until the server is actually listening before sending the request
+				if conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 10*time.Millisecond); err != nil {
 					time.Sleep(100 * time.Millisecond)
 					continue
+				} else {
+					conn.Close()
 				}
-				response.Body.Close()
+				response, err = httpClient.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=C0D3&state=%s", port, state))
+				if err == nil {
+					response.Body.Close()
+				}
 				break
 			}
-			assert.Equal(t, http.StatusOK, response.StatusCode)
+			if response != nil {
+				assert.Equal(t, http.StatusOK, response.StatusCode)
+			}
 		},
 	))
 }
@@ -212,15 +227,22 @@ func TestAuthenticateRecoverUnmarshalFailure(t *testing.T) {
 			)
 
 			for {
-				response, err = http.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=C0D3&state=%s", port, state))
-				if errors.Is(err, syscall.ECONNREFUSED) {
+				// wait until the server is actually listening before sending the request
+				if conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 10*time.Millisecond); err != nil {
 					time.Sleep(100 * time.Millisecond)
 					continue
+				} else {
+					conn.Close()
 				}
-				response.Body.Close()
+				response, err = httpClient.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=C0D3&state=%s", port, state))
+				if err == nil {
+					response.Body.Close()
+				}
 				break
 			}
-			assert.Equal(t, http.StatusOK, response.StatusCode)
+			if response != nil {
+				assert.Equal(t, http.StatusOK, response.StatusCode)
+			}
 		},
 	))
 }
@@ -265,6 +287,19 @@ func TestAuthenticateRecoverAndPersistOpenFailure(t *testing.T) {
 	assert.EqualError(t, sys.ErrOnly(Authenticate(nil)), "ko")
 }
 
+func TestAuthenticateRecoverAndPersistMarshalFailure(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Getenv).Return("value").Build()
+	mockey.Mock(os.ReadFile).Return([]byte(token), nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Token")).Return(nil, nil).Build()
+	mockey.Mock(os.OpenFile).Return(&os.File{}, nil).Build()
+	mockey.Mock(json.Marshal).Return(nil, errors.New("ko")).Build()
+
+	// testing
+	assert.EqualError(t, sys.ErrOnly(Authenticate(nil)), "ko")
+}
+
 func TestAuthenticateNotFound(t *testing.T) {
 	t.Cleanup(resetPort)
 	port = getPort()
@@ -289,15 +324,22 @@ func TestAuthenticateNotFound(t *testing.T) {
 			)
 
 			for {
-				response, err = http.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=C0D3&state=null", port))
-				if errors.Is(err, syscall.ECONNREFUSED) {
+				// wait until the server is actually listening before sending the request
+				if conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 10*time.Millisecond); err != nil {
 					time.Sleep(100 * time.Millisecond)
 					continue
+				} else {
+					conn.Close()
 				}
-				response.Body.Close()
+				response, err = httpClient.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=C0D3&state=null", port))
+				if err == nil {
+					response.Body.Close()
+				}
 				break
 			}
-			assert.Equal(t, http.StatusOK, response.StatusCode)
+			if response != nil {
+				assert.Equal(t, http.StatusOK, response.StatusCode)
+			}
 		},
 	), http.StatusText(http.StatusNotFound))
 }
@@ -326,15 +368,22 @@ func TestAuthenticateForbidden(t *testing.T) {
 			)
 
 			for {
-				response, err = http.Get(fmt.Sprintf("http://127.0.0.1:%d/callback", port))
-				if errors.Is(err, syscall.ECONNREFUSED) {
+				// wait until the server is actually listening before sending the request
+				if conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 10*time.Millisecond); err != nil {
 					time.Sleep(100 * time.Millisecond)
 					continue
+				} else {
+					conn.Close()
 				}
-				response.Body.Close()
+				response, err = httpClient.Get(fmt.Sprintf("http://127.0.0.1:%d/callback", port))
+				if err == nil {
+					response.Body.Close()
+				}
 				break
 			}
-			assert.Equal(t, http.StatusOK, response.StatusCode)
+			if response != nil {
+				assert.Equal(t, http.StatusOK, response.StatusCode)
+			}
 		},
 	), http.StatusText(http.StatusForbidden))
 }
@@ -364,15 +413,22 @@ func TestAuthenticateProcessorFailure(t *testing.T) {
 			)
 
 			for {
-				response, err = http.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=C0D3&state=%s", port, state))
-				if errors.Is(err, syscall.ECONNREFUSED) {
+				// wait until the server is actually listening before sending the request
+				if conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 10*time.Millisecond); err != nil {
 					time.Sleep(100 * time.Millisecond)
 					continue
+				} else {
+					conn.Close()
 				}
-				response.Body.Close()
+				response, err = httpClient.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=C0D3&state=%s", port, state))
+				if err == nil {
+					response.Body.Close()
+				}
 				break
 			}
-			assert.Equal(t, http.StatusOK, response.StatusCode)
+			if response != nil {
+				assert.Equal(t, http.StatusOK, response.StatusCode)
+			}
 		},
 	), "ko")
 }

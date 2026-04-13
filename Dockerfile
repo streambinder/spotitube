@@ -6,7 +6,7 @@ RUN --mount=type=secret,id=SPOTIFY_ID \
     --mount=type=secret,id=SPOTIFY_KEY \
     --mount=type=secret,id=GENIUS_TOKEN \
     go mod download && \
-    go build -ldflags="-s -w -X github.com/streambinder/spotitube/spotify.fallbackSpotifyID=$(cat /run/secrets/SPOTIFY_ID) -X github.com/streambinder/spotitube/spotify.fallbackSpotifyKey=$(cat /run/secrets/SPOTIFY_KEY) -X github.com/streambinder/spotitube/lyrics.fallbackGeniusToken=$(cat /run/secrets/GENIUS_TOKEN)"
+    go build -o spotitube -ldflags="-s -w -X github.com/streambinder/spotitube/spotify.fallbackSpotifyID=$(tr -d '\n' </run/secrets/SPOTIFY_ID) -X github.com/streambinder/spotitube/spotify.fallbackSpotifyKey=$(tr -d '\n' </run/secrets/SPOTIFY_KEY) -X github.com/streambinder/spotitube/lyrics.fallbackGeniusToken=$(tr -d '\n' </run/secrets/GENIUS_TOKEN)" .
 
 FROM alpine:3
 RUN apk add --no-cache ffmpeg yt-dlp && \

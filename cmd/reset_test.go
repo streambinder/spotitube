@@ -64,8 +64,7 @@ func mockWalkDir(cacheDir string, entries []struct {
 }
 
 func TestCmdReset(t *testing.T) {
-	root, _ := os.MkdirTemp("", "spotitube-reset-test")
-	defer os.RemoveAll(root)
+	root := t.TempDir()
 
 	defer mockey.UnPatchAll()
 	mockey.Mock(sys.CacheDirectory).Return(root).Build()
@@ -82,8 +81,7 @@ func TestCmdReset(t *testing.T) {
 }
 
 func TestCmdResetDirectory(t *testing.T) {
-	root, _ := os.MkdirTemp("", "spotitube-reset-test")
-	defer os.RemoveAll(root)
+	root := t.TempDir()
 
 	defer mockey.UnPatchAll()
 	mockey.Mock(sys.CacheDirectory).Return(root).Build()
@@ -106,8 +104,7 @@ func TestCmdResetOpenRootFailure(t *testing.T) {
 }
 
 func TestCmdResetSession(t *testing.T) {
-	root, _ := os.MkdirTemp("", "spotitube-reset-test")
-	defer os.RemoveAll(root)
+	root := t.TempDir()
 
 	defer mockey.UnPatchAll()
 	mockey.Mock(sys.CacheDirectory).Return(root).Build()
@@ -123,8 +120,7 @@ func TestCmdResetSession(t *testing.T) {
 }
 
 func TestCmdResetWalkDirError(t *testing.T) {
-	root, _ := os.MkdirTemp("", "spotitube-reset-test")
-	defer os.RemoveAll(root)
+	root := t.TempDir()
 
 	defer mockey.UnPatchAll()
 	mockey.Mock(sys.CacheDirectory).Return(root).Build()
@@ -136,8 +132,7 @@ func TestCmdResetWalkDirError(t *testing.T) {
 }
 
 func TestCmdResetRemoveFailure(t *testing.T) {
-	root, _ := os.MkdirTemp("", "spotitube-reset-test")
-	defer os.RemoveAll(root)
+	root := t.TempDir()
 
 	defer mockey.UnPatchAll()
 	mockey.Mock(sys.CacheDirectory).Return(root).Build()

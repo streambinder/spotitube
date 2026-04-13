@@ -88,12 +88,12 @@ func TestAuthenticate(t *testing.T) {
 
 			for {
 				// wait until the server is actually listening before sending the request
-				if conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 10*time.Millisecond); err != nil {
+				conn, dialErr := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 10*time.Millisecond)
+				if dialErr != nil {
 					time.Sleep(100 * time.Millisecond)
 					continue
-				} else {
-					conn.Close()
 				}
+				conn.Close()
 				response, err = httpClient.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=C0D3&state=%s", port, state))
 				if err == nil {
 					response.Body.Close()
@@ -183,12 +183,12 @@ func TestAuthenticateRecoverOpenFailure(t *testing.T) {
 
 			for {
 				// wait until the server is actually listening before sending the request
-				if conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 10*time.Millisecond); err != nil {
+				conn, dialErr := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 10*time.Millisecond)
+				if dialErr != nil {
 					time.Sleep(100 * time.Millisecond)
 					continue
-				} else {
-					conn.Close()
 				}
+				conn.Close()
 				response, err = httpClient.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=C0D3&state=%s", port, state))
 				if err == nil {
 					response.Body.Close()
@@ -228,12 +228,12 @@ func TestAuthenticateRecoverUnmarshalFailure(t *testing.T) {
 
 			for {
 				// wait until the server is actually listening before sending the request
-				if conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 10*time.Millisecond); err != nil {
+				conn, dialErr := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 10*time.Millisecond)
+				if dialErr != nil {
 					time.Sleep(100 * time.Millisecond)
 					continue
-				} else {
-					conn.Close()
 				}
+				conn.Close()
 				response, err = httpClient.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=C0D3&state=%s", port, state))
 				if err == nil {
 					response.Body.Close()
@@ -325,12 +325,12 @@ func TestAuthenticateNotFound(t *testing.T) {
 
 			for {
 				// wait until the server is actually listening before sending the request
-				if conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 10*time.Millisecond); err != nil {
+				conn, dialErr := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 10*time.Millisecond)
+				if dialErr != nil {
 					time.Sleep(100 * time.Millisecond)
 					continue
-				} else {
-					conn.Close()
 				}
+				conn.Close()
 				response, err = httpClient.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=C0D3&state=null", port))
 				if err == nil {
 					response.Body.Close()
@@ -369,12 +369,12 @@ func TestAuthenticateForbidden(t *testing.T) {
 
 			for {
 				// wait until the server is actually listening before sending the request
-				if conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 10*time.Millisecond); err != nil {
+				conn, dialErr := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 10*time.Millisecond)
+				if dialErr != nil {
 					time.Sleep(100 * time.Millisecond)
 					continue
-				} else {
-					conn.Close()
 				}
+				conn.Close()
 				response, err = httpClient.Get(fmt.Sprintf("http://127.0.0.1:%d/callback", port))
 				if err == nil {
 					response.Body.Close()
@@ -414,12 +414,12 @@ func TestAuthenticateProcessorFailure(t *testing.T) {
 
 			for {
 				// wait until the server is actually listening before sending the request
-				if conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 10*time.Millisecond); err != nil {
+				conn, dialErr := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 10*time.Millisecond)
+				if dialErr != nil {
 					time.Sleep(100 * time.Millisecond)
 					continue
-				} else {
-					conn.Close()
 				}
+				conn.Close()
 				response, err = httpClient.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=C0D3&state=%s", port, state))
 				if err == nil {
 					response.Body.Close()

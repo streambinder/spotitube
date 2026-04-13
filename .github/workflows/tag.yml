@@ -70,8 +70,9 @@ jobs:
           SPOTIFY_ID: ${{ secrets.SPOTIFY_ID }} # zizmor: ignore[secrets-outside-env]
           SPOTIFY_KEY: ${{ secrets.SPOTIFY_KEY }} # zizmor: ignore[secrets-outside-env]
           GENIUS_TOKEN: ${{ secrets.GENIUS_TOKEN }} # zizmor: ignore[secrets-outside-env]
-      - run: gh release create ${{ github.ref_name }} ./spotitube-* --draft=false --prerelease=false
+      - run: gh release create "$REF_NAME" ./spotitube-* --draft=false --prerelease=false
         env:
+          REF_NAME: ${{ github.ref_name }}
           GH_TOKEN: ${{ secrets.RELEASE_SPOTITUBE }} # zizmor: ignore[secrets-outside-env]
   docker:
     runs-on: ubuntu-latest

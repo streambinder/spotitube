@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"context"
 	"errors"
+	"io"
 	"os"
 	"testing"
 
@@ -17,6 +19,7 @@ import (
 	"github.com/streambinder/spotitube/provider"
 	"github.com/streambinder/spotitube/spotify"
 	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/spotitube/sys/anchor"
 	"github.com/streambinder/spotitube/sys/cmd"
 	"github.com/stretchr/testify/assert"
 )
@@ -178,6 +181,46 @@ func TestCmdSyncAuthFailure(t *testing.T) {
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
+}
+
+func TestRoutineAuthUsername(t *testing.T) {
+	stdout := os.Stdout
+	oldTUI := tui
+	oldRoutineSemaphores := routineSemaphores
+	defer func() {
+		os.Stdout = stdout
+	}()
+	t.Cleanup(func() {
+		tui = oldTUI
+		routineSemaphores = oldRoutineSemaphores
+	})
+	reader, writer, err := os.Pipe()
+	assert.Nil(t, err)
+	os.Stdout = writer
+
+	tui = anchor.New(anchor.Red)
+	tui.EnablePlainMode()
+	cmd := cmdSync()
+	cmd.PreRun(cmd, nil)
+	errChannel := make(chan error, 1)
+	t.Cleanup(func() {
+		close(errChannel)
+	})
+
+	defer mockey.UnPatchAll()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Username")).Return("alice", nil).Build()
+
+	routineAuth(context.Background(), errChannel)
+
+	assert.Nil(t, writer.Close())
+	output, err := io.ReadAll(reader)
+	assert.Nil(t, err)
+	assert.Contains(t, string(output), "auth alice")
+	assert.Empty(t, errChannel)
+	ok, open := <-routineSemaphores[routineTypeAuth]
+	assert.True(t, open)
+	assert.True(t, ok)
 }
 
 func TestCmdSyncLibraryFailure(t *testing.T) {

@@ -20,8 +20,9 @@ import (
 )
 
 const (
-	TokenBasename = "session.json"
-	closeTabHTML  = "<!DOCTYPE html><html><head><script>open(location, '_self').close();</script></head></html>"
+	TokenBasename      = "session.json"
+	closeTabHTML       = "<!DOCTYPE html><html><head><script>open(location, '_self').close();</script></head></html>"
+	currentUserCacheID = "CurrentUser"
 )
 
 var (
@@ -183,4 +184,21 @@ func (client *Client) Persist() error {
 
 func BrowserProcessor(url string) error {
 	return cmd.Open(url)
+}
+
+func (client *Client) Username() (string, error) {
+	if currentUser, ok := client.cache[currentUserCacheID]; ok {
+		return currentUser.(*spotify.PrivateUser).ID, nil
+	}
+	if client == nil || client.Client == nil {
+		return "", errors.New("spotify client not initialized")
+	}
+
+	currentUser, err := client.CurrentUser(context.Background())
+	if err != nil {
+		return "", err
+	}
+
+	client.cache[currentUserCacheID] = currentUser
+	return currentUser.ID, nil
 }

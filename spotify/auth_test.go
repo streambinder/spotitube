@@ -300,6 +300,48 @@ func TestAuthenticateRecoverAndPersistMarshalFailure(t *testing.T) {
 	assert.EqualError(t, sys.ErrOnly(Authenticate(nil)), "ko")
 }
 
+func TestUsername(t *testing.T) {
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUser")).Return(&spotify.PrivateUser{
+		User: spotify.User{ID: "alice"},
+	}, nil).Build()
+
+	username, err := testClient().Username()
+
+	assert.Nil(t, err)
+	assert.Equal(t, "alice", username)
+}
+
+func TestUsernameCached(t *testing.T) {
+	username, err := (&Client{
+		cache: map[string]interface{}{
+			currentUserCacheID: &spotify.PrivateUser{
+				User: spotify.User{ID: "alice"},
+			},
+		},
+	}).Username()
+
+	assert.Nil(t, err)
+	assert.Equal(t, "alice", username)
+}
+
+func TestUsernameCurrentUserFailure(t *testing.T) {
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUser")).Return(nil, errors.New("ko")).Build()
+
+	username, err := testClient().Username()
+
+	assert.Empty(t, username)
+	assert.EqualError(t, err, "ko")
+}
+
+func TestUsernameUninitializedClient(t *testing.T) {
+	username, err := (&Client{}).Username()
+
+	assert.Empty(t, username)
+	assert.EqualError(t, err, "spotify client not initialized")
+}
+
 func TestAuthenticateNotFound(t *testing.T) {
 	t.Cleanup(resetPort)
 	port = getPort()

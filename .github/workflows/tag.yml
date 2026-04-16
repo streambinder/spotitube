@@ -33,7 +33,7 @@ jobs:
           go-version-file: go.mod
           cache: false
       - run: |
-          go test -p 1 -v -timeout 30s ./...
+          go test -gcflags="all=-N -l" -p 1 -v -timeout 30s ./...
         env:
           XDG_MUSIC_DIR: /tmp
   build:

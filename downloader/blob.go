@@ -30,7 +30,7 @@ func (blob) supports(url string) bool {
 	}
 
 	switch response.Header.Get("Content-Type") {
-	case "image/jpeg":
+	case "image/jpeg", "audio/mpeg":
 		return true
 	default:
 		return false

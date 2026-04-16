@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"sort"
 	"sync"
 
@@ -25,16 +26,19 @@ type Provider interface {
 
 func Search(track *entity.Track) ([]*Match, error) {
 	var (
-		workers []nursery.ConcurrentJob
-		matches []*Match
-		mu      sync.Mutex
+		workers  []nursery.ConcurrentJob
+		matches  []*Match
+		mu       sync.Mutex
+		errCount int
 	)
 	for _, provider := range providers {
 		workers = append(workers, func(p Provider) func(ctx context.Context, ch chan error) {
-			return func(_ context.Context, ch chan error) {
+			return func(_ context.Context, _ chan error) {
 				scopedMatches, err := p.search(track)
 				if err != nil {
-					ch <- err
+					mu.Lock()
+					errCount++
+					mu.Unlock()
 					return
 				}
 				mu.Lock()
@@ -46,6 +50,10 @@ func Search(track *entity.Track) ([]*Match, error) {
 
 	if err := nursery.RunConcurrently(workers...); err != nil {
 		return nil, err
+	}
+
+	if errCount == len(workers) {
+		return nil, errors.New("all providers failed")
 	}
 
 	sort.SliceStable(matches, func(i, j int) bool {

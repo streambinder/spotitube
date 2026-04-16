@@ -4,9 +4,9 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/arunsworld/nursery"
 	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/entity"
-	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -45,7 +45,31 @@ func TestSearchFailure(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
 	mockey.Mock(mockey.GetMethod(youTube{}, "search")).Return(nil, errors.New("ko")).Build()
+	mockey.Mock(mockey.GetMethod(qobuz{}, "search")).Return(nil, errors.New("ko")).Build()
+
+	// all providers failed → propagate as error
+	_, err := Search(track)
+	assert.EqualError(t, err, "all providers failed")
+}
+
+func TestSearchPartialFailure(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(youTube{}, "search")).Return(nil, errors.New("ko")).Build()
+	mockey.Mock(mockey.GetMethod(qobuz{}, "search")).Return([]*Match{{URL: "url1", Score: 100}}, nil).Build()
+
+	// one provider succeeded → return its matches, no error
+	matches, err := Search(track)
+	assert.Nil(t, err)
+	assert.NotEmpty(t, matches)
+}
+
+func TestSearchNurseryFailure(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(nursery.RunConcurrently).Return(errors.New("nursery ko")).Build()
 
 	// testing
-	assert.EqualError(t, sys.ErrOnly(Search(track)), "ko")
+	_, err := Search(track)
+	assert.EqualError(t, err, "nursery ko")
 }

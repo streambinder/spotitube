@@ -72,6 +72,19 @@ func TestBlobSupportsNotFound(t *testing.T) {
 	assert.False(t, blob{}.supports("http://davidepucci.it"))
 }
 
+func TestBlobSupportsAudioMPEG(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Head")).Return(&http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(strings.NewReader("")),
+		Header:     map[string][]string{"Content-Type": {"audio/mpeg"}},
+	}, nil).Build()
+
+	// testing
+	assert.True(t, blob{}.supports("http://davidepucci.it"))
+}
+
 func TestBlobUnsupported(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()

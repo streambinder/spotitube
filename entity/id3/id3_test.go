@@ -55,6 +55,21 @@ func TestOpen(t *testing.T) {
 	assert.Equal(t, "", tag.userDefinedText("not existing"))
 }
 
+func TestOpenSpotifyID(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(id3v2.Open).To(func(_ string, options id3v2.Options) (*id3v2.Tag, error) {
+		assert.True(t, options.Parse)
+		assert.Equal(t, []string{"User defined text information frame"}, options.ParseFrames)
+		return id3v2.NewEmptyTag(), nil
+	}).Build()
+
+	// testing
+	tag, err := OpenSpotifyID("")
+	assert.Nil(t, err)
+	assert.NotNil(t, tag)
+}
+
 func TestUserDefinedTextInvalidFrame(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()

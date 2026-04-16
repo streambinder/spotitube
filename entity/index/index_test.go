@@ -58,7 +58,7 @@ func TestBuild(t *testing.T) {
 
 	// testing
 	index := New()
-	index.Set(&entity.Track{Title: "Title", Artists: []string{"Artist"}}, Offline)
+	index.Set(&entity.Track{ID: "id", Title: "Title", Artists: []string{"Artist"}}, Offline)
 	assert.Nil(t, index.Build("path", 0))
 	status, ok := index.Get(&entity.Track{ID: "id", Artists: []string{"Artist"}, Title: "Title"})
 	assert.True(t, ok)
@@ -91,4 +91,23 @@ func TestBuildCloseFailure(t *testing.T) {
 
 	// testing
 	assert.EqualError(t, New().Build("path"), "ko")
+}
+
+func TestGetFallsBackToPath(t *testing.T) {
+	index := New()
+	index.SetPath("Artist - Title.mp3", Offline)
+
+	status, ok := index.Get(&entity.Track{ID: "different-id", Title: "Title", Artists: []string{"Artist"}})
+	assert.True(t, ok)
+	assert.Equal(t, Offline, status)
+}
+
+func TestGetPrefersIDOverPath(t *testing.T) {
+	index := New()
+	index.SetPath("Artist - Title.mp3", Offline)
+	index.SetID("id", Flush)
+
+	status, ok := index.Get(&entity.Track{ID: "id", Title: "Title", Artists: []string{"Artist"}})
+	assert.True(t, ok)
+	assert.Equal(t, Flush, status)
 }

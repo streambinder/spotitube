@@ -10,7 +10,6 @@ import (
 
 	"github.com/adrg/xdg"
 	"github.com/arunsworld/nursery"
-	"github.com/bogem/id3v2/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/streambinder/spotitube/downloader"
@@ -241,7 +240,7 @@ func routineFetchFixesIDs(fixes []string) ([]string, error) {
 	var localTracks []string
 	for _, path := range fixes {
 		tui.Lot("fetch").Printf("track %s", path)
-		tag, err := id3.Open(path, id3v2.Options{Parse: true})
+		tag, err := id3.OpenSpotifyID(path)
 		if err != nil {
 			return nil, err
 		}
@@ -252,7 +251,7 @@ func routineFetchFixesIDs(fixes []string) ([]string, error) {
 		}
 
 		localTracks = append(localTracks, id)
-		indexData.SetPath(path, index.Flush)
+		indexData.SetID(id, index.Flush)
 		if err := tag.Close(); err != nil {
 			return nil, err
 		}

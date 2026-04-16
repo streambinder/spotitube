@@ -11,6 +11,7 @@ const (
 	frameAttachedPicture      = "Attached picture"
 	frameTrackNumber          = "Track number/Position in set"
 	frameUnsynchronizedLyrics = "Unsynchronised lyrics/text transcription"
+	frameUserDefinedText      = "User defined text information frame"
 	frameSpotifyID            = "Spotify ID"
 	frameArtworkURL           = "Artwork URL"
 	frameDuration             = "Duration"
@@ -28,6 +29,14 @@ func Open(path string, options id3v2.Options) (*Tag, error) {
 		return nil, err
 	}
 	return &Tag{*tag, make(map[string]string)}, err
+}
+
+func OpenSpotifyID(path string) (*Tag, error) {
+	return Open(path, id3v2.Options{
+		Parse: true,
+		// Spotify ID is serialized as a user-defined text (TXXX) frame.
+		ParseFrames: []string{frameUserDefinedText},
+	})
 }
 
 func (tag *Tag) SetTrackNumber(number string) {
@@ -57,7 +66,7 @@ func (tag *Tag) userDefinedText(key string) string {
 		return value
 	}
 
-	for _, rawFrame := range tag.GetFrames(tag.CommonID("User defined text information frame")) {
+	for _, rawFrame := range tag.GetFrames(tag.CommonID(frameUserDefinedText)) {
 		frame, ok := rawFrame.(id3v2.UserDefinedTextFrame)
 		if !ok {
 			continue

@@ -6,7 +6,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/bogem/id3v2/v2"
 	"github.com/gosimple/slug"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/entity/id3"
@@ -20,12 +19,21 @@ const (
 )
 
 type Index struct {
-	data map[string]int
-	lock sync.RWMutex
+	ids   map[string]int // track Spotify IDs for canonical matches across renames
+	paths map[string]int // final paths catch same-song collisions across upstream IDs
+	lock  sync.RWMutex
 }
 
-func keyFromTrack(track *entity.Track) string {
+func keyFromTrackID(track *entity.Track) string {
+	return keyFromID(track.ID)
+}
+
+func keyFromTrackPath(track *entity.Track) string {
 	return keyFromPath(track.Path().Final())
+}
+
+func keyFromID(id string) string {
+	return id
 }
 
 func keyFromPath(path string) string {
@@ -34,8 +42,9 @@ func keyFromPath(path string) string {
 
 func New() *Index {
 	return &Index{
-		make(map[string]int),
-		sync.RWMutex{},
+		ids:   make(map[string]int),
+		paths: make(map[string]int),
+		lock:  sync.RWMutex{},
 	}
 }
 
@@ -62,12 +71,13 @@ func (index *Index) Build(path string, init ...int) error {
 			return nil
 		}
 
-		tag, err := id3.Open(path, id3v2.Options{Parse: true})
+		tag, err := id3.OpenSpotifyID(path)
 		if err != nil {
 			return err
 		}
 
 		if id := tag.SpotifyID(); len(id) > 0 {
+			index.SetID(id, status)
 			index.SetPath(path, status)
 		}
 
@@ -78,19 +88,35 @@ func (index *Index) Build(path string, init ...int) error {
 func (index *Index) Set(track *entity.Track, value int) {
 	index.lock.Lock()
 	defer index.lock.Unlock()
-	index.data[keyFromTrack(track)] = value
+	if len(track.ID) > 0 {
+		index.ids[keyFromTrackID(track)] = value
+	}
+	index.paths[keyFromTrackPath(track)] = value
+}
+
+func (index *Index) SetID(id string, value int) {
+	index.lock.Lock()
+	defer index.lock.Unlock()
+	index.ids[keyFromID(id)] = value
 }
 
 func (index *Index) SetPath(path string, value int) {
 	index.lock.Lock()
 	defer index.lock.Unlock()
-	index.data[keyFromPath(path)] = value
+	index.paths[keyFromPath(path)] = value
 }
 
 func (index *Index) Get(track *entity.Track) (int, bool) {
 	index.lock.RLock()
 	defer index.lock.RUnlock()
-	value, ok := index.data[keyFromTrack(track)]
+	if len(track.ID) > 0 {
+		value, ok := index.ids[keyFromTrackID(track)]
+		if ok {
+			return value, true
+		}
+	}
+
+	value, ok := index.paths[keyFromTrackPath(track)]
 	return value, ok
 }
 
@@ -99,10 +125,10 @@ func (index *Index) Size(statuses ...int) (counter int) {
 	defer index.lock.RUnlock()
 
 	if len(statuses) == 0 {
-		return len(index.data)
+		return len(index.ids)
 	}
 
-	for _, value := range index.data {
+	for _, value := range index.ids {
 		for _, status := range statuses {
 			if value == status {
 				counter++

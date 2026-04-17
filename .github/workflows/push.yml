@@ -103,6 +103,9 @@ jobs:
     needs: [test]
     if: success() && github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
+    environment:
+      name: prod
+      deployment: false
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
@@ -116,7 +119,7 @@ jobs:
       - uses: peter-evans/repository-dispatch@28959ce8df70de7be546dd1250a005dd32156697
         if: steps.filter.outputs.docs == 'true'
         with:
-          token: ${{ secrets.REPOSITORY_DISPATCH_STREAMBINDER }} # zizmor: ignore[secrets-outside-env]
+          token: ${{ secrets.REPOSITORY_DISPATCH_STREAMBINDER }}
           repository: streambinder/streambinder
           event-type: doc-sync
           client-payload: '{"repo": "${{ github.repository }}", "ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'
@@ -136,6 +139,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test]
     if: success() && github.event_name == 'push' && github.ref == 'refs/heads/master'
+    environment:
+      name: prod
+      deployment: false
     permissions:
       packages: write
     steps:
@@ -152,9 +158,9 @@ jobs:
       - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294
         with:
           secrets: |
-            SPOTIFY_ID=${{ secrets.SPOTIFY_ID }} # zizmor: ignore[secrets-outside-env]
-            SPOTIFY_KEY=${{ secrets.SPOTIFY_KEY }} # zizmor: ignore[secrets-outside-env]
-            GENIUS_TOKEN=${{ secrets.GENIUS_TOKEN }} # zizmor: ignore[secrets-outside-env]
+            SPOTIFY_ID=${{ secrets.SPOTIFY_ID }}
+            SPOTIFY_KEY=${{ secrets.SPOTIFY_KEY }}
+            GENIUS_TOKEN=${{ secrets.GENIUS_TOKEN }}
           platforms: linux/amd64,linux/arm/v7,linux/arm64/v8
           tags: ghcr.io/streambinder/spotitube:latest
           push: ${{ github.event_name != 'pull_request' }}

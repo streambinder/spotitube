@@ -9,6 +9,9 @@ permissions: read-all
 jobs:
   test:
     runs-on: ubuntu-latest
+    environment:
+      name: prod
+      deployment: false
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
@@ -19,4 +22,4 @@ jobs:
       - run: go test -v -run ^TestScraping$ ./...
         env:
           TEST_SCRAPING: true
-          GENIUS_TOKEN: ${{ secrets.GENIUS_TOKEN }} # zizmor: ignore[secrets-outside-env]
+          GENIUS_TOKEN: ${{ secrets.GENIUS_TOKEN }}

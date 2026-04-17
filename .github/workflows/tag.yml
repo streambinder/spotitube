@@ -40,6 +40,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test]
     if: success()
+    environment:
+      name: prod
+      deployment: false
     permissions:
       contents: write
     steps:
@@ -67,17 +70,20 @@ jobs:
             done
           done
         env:
-          SPOTIFY_ID: ${{ secrets.SPOTIFY_ID }} # zizmor: ignore[secrets-outside-env]
-          SPOTIFY_KEY: ${{ secrets.SPOTIFY_KEY }} # zizmor: ignore[secrets-outside-env]
-          GENIUS_TOKEN: ${{ secrets.GENIUS_TOKEN }} # zizmor: ignore[secrets-outside-env]
+          SPOTIFY_ID: ${{ secrets.SPOTIFY_ID }}
+          SPOTIFY_KEY: ${{ secrets.SPOTIFY_KEY }}
+          GENIUS_TOKEN: ${{ secrets.GENIUS_TOKEN }}
       - run: gh release create "$REF_NAME" ./spotitube-* --draft=false --prerelease=false
         env:
           REF_NAME: ${{ github.ref_name }}
-          GH_TOKEN: ${{ secrets.RELEASE_SPOTITUBE }} # zizmor: ignore[secrets-outside-env]
+          GH_TOKEN: ${{ secrets.RELEASE_SPOTITUBE }}
   docker:
     runs-on: ubuntu-latest
     needs: [test]
     if: success()
+    environment:
+      name: prod
+      deployment: false
     permissions:
       packages: write
     steps:
@@ -94,9 +100,9 @@ jobs:
       - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294
         with:
           secrets: |
-            SPOTIFY_ID=${{ secrets.SPOTIFY_ID }} # zizmor: ignore[secrets-outside-env]
-            SPOTIFY_KEY=${{ secrets.SPOTIFY_KEY }} # zizmor: ignore[secrets-outside-env]
-            GENIUS_TOKEN=${{ secrets.GENIUS_TOKEN }} # zizmor: ignore[secrets-outside-env]
+            SPOTIFY_ID=${{ secrets.SPOTIFY_ID }}
+            SPOTIFY_KEY=${{ secrets.SPOTIFY_KEY }}
+            GENIUS_TOKEN=${{ secrets.GENIUS_TOKEN }}
           platforms: linux/amd64,linux/arm/v7,linux/arm64/v8
           tags: ghcr.io/streambinder/spotitube:${{ github.ref_name }}
           push: true

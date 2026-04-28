@@ -18,9 +18,7 @@ import (
 	"github.com/streambinder/spotitube/sys"
 )
 
-type youTube struct {
-	Provider
-}
+type youTube struct{}
 
 type youTubeInitialData struct {
 	Contents struct {

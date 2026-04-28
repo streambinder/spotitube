@@ -24,9 +24,7 @@ var fallbackGeniusToken = ""
 
 type contextValueLabel string
 
-type genius struct {
-	Composer
-}
+type genius struct{}
 
 type geniusSearch struct {
 	Response struct {

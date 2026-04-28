@@ -35,9 +35,7 @@ var (
 	qobuzCachedSecret string
 )
 
-type qobuz struct {
-	Provider
-}
+type qobuz struct{}
 
 func init() {
 	providers = append(providers, qobuz{})

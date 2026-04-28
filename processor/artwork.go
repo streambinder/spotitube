@@ -9,9 +9,7 @@ import (
 	"github.com/nfnt/resize"
 )
 
-type Artwork struct {
-	Processor
-}
+type Artwork struct{}
 
 func (Artwork) Applies(object interface{}) bool {
 	_, ok := object.(*[]byte)

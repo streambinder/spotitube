@@ -7,9 +7,7 @@ import (
 	"github.com/streambinder/spotitube/sys/cmd"
 )
 
-type normalizer struct {
-	Processor
-}
+type normalizer struct{}
 
 func (normalizer) Applies(object interface{}) bool {
 	_, ok := object.(*entity.Track)

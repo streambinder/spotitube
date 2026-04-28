@@ -16,9 +16,7 @@ import (
 
 var reLrclibWhitespace = regexp.MustCompile(`\[(\d{2}:\d{2}\.\d{2})\]\s+`)
 
-type lrclib struct {
-	Composer
-}
+type lrclib struct{}
 
 type lrclibResponse struct {
 	SyncedLyrics string `json:"syncedLyrics"`

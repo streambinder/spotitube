@@ -9,9 +9,7 @@ import (
 	"github.com/streambinder/spotitube/entity/id3"
 )
 
-type encoder struct {
-	Processor
-}
+type encoder struct{}
 
 func (encoder) Applies(object interface{}) bool {
 	_, ok := object.(*entity.Track)

@@ -49,8 +49,8 @@ github.com/arunsworld/nursery v0.6.0 h1:w7Im3b6ZLPztrXheL095VaWu5u9d05Jk2YFvknG5
 github.com/arunsworld/nursery v0.6.0/go.mod h1:U+FGk31qgsGyvlx/RJLF5TcAiW2FRYv3414MREDzCOQ=
 github.com/bogem/id3v2/v2 v2.1.4 h1:CEwe+lS2p6dd9UZRlPc1zbFNIha2mb2qzT1cCEoNWoI=
 github.com/bogem/id3v2/v2 v2.1.4/go.mod h1:l+gR8MZ6rc9ryPTPkX77smS5Me/36gxkMgDayZ9G1vY=
-github.com/bytedance/mockey v1.4.5 h1:DiYjXdEF5TclWHebegK/nQX2OSSWzNSpapvrGXO98xA=
-github.com/bytedance/mockey v1.4.5/go.mod h1:1BPHF9sol5R1ud/+0VEHGQq/+i2lN+GTsr3O2Q9IENY=
+github.com/bytedance/mockey v1.4.6 h1:pPkAFB6yiaaybvgp7DP1Rj4Ztiew3nsaMizoNkzsvNA=
+github.com/bytedance/mockey v1.4.6/go.mod h1:1BPHF9sol5R1ud/+0VEHGQq/+i2lN+GTsr3O2Q9IENY=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWRnGsAI=
 github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5PlCu98SY8svDHJxuZscDgtXS6KTTbou5AhLI=

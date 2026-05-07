@@ -135,7 +135,8 @@ func Authenticate(urlProcessor func(string) error, callbacks ...string) (*Client
 				client = Client{c, authenticator, state, make(map[string]interface{})}
 			}
 			ch <- server.Shutdown(ctx)
-		}); err != nil {
+		},
+	); err != nil {
 		return nil, err
 	}
 

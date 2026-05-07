@@ -42,7 +42,7 @@ func TestLibraryChannel(t *testing.T) {
 	defer close(channel)
 	err := testClient().Library(1, channel)
 	assert.Nil(t, err)
-	assert.Equal(t, library.Tracks[0].Name, ((<-channel).(*entity.Track)).Title)
+	assert.Equal(t, library.Tracks[0].Name, (<-channel).(*entity.Track).Title)
 }
 
 func TestLibraryFailure(t *testing.T) {

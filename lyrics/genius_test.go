@@ -44,13 +44,15 @@ func TestGeniusSearch(t *testing.T) {
 			return &http.Response{
 				StatusCode: 200,
 				Body: io.NopCloser(
-					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0]))),
+					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0])),
+				),
 			}, nil
 		}
 		return &http.Response{
 			StatusCode: 200,
 			Body: io.NopCloser(
-				strings.NewReader(`<div data-lyrics-container="true">verse<br/><span>lyrics</span></div>`)),
+				strings.NewReader(`<div data-lyrics-container="true">verse<br/><span>lyrics</span></div>`),
+			),
 		}, nil
 	}).Build()
 
@@ -87,7 +89,8 @@ func TestGeniusSearchMalformedData(t *testing.T) {
 		return &http.Response{
 			StatusCode: 200,
 			Body: io.NopCloser(
-				strings.NewReader(`{"response": {}`)),
+				strings.NewReader(`{"response": {}`),
+			),
 		}, nil
 	}).Build()
 
@@ -111,7 +114,8 @@ func TestGeniusSearchHttpNotFound(t *testing.T) {
 		return &http.Response{
 			StatusCode: 404,
 			Body: io.NopCloser(
-				strings.NewReader("")),
+				strings.NewReader(""),
+			),
 		}, nil
 	}).Build()
 
@@ -172,7 +176,8 @@ func TestGeniusGetMaxRetriesExceeded(t *testing.T) {
 			return &http.Response{
 				StatusCode: 200,
 				Body: io.NopCloser(
-					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0]))),
+					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0])),
+				),
 			}, nil
 		}
 		return &http.Response{
@@ -222,7 +227,8 @@ func TestGeniusSearchTooManyRequests(t *testing.T) {
 		tooManyRequestsResponse = &http.Response{
 			StatusCode: 429,
 			Body: io.NopCloser(
-				strings.NewReader("")),
+				strings.NewReader(""),
+			),
 		}
 	)
 	defer mockey.UnPatchAll()
@@ -234,7 +240,8 @@ func TestGeniusSearchTooManyRequests(t *testing.T) {
 				return &http.Response{
 					StatusCode: 200,
 					Body: io.NopCloser(
-						strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0]))),
+						strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0])),
+					),
 				}, nil
 			}
 			return tooManyRequestsResponse, nil
@@ -244,7 +251,8 @@ func TestGeniusSearchTooManyRequests(t *testing.T) {
 			return &http.Response{
 				StatusCode: 200,
 				Body: io.NopCloser(
-					strings.NewReader(`<div data-lyrics-container="true">verse<br/><span>lyrics</span></div>`)),
+					strings.NewReader(`<div data-lyrics-container="true">verse<br/><span>lyrics</span></div>`),
+				),
 			}, nil
 		}
 		return tooManyRequestsResponse, nil
@@ -261,7 +269,8 @@ func TestGeniusSearchReadFailure(t *testing.T) {
 		return &http.Response{
 			StatusCode: 200,
 			Body: io.NopCloser(
-				strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0]))),
+				strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0])),
+			),
 		}, nil
 	}).Build()
 	mockey.Mock(io.ReadAll).Return(nil, errors.New("ko")).Build()
@@ -277,7 +286,8 @@ func TestGeniusSearchNotFound(t *testing.T) {
 		return &http.Response{
 			StatusCode: 200,
 			Body: io.NopCloser(
-				strings.NewReader(`{"response": {"hits": []}}`)),
+				strings.NewReader(`{"response": {"hits": []}}`),
+			),
 		}, nil
 	}).Build()
 
@@ -295,7 +305,8 @@ func TestGeniusLyricsGetFailure(t *testing.T) {
 			return &http.Response{
 				StatusCode: 200,
 				Body: io.NopCloser(
-					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0]))),
+					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0])),
+				),
 			}, nil
 		}
 		return nil, errors.New("ko")
@@ -322,7 +333,8 @@ func TestGeniusLyricsNewRequestContextCanceled(t *testing.T) {
 			return &http.Response{
 				StatusCode: 200,
 				Body: io.NopCloser(
-					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0]))),
+					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0])),
+				),
 			}, nil
 		}
 		return nil, context.Canceled
@@ -342,7 +354,8 @@ func TestGeniusLyricsNotFound(t *testing.T) {
 			return &http.Response{
 				StatusCode: 200,
 				Body: io.NopCloser(
-					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0]))),
+					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0])),
+				),
 			}, nil
 		}
 		return &http.Response{
@@ -365,7 +378,8 @@ func TestGeniusLyricsNotParseable(t *testing.T) {
 			return &http.Response{
 				StatusCode: 200,
 				Body: io.NopCloser(
-					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0]))),
+					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0])),
+				),
 			}, nil
 		}
 		return &http.Response{

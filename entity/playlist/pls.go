@@ -26,7 +26,8 @@ func (encoder *PLSEncoder) init(name string) error {
 func (encoder *PLSEncoder) Add(track *entity.Track) error {
 	encoder.entries++
 	encoder.data = append(encoder.data, []byte(
-		fmt.Sprintf("File%d=%s\nTitle%d=%s\nLength%d=%d\n\n",
+		fmt.Sprintf(
+			"File%d=%s\nTitle%d=%s\nLength%d=%d\n\n",
 			encoder.entries,
 			filepath.Base(track.Path().Final()),
 			encoder.entries,

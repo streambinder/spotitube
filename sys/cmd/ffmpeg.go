@@ -24,7 +24,8 @@ func (FFmpegCmd) VolumeDetect(path string) (float64, error) {
 	var (
 		output bytes.Buffer
 		regex  = regexp.MustCompile(`max_volume:\s[\-\.0-9]+\sdB`)
-		cmd    = exec.Command("ffmpeg",
+		cmd    = exec.Command(
+			"ffmpeg",
 			"-i", path,
 			"-af", "volumedetect",
 			"-f", "null",
@@ -56,7 +57,8 @@ func (FFmpegCmd) VolumeAdd(path string, delta float64) error {
 	var (
 		output bytes.Buffer
 		temp   = sys.FileBaseStem(path) + ".norm" + filepath.Ext(path)
-		cmd    = exec.Command("ffmpeg", // nolint:gosec
+		cmd    = exec.Command(
+			"ffmpeg", // nolint:gosec
 			"-i", path,
 			"-af", fmt.Sprintf("volume=%.1fdB", delta),
 			"-y", temp,

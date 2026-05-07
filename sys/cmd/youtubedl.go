@@ -15,7 +15,8 @@ func YouTubeDl(url, path string) error {
 		output bytes.Buffer
 		ext    = filepath.Ext(path)[1:]
 		stem   = strings.TrimSuffix(sys.FileBaseStem(path), "."+ext)
-		cmd    = exec.Command("yt-dlp",
+		cmd    = exec.Command(
+			"yt-dlp",
 			"--format", "bestaudio",
 			"--extract-audio",
 			"--audio-format", ext,

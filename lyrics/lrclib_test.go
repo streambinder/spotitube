@@ -28,7 +28,8 @@ func TestLrclibSearch(t *testing.T) {
 		return &http.Response{
 			StatusCode: 200,
 			Body: io.NopCloser(
-				strings.NewReader(`{"syncedLyrics": "[00:27.37] lyrics", "plainLyrics": "lyrics"}`)),
+				strings.NewReader(`{"syncedLyrics": "[00:27.37] lyrics", "plainLyrics": "lyrics"}`),
+			),
 		}, nil
 	}).Build()
 
@@ -45,7 +46,8 @@ func TestLrclibSearchPlain(t *testing.T) {
 		return &http.Response{
 			StatusCode: 200,
 			Body: io.NopCloser(
-				strings.NewReader(`{"plainLyrics": "lyrics"}`)),
+				strings.NewReader(`{"plainLyrics": "lyrics"}`),
+			),
 		}, nil
 	}).Build()
 
@@ -90,7 +92,8 @@ func TestLrclibSearchNotFound(t *testing.T) {
 	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).Return(&http.Response{
 		StatusCode: 404,
 		Body: io.NopCloser(
-			strings.NewReader("")),
+			strings.NewReader(""),
+		),
 	}, nil).Build()
 
 	// testing
@@ -154,13 +157,15 @@ func TestLrclibSearchTooManyRequests(t *testing.T) {
 			return &http.Response{
 				StatusCode: 200,
 				Body: io.NopCloser(
-					strings.NewReader(`{"syncedLyrics": "[00:27.37] lyrics", "plainLyrics": "lyrics"}`)),
+					strings.NewReader(`{"syncedLyrics": "[00:27.37] lyrics", "plainLyrics": "lyrics"}`),
+				),
 			}, nil
 		}
 		return &http.Response{
 			StatusCode: 429,
 			Body: io.NopCloser(
-				strings.NewReader("")),
+				strings.NewReader(""),
+			),
 		}, nil
 	}).Build()
 
@@ -174,7 +179,8 @@ func TestLrclibSearchInternalError(t *testing.T) {
 	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).Return(&http.Response{
 		StatusCode: 500,
 		Body: io.NopCloser(
-			strings.NewReader("")),
+			strings.NewReader(""),
+		),
 	}, nil).Build()
 
 	// testing
@@ -188,7 +194,8 @@ func TestLrclibSearchReadFailure(t *testing.T) {
 		return &http.Response{
 			StatusCode: 200,
 			Body: io.NopCloser(
-				strings.NewReader(`{"syncedLyrics": "[00:27.37] lyrics", "plainLyrics": "lyrics"}`)),
+				strings.NewReader(`{"syncedLyrics": "[00:27.37] lyrics", "plainLyrics": "lyrics"}`),
+			),
 		}, nil
 	}).Build()
 	mockey.Mock(io.ReadAll).Return(nil, errors.New("ko")).Build()
@@ -204,7 +211,8 @@ func TestLrclibSearchJsonFailure(t *testing.T) {
 		return &http.Response{
 			StatusCode: 200,
 			Body: io.NopCloser(
-				strings.NewReader(`{"syncedLyrics": "[00:27.37] lyrics", "plainLyrics": "lyrics"}`)),
+				strings.NewReader(`{"syncedLyrics": "[00:27.37] lyrics", "plainLyrics": "lyrics"}`),
+			),
 		}, nil
 	}).Build()
 	mockey.Mock(json.Unmarshal).Return(errors.New("ko")).Build()

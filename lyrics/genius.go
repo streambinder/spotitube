@@ -142,7 +142,8 @@ func (composer genius) parseResult(track *entity.Track, query string, mainArtist
 		return nil, nil
 	} else if url == "" {
 		return composer.search(
-			track, context.WithValue(ctx, contextValueLabel(contextValueLabelMainArtist), true))
+			track, context.WithValue(ctx, contextValueLabel(contextValueLabelMainArtist), true),
+		)
 	}
 
 	return composer.get(url, ctx)

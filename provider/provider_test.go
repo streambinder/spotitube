@@ -34,6 +34,9 @@ func TestSearch(t *testing.T) {
 		{URL: "url1", Score: 3},
 		{URL: "url2", Score: 1},
 	}, nil).Build()
+	mockey.Mock(mockey.GetMethod(qobuz{}, "search")).Return([]*Match{
+		{URL: "url3", Score: 100},
+	}, nil).Build()
 
 	// testing
 	matches, err := Search(track)

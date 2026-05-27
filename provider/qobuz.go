@@ -30,6 +30,8 @@ var (
 	qobuzBundleScriptPattern = regexp.MustCompile(`<script[^>]+src="([^"]+/js/main\.js|/resources/[^"]+/js/main\.js)"`)
 	qobuzCredentialsPattern  = regexp.MustCompile(`app_id:"(?P<id>\d{9})",app_secret:"(?P<secret>[a-f0-9]{32})"`)
 
+	qobuzHTTPClient = &http.Client{Timeout: 10 * time.Second}
+
 	qobuzCredMu       sync.Mutex
 	qobuzCachedID     string
 	qobuzCachedSecret string
@@ -69,7 +71,7 @@ func qobuzCredentials() (string, string, error) {
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := qobuzHTTPClient.Do(req)
 	if err != nil {
 		return "", "", err
 	}
@@ -100,7 +102,7 @@ func qobuzCredentials() (string, string, error) {
 	}
 	bundleReq.Header.Set("User-Agent", "Mozilla/5.0")
 
-	bundleResp, err := http.DefaultClient.Do(bundleReq)
+	bundleResp, err := qobuzHTTPClient.Do(bundleReq)
 	if err != nil {
 		return "", "", err
 	}
@@ -157,7 +159,7 @@ func qobuzSearchTrack(track *entity.Track) (int64, error) {
 	req.Header.Set("X-App-Id", appID)
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := qobuzHTTPClient.Do(req)
 	if err != nil {
 		return 0, err
 	}
@@ -191,7 +193,7 @@ func qobuzSearchTrack(track *entity.Track) (int64, error) {
 
 func qobuzCDNURL(trackID string) (string, error) {
 	for _, proxy := range qobuzProxies {
-		resp, err := http.Get(fmt.Sprintf(proxy, trackID)) // nolint
+		resp, err := qobuzHTTPClient.Get(fmt.Sprintf(proxy, trackID))
 		if err != nil {
 			continue
 		}

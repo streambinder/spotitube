@@ -39,7 +39,7 @@ type Client struct {
 	cache         map[string]interface{}
 }
 
-func Authenticate(urlProcessor func(string) error, callbacks ...string) (*Client, error) {
+func Authenticate(urlProcessor func(string) error) (*Client, error) {
 	var (
 		client    Client
 		serverMux = http.NewServeMux()
@@ -49,16 +49,11 @@ func Authenticate(urlProcessor func(string) error, callbacks ...string) (*Client
 			ReadHeaderTimeout: 2 * time.Second,
 		}
 		state         = randstr.Hex(20)
-		callback      = "127.0.0.1"
 		clientChannel = make(chan *spotify.Client, 1)
 		errChannel    = make(chan error, 1)
 	)
 	defer close(clientChannel)
 	defer close(errChannel)
-
-	if len(callbacks) > 0 {
-		callback = callbacks[0]
-	}
 
 	clientID := sys.Fallback(os.Getenv("SPOTIFY_ID"), fallbackSpotifyID)
 	if clientID == "" {
@@ -71,7 +66,7 @@ func Authenticate(urlProcessor func(string) error, callbacks ...string) (*Client
 	}
 
 	authenticator := spotifyauth.New(
-		spotifyauth.WithRedirectURL(fmt.Sprintf("http://%s:%d/callback", callback, port)),
+		spotifyauth.WithRedirectURL(fmt.Sprintf("http://127.0.0.1:%d/callback", port)),
 		spotifyauth.WithScopes(
 			spotifyauth.ScopeUserLibraryRead,
 			spotifyauth.ScopeUserLibraryModify,

@@ -22,13 +22,10 @@ func TestCmdAuth(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
 	mockey.Mock(os.Remove).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).To(func(_ func(string) error, _ ...string) (*spotify.Client, error) {
-		sys.ErrSuppress(printProcessor(""))
-		return &spotify.Client{}, nil
-	}).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
 
 	// testing
-	assert.Nil(t, sys.ErrOnly(testExecute(cmdAuth(), "--remote", "--logout")))
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdAuth(), "--logout")))
 }
 
 func TestCmdAuthFailure(t *testing.T) {

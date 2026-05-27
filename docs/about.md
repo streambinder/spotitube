@@ -47,7 +47,7 @@ Additional `sync` flags worth knowing:
 
 Beyond `sync`, the following subcommands are available — list them via `spotitube --help`:
 
-- `auth` — establish a Spotify session and persist the OAuth token to `${XDG_CACHE_HOME:-~/.cache}/spotitube/session.json`. Pass `--remote` / `-r` for headless flows (see below) and `--logout` / `-l` to wipe the cached token before re-authenticating.
+- `auth` — establish a Spotify session and persist the OAuth token to `${XDG_CACHE_HOME:-~/.cache}/spotitube/session.json`. Pass `--logout` / `-l` to wipe the cached token before re-authenticating.
 - `attach` — attach Spotify metadata (including the Spotify ID embedded in a custom ID3 frame) to an existing local file.
 - `lookup` — query Spotify for a resource and print its metadata without downloading.
 - `show` — show the Spotify metadata embedded in a local file.
@@ -77,29 +77,21 @@ docker run -it --rm \
 
 ### Headless
 
-The only real issue to be addressed when working with Spotitube running in headless mode, is the redirect during Spotify authentication.
+The only real friction running Spotitube headless is the OAuth redirect.
+Spotify [requires](https://developer.spotify.com/documentation/web-api/concepts/redirect_uri) the callback to be either an HTTPS URL or one of the loopback literals `http://127.0.0.1:PORT` / `http://[::1]:PORT`.
+Spotitube uses the loopback form (`http://127.0.0.1:65535/callback`), which means the browser completing the auth must be able to reach that callback on the host actually running Spotitube.
 
-By default, once authenticated to Spotify via web, Spotify itself redirects to a predefined callback URL, which corresponds to `http://127.0.0.1:65535/callback`.
-In order to make that redirect go against a custom server, on Spotitube Spotify app, a further callback URL has been defined, i.e. `http://spotitube.local:65535/callback`.
-This is the one that is set as callback at runtime when Spotitube goes through authentication with the `--remote` flag.
-
-So, assuming the server on which Spotitube is running is reachable at 1.2.3.4, make sure the client can correctly resolve `spotitube.local` as 1.2.3.4.
-
-Then, let's authenticate on the server, running the following command:
+The simplest way to bridge a desktop browser to a headless server is an SSH local port forward — no DNS, no extra DNAT, no TLS termination:
 
 ```bash
-spotitube auth --remote
+ssh -L 65535:127.0.0.1:65535 user@server
+# on the server, in the forwarded session:
+spotitube auth
 ```
 
-This should show a URL to be reached using your client's browser and which, on successful authentication, will hand further doing over to Spotitube on the server on which is running.
-
-Once there, Spotitube can be used normally on the server.
-
-> **Note on Spotify's redirect URI policy.**
-> Spotify's [redirect URI rules](https://developer.spotify.com/documentation/web-api/concepts/redirect_uri) require HTTPS for any non-loopback redirect URI.
-> Plain `http://` is only accepted for explicit IPv4/IPv6 loopback literals (`http://127.0.0.1:PORT`, `http://[::1]:PORT`); `localhost` and arbitrary hostnames (including `spotitube.local`) are not valid HTTP redirect targets.
-> For Spotify apps created from 9 April 2025, the headless flow above will be rejected at the Spotify dashboard side; the bundled Spotitube app is grandfathered for now (all apps must migrate by November 2025).
-> If you are building from source with your own Spotify app, expose Spotitube behind an HTTPS reverse proxy and register `https://your.host/callback` as the redirect URI.
+Then open the URL Spotitube prints in your local browser.
+Spotify will redirect to `http://127.0.0.1:65535/callback`, the tunnel hands the request through to the server, and the session token is persisted server-side at `${XDG_CACHE_HOME:-~/.cache}/spotitube/session.json`.
+After `auth` returns, the tunnel and SSH session can be closed; subsequent `spotitube` invocations on the server reuse the cached token.
 
 ### Manual mode
 

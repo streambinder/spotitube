@@ -78,7 +78,7 @@ func TestAuthenticate(t *testing.T) {
 	// testing
 	assert.Nil(t, nursery.RunConcurrently(
 		func(_ context.Context, ch chan error) {
-			ch <- sys.ErrOnly(Authenticate(BrowserProcessor, "127.0.0.1"))
+			ch <- sys.ErrOnly(Authenticate(BrowserProcessor))
 		},
 		func(_ context.Context, _ chan error) {
 			var (

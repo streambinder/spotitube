@@ -70,7 +70,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
-      - run: test "$(grep -rEc --exclude-dir=".git*" 'http\.Get\(|http\.Head\(|http\.DefaultClient\.Do\(|[a-zA-Z]+[Cc]lient\.(Get|Head|Do)\(')" = "$(grep -rc --exclude-dir=".git*" '.Body.Close()')"
+      - run: test "$(grep -rEc --exclude-dir=".git*" '\b(http\.Get|http\.Head|http\.DefaultClient\.Do|[a-zA-Z]*[Cc][Ll]ient\.(Get|Head|Do))\(')" = "$(grep -rc --exclude-dir=".git*" '.Body.Close()')"
   go-mockey-unpatch:
     runs-on: ubuntu-latest
     steps:

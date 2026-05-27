@@ -2,7 +2,9 @@
 
 ![demo](assets/demo.gif)
 
-Spotitube is a CLI application to authenticate to Spotify account, fetch music collections — such as account library, playlists, albums or specific tracks —, look them up on a defined set of providers — such as YouTube —, download them and inflate the downloaded assets with metadata collected from Spotify, further enriched with lyrics.
+Spotitube is a CLI application to authenticate to Spotify account, fetch music collections — such as account library, playlists, albums or specific tracks —, look them up on a defined set of providers (currently YouTube and Qobuz), download them and inflate the downloaded assets with metadata collected from Spotify.
+
+Downloaded tracks are further enriched with lyrics fetched from Genius and LRCLIB, including synced LRC when available.
 
 ## Usage
 
@@ -33,11 +35,33 @@ By default, Spotitube uses XDG Base/User Directory Specification to resolve user
 spotitube sync -o ~/MyMusic
 ```
 
-Further auxiliary subcommands are defined and accessible via:
+Additional `sync` flags worth knowing:
 
-```bash
-spotitube --help
-```
+- `--library` / `-l` — explicitly synchronize the library (auto-enabled if no collection flag is passed).
+- `--library-limit N` — cap the number of library tracks fetched (`0` = unlimited, default).
+- `--playlist-encoding {m3u,pls}` — playlist file format produced by the Mixer (default `m3u`).
+- `--plain` — disable the fancy TUI; emit plain line-oriented output (useful for cron/CI).
+- `--manual` / `-m` — prompt for a user-supplied provider URL per track instead of letting the Decider pick.
+
+### Subcommands
+
+Beyond `sync`, the following subcommands are available — list them via `spotitube --help`:
+
+- `auth` — establish a Spotify session and persist the OAuth token to `${XDG_CACHE_HOME:-~/.cache}/spotitube/session.json`. Pass `--remote` / `-r` for headless flows (see below) and `--logout` / `-l` to wipe the cached token before re-authenticating.
+- `attach` — attach Spotify metadata (including the Spotify ID embedded in a custom ID3 frame) to an existing local file.
+- `lookup` — query Spotify for a resource and print its metadata without downloading.
+- `show` — show the Spotify metadata embedded in a local file.
+- `reset` — remove the cached session and any local state.
+
+### Authentication scopes
+
+`spotitube auth` requests both read and write OAuth scopes on the user's account:
+
+- `user-library-read`, `user-library-modify`
+- `playlist-read-private`, `playlist-read-collaborative`
+- `playlist-modify-public`, `playlist-modify-private`
+
+The modify scopes are requested even though `sync` is read-only against Spotify — they reserve the ability to push library/playlist changes from local state in the future. Approve them only if you trust your Spotify app's client ID and secret.
 
 ### Docker
 
@@ -55,8 +79,8 @@ docker run -it --rm \
 
 The only real issue to be addressed when working with Spotitube running in headless mode, is the redirect during Spotify authentication.
 
-By default, once authenticated to Spotify via web, Spotify itself redirects to a predefined callback URL, which corresponds to `http://localhost:65535`.
-In order to make that redirect go against a custom server, on Spotitube Spotify app, a further callback URL has been defined, i.e. `http://spotitube.local:65535`.
+By default, once authenticated to Spotify via web, Spotify itself redirects to a predefined callback URL, which corresponds to `http://127.0.0.1:65535/callback`.
+In order to make that redirect go against a custom server, on Spotitube Spotify app, a further callback URL has been defined, i.e. `http://spotitube.local:65535/callback`.
 This is the one that is set as callback at runtime when Spotitube goes through authentication with the `--remote` flag.
 
 So, assuming the server on which Spotitube is running is reachable at 1.2.3.4, make sure the client can correctly resolve `spotitube.local` as 1.2.3.4.
@@ -70,6 +94,12 @@ spotitube auth --remote
 This should show a URL to be reached using your client's browser and which, on successful authentication, will hand further doing over to Spotitube on the server on which is running.
 
 Once there, Spotitube can be used normally on the server.
+
+> **Note on Spotify's redirect URI policy.**
+> Spotify's [redirect URI rules](https://developer.spotify.com/documentation/web-api/concepts/redirect_uri) require HTTPS for any non-loopback redirect URI.
+> Plain `http://` is only accepted for explicit IPv4/IPv6 loopback literals (`http://127.0.0.1:PORT`, `http://[::1]:PORT`); `localhost` and arbitrary hostnames (including `spotitube.local`) are not valid HTTP redirect targets.
+> For Spotify apps created from 9 April 2025, the headless flow above will be rejected at the Spotify dashboard side; the bundled Spotitube app is grandfathered for now (all apps must migrate by November 2025).
+> If you are building from source with your own Spotify app, expose Spotitube behind an HTTPS reverse proxy and register `https://your.host/callback` as the redirect URI.
 
 ### Manual mode
 

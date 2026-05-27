@@ -31,19 +31,19 @@ That data is then parsed into a custom Track object which is passed to the Decid
 
 ## Decider
 
-For each Track passed over by the Fetcher, it queries every provider defined (e.g. YouTube), looking for a result that best matches the given track data.
+For each Track passed over by the Fetcher, it queries every provider defined (currently YouTube and Qobuz), looking for a result that best matches the given track data.
 
 ## Collector
 
 This component is split in three parts:
 
 1. Downloader: downloads the result which the Decider picked for the given track.
-2. Composer: queries every lyrics provider defined (e.g. Genius) and — if found — downloads it.
+2. Composer: queries every lyrics provider defined (currently Genius and LRCLIB) and — if found — downloads it, preferring synced LRC over plain text when available.
 3. Painter: downloads the artwork from the URL which was given by Spotify APIs.
 
 ## Processor
 
-The Processor applies further customization to the asset, such as rebalancing the volume of the track file or encoding all the metadata collected as ID3 (MP3) metadata.
+The Processor applies further customization to the asset, such as rebalancing the volume of the track file (via `ffmpeg`'s `volumedetect`) or encoding all the metadata collected as ID3 (MP3) metadata.
 
 ## Installer
 
@@ -51,4 +51,4 @@ Moves the file into its final location.
 
 ## Mixer
 
-For each playlist passed for synchronization, bundles it into a PLS (or whatever other encoding is used, e.g. M3U) file which contains every track composing the playlist which has been successfully installed.
+For each playlist passed for synchronization, bundles it into an M3U (default) or PLS file (selectable via `--playlist-encoding`) containing every track of the playlist that has been successfully installed.

@@ -116,10 +116,15 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
+          fetch-depth: 2
           persist-credentials: false
+      # resolve parent SHA so force pushes don't break paths-filter
+      - id: parent
+        run: echo "sha=$(git rev-parse HEAD~1)" >> "$GITHUB_OUTPUT"
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d
         id: filter
         with:
+          base: ${{ steps.parent.outputs.sha }}
           filters: |
             docs:
               - 'docs/**'

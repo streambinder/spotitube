@@ -151,16 +151,26 @@ func routineIndex(_ context.Context, ch chan error) {
 	// remember to signal fetcher
 	defer close(routineSemaphores[routineTypeIndex])
 
+	indexed := make(chan string, 10000)
+	defer close(indexed)
+	go func() {
+		counter := 0
+		for path := range indexed {
+			counter++
+			tui.Lot("index").Printf("%s", filepath.Base(path))
+		}
+		tui.Lot("index").Close(strconv.Itoa(counter) + " tracks")
+	}()
+
 	tui.Lot("index").Printf("scanning")
-	if err := indexData.Build("."); err != nil {
+	if err := indexData.BuildWithProgress(".", indexed); err != nil {
 		tui.Printf("indexing failed: %s", err)
 		routineSemaphores[routineTypeIndex] <- false
 		ch <- err
 		return
 	}
-	tui.Lot("index").Close(strconv.Itoa(indexData.Size()) + " tracks")
 
-	// once indexed, sidgnal fetcher
+	// once indexed, signal fetcher
 	routineSemaphores[routineTypeIndex] <- true
 }
 

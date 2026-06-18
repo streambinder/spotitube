@@ -49,6 +49,10 @@ func New() *Index {
 }
 
 func (index *Index) Build(path string, init ...int) error {
+	return index.BuildWithProgress(path, nil, init...)
+}
+
+func (index *Index) BuildWithProgress(path string, indexed chan<- string, init ...int) error {
 	status := Offline
 	for _, override := range init {
 		status = override
@@ -79,6 +83,9 @@ func (index *Index) Build(path string, init ...int) error {
 		if id := tag.SpotifyID(); len(id) > 0 {
 			index.SetID(id, status)
 			index.SetPath(path, status)
+			if indexed != nil {
+				indexed <- path
+			}
 		}
 
 		return tag.Close()

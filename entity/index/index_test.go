@@ -67,6 +67,30 @@ func TestBuild(t *testing.T) {
 	assert.Equal(t, 1, index.Size(Offline))
 }
 
+func TestBuildWithProgress(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(filepath.WalkDir).To(func(_ string, f fs.WalkDirFunc) error {
+		sys.ErrSuppress(f("Artist - Title.mp3", DirEntry{name: "", isDir: false}, nil))
+		return f("Artist - Song.mp3", DirEntry{name: "", isDir: false}, nil)
+	}).Build()
+	mockey.Mock(id3.Open).Return(&id3.Tag{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "userDefinedText")).Return("id").Build()
+	mockey.Mock(mockey.GetMethod(&id3v2.Tag{}, "Close")).Return(nil).Build()
+
+	// testing
+	indexed := make(chan string, 10)
+	index := New()
+	assert.Nil(t, index.BuildWithProgress("path", indexed))
+	close(indexed)
+
+	var paths []string
+	for p := range indexed {
+		paths = append(paths, p)
+	}
+	assert.Len(t, paths, 2)
+}
+
 func TestBuildOpenFailure(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()

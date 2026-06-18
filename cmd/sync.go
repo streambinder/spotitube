@@ -177,6 +177,7 @@ func routineAuth(_ context.Context, ch chan error) {
 		ch <- err
 		return
 	}
+	defer spotifyClient.Close()
 	username, err := spotifyClient.Username()
 	if err != nil {
 		tui.Printf("could not resolve authenticated username: %s", err)

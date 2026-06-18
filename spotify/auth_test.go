@@ -149,6 +149,7 @@ func TestAuthenticateRecoverAndPersist(t *testing.T) {
 	defer mockey.UnPatchAll()
 	mockey.Mock(os.Getenv).Return("value").Build()
 	mockey.Mock(os.ReadFile).Return([]byte(token), nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUser")).Return(&spotify.PrivateUser{}, nil).Build()
 	mockey.Mock(os.OpenFile).Return(&os.File{}, nil).Build()
 	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Token")).Return(nil, nil).Build()
 	mockey.Mock(json.Marshal).Return([]byte(`{}`), nil).Build()
@@ -255,10 +256,56 @@ func TestAuthenticateRecoverAndPersistTokenFailure(t *testing.T) {
 	defer mockey.UnPatchAll()
 	mockey.Mock(os.Getenv).Return("value").Build()
 	mockey.Mock(os.ReadFile).Return([]byte(token), nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUser")).Return(&spotify.PrivateUser{}, nil).Build()
 	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Token")).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(Authenticate(nil)), "ko")
+}
+
+func TestAuthenticateRecoverExpiredSession(t *testing.T) {
+	t.Cleanup(resetPort)
+	port = getPort()
+
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Getenv).Return("value").Build()
+	mockey.Mock(os.ReadFile).Return([]byte(token), nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUser")).Return(nil, errors.New("invalid_grant")).Build()
+	mockey.Mock(os.Remove).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&Client{}, "Persist")).Return(nil).Build()
+	mockey.Mock(randstr.String).Return(state).Build()
+	mockey.Mock(mockey.GetMethod(spotifyauth.Authenticator{}, "Token")).Return(nil, nil).Build()
+
+	// an expired session should fall through to browser auth transparently
+	assert.Nil(t, nursery.RunConcurrently(
+		func(_ context.Context, ch chan error) {
+			ch <- sys.ErrOnly(Authenticate(nil))
+		},
+		func(_ context.Context, _ chan error) {
+			var (
+				response *http.Response
+				err      error
+			)
+
+			for {
+				conn, dialErr := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 10*time.Millisecond)
+				if dialErr != nil {
+					time.Sleep(100 * time.Millisecond)
+					continue
+				}
+				conn.Close()
+				response, err = httpClient.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=C0D3&state=%s", port, state))
+				if err == nil {
+					response.Body.Close()
+				}
+				break
+			}
+			if response != nil {
+				assert.Equal(t, http.StatusOK, response.StatusCode)
+			}
+		},
+	))
 }
 
 func TestAuthenticateRecoverAndPersistMkdirFailure(t *testing.T) {
@@ -280,6 +327,7 @@ func TestAuthenticateRecoverAndPersistOpenFailure(t *testing.T) {
 	defer mockey.UnPatchAll()
 	mockey.Mock(os.Getenv).Return("value").Build()
 	mockey.Mock(os.ReadFile).Return([]byte(token), nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUser")).Return(&spotify.PrivateUser{}, nil).Build()
 	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Token")).Return(nil, nil).Build()
 	mockey.Mock(os.OpenFile).Return(nil, errors.New("ko")).Build()
 
@@ -292,6 +340,7 @@ func TestAuthenticateRecoverAndPersistMarshalFailure(t *testing.T) {
 	defer mockey.UnPatchAll()
 	mockey.Mock(os.Getenv).Return("value").Build()
 	mockey.Mock(os.ReadFile).Return([]byte(token), nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUser")).Return(&spotify.PrivateUser{}, nil).Build()
 	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Token")).Return(nil, nil).Build()
 	mockey.Mock(os.OpenFile).Return(&os.File{}, nil).Build()
 	mockey.Mock(json.Marshal).Return(nil, errors.New("ko")).Build()
@@ -340,6 +389,18 @@ func TestUsernameUninitializedClient(t *testing.T) {
 
 	assert.Empty(t, username)
 	assert.EqualError(t, err, "spotify client not initialized")
+}
+
+func TestCloseNilClient(t *testing.T) {
+	assert.Nil(t, (*Client)(nil).Close())
+	assert.Nil(t, (&Client{}).Close())
+}
+
+func TestClose(t *testing.T) {
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&Client{}, "Persist")).Return(nil).Build()
+
+	assert.Nil(t, testClient().Close())
 }
 
 func TestAuthenticateNotFound(t *testing.T) {

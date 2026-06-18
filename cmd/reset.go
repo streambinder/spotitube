@@ -11,6 +11,10 @@ import (
 	"github.com/streambinder/spotitube/sys"
 )
 
+// indirection for (*os.Root).RemoveAll — the method is aggressively inlined
+// by the compiler, making it unpatchable by mockey without -gcflags
+var rootRemoveAll = (*os.Root).RemoveAll
+
 func init() {
 	cmdRoot.AddCommand(cmdReset())
 }
@@ -41,7 +45,7 @@ func cmdReset() *cobra.Command {
 				}
 
 				rel := strings.TrimPrefix(path, cacheDirectory+string(filepath.Separator))
-				if err := root.RemoveAll(rel); err != nil {
+				if err := rootRemoveAll(root, rel); err != nil {
 					return err
 				}
 				if entry.IsDir() {

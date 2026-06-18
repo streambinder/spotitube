@@ -41,6 +41,7 @@ func cmdAttach() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 
 			spotifyTrack, err := client.Track(id)
 			if err != nil {

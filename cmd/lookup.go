@@ -43,6 +43,7 @@ func cmdLookup() *cobra.Command {
 			if authErr != nil {
 				return authErr
 			}
+			defer spotifyClient.Close()
 
 			var (
 				providerChannel = make(chan interface{}, 1)

@@ -149,10 +149,20 @@ func Recover(authenticator *spotifyauth.Authenticator, state string) (*Client, e
 		return nil, err
 	}
 
-	return &Client{spotify.New(
+	client := &Client{spotify.New(
 		authenticator.Client(context.Background(), &token),
 		spotify.WithRetry(true),
-	), authenticator, state, make(map[string]interface{})}, nil
+	), authenticator, state, make(map[string]interface{})}
+
+	// validate the recovered session is still usable — catches expired
+	// refresh tokens (spotify now expires them after 6 months) and any
+	// other server-side revocation without surfacing a cryptic mid-sync error
+	if _, err := client.CurrentUser(context.Background()); err != nil {
+		os.Remove(tokenPath)
+		return nil, fmt.Errorf("stored session expired: %w", err)
+	}
+
+	return client, nil
 }
 
 func (client *Client) Persist() error {
@@ -176,6 +186,15 @@ func (client *Client) Persist() error {
 	}
 	_, err = file.Write(data)
 	return err
+}
+
+// Close persists the current token state to disk — call via defer after
+// Authenticate to capture any refresh token rotation that happened mid-session
+func (client *Client) Close() error {
+	if client == nil || client.Client == nil {
+		return nil
+	}
+	return client.Persist()
 }
 
 func BrowserProcessor(url string) error {

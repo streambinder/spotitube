@@ -75,7 +75,7 @@ func TestCmdReset(t *testing.T) {
 		{spotify.TokenBasename, false}, // should be preserved (no --session)
 		{"fname.txt", false},           // should be removed
 	})).Build()
-	mockey.Mock((*os.Root).RemoveAll).Return(nil).Build()
+	mockey.Mock(rootRemoveAll).Return(nil).Build()
 
 	assert.Nil(t, sys.ErrOnly(testExecute(cmdReset())))
 }
@@ -91,7 +91,7 @@ func TestCmdResetDirectory(t *testing.T) {
 	}{
 		{"subdir", true}, // directory entry should trigger SkipDir
 	})).Build()
-	mockey.Mock((*os.Root).RemoveAll).Return(nil).Build()
+	mockey.Mock(rootRemoveAll).Return(nil).Build()
 
 	assert.Nil(t, sys.ErrOnly(testExecute(cmdReset())))
 }
@@ -114,7 +114,7 @@ func TestCmdResetSession(t *testing.T) {
 	}{
 		{spotify.TokenBasename, false}, // with --session, token should also be removed
 	})).Build()
-	mockey.Mock((*os.Root).RemoveAll).Return(nil).Build()
+	mockey.Mock(rootRemoveAll).Return(nil).Build()
 
 	assert.Nil(t, sys.ErrOnly(testExecute(cmdReset(), "--session")))
 }
@@ -142,7 +142,7 @@ func TestCmdResetRemoveFailure(t *testing.T) {
 	}{
 		{"fname.txt", false},
 	})).Build()
-	mockey.Mock((*os.Root).RemoveAll).Return(errors.New("ko")).Build()
+	mockey.Mock(rootRemoveAll).Return(errors.New("ko")).Build()
 
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdReset())), "ko")
 }

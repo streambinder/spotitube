@@ -34,6 +34,11 @@ const (
 	routineTypeProcess
 	routineTypeInstall
 	routineTypeMix
+
+	// pipeline buffer depth — large enough to decouple stages so the
+	// fetcher can push ahead while slower stages (provider search,
+	// download) catch up, without being an unbounded memory commitment
+	pipelineBuffer = 4096
 )
 
 var (
@@ -108,11 +113,11 @@ func cmdSync() *cobra.Command {
 				routineTypeInstall: make(chan bool, 1),
 			}
 			routineQueues = map[int](chan interface{}){
-				routineTypeDecide:  make(chan interface{}, 10000),
-				routineTypeCollect: make(chan interface{}, 10000),
-				routineTypeProcess: make(chan interface{}, 10000),
-				routineTypeInstall: make(chan interface{}, 10000),
-				routineTypeMix:     make(chan interface{}, 10000),
+				routineTypeDecide:  make(chan interface{}, pipelineBuffer),
+				routineTypeCollect: make(chan interface{}, pipelineBuffer),
+				routineTypeProcess: make(chan interface{}, pipelineBuffer),
+				routineTypeInstall: make(chan interface{}, pipelineBuffer),
+				routineTypeMix:     make(chan interface{}, pipelineBuffer),
 			}
 
 			var (
@@ -151,7 +156,7 @@ func routineIndex(_ context.Context, ch chan error) {
 	// remember to signal fetcher
 	defer close(routineSemaphores[routineTypeIndex])
 
-	indexed := make(chan string, 10000)
+	indexed := make(chan string)
 	defer close(indexed)
 	go func() {
 		counter := 0
@@ -215,7 +220,7 @@ func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixe
 			return
 		}
 
-		fetched := make(chan interface{}, 10000)
+		fetched := make(chan interface{})
 		defer close(fetched)
 		go func() {
 			counter := 0

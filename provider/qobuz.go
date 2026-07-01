@@ -24,7 +24,6 @@ const (
 
 var (
 	qobuzProxies = []string{
-		"https://dab.yeet.su/api/stream?trackId=%s&quality=" + qobuzQualityMP3,
 		"https://dabmusic.xyz/api/stream?trackId=%s&quality=" + qobuzQualityMP3,
 	}
 	qobuzBundleScriptPattern = regexp.MustCompile(`<script[^>]+src="([^"]+/js/main\.js|/resources/[^"]+/js/main\.js)"`)
@@ -35,6 +34,10 @@ var (
 	qobuzCredMu       sync.Mutex
 	qobuzCachedID     string
 	qobuzCachedSecret string
+
+	// cdn url cache: trackID → url, avoids re-resolving the same track
+	// across playlists within a single sync run
+	qobuzCDNCache sync.Map
 )
 
 type qobuz struct{}
@@ -191,7 +194,13 @@ func qobuzSearchTrack(track *entity.Track) (int64, error) {
 	return items[0].ID, nil
 }
 
+// qobuzCDNURL resolves a track ID to a CDN streaming URL via proxy services.
+// results are cached per-process to avoid redundant lookups across playlists.
 func qobuzCDNURL(trackID string) (string, error) {
+	if cached, ok := qobuzCDNCache.Load(trackID); ok {
+		return cached.(string), nil
+	}
+
 	for _, proxy := range qobuzProxies {
 		resp, err := qobuzHTTPClient.Get(fmt.Sprintf(proxy, trackID))
 		if err != nil {
@@ -205,6 +214,7 @@ func qobuzCDNURL(trackID string) (string, error) {
 		resp.Body.Close()
 
 		if err == nil && payload.URL != "" {
+			qobuzCDNCache.Store(trackID, payload.URL)
 			return payload.URL, nil
 		}
 	}

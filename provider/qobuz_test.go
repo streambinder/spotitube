@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/bytedance/mockey"
@@ -22,6 +23,7 @@ func BenchmarkQobuz(b *testing.B) {
 // mockQobuzSearch bypasses credential fetching and mocks only the search+proxy calls
 func mockQobuzSearch(searchBody, proxyBody string, searchStatus, proxyStatus int) {
 	mockey.Mock(qobuzCredentials).Return("appid", "appsecret", nil).Build()
+	qobuzCDNCache = syncMapNew()
 	callCount := 0
 	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Do")).To(func(_ *http.Request) (*http.Response, error) {
 		callCount++
@@ -41,6 +43,23 @@ func TestQobuzSearch(t *testing.T) {
 	assert.Len(t, matches, 1)
 	assert.Equal(t, 100, matches[0].Score)
 	assert.Equal(t, "https://cdn.qobuz.example/track.mp3", matches[0].URL)
+}
+
+func TestQobuzSearchCacheHit(t *testing.T) {
+	defer mockey.UnPatchAll()
+	mockey.Mock(qobuzCredentials).Return("appid", "appsecret", nil).Build()
+	qobuzCDNCache = syncMapNew()
+	qobuzCDNCache.Store("138731318", "https://cached.example/track.mp3")
+
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Do")).To(func(_ *http.Request) (*http.Response, error) {
+		// only the search call should happen — no proxy call
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(qobuzSearchResponse))}, nil
+	}).Build()
+
+	matches, err := qobuz{}.search(track)
+	assert.Nil(t, err)
+	assert.Len(t, matches, 1)
+	assert.Equal(t, "https://cached.example/track.mp3", matches[0].URL)
 }
 
 func TestQobuzSearchCredentialsFailure(t *testing.T) {
@@ -103,6 +122,7 @@ func TestQobuzSearchNoItems(t *testing.T) {
 func TestQobuzSearchAllProxiesFailed(t *testing.T) {
 	defer mockey.UnPatchAll()
 	mockey.Mock(qobuzCredentials).Return("appid", "appsecret", nil).Build()
+	qobuzCDNCache = syncMapNew()
 	callCount := 0
 	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Do")).To(func(_ *http.Request) (*http.Response, error) {
 		callCount++
@@ -343,21 +363,39 @@ func TestQobuzCredentialsBundleReadFailure(t *testing.T) {
 
 func TestQobuzCDNURL(t *testing.T) {
 	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(&http.Response{
-		StatusCode: 200,
-		Body:       io.NopCloser(strings.NewReader(`{"url":"https://cdn.example/track.mp3"}`)),
-	}, nil).Build()
+	qobuzCDNCache = syncMapNew()
 
-	url, err := qobuzCDNURL("138731318")
+	callCount := 0
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).To(func(_ string) (*http.Response, error) {
+		callCount++
+		return &http.Response{
+			StatusCode: 200,
+			Body:       io.NopCloser(strings.NewReader(`{"url":"https://cdn.example/track.mp3"}`)),
+		}, nil
+	}).Build()
+
+	cdnURL, err := qobuzCDNURL("138731318")
 	assert.Nil(t, err)
-	assert.Equal(t, "https://cdn.example/track.mp3", url)
+	assert.Equal(t, "https://cdn.example/track.mp3", cdnURL)
+
+	// second call should hit cache — callCount stays at 1
+	cdnURL2, err2 := qobuzCDNURL("138731318")
+	assert.Nil(t, err2)
+	assert.Equal(t, "https://cdn.example/track.mp3", cdnURL2)
+	assert.Equal(t, 1, callCount, "expected cache hit, but proxy was called again")
 }
 
 func TestQobuzCDNURLAllFailed(t *testing.T) {
 	defer mockey.UnPatchAll()
+	qobuzCDNCache = syncMapNew()
 	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(nil, errors.New("ko")).Build()
 
 	url, err := qobuzCDNURL("138731318")
 	assert.NotNil(t, err)
 	assert.Empty(t, url)
+}
+
+// syncMapNew returns a fresh sync.Map (no constructor in stdlib, just zero-value)
+func syncMapNew() sync.Map {
+	return sync.Map{}
 }

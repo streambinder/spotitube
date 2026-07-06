@@ -44,7 +44,7 @@ func TestBlobSupports(t *testing.T) {
 	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Head")).Return(&http.Response{
 		StatusCode: 200,
 		Body:       io.NopCloser(strings.NewReader("")),
-		Header:     map[string][]string{"Content-Type": {"image/jpeg"}},
+		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
 	}, nil).Build()
 
 	// testing
@@ -104,7 +104,7 @@ func TestBlobDownload(t *testing.T) {
 	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(&http.Response{
 		StatusCode: 200,
 		Body:       io.NopCloser(strings.NewReader("bitch")),
-		Header:     map[string][]string{"Content-Type": {"image/jpeg"}},
+		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
 	}, nil).Build()
 	mockey.Mock(os.OpenFile).Return(nil, nil).Build()
 	mockey.Mock(io.ReadAll).Return([]byte{}, nil).Build()
@@ -122,7 +122,7 @@ func TestBlobDownloadProcessorFailure(t *testing.T) {
 	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(&http.Response{
 		StatusCode: 200,
 		Body:       io.NopCloser(strings.NewReader("bitch")),
-		Header:     map[string][]string{"Content-Type": {"image/jpeg"}},
+		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
 	}, nil).Build()
 	mockey.Mock(os.OpenFile).Return(nil, nil).Build()
 	mockey.Mock(io.ReadAll).Return([]byte{}, nil).Build()
@@ -158,7 +158,7 @@ func TestBlobDownloadFileCreationFailure(t *testing.T) {
 	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(&http.Response{
 		StatusCode: 200,
 		Body:       io.NopCloser(strings.NewReader("")),
-		Header:     map[string][]string{"Content-Type": {"image/jpeg"}},
+		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
 	}, nil).Build()
 	mockey.Mock(os.OpenFile).Return(nil, errors.New("ko")).Build()
 
@@ -172,7 +172,7 @@ func TestBlobDownloadReadFailure(t *testing.T) {
 	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(&http.Response{
 		StatusCode: 200,
 		Body:       io.NopCloser(strings.NewReader("")),
-		Header:     map[string][]string{"Content-Type": {"image/jpeg"}},
+		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
 	}, nil).Build()
 	mockey.Mock(os.OpenFile).Return(nil, nil).Build()
 	mockey.Mock(io.ReadAll).Return(nil, errors.New("ko")).Build()
@@ -187,7 +187,7 @@ func TestBlobDownloadProcessorNotApplicable(t *testing.T) {
 	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(&http.Response{
 		StatusCode: 200,
 		Body:       io.NopCloser(strings.NewReader("data")),
-		Header:     map[string][]string{"Content-Type": {"image/jpeg"}},
+		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
 	}, nil).Build()
 	mockey.Mock(os.OpenFile).Return(nil, nil).Build()
 	mockey.Mock(io.ReadAll).Return([]byte{}, nil).Build()
@@ -203,7 +203,7 @@ func TestBlobDownloadWriteFailure(t *testing.T) {
 	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(&http.Response{
 		StatusCode: 200,
 		Body:       io.NopCloser(strings.NewReader("data")),
-		Header:     map[string][]string{"Content-Type": {"image/jpeg"}},
+		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
 	}, nil).Build()
 	mockey.Mock(os.OpenFile).Return(nil, nil).Build()
 	mockey.Mock(io.ReadAll).Return([]byte{}, nil).Build()

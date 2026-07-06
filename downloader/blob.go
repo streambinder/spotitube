@@ -14,6 +14,8 @@ type blob struct {
 	Downloader
 }
 
+const mimeJPEG = "image/jpeg"
+
 func init() {
 	downloaders = append(downloaders, blob{})
 }
@@ -30,7 +32,7 @@ func (blob) supports(url string) bool {
 	}
 
 	switch response.Header.Get("Content-Type") {
-	case "image/jpeg", "audio/mpeg":
+	case mimeJPEG, "audio/mpeg":
 		return true
 	default:
 		return false

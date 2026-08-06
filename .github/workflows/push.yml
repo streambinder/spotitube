@@ -57,20 +57,18 @@ jobs:
           export PATH
           go install mvdan.cc/gofumpt@latest
           if gofumpt -l -e . | grep '^' -q; then exit 1; fi
-  go-channel-closure:
+  golangci-lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - run: test "$(grep -Erc --exclude-dir=".git*" 'make\(chan\s')" = "$(grep -Erc --exclude-dir=".git*" '\sclose\(')"
-  go-http-body-closure:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
-          persist-credentials: false
-      - run: test "$(grep -rEc --exclude-dir=".git*" '\b(http\.Get|http\.Head|http\.DefaultClient\.Do|[a-zA-Z]*[Cc][Ll]ient\.(Get|Head|Do))\(')" = "$(grep -rc --exclude-dir=".git*" '.Body.Close()')"
+          go-version-file: go.mod
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a
+        with:
+          args: --enable-only bodyclose
   go-mockey-unpatch:
     runs-on: ubuntu-latest
     steps:
@@ -83,14 +81,7 @@ jobs:
           done
   test:
     runs-on: ubuntu-latest
-    needs:
-      [
-        super-linter,
-        gofumpt,
-        go-channel-closure,
-        go-http-body-closure,
-        go-mockey-unpatch,
-      ]
+    needs: [super-linter, gofumpt, golangci-lint, go-mockey-unpatch]
     if: success()
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -101,9 +92,9 @@ jobs:
           go-version-file: go.mod
       - run: |
           echo Testing...
-          go test -gcflags="all=-N -l" -p 1 -v -timeout 30s ./...
+          go test -race -gcflags="all=-N -l" -p 1 -v -timeout 120s ./...
           echo Checking coverage...
-          go test -gcflags="all=-N -l" -p 1 -v -timeout 30s -cover ./... | grep -E '[1-9]{1}[0-9]{1}.[0-9]+%' && exit 1 || echo ok
+          go test -race -gcflags="all=-N -l" -p 1 -v -timeout 120s -cover ./... | grep -E '[1-9]{1}[0-9]{1}.[0-9]+%' && exit 1 || echo ok
         env:
           XDG_MUSIC_DIR: /tmp
   notify:

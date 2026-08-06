@@ -25,6 +25,7 @@ func TestDownload(t *testing.T) {
 	mockey.Mock(os.ReadFile).Return(nil, errors.New("not exists")).Build()
 	mockey.Mock(os.MkdirAll).Return(nil).Build()
 	mockey.Mock(cmd.YouTubeDl).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Head")).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	ch := make(chan []byte, 1)
@@ -52,6 +53,7 @@ func TestDownloadMakeDirFailure(t *testing.T) {
 	defer mockey.UnPatchAll()
 	mockey.Mock(os.ReadFile).Return(nil, errors.New("not exists")).Build()
 	mockey.Mock(os.MkdirAll).Return(errors.New("ko")).Build()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Head")).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, Download("http://youtu.be", "fname.txt", nil), "ko")
@@ -77,6 +79,7 @@ func TestDownloadYouTubeDlFailure(t *testing.T) {
 	mockey.Mock(os.ReadFile).Return(nil, errors.New("not exists")).Build()
 	mockey.Mock(os.MkdirAll).Return(nil).Build()
 	mockey.Mock(cmd.YouTubeDl).Return(errors.New("ko")).Build()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Head")).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, Download("http://youtu.be", "fname.txt", nil), "ko")

@@ -34,6 +34,11 @@ func cleanup() {
 	indexData = index.New()
 }
 
+func cloneTrack(track *entity.Track) *entity.Track {
+	copied := *track
+	return &copied
+}
+
 func TestCmdSync(t *testing.T) {
 	t.Cleanup(cleanup)
 
@@ -52,22 +57,22 @@ func TestCmdSync(t *testing.T) {
 	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
 	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
 		for _, c := range ch {
-			c <- _track
-			c <- _track // to trigger duplicate check
+			c <- cloneTrack(_track)
+			c <- cloneTrack(_track) // to trigger duplicate check
 		}
 		return nil
 	}).Build()
 	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Playlist")).To(func(_ string, ch ...chan interface{}) (*playlist.Playlist, error) {
-		ch[0] <- _track
-		ch[0] <- _trackNotFound // to skip inclusion in playlist
+		ch[0] <- cloneTrack(_track)
+		ch[0] <- cloneTrack(_trackNotFound) // to skip inclusion in playlist
 		return _playlist, nil
 	}).Build()
 	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Album")).To(func(_ string, ch ...chan interface{}) (*entity.Album, error) {
-		ch[0] <- _track
+		ch[0] <- cloneTrack(_track)
 		return _album, nil
 	}).Build()
 	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Track")).To(func(_ string, ch ...chan interface{}) (*entity.Track, error) {
-		ch[0] <- _track
+		ch[0] <- cloneTrack(_track)
 		return _track, nil
 	}).Build()
 	mockey.Mock(id3.Open).Return(&id3.Tag{}, nil).Build()
@@ -128,7 +133,7 @@ func TestCmdSyncOfflineIndex(t *testing.T) {
 	}).Build()
 	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
 	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		ch[0] <- _track
+		ch[0] <- cloneTrack(_track)
 		return nil
 	}).Build()
 	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()
@@ -346,7 +351,7 @@ func TestCmdSyncDecideManual(t *testing.T) {
 	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
 	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
 	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		ch[0] <- _track
+		ch[0] <- cloneTrack(_track)
 		return nil
 	}).Build()
 
@@ -366,7 +371,7 @@ func TestCmdSyncDecideFailure(t *testing.T) {
 	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
 	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
 	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		ch[0] <- _track
+		ch[0] <- cloneTrack(_track)
 		return nil
 	}).Build()
 	mockey.Mock(provider.Search).To(func(*entity.Track) ([]*provider.Match, error) {
@@ -422,7 +427,7 @@ func TestCmdSyncDecideNotFound(t *testing.T) {
 	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
 	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
 	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		ch[0] <- _track
+		ch[0] <- cloneTrack(_track)
 		return nil
 	}).Build()
 	mockey.Mock(provider.Search).To(func(*entity.Track) ([]*provider.Match, error) {
@@ -445,7 +450,7 @@ func TestCmdSyncCollectFailure(t *testing.T) {
 	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
 	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
 	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		ch[0] <- _track
+		ch[0] <- cloneTrack(_track)
 		return nil
 	}).Build()
 	mockey.Mock(provider.Search).To(func(*entity.Track) ([]*provider.Match, error) {
@@ -478,7 +483,7 @@ func TestCmdSyncDownloadFailure(t *testing.T) {
 	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
 	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
 	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		ch[0] <- _track
+		ch[0] <- cloneTrack(_track)
 		return nil
 	}).Build()
 	mockey.Mock(provider.Search).To(func(*entity.Track) ([]*provider.Match, error) {
@@ -508,7 +513,7 @@ func TestCmdSyncLyricsFailure(t *testing.T) {
 	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
 	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
 	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		ch[0] <- _track
+		ch[0] <- cloneTrack(_track)
 		return nil
 	}).Build()
 	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()
@@ -536,7 +541,7 @@ func TestCmdSyncProcessorFailure(t *testing.T) {
 	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
 	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
 	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		ch[0] <- _track
+		ch[0] <- cloneTrack(_track)
 		return nil
 	}).Build()
 	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()
@@ -565,7 +570,7 @@ func TestCmdSyncInstallerFailure(t *testing.T) {
 	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
 	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
 	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		ch[0] <- _track
+		ch[0] <- cloneTrack(_track)
 		return nil
 	}).Build()
 	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()

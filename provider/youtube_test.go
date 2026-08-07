@@ -225,8 +225,13 @@ func TestYouTubeSearchFailingGoQuery(t *testing.T) {
 
 func TestScraping(t *testing.T) {
 	if os.Getenv("TEST_SCRAPING") == "" {
-		return
+		t.Skip("TEST_SCRAPING unset")
 	}
+
+	// the only test actually hitting the network: the keep-alive conn it
+	// leaves in the default pool keeps an http2 readLoop goroutine around,
+	// which goleak would report as a leak on package exit
+	defer http.DefaultClient.CloseIdleConnections()
 
 	// testing
 	matches, err := youTube{}.search(&entity.Track{

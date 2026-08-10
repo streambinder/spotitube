@@ -141,7 +141,7 @@ jobs:
   build:
     runs-on: ubuntu-24.04-arm
     needs: [test]
-    if: success() && github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: success()
     environment:
       name: prod
       deployment: false

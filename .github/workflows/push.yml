@@ -157,6 +157,16 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Assert credentials are available
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          SPOTIFY_ID: ${{ secrets.SPOTIFY_ID }}
+          SPOTIFY_KEY: ${{ secrets.SPOTIFY_KEY }}
+          GENIUS_TOKEN: ${{ secrets.GENIUS_TOKEN }}
+        run: |
+          for name in SPOTIFY_ID SPOTIFY_KEY GENIUS_TOKEN; do
+            [ -n "$(printenv "$name")" ] || { echo "::error::$name is empty"; exit 1; }
+          done
       - uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a
         with:
           secrets: |
@@ -169,4 +179,4 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ github.sha }}
-          push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}

@@ -5,9 +5,9 @@ COPY . .
 RUN --mount=type=secret,id=SPOTIFY_ID \
     --mount=type=secret,id=SPOTIFY_KEY \
     --mount=type=secret,id=GENIUS_TOKEN \
-    SPOTIFY_ID=$(tr -d '\n' </run/secrets/SPOTIFY_ID) && \
-    SPOTIFY_KEY=$(tr -d '\n' </run/secrets/SPOTIFY_KEY) && \
-    GENIUS_TOKEN=$(tr -d '\n' </run/secrets/GENIUS_TOKEN) && \
+    SPOTIFY_ID="$(cat /run/secrets/SPOTIFY_ID 2>/dev/null || true)" && \
+    SPOTIFY_KEY="$(cat /run/secrets/SPOTIFY_KEY 2>/dev/null || true)" && \
+    GENIUS_TOKEN="$(cat /run/secrets/GENIUS_TOKEN 2>/dev/null || true)" && \
     go mod download && \
     go build -o spotitube -ldflags="-s -w -X \"github.com/streambinder/spotitube/spotify.fallbackSpotifyID=${SPOTIFY_ID}\" -X \"github.com/streambinder/spotitube/spotify.fallbackSpotifyKey=${SPOTIFY_KEY}\" -X \"github.com/streambinder/spotitube/lyrics.fallbackGeniusToken=${GENIUS_TOKEN}\"" .
 

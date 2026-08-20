@@ -108,4 +108,5 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:release
             ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
           push: true

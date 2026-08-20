@@ -167,6 +167,24 @@ jobs:
           for name in SPOTIFY_ID SPOTIFY_KEY GENIUS_TOKEN; do
             [ -n "$(printenv "$name")" ] || { echo "::error::$name is empty"; exit 1; }
           done
+      - name: Set docker tags
+        id: tags
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          REPOSITORY: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          if [ "$EVENT_NAME" = "push" ] && [ "$REF" = "refs/heads/master" ]; then
+            {
+              echo "tags<<EOF"
+              echo "ghcr.io/$REPOSITORY:latest"
+              echo "ghcr.io/$REPOSITORY:$SHA"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "tags=ghcr.io/$REPOSITORY:$SHA" >> "$GITHUB_OUTPUT"
+          fi
       - uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a
         with:
           secrets: |
@@ -176,7 +194,5 @@ jobs:
           platforms: linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
-          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+          tags: ${{ steps.tags.outputs.tags }}
+          push: true

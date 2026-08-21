@@ -1,8 +1,10 @@
 name: push
 
-on: # yamllint disable-line rule:truthy
-  push: null
-  pull_request: null
+on:
+  push:
+    branches:
+      - master
+  pull_request:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

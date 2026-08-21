@@ -50,9 +50,11 @@ func (lot *Lot) Wipe() {
 }
 
 func (lot *Lot) Close(messages ...string) {
+	lot.window.lock.Lock()
 	if !lot.window.plain {
 		lot.style = idleColor
 	}
+	lot.window.lock.Unlock()
 	lot.Print(sys.First(messages, "done"))
 }
 

@@ -98,11 +98,19 @@ func init() {
 	providers = append(providers, youTube{})
 }
 
+func sanitizeYouTubeQuery(q string) string {
+	// YouTube interprets -word as exclusion operator, filter out hyphens
+	// to avoid unintended query filtering
+	q = strings.ReplaceAll(q, "-", " ")
+	return strings.Join(strings.Fields(q), " ")
+}
+
 func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 	query := track.Title
 	for _, artist := range track.Artists {
 		query = fmt.Sprintf("%s %s", query, artist)
 	}
+	query = sanitizeYouTubeQuery(query)
 
 	for attempt := 0; attempt < sys.MaxRetries; attempt++ {
 		matches, retry, err := func() ([]*Match, bool, error) {

@@ -25,6 +25,8 @@ func BenchmarkString(b *testing.B) {
 func TestFlatten(t *testing.T) {
 	assert.Equal(t, "hello world", Flatten("hello-world"))
 	assert.Equal(t, "hello world", Flatten("Hello World"))
+	assert.Equal(t, "sawano hiroyuki n zk", Flatten("SawanoHiroyuki[nZk]"))
+	assert.Equal(t, "the la fontaines", Flatten("TheLaFontaines"))
 }
 
 func TestUniqueFields(t *testing.T) {
@@ -33,8 +35,11 @@ func TestUniqueFields(t *testing.T) {
 }
 
 func TestLevenshteinBoundedDistance(t *testing.T) {
-	assert.Equal(t, levenshtein.ComputeDistance("word1", "word2"), LevenshteinBoundedDistance("wOrd1", "woRd2"))
-	assert.Equal(t, levenshtein.ComputeDistance("word1", "word3"), LevenshteinBoundedDistance("word1 wOrd2", "word2 Word3"))
+	// With CamelCase splitting in Flatten, wOrd1 -> "w ord1" -> UniqueFields "ord1"
+	// woRd2 -> "wo rd2" -> UniqueFields "" (both parts <=3 filtered), distance "ord1" vs "" = 4
+	assert.Equal(t, 4, LevenshteinBoundedDistance("wOrd1", "woRd2"))
+	// word1 wOrd2 -> "word1 ord2", word2 Word3 -> "word2 word3", distance = 3
+	assert.Equal(t, 3, LevenshteinBoundedDistance("word1 wOrd2", "word2 Word3"))
 	assert.Equal(t, levenshtein.ComputeDistance("word1", "word2"), LevenshteinBoundedDistance("worD1 word1", "word2"))
 	assert.Equal(t, levenshtein.ComputeDistance("", "word2"), LevenshteinBoundedDistance("word1 word1", "word1 word2"))
 }

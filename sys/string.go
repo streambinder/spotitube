@@ -9,9 +9,13 @@ import (
 	"github.com/gosimple/slug"
 )
 
-var filenameIllegalCharacters = regexp.MustCompile(`[/\\?%*:|"<>]`)
+var (
+	filenameIllegalCharacters = regexp.MustCompile(`[/\\?%*:|"<>]`)
+	camelCasePattern          = regexp.MustCompile(`([a-z0-9])([A-Z])`)
+)
 
 func Flatten(sentence string) string {
+	sentence = camelCasePattern.ReplaceAllString(sentence, "$1 $2")
 	return strings.ReplaceAll(slug.Make(sentence), "-", " ")
 }
 

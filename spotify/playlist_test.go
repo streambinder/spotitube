@@ -51,6 +51,35 @@ func TestPlaylist(t *testing.T) {
 	assert.Equal(t, fullPlaylist.Tracks.Tracks[0].Track.Name, playlist.Tracks[0].Title)
 }
 
+func TestPersonalPlaylistExactNameMatch(t *testing.T) {
+	var (
+		popPlusID  = spotify.ID("1111111111111111111111")
+		popMinusID = spotify.ID("2222222222222222222222")
+	)
+
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUsersPlaylists")).Return(&spotify.SimplePlaylistPage{
+		Playlists: []spotify.SimplePlaylist{
+			{ID: popPlusID, Name: "pop+"},
+			{ID: popMinusID, Name: "pop-"},
+		},
+	}, nil).Build()
+
+	// testing
+	client := testClient()
+	id, err := client.personalPlaylistNameToID("pop+")
+	assert.Nil(t, err)
+	assert.Equal(t, popPlusID, id)
+	id, err = client.personalPlaylistNameToID("pop-")
+	assert.Nil(t, err)
+	assert.Equal(t, popMinusID, id)
+	// a name not matching exactly falls back to a direct ID/URI/URL target
+	id, err = client.personalPlaylistNameToID("Pop+")
+	assert.Nil(t, err)
+	assert.Equal(t, spotify.ID("Pop+"), id)
+}
+
 func TestPlaylistChannel(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()

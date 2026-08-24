@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/gosimple/slug"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/sys"
 )
@@ -17,7 +16,7 @@ type PLSEncoder struct {
 }
 
 func (encoder *PLSEncoder) init(name string) error {
-	encoder.target = slug.Make(name) + ".pls"
+	encoder.target = sys.LegalizeFilename(name) + ".pls"
 	encoder.data = []byte(fmt.Sprintf("[%s]\n\n", name))
 	encoder.entries = 0
 	return nil

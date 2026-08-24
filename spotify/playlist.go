@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/gosimple/slug"
 	"github.com/streambinder/spotitube/entity/playlist"
 	"github.com/zmb3/spotify/v2"
 )
@@ -31,12 +30,12 @@ func (client *Client) personalPlaylistNameToID(target string) (spotify.ID, error
 			return "", err
 		}
 		for _, playlist := range personalPlaylists {
-			playlistsMap.(map[string]string)[slug.Make(playlist.Name)] = playlist.ID
+			playlistsMap.(map[string]string)[playlist.Name] = playlist.ID
 		}
 		client.cache[personalPlaylistsCacheID] = playlistsMap
 	}
 
-	if cachedTarget, ok := playlistsMap.(map[string]string)[slug.Make(target)]; ok {
+	if cachedTarget, ok := playlistsMap.(map[string]string)[target]; ok {
 		return id(cachedTarget), nil
 	}
 	return id(target), nil

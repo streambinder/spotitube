@@ -30,9 +30,20 @@ func TestM3U(t *testing.T) {
 	assert.Nil(t, encoder.init(testPlaylist.Name))
 	assert.Nil(t, encoder.Add(testTrack))
 	assert.Nil(t, encoder.Close())
+	assert.Equal(t, "Playlist.m3u", encoder.target)
 	assert.Equal(t, `#EXTM3U
 #PLAYLIST:Playlist
 #EXTINF:0,Artist - Title
 Artist - Title.mp3
 `, string(output))
+}
+
+func TestM3UTargetFilename(t *testing.T) {
+	encoder := &M3UEncoder{}
+	assert.Nil(t, encoder.init("pop+"))
+	assert.Equal(t, "pop+.m3u", encoder.target)
+	assert.Nil(t, encoder.init("pop-"))
+	assert.Equal(t, "pop-.m3u", encoder.target)
+	assert.Nil(t, encoder.init(`a/b:c`))
+	assert.Equal(t, "abc.m3u", encoder.target)
 }

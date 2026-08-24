@@ -38,4 +38,15 @@ Length1=0
 
 NumberOfEntries=1
 `, string(output))
+	assert.Equal(t, "Playlist.pls", encoder.target)
+}
+
+func TestPLSTargetFilename(t *testing.T) {
+	encoder := &PLSEncoder{}
+	assert.Nil(t, encoder.init("pop+"))
+	assert.Equal(t, "pop+.pls", encoder.target)
+	assert.Nil(t, encoder.init("pop-"))
+	assert.Equal(t, "pop-.pls", encoder.target)
+	assert.Nil(t, encoder.init(`a/b:c`))
+	assert.Equal(t, "abc.pls", encoder.target)
 }

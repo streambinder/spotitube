@@ -112,6 +112,7 @@ func Search(track *entity.Track) (string, error) {
 	var (
 		workers        []nursery.ConcurrentJob
 		result         []byte
+		failures       []error
 		mu             sync.Mutex
 		ctxBackground  = context.Background()
 		ctx, ctxCancel = context.WithCancel(ctxBackground)
@@ -120,10 +121,12 @@ func Search(track *entity.Track) (string, error) {
 
 	for _, composer := range composers {
 		workers = append(workers, func(c Composer) func(context.Context, chan error) {
-			return func(ctx context.Context, ch chan error) {
+			return func(ctx context.Context, _ chan error) {
 				lyrics, err := c.search(track, ctx)
 				if err != nil {
-					ch <- err
+					mu.Lock()
+					failures = append(failures, err)
+					mu.Unlock()
 					return
 				}
 
@@ -141,6 +144,12 @@ func Search(track *entity.Track) (string, error) {
 
 	if err := nursery.RunConcurrentlyWithContext(ctx, workers...); err != nil {
 		return "", err
+	}
+
+	// a single failing composer must not abort the others:
+	// fail only when every composer failed
+	if len(failures) > 0 && len(failures) == len(composers) {
+		return "", failures[0]
 	}
 
 	if len(result) == 0 {
@@ -158,6 +167,7 @@ func Get(url string) (string, error) {
 	var (
 		workers        []nursery.ConcurrentJob
 		result         []byte
+		failures       []error
 		mu             sync.Mutex
 		ctxBackground  = context.Background()
 		ctx, ctxCancel = context.WithCancel(ctxBackground)
@@ -166,10 +176,12 @@ func Get(url string) (string, error) {
 
 	for _, composer := range composers {
 		workers = append(workers, func(c Composer) func(context.Context, chan error) {
-			return func(ctx context.Context, ch chan error) {
+			return func(ctx context.Context, _ chan error) {
 				lyrics, err := c.get(url, ctx)
 				if err != nil {
-					ch <- err
+					mu.Lock()
+					failures = append(failures, err)
+					mu.Unlock()
 					return
 				}
 
@@ -188,5 +200,12 @@ func Get(url string) (string, error) {
 	if err := nursery.RunConcurrentlyWithContext(ctx, workers...); err != nil {
 		return "", err
 	}
+
+	// a single failing composer must not abort the others:
+	// fail only when every composer failed
+	if len(failures) > 0 && len(failures) == len(composers) {
+		return "", failures[0]
+	}
+
 	return string(result), nil
 }

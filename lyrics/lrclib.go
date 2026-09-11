@@ -38,6 +38,38 @@ func (composer lrclib) search(track *entity.Track, ctxs ...context.Context) ([]b
 		url.QueryEscape(track.Title)), ctx)
 }
 
+type lrclibStatusAction int
+
+const (
+	lrclibStatusProceed lrclibStatusAction = iota
+	lrclibStatusNotFound
+	lrclibStatusRetry
+)
+
+// classifyStatus maps a response status code to the action to take.
+// Server errors are retried only once, unlike rate limiting.
+func classifyStatus(response *http.Response, serverErrs *int) (lrclibStatusAction, error) {
+	switch {
+	case response.StatusCode == 404:
+		return lrclibStatusNotFound, nil
+	case response.StatusCode == 429:
+		sys.SleepUntilRetry(response.Header)
+		return lrclibStatusRetry, nil
+	case response.StatusCode >= 500 && response.StatusCode <= 599:
+		if *serverErrs > 0 {
+			return lrclibStatusProceed, errors.New("cannot fetch results on lrclib: " + response.Status)
+		}
+		*serverErrs++
+		sys.SleepUntilRetry(response.Header)
+		return lrclibStatusRetry, nil
+	default:
+		if response.StatusCode != 200 {
+			return lrclibStatusProceed, errors.New("cannot fetch results on lrclib: " + response.Status)
+		}
+		return lrclibStatusProceed, nil
+	}
+}
+
 func (composer lrclib) get(url string, ctxs ...context.Context) ([]byte, error) {
 	ctx := context.Background()
 	if len(ctxs) > 0 {
@@ -49,6 +81,7 @@ func (composer lrclib) get(url string, ctxs ...context.Context) ([]byte, error) 
 		return nil, err
 	}
 
+	serverErrs := 0
 	for attempt := 0; attempt < sys.MaxRetries; attempt++ {
 		result, retry, getErr := func() ([]byte, bool, error) {
 			response, err := http.DefaultClient.Do(request)
@@ -59,14 +92,15 @@ func (composer lrclib) get(url string, ctxs ...context.Context) ([]byte, error) 
 			}
 			defer response.Body.Close()
 
-			switch {
-			case response.StatusCode == 404:
+			action, actionErr := classifyStatus(response, &serverErrs)
+			if actionErr != nil {
+				return nil, false, actionErr
+			}
+			if action == lrclibStatusNotFound {
 				return nil, false, nil
-			case response.StatusCode == 429:
-				sys.SleepUntilRetry(response.Header)
+			}
+			if action == lrclibStatusRetry {
 				return nil, true, nil
-			case response.StatusCode != 200:
-				return nil, false, errors.New("cannot fetch results on lrclib: " + response.Status)
 			}
 
 			body, readErr := io.ReadAll(response.Body)

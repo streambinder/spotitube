@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/arunsworld/nursery"
 	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/sys"
@@ -152,6 +153,63 @@ func TestGetFailure(t *testing.T) {
 	defer mockey.UnPatchAll()
 	mockey.Mock(mockey.GetMethod(genius{}, "get")).Return(nil, errors.New("ko")).Build()
 	mockey.Mock(mockey.GetMethod(lrclib{}, "get")).Return(nil, errors.New("ko")).Build()
+	// testing
+	assert.EqualError(t, sys.ErrOnly(Get("http://localhost")), "ko")
+}
+
+func TestSearchPartialFailure(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.ReadFile).Return(nil, errors.New("")).Build()
+	mockey.Mock(mockey.GetMethod(genius{}, "search")).Return(nil, errors.New("ko")).Build()
+	mockey.Mock(mockey.GetMethod(lrclib{}, "search")).Return([]byte("lyrics"), nil).Build()
+
+	// testing: one failing composer must not abort the others
+	lyrics, err := Search(track)
+	assert.Nil(t, err)
+	assert.Equal(t, "lyrics", lyrics)
+}
+
+func TestSearchPartialFailureNotFound(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.ReadFile).Return(nil, errors.New("")).Build()
+	mockey.Mock(mockey.GetMethod(genius{}, "search")).Return(nil, nil).Build()
+	mockey.Mock(mockey.GetMethod(lrclib{}, "search")).Return(nil, errors.New("ko")).Build()
+
+	// testing: a not-found composer plus a failing one is not a failure
+	lyrics, err := Search(track)
+	assert.Nil(t, err)
+	assert.Empty(t, lyrics)
+}
+
+func TestGetPartialFailure(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(genius{}, "get")).Return(nil, errors.New("ko")).Build()
+	mockey.Mock(mockey.GetMethod(lrclib{}, "get")).Return([]byte("lyrics"), nil).Build()
+
+	// testing: one failing composer must not abort the others
+	lyrics, err := Get("http://localhost")
+	assert.Nil(t, err)
+	assert.Equal(t, "lyrics", lyrics)
+}
+
+func TestSearchNurseryFailure(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.ReadFile).Return(nil, errors.New("")).Build()
+	mockey.Mock(nursery.RunConcurrentlyWithContext).Return(errors.New("ko")).Build()
+
+	// testing
+	assert.EqualError(t, sys.ErrOnly(Search(track)), "ko")
+}
+
+func TestGetNurseryFailure(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(nursery.RunConcurrentlyWithContext).Return(errors.New("ko")).Build()
+
 	// testing
 	assert.EqualError(t, sys.ErrOnly(Get("http://localhost")), "ko")
 }

@@ -220,3 +220,66 @@ func TestLrclibSearchJsonFailure(t *testing.T) {
 	// testing
 	assert.EqualError(t, sys.ErrOnly(lrclib{}.search(track)), "ko")
 }
+
+func TestLrclibSearchServerErrorRetryOnce(t *testing.T) {
+	// monkey patching
+	doCounter := 0
+	defer mockey.UnPatchAll()
+	mockey.Mock(sys.SleepUntilRetry).Return().Build()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
+		doCounter++
+		return &http.Response{
+			StatusCode: 503,
+			Status:     "503 Service Unavailable",
+			Body:       io.NopCloser(strings.NewReader("")),
+		}, nil
+	}).Build()
+
+	// testing: server errors are retried only once, then the error is returned
+	assert.EqualError(t, sys.ErrOnly(lrclib{}.search(track)), "cannot fetch results on lrclib: 503 Service Unavailable")
+	assert.Equal(t, 2, doCounter)
+}
+
+func TestLrclibSearchServerErrorRecover(t *testing.T) {
+	// monkey patching
+	doCounter := 0
+	defer mockey.UnPatchAll()
+	mockey.Mock(sys.SleepUntilRetry).Return().Build()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
+		doCounter++
+		if doCounter > 1 {
+			return &http.Response{
+				StatusCode: 200,
+				Body: io.NopCloser(
+					strings.NewReader(`{"syncedLyrics": "[00:27.37] lyrics", "plainLyrics": "lyrics"}`),
+				),
+			}, nil
+		}
+		return &http.Response{
+			StatusCode: 503,
+			Status:     "503 Service Unavailable",
+			Body:       io.NopCloser(strings.NewReader("")),
+		}, nil
+	}).Build()
+
+	// testing
+	lyrics, err := lrclib{}.search(track)
+	assert.Nil(t, err)
+	assert.Equal(t, []byte("[00:27.37]lyrics"), lyrics)
+	assert.Equal(t, 2, doCounter)
+}
+
+func TestLrclibSearchBadRequest(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).Return(&http.Response{
+		StatusCode: 400,
+		Status:     "400 Bad Request",
+		Body: io.NopCloser(
+			strings.NewReader(""),
+		),
+	}, nil).Build()
+
+	// testing
+	assert.EqualError(t, sys.ErrOnly(lrclib{}.search(track)), "cannot fetch results on lrclib: 400 Bad Request")
+}

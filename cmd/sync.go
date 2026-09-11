@@ -75,6 +75,7 @@ func cmdSync() *cobra.Command {
 				fixes            = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("fix"))
 				libraryLimit     = sys.ErrWrap(0)(cmd.Flags().GetInt("library-limit"))
 				plain            = sys.ErrWrap(false)(cmd.Flags().GetBool("plain"))
+				skipLyrics       = sys.ErrWrap(false)(cmd.Flags().GetBool("skip-lyrics"))
 			)
 
 			if plain {
@@ -95,7 +96,7 @@ func cmdSync() *cobra.Command {
 				routineAuth,
 				routineFetch(library, playlists, playlistsTracks, albums, tracks, fixes, libraryLimit),
 				routineDecide(manual),
-				routineCollect,
+				routineCollect(skipLyrics),
 				routineProcess,
 				routineInstall,
 				routineMix(playlistEncoding),
@@ -147,6 +148,7 @@ func cmdSync() *cobra.Command {
 	cmd.Flags().StringArrayP("fix", "f", []string{}, "Fix local track")
 	cmd.Flags().Int("library-limit", 0, "Number of tracks to fetch from library (unlimited if 0)")
 	cmd.Flags().Bool("plain", false, "Enable plain mode (no fancy TUI anchored output)")
+	cmd.Flags().Bool("skip-lyrics", false, "Skip lyrics collection")
 	return cmd
 }
 
@@ -388,25 +390,28 @@ func routineDecide(manualMode bool) func(context.Context, chan error) {
 // collector fetches all the needed assets
 // for a blob to be processed (basically
 // a wrapper around: retriever, composer and painter)
-func routineCollect(_ context.Context, ch chan error) {
-	// remember to stop passing data to installer
-	defer close(routineQueues[routineTypeProcess])
+func routineCollect(skipLyrics bool) func(context.Context, chan error) {
+	return func(_ context.Context, ch chan error) {
+		// remember to stop passing data to installer
+		defer close(routineQueues[routineTypeProcess])
 
-	for event := range routineQueues[routineTypeCollect] {
-		track := event.(*entity.Track)
-		if err := nursery.RunConcurrently(
-			routineCollectAsset(track),
-			routineCollectLyrics(track),
-			routineCollectArtwork(track),
-		); err != nil {
-			ch <- err
-			return
+		for event := range routineQueues[routineTypeCollect] {
+			track := event.(*entity.Track)
+			routines := []nursery.ConcurrentJob{routineCollectAsset(track)}
+			if !skipLyrics {
+				routines = append(routines, routineCollectLyrics(track))
+			}
+			routines = append(routines, routineCollectArtwork(track))
+			if err := nursery.RunConcurrently(routines...); err != nil {
+				ch <- err
+				return
+			}
+			routineQueues[routineTypeProcess] <- track
 		}
-		routineQueues[routineTypeProcess] <- track
+		tui.Lot("download").Close()
+		tui.Lot("compose").Close()
+		tui.Lot("paint").Close()
 	}
-	tui.Lot("download").Close()
-	tui.Lot("compose").Close()
-	tui.Lot("paint").Close()
 }
 
 // retriever pulls a track blob corresponding

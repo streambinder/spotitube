@@ -1,6 +1,6 @@
 module github.com/streambinder/spotitube
 
-go 1.26.0
+go 1.26.2
 
 require (
 	atomicgo.dev/cursor v0.2.0

@@ -468,7 +468,9 @@ func TestCmdSyncCollectFailure(t *testing.T) {
 	mockey.Mock(lyrics.Search).Return("", nil).Build()
 
 	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
+	// testing: the failing track is skipped, the sync completes
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")))
+	assert.Equal(t, 0, indexData.Size(index.Installed))
 }
 
 func TestCmdSyncDownloadFailure(t *testing.T) {
@@ -498,7 +500,9 @@ func TestCmdSyncDownloadFailure(t *testing.T) {
 	mockey.Mock(lyrics.Search).Return("", nil).Build()
 
 	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
+	// testing: the failing track is skipped, the sync completes
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")))
+	assert.Equal(t, 0, indexData.Size(index.Installed))
 }
 
 func TestCmdSyncLyricsFailure(t *testing.T) {
@@ -526,7 +530,9 @@ func TestCmdSyncLyricsFailure(t *testing.T) {
 	mockey.Mock(lyrics.Search).Return("", errors.New("ko")).Build()
 
 	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
+	// testing: the failing track is skipped, the sync completes
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")))
+	assert.Equal(t, 0, indexData.Size(index.Installed))
 }
 
 func TestCmdSyncProcessorFailure(t *testing.T) {

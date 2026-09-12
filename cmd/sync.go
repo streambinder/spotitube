@@ -391,7 +391,7 @@ func routineDecide(manualMode bool) func(context.Context, chan error) {
 // for a blob to be processed (basically
 // a wrapper around: retriever, composer and painter)
 func routineCollect(skipLyrics bool) func(context.Context, chan error) {
-	return func(_ context.Context, ch chan error) {
+	return func(_ context.Context, _ chan error) {
 		// remember to stop passing data to installer
 		defer close(routineQueues[routineTypeProcess])
 
@@ -403,8 +403,8 @@ func routineCollect(skipLyrics bool) func(context.Context, chan error) {
 			}
 			routines = append(routines, routineCollectArtwork(track))
 			if err := nursery.RunConcurrently(routines...); err != nil {
-				ch <- err
-				return
+				tui.AnchorPrintf("%s by %s (id: %s) collection failed: %v", track.Title, track.Artists[0], track.ID, err)
+				continue
 			}
 			routineQueues[routineTypeProcess] <- track
 		}

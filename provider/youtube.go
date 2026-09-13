@@ -229,7 +229,7 @@ func (provider youTube) parseResults(track *entity.Track, query string, body io.
 func (result youTubeResult) compliant(track *entity.Track) bool {
 	spec := sys.UniqueFields(fmt.Sprintf("%s %s", result.owner, result.title))
 	return result.id != "" && result.year >= track.Year &&
-		sys.Contains(spec, strings.Split(sys.UniqueFields(track.Artists[0]), " ")...) &&
+		sys.Contains(spec, strings.Split(sys.UniqueFields(track.Artist()), " ")...) &&
 		sys.Contains(spec, strings.Split(sys.UniqueFields(track.Song()), " ")...)
 }
 

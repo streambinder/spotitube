@@ -219,7 +219,7 @@ func documentParser(data *[]byte) func(i int, s *goquery.Selection) {
 func (result geniusResult) compliant() bool {
 	spec := sys.UniqueFields(fmt.Sprintf("%s %s", result.Artist.Name, result.Title))
 	return result.URL != "" &&
-		sys.Contains(spec, strings.Split(sys.UniqueFields(result.track.Artists[0]), " ")...) &&
+		sys.Contains(spec, strings.Split(sys.UniqueFields(result.track.Artist()), " ")...) &&
 		sys.Contains(spec, strings.Split(sys.UniqueFields(result.track.Song()), " ")...)
 }
 

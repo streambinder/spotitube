@@ -30,7 +30,7 @@ func TestPath(t *testing.T) {
 		Artwork: Artwork{URL: "http://domain.tld/123"},
 	}
 	assert.Equal(t,
-		fmt.Sprintf("%s - %s.%s", track.Path().track.Artists[0], track.Path().track.Title, TrackFormat),
+		fmt.Sprintf("%s - %s.%s", track.Path().track.Artist(), track.Path().track.Title, TrackFormat),
 		path.Base(track.Path().Final()))
 	assert.Equal(t,
 		fmt.Sprintf("%s.%s", track.Path().track.ID, TrackFormat),
@@ -41,4 +41,9 @@ func TestPath(t *testing.T) {
 	assert.Equal(t,
 		fmt.Sprintf("%s.%s", track.Path().track.ID, LyricsFormat),
 		path.Base(track.Path().Lyrics()))
+}
+
+func TestArtist(t *testing.T) {
+	assert.Equal(t, "Artist", (&Track{Artists: []string{"Artist"}}).Artist())
+	assert.Equal(t, "", (&Track{}).Artist())
 }

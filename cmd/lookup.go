@@ -98,11 +98,11 @@ func routineLookupProvider(providerChannel chan interface{}) func(context.Contex
 			matches, err := provider.Search(track)
 			switch {
 			case err != nil:
-				fmt.Println(colorRed+prefix, track.ID, sys.Pad(track.Artists[0]), sys.Pad(track.Title), err, colorReset)
+				fmt.Println(colorRed+prefix, track.ID, sys.Pad(track.Artist()), sys.Pad(track.Title), err, colorReset)
 			case len(matches) == 0:
-				fmt.Println(colorRed+prefix, track.ID, sys.Pad(track.Artists[0]), sys.Pad(track.Title), "no result", colorReset)
+				fmt.Println(colorRed+prefix, track.ID, sys.Pad(track.Artist()), sys.Pad(track.Title), "no result", colorReset)
 			default:
-				fmt.Println(prefix, track.ID, sys.Pad(track.Artists[0]), sys.Pad(track.Title), matches[0].URL, matches[0].Score)
+				fmt.Println(prefix, track.ID, sys.Pad(track.Artist()), sys.Pad(track.Title), matches[0].URL, matches[0].Score)
 			}
 		}
 	}
@@ -116,11 +116,11 @@ func routineLookupLyrics(lyricsChannel chan interface{}) func(context.Context, c
 			lyrics, err := lyrics.Search(track)
 			switch {
 			case err != nil:
-				fmt.Println(colorRed+prefix, track.ID, sys.Pad(track.Artists[0]), sys.Pad(track.Title), err, colorReset)
+				fmt.Println(colorRed+prefix, track.ID, sys.Pad(track.Artist()), sys.Pad(track.Title), err, colorReset)
 			case len(lyrics) == 0:
-				fmt.Println(colorRed+prefix, track.ID, sys.Pad(track.Artists[0]), sys.Pad(track.Title), "no result", colorReset)
+				fmt.Println(colorRed+prefix, track.ID, sys.Pad(track.Artist()), sys.Pad(track.Title), "no result", colorReset)
 			default:
-				fmt.Println(prefix, track.ID, sys.Pad(track.Artists[0]), sys.Pad(track.Title), sys.Excerpt(lyrics, 80))
+				fmt.Println(prefix, track.ID, sys.Pad(track.Artist()), sys.Pad(track.Title), sys.Excerpt(lyrics, 80))
 			}
 		}
 	}

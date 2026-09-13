@@ -229,7 +229,7 @@ func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixe
 			for event := range fetched {
 				counter++
 				track := event.(*entity.Track)
-				tui.Lot("fetch").Printf("%s by %s", track.Title, track.Artists[0])
+				tui.Lot("fetch").Printf("%s by %s", track.Title, track.Artist())
 			}
 			tui.Lot("fetch").Close(fmt.Sprintf("%d tracks", counter))
 		}()
@@ -350,10 +350,10 @@ func routineDecide(manualMode bool) func(context.Context, chan error) {
 			track := event.(*entity.Track)
 
 			if status, ok := indexData.Get(track); !ok {
-				tui.Printf("sync %s by %s", track.Title, track.Artists[0])
+				tui.Printf("sync %s by %s", track.Title, track.Artist())
 				indexData.Set(track, index.Online)
 			} else if status == index.Online {
-				tui.Printf("skip %s by %s", track.Title, track.Artists[0])
+				tui.Printf("skip %s by %s", track.Title, track.Artist())
 				continue
 			} else if status == index.Offline {
 				continue
@@ -361,29 +361,29 @@ func routineDecide(manualMode bool) func(context.Context, chan error) {
 
 			if manualMode {
 				tui.Lot("decide").Printf("waiting on user input")
-				track.UpstreamURL = tui.Reads("URL for %s by %s:", track.Title, track.Artists[0])
+				track.UpstreamURL = tui.Reads("URL for %s by %s:", track.Title, track.Artist())
 				tui.Lot("decide").Wipe()
 				if len(track.UpstreamURL) == 0 {
 					continue
 				}
 			} else {
 				if consecutiveFailures >= maxConsecutiveFailures {
-					tui.AnchorPrintf("%s by %s (id: %s) skipped: search unavailable", track.Title, track.Artists[0], track.ID)
+					tui.AnchorPrintf("%s by %s (id: %s) skipped: search unavailable", track.Title, track.Artist(), track.ID)
 					continue
 				}
 
-				tui.Lot("decide").Printf("%s by %s", track.Title, track.Artists[0])
+				tui.Lot("decide").Printf("%s by %s", track.Title, track.Artist())
 				matches, err := provider.Search(track)
 				tui.Lot("decide").Wipe()
 				if err != nil {
 					consecutiveFailures++
-					tui.AnchorPrintf("%s by %s (id: %s) search failed: %v", track.Title, track.Artists[0], track.ID, err)
+					tui.AnchorPrintf("%s by %s (id: %s) search failed: %v", track.Title, track.Artist(), track.ID, err)
 					continue
 				}
 
 				consecutiveFailures = 0
 				if len(matches) == 0 {
-					tui.AnchorPrintf("%s by %s (id: %s) not found", track.Title, track.Artists[0], track.ID)
+					tui.AnchorPrintf("%s by %s (id: %s) not found", track.Title, track.Artist(), track.ID)
 					continue
 				}
 				track.UpstreamURL = matches[0].URL
@@ -410,7 +410,7 @@ func routineCollect(skipLyrics bool) func(context.Context, chan error) {
 			}
 			routines = append(routines, routineCollectArtwork(track))
 			if err := nursery.RunConcurrently(routines...); err != nil {
-				tui.AnchorPrintf("%s by %s (id: %s) collection failed: %v", track.Title, track.Artists[0], track.ID, err)
+				tui.AnchorPrintf("%s by %s (id: %s) collection failed: %v", track.Title, track.Artist(), track.ID, err)
 				continue
 			}
 			routineQueues[routineTypeProcess] <- track
@@ -431,7 +431,7 @@ func routineCollectAsset(track *entity.Track) func(context.Context, chan error) 
 			ch <- err
 			return
 		}
-		tui.Printf("asset for %s by %s: %s", track.Title, track.Artists[0], track.UpstreamURL)
+		tui.Printf("asset for %s by %s: %s", track.Title, track.Artist(), track.UpstreamURL)
 		tui.Lot("download").Wipe()
 	}
 }
@@ -440,7 +440,7 @@ func routineCollectAsset(track *entity.Track) func(context.Context, chan error) 
 // in the fetched blob
 func routineCollectLyrics(track *entity.Track) func(context.Context, chan error) {
 	return func(_ context.Context, ch chan error) {
-		tui.Lot("compose").Printf("%s by %s", track.Title, track.Artists[0])
+		tui.Lot("compose").Printf("%s by %s", track.Title, track.Artist())
 		lyrics, err := lyrics.Search(track)
 		if err != nil {
 			tui.AnchorPrintf("compose failure: %s", err)
@@ -449,7 +449,7 @@ func routineCollectLyrics(track *entity.Track) func(context.Context, chan error)
 		}
 		tui.Lot("compose").Wipe()
 		track.Lyrics = lyrics
-		tui.Printf("lyrics for %s by %s: %s", track.Title, track.Artists[0], sys.Fallback(sys.Excerpt(sys.FirstLine(lyrics), 64), "not found"))
+		tui.Printf("lyrics for %s by %s: %s", track.Title, track.Artist(), sys.Fallback(sys.Excerpt(sys.FirstLine(lyrics), 64), "not found"))
 	}
 }
 
@@ -461,14 +461,14 @@ func routineCollectArtwork(track *entity.Track) func(context.Context, chan error
 		// returns immediately without feeding the channel, so there is
 		// nothing to wait for
 		if len(track.Artwork.URL) == 0 {
-			tui.Printf("artwork for %s by %s: %s", track.Title, track.Artists[0], "not found")
+			tui.Printf("artwork for %s by %s: %s", track.Title, track.Artist(), "not found")
 			return
 		}
 
 		artwork := make(chan []byte, 1)
 		defer close(artwork)
 
-		tui.Lot("paint").Printf("%s by %s", track.Title, track.Artists[0])
+		tui.Lot("paint").Printf("%s by %s", track.Title, track.Artist())
 		if err := downloader.Download(ctx, track.Artwork.URL, track.Path().Artwork(), processor.Artwork{}, artwork); err != nil {
 			tui.AnchorPrintf("compose failure: %s", err)
 			ch <- err
@@ -477,7 +477,7 @@ func routineCollectArtwork(track *entity.Track) func(context.Context, chan error
 
 		tui.Lot("paint").Wipe()
 		track.Artwork.Data = <-artwork
-		tui.Printf("artwork for %s by %s: %s", track.Title, track.Artists[0], sys.HumanizeBytes(len(track.Artwork.Data)))
+		tui.Printf("artwork for %s by %s: %s", track.Title, track.Artist(), sys.HumanizeBytes(len(track.Artwork.Data)))
 	}
 }
 
@@ -490,9 +490,9 @@ func routineProcess(_ context.Context, ch chan error) {
 
 	for event := range routineQueues[routineTypeProcess] {
 		track := event.(*entity.Track)
-		tui.Lot("process").Printf("%s by %s", track.Title, track.Artists[0])
+		tui.Lot("process").Printf("%s by %s", track.Title, track.Artist())
 		if err := processor.Do(track); err != nil {
-			tui.AnchorPrintf("processing failed for %s by %s: %s", track.Title, track.Artists[0], err)
+			tui.AnchorPrintf("processing failed for %s by %s: %s", track.Title, track.Artist(), err)
 			ch <- err
 			return
 		}
@@ -512,9 +512,9 @@ func routineInstall(_ context.Context, ch chan error) {
 			track     = event.(*entity.Track)
 			status, _ = indexData.Get(track)
 		)
-		tui.Lot("install").Printf("%s by %s ", track.Title, track.Artists[0])
+		tui.Lot("install").Printf("%s by %s ", track.Title, track.Artist())
 		if err := sys.FileMoveOrCopy(track.Path().Download(), track.Path().Final(), status == index.Flush); err != nil {
-			tui.AnchorPrintf("installation failed for %s by %s: %s", track.Title, track.Artists[0], err)
+			tui.AnchorPrintf("installation failed for %s by %s: %s", track.Title, track.Artist(), err)
 			ch <- err
 			return
 		}
@@ -545,7 +545,7 @@ func routineMix(encoding string) func(context.Context, chan error) {
 
 			for _, track := range playlist.Tracks {
 				if trackStatus, ok := indexData.Get(track); !ok || (trackStatus != index.Installed && trackStatus != index.Offline) {
-					tui.Printf("skipping %s by %s in playlist %s: not installed", track.Title, track.Artists[0], playlist.Name)
+					tui.Printf("skipping %s by %s in playlist %s: not installed", track.Title, track.Artist(), playlist.Name)
 					continue
 				}
 

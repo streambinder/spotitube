@@ -439,13 +439,13 @@ func routineCollectAsset(track *entity.Track) func(context.Context, chan error) 
 // composer pulls lyrics to be inserted
 // in the fetched blob
 func routineCollectLyrics(track *entity.Track) func(context.Context, chan error) {
-	return func(_ context.Context, ch chan error) {
+	return func(_ context.Context, _ chan error) {
 		tui.Lot("compose").Printf("%s by %s", track.Title, track.Artist())
 		lyrics, err := lyrics.Search(track)
 		if err != nil {
-			tui.AnchorPrintf("compose failure: %s", err)
-			ch <- err
-			return
+			// lyrics are a nice-to-have: a failure must not
+			// discard a track with audio and artwork ready
+			tui.AnchorPrintf("lyrics for %s by %s failed: %s", track.Title, track.Artist(), err)
 		}
 		tui.Lot("compose").Wipe()
 		track.Lyrics = lyrics

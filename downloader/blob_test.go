@@ -41,7 +41,7 @@ func BenchmarkBlob(b *testing.B) {
 func TestBlobSupports(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Head")).Return(&http.Response{
+	mockey.Mock(mockey.GetMethod(httpClient, "Head")).Return(&http.Response{
 		StatusCode: 200,
 		Body:       io.NopCloser(strings.NewReader("")),
 		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
@@ -54,7 +54,7 @@ func TestBlobSupports(t *testing.T) {
 func TestBlobSupportsError(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Head")).Return(nil, errors.New("ko")).Build()
+	mockey.Mock(mockey.GetMethod(httpClient, "Head")).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.False(t, blob{}.supports("http://davidepucci.it"))
@@ -63,7 +63,7 @@ func TestBlobSupportsError(t *testing.T) {
 func TestBlobSupportsNotFound(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Head")).Return(&http.Response{
+	mockey.Mock(mockey.GetMethod(httpClient, "Head")).Return(&http.Response{
 		StatusCode: 404,
 		Body:       io.NopCloser(strings.NewReader("")),
 	}, nil).Build()
@@ -75,7 +75,7 @@ func TestBlobSupportsNotFound(t *testing.T) {
 func TestBlobSupportsAudioMPEG(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Head")).Return(&http.Response{
+	mockey.Mock(mockey.GetMethod(httpClient, "Head")).Return(&http.Response{
 		StatusCode: 200,
 		Body:       io.NopCloser(strings.NewReader("")),
 		Header:     map[string][]string{"Content-Type": {"audio/mpeg"}},
@@ -88,7 +88,7 @@ func TestBlobSupportsAudioMPEG(t *testing.T) {
 func TestBlobUnsupported(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Head")).Return(&http.Response{
+	mockey.Mock(mockey.GetMethod(httpClient, "Head")).Return(&http.Response{
 		StatusCode: 200,
 		Body:       io.NopCloser(strings.NewReader("")),
 		Header:     map[string][]string{"Content-Type": {"text/plain"}},
@@ -101,7 +101,7 @@ func TestBlobUnsupported(t *testing.T) {
 func TestBlobDownload(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(&http.Response{
+	mockey.Mock(mockey.GetMethod(httpClient, "Get")).Return(&http.Response{
 		StatusCode: 200,
 		Body:       io.NopCloser(strings.NewReader("bitch")),
 		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
@@ -119,7 +119,7 @@ func TestBlobDownload(t *testing.T) {
 func TestBlobDownloadProcessorFailure(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(&http.Response{
+	mockey.Mock(mockey.GetMethod(httpClient, "Get")).Return(&http.Response{
 		StatusCode: 200,
 		Body:       io.NopCloser(strings.NewReader("bitch")),
 		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
@@ -134,7 +134,7 @@ func TestBlobDownloadProcessorFailure(t *testing.T) {
 func TestBlobDownloadFailure(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(nil, errors.New("ko")).Build()
+	mockey.Mock(mockey.GetMethod(httpClient, "Get")).Return(nil, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, blob{}.download("http://davidepucci.it", "/dev/null", nil), "ko")
@@ -143,7 +143,7 @@ func TestBlobDownloadFailure(t *testing.T) {
 func TestBlobDownloadNotFound(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(&http.Response{
+	mockey.Mock(mockey.GetMethod(httpClient, "Get")).Return(&http.Response{
 		StatusCode: 404,
 		Body:       io.NopCloser(strings.NewReader("")),
 	}, nil).Build()
@@ -155,7 +155,7 @@ func TestBlobDownloadNotFound(t *testing.T) {
 func TestBlobDownloadFileCreationFailure(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(&http.Response{
+	mockey.Mock(mockey.GetMethod(httpClient, "Get")).Return(&http.Response{
 		StatusCode: 200,
 		Body:       io.NopCloser(strings.NewReader("")),
 		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
@@ -169,7 +169,7 @@ func TestBlobDownloadFileCreationFailure(t *testing.T) {
 func TestBlobDownloadReadFailure(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(&http.Response{
+	mockey.Mock(mockey.GetMethod(httpClient, "Get")).Return(&http.Response{
 		StatusCode: 200,
 		Body:       io.NopCloser(strings.NewReader("")),
 		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
@@ -184,7 +184,7 @@ func TestBlobDownloadReadFailure(t *testing.T) {
 func TestBlobDownloadProcessorNotApplicable(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(&http.Response{
+	mockey.Mock(mockey.GetMethod(httpClient, "Get")).Return(&http.Response{
 		StatusCode: 200,
 		Body:       io.NopCloser(strings.NewReader("data")),
 		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
@@ -200,7 +200,7 @@ func TestBlobDownloadProcessorNotApplicable(t *testing.T) {
 func TestBlobDownloadWriteFailure(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(&http.Response{
+	mockey.Mock(mockey.GetMethod(httpClient, "Get")).Return(&http.Response{
 		StatusCode: 200,
 		Body:       io.NopCloser(strings.NewReader("data")),
 		Header:     map[string][]string{"Content-Type": {mimeJPEG}},

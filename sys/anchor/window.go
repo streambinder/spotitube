@@ -57,6 +57,9 @@ func New(anchorColors ...color.Attribute) *Window {
 }
 
 func (window *Window) EnablePlainMode() {
+	window.lock.Lock()
+	defer window.lock.Unlock()
+
 	window.anchorColor = color.New(Normal)
 	window.lotHeaderColor = color.New(Normal)
 	window.plain = true

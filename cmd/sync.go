@@ -450,6 +450,14 @@ func routineCollectLyrics(track *entity.Track) func(context.Context, chan error)
 // as artworks in the fetched blob
 func routineCollectArtwork(track *entity.Track) func(context.Context, chan error) {
 	return func(_ context.Context, ch chan error) {
+		// an empty artwork URL would deadlock below: downloader.Download
+		// returns immediately without feeding the channel, so there is
+		// nothing to wait for
+		if len(track.Artwork.URL) == 0 {
+			tui.Printf("artwork for %s by %s: %s", track.Title, track.Artists[0], "not found")
+			return
+		}
+
 		artwork := make(chan []byte, 1)
 		defer close(artwork)
 

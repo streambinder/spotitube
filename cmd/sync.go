@@ -270,15 +270,15 @@ func routineFetchFixesIDs(fixes []string) ([]string, error) {
 		}
 
 		id := tag.SpotifyID()
+		if err := tag.Close(); err != nil {
+			return nil, err
+		}
 		if len(id) == 0 {
 			return nil, errors.New("track " + path + " does not have spotify ID metadata set")
 		}
 
 		localTracks = append(localTracks, id)
 		indexData.SetID(id, index.Flush)
-		if err := tag.Close(); err != nil {
-			return nil, err
-		}
 	}
 	return localTracks, nil
 }

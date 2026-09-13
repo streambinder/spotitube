@@ -626,8 +626,8 @@ func TestCmdSyncPlaylistEncoderFailure(t *testing.T) {
 	mockey.Mock(sys.FileMoveOrCopy).Return(nil).Build()
 	mockey.Mock(mockey.GetMethod(playlist.Playlist{}, "Encoder")).Return(nil, errors.New("ko")).Build()
 
-	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")), "ko")
+	// testing: the broken playlist is skipped, the run survives
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")))
 }
 
 func TestCmdSyncPlaylistEncoderAddFailure(t *testing.T) {
@@ -659,8 +659,8 @@ func TestCmdSyncPlaylistEncoderAddFailure(t *testing.T) {
 	mockey.Mock(sys.FileMoveOrCopy).Return(nil).Build()
 	mockey.Mock(mockey.GetMethod(&playlist.M3UEncoder{}, "Add")).Return(errors.New("ko")).Build()
 
-	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")), "ko")
+	// testing: the failed add stops the playlist, the run survives
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")))
 }
 
 func TestCmdSyncPlaylistEncoderCloseFailure(t *testing.T) {
@@ -692,8 +692,8 @@ func TestCmdSyncPlaylistEncoderCloseFailure(t *testing.T) {
 	mockey.Mock(sys.FileMoveOrCopy).Return(nil).Build()
 	mockey.Mock(mockey.GetMethod(&playlist.M3UEncoder{}, "Close")).Return(errors.New("ko")).Build()
 
-	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")), "ko")
+	// testing: the broken playlist is dropped, the run survives
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")))
 }
 
 func TestRoutineCollectArtworkEmptyURL(t *testing.T) {

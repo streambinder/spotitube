@@ -526,7 +526,7 @@ func routineInstall(_ context.Context, ch chan error) {
 
 // mixer wraps playlists to their final destination
 func routineMix(encoding string) func(context.Context, chan error) {
-	return func(_ context.Context, ch chan error) {
+	return func(_ context.Context, _ chan error) {
 		// block until installation is done
 		<-routineSemaphores[routineTypeInstall]
 
@@ -537,28 +537,29 @@ func routineMix(encoding string) func(context.Context, chan error) {
 			tui.Lot("mix").Printf("%s", playlist.Name)
 			encoder, err := playlist.Encoder(encoding)
 			if err != nil {
+				// a broken playlist must not kill the run after
+				// everything has been downloaded: skip it instead
 				tui.AnchorPrintf("mixing failed for %s: %s", playlist.Name, err)
-				ch <- err
-				return
+				continue
 			}
 
 			for _, track := range playlist.Tracks {
 				if trackStatus, ok := indexData.Get(track); !ok || (trackStatus != index.Installed && trackStatus != index.Offline) {
+					tui.Printf("skipping %s by %s in playlist %s: not installed", track.Title, track.Artists[0], playlist.Name)
 					continue
 				}
 
 				if err := encoder.Add(track); err != nil {
+					// stop feeding a failed encoder, keep what was added
 					tui.AnchorPrintf("adding track to %s failed: %s", playlist.Name, err)
-					ch <- err
-					return
+					break
 
 				}
 			}
 
 			if err := encoder.Close(); err != nil {
 				tui.AnchorPrintf("closing playlist %s failed: %s", playlist.Name, err)
-				ch <- err
-				return
+				continue
 			}
 		}
 		tui.Lot("mix").Close(fmt.Sprintf("%d playlists", counter))

@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/streambinder/spotitube/processor"
 	"github.com/streambinder/spotitube/sys"
@@ -16,12 +17,16 @@ type blob struct {
 
 const mimeJPEG = "image/jpeg"
 
+// a slow host must not hang the download forever on the default
+// client: cap every blob request at 30 seconds
+var httpClient = &http.Client{Timeout: 30 * time.Second}
+
 func init() {
 	downloaders = append(downloaders, blob{})
 }
 
 func (blob) supports(url string) bool {
-	response, err := http.Head(url) // nolint
+	response, err := httpClient.Head(url) // nolint
 	if err != nil {
 		return false
 	}
@@ -40,7 +45,7 @@ func (blob) supports(url string) bool {
 }
 
 func (blob) download(url, path string, processor processor.Processor, channels ...chan []byte) error {
-	response, err := http.Get(url) // nolint
+	response, err := httpClient.Get(url) // nolint
 	if err != nil {
 		return err
 	}

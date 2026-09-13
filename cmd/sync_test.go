@@ -534,11 +534,13 @@ func TestCmdSyncLyricsFailure(t *testing.T) {
 		return nil
 	}).Build()
 	mockey.Mock(lyrics.Search).Return("", errors.New("ko")).Build()
+	mockey.Mock(processor.Do).Return(nil).Build()
+	mockey.Mock(sys.FileMoveOrCopy).Return(nil).Build()
 
-	// testing
-	// testing: the failing track is skipped, the sync completes
+	// testing: a lyrics failure degrades to a warning,
+	// the track is installed anyway and the sync completes
 	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")))
-	assert.Equal(t, 0, indexData.Size(index.Installed))
+	assert.Equal(t, 1, indexData.Size(index.Installed))
 }
 
 func TestCmdSyncProcessorFailure(t *testing.T) {

@@ -3,12 +3,47 @@ package sys
 import (
 	"errors"
 	"os"
+	"path/filepath"
+	"syscall"
 	"testing"
 
 	"github.com/adrg/xdg"
 	"github.com/bytedance/mockey"
 	"github.com/stretchr/testify/assert"
 )
+
+// renameFallback mocks os.Rename so that the first call fails
+// (forcing the copy fallback) while later ones really rename
+func renameFallback() {
+	calls := 0
+	mockey.Mock(os.Rename).To(func(oldpath, newpath string) error {
+		calls++
+		if calls == 1 {
+			return errors.New("not renaming")
+		}
+		return syscall.Rename(oldpath, newpath)
+	}).Build()
+}
+
+func tempSource(t *testing.T, content string) (dir, src, dst string) {
+	t.Helper()
+	dir = t.TempDir()
+	src = filepath.Join(dir, "src.txt")
+	dst = filepath.Join(dir, "dst.txt")
+	assert.Nil(t, os.WriteFile(src, []byte(content), 0o600))
+	return dir, src, dst
+}
+
+func dirEntries(t *testing.T, dir string) []string {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	assert.Nil(t, err)
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		names = append(names, entry.Name())
+	}
+	return names
+}
 
 func BenchmarkIO(b *testing.B) {
 	for i := 0; i < b.N; i++ {
@@ -31,14 +66,15 @@ func TestFileMove(t *testing.T) {
 func TestFileCopy(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
-	mockey.Mock(os.Rename).Return(errors.New("not renaming")).Build()
-	mockey.Mock(os.ReadFile).Return([]byte{}, nil).Build()
-	mockey.Mock(os.OpenFile).Return(os.NewFile(0, ""), nil).Build()
-	mockey.Mock((*os.File).Write).Return(0, nil).Build()
-	mockey.Mock(os.Remove).Return(nil).Build()
+	renameFallback()
 
 	// testing
-	assert.Nil(t, FileMoveOrCopy("/a", "/a"))
+	dir, src, dst := tempSource(t, "data")
+	assert.Nil(t, FileMoveOrCopy(src, dst))
+	content, err := os.ReadFile(dst)
+	assert.Nil(t, err)
+	assert.Equal(t, "data", string(content))
+	assert.NotContains(t, dirEntries(t, dir), "src.txt")
 }
 
 func TestFileAlreadyExists(t *testing.T) {
@@ -63,14 +99,12 @@ func TestFileAlreadyExistsOverwrite(t *testing.T) {
 func TestFileCopyRemoveFailure(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
-	mockey.Mock(os.Rename).Return(errors.New("not renaming")).Build()
-	mockey.Mock(os.ReadFile).Return([]byte{}, nil).Build()
-	mockey.Mock(os.OpenFile).Return(os.NewFile(0, ""), nil).Build()
-	mockey.Mock((*os.File).Write).Return(0, nil).Build()
+	renameFallback()
 	mockey.Mock(os.Remove).Return(errors.New("ko")).Build()
 
 	// testing
-	assert.EqualError(t, FileMoveOrCopy("/a", "/a"), "ko")
+	_, src, dst := tempSource(t, "data")
+	assert.EqualError(t, FileMoveOrCopy(src, dst), "ko")
 }
 
 func TestFileCopyReadFailure(t *testing.T) {
@@ -83,27 +117,51 @@ func TestFileCopyReadFailure(t *testing.T) {
 	assert.EqualError(t, FileMoveOrCopy("/a", "/a"), "ko")
 }
 
-func TestFileCopyOpenFailure(t *testing.T) {
+func TestFileCopyTempFailure(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
 	mockey.Mock(os.Rename).Return(errors.New("not renaming")).Build()
-	mockey.Mock(os.ReadFile).Return([]byte{}, nil).Build()
-	mockey.Mock(os.OpenFile).Return(nil, errors.New("ko")).Build()
+	mockey.Mock(os.CreateTemp).Return(nil, errors.New("ko")).Build()
 
 	// testing
-	assert.EqualError(t, FileMoveOrCopy("/a", "/a"), "ko")
+	_, src, dst := tempSource(t, "data")
+	assert.EqualError(t, FileMoveOrCopy(src, dst), "ko")
 }
 
 func TestFileCopyWriteFailure(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
 	mockey.Mock(os.Rename).Return(errors.New("not renaming")).Build()
-	mockey.Mock(os.ReadFile).Return([]byte("data"), nil).Build()
-	mockey.Mock(os.OpenFile).Return(os.NewFile(0, ""), nil).Build()
-	mockey.Mock((*os.File).Write).Return(0, errors.New("ko")).Build()
 
+	// testing: a read-only handle makes the staged write fail
+	dir, src, dst := tempSource(t, "data")
+	readonly, err := os.OpenFile(filepath.Join(dir, "readonly.txt"), os.O_CREATE|os.O_RDONLY, 0o600)
+	assert.Nil(t, err)
+	mockey.Mock(os.CreateTemp).To(func(_, _ string) (*os.File, error) {
+		return readonly, nil
+	}).Build()
+
+	assert.ErrorContains(t, FileMoveOrCopy(src, dst), "bad file descriptor")
+	assert.NotContains(t, dirEntries(t, dir), "dst.txt")
+	assert.Len(t, dirEntries(t, dir), 1) // only src.txt: no temp leftovers
+}
+
+func TestFileCopyRenameFailure(t *testing.T) {
 	// testing
-	assert.EqualError(t, FileMoveOrCopy("/a", "/a"), "ko")
+	dir, src, dst := tempSource(t, "data")
+
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.Rename).To(func(oldpath, _ string) error {
+		if oldpath == src {
+			return errors.New("not renaming")
+		}
+		return errors.New("ko")
+	}).Build()
+
+	assert.EqualError(t, FileMoveOrCopy(src, dst), "ko")
+	assert.NotContains(t, dirEntries(t, dir), "dst.txt")
+	assert.Len(t, dirEntries(t, dir), 1) // only src.txt: no temp leftovers
 }
 
 func TestFileBaseStem(t *testing.T) {

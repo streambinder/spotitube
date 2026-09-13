@@ -21,6 +21,12 @@ func Download(ctx context.Context, url, path string, processor processor.Process
 		return nil
 	}
 
+	// an empty cache file is the leftover of an interrupted
+	// download, never a valid blob: drop it and download again
+	if info, err := os.Stat(path); err == nil && info.Size() == 0 {
+		os.Remove(path)
+	}
+
 	if bytes, err := os.ReadFile(path); err == nil {
 		for _, ch := range channels {
 			ch <- bytes

@@ -72,6 +72,15 @@ func (blob) download(ctx context.Context, url, path string, processor processor.
 	}
 	defer output.Close()
 
+	// a failed download must not leave a partial file behind:
+	// downloader.Download would reuse it as if complete
+	completed := false
+	defer func() {
+		if !completed {
+			os.Remove(path)
+		}
+	}()
+
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return err
@@ -87,5 +96,10 @@ func (blob) download(ctx context.Context, url, path string, processor processor.
 		ch <- body
 	}
 
-	return sys.ErrOnly(output.Write(body))
+	if err := sys.ErrOnly(output.Write(body)); err != nil {
+		return err
+	}
+
+	completed = true
+	return nil
 }

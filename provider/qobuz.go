@@ -137,7 +137,7 @@ func qobuzSearchTrack(track *entity.Track) (int64, error) {
 		return 0, err
 	}
 
-	query := fmt.Sprintf("%s %s", track.Song(), track.Artists[0])
+	query := fmt.Sprintf("%s %s", track.Song(), track.Artist())
 	ts := strconv.FormatInt(time.Now().Unix(), 10)
 
 	// qobuz API signature is vestigial for track/search — not validated server-side;

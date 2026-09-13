@@ -34,7 +34,7 @@ func (composer lrclib) search(track *entity.Track, ctxs ...context.Context) ([]b
 	}
 
 	return composer.get(fmt.Sprintf("https://lrclib.net/api/get?artist_name=%s&track_name=%s",
-		url.QueryEscape(track.Artists[0]),
+		url.QueryEscape(track.Artist()),
 		url.QueryEscape(track.Title)), ctx)
 }
 

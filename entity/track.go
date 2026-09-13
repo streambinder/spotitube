@@ -53,12 +53,21 @@ func (track *Track) Song() (song string) {
 	return song
 }
 
+// Artist returns the first credited artist,
+// or an empty string when the track has none
+func (track *Track) Artist() string {
+	if len(track.Artists) == 0 {
+		return ""
+	}
+	return track.Artists[0]
+}
+
 func (track *Track) Path() TrackPath {
 	return TrackPath{track}
 }
 
 func (trackPath TrackPath) Final() string {
-	return sys.LegalizeFilename(fmt.Sprintf("%s - %s.%s", trackPath.track.Artists[0], trackPath.track.Title, TrackFormat))
+	return sys.LegalizeFilename(fmt.Sprintf("%s - %s.%s", trackPath.track.Artist(), trackPath.track.Title, TrackFormat))
 }
 
 func (trackPath TrackPath) Download() string {

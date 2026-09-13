@@ -30,7 +30,7 @@ func (encoder) Do(object interface{}) error {
 
 	tag.SetSpotifyID(track.ID)
 	tag.SetTitle(track.Title)
-	tag.SetArtist(track.Artists[0])
+	tag.SetArtist(track.Artist())
 	tag.SetAlbum(track.Album)
 	tag.SetArtworkURL(track.Artwork.URL)
 	tag.SetAttachedPicture(track.Artwork.Data)

@@ -44,7 +44,7 @@ func TestGeniusSearch(t *testing.T) {
 			return &http.Response{
 				StatusCode: 200,
 				Body: io.NopCloser(
-					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0])),
+					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artist())),
 				),
 			}, nil
 		}
@@ -176,7 +176,7 @@ func TestGeniusGetMaxRetriesExceeded(t *testing.T) {
 			return &http.Response{
 				StatusCode: 200,
 				Body: io.NopCloser(
-					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0])),
+					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artist())),
 				),
 			}, nil
 		}
@@ -240,7 +240,7 @@ func TestGeniusSearchTooManyRequests(t *testing.T) {
 				return &http.Response{
 					StatusCode: 200,
 					Body: io.NopCloser(
-						strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0])),
+						strings.NewReader(fmt.Sprintf(response, track.Title, track.Artist())),
 					),
 				}, nil
 			}
@@ -269,7 +269,7 @@ func TestGeniusSearchReadFailure(t *testing.T) {
 		return &http.Response{
 			StatusCode: 200,
 			Body: io.NopCloser(
-				strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0])),
+				strings.NewReader(fmt.Sprintf(response, track.Title, track.Artist())),
 			),
 		}, nil
 	}).Build()
@@ -305,7 +305,7 @@ func TestGeniusLyricsGetFailure(t *testing.T) {
 			return &http.Response{
 				StatusCode: 200,
 				Body: io.NopCloser(
-					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0])),
+					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artist())),
 				),
 			}, nil
 		}
@@ -333,7 +333,7 @@ func TestGeniusLyricsNewRequestContextCanceled(t *testing.T) {
 			return &http.Response{
 				StatusCode: 200,
 				Body: io.NopCloser(
-					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0])),
+					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artist())),
 				),
 			}, nil
 		}
@@ -354,7 +354,7 @@ func TestGeniusLyricsNotFound(t *testing.T) {
 			return &http.Response{
 				StatusCode: 200,
 				Body: io.NopCloser(
-					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0])),
+					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artist())),
 				),
 			}, nil
 		}
@@ -378,7 +378,7 @@ func TestGeniusLyricsNotParseable(t *testing.T) {
 			return &http.Response{
 				StatusCode: 200,
 				Body: io.NopCloser(
-					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artists[0])),
+					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artist())),
 				),
 			}, nil
 		}

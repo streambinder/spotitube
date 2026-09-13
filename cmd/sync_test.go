@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/bogem/id3v2/v2"
 	"github.com/bytedance/mockey"
@@ -43,7 +44,7 @@ func TestCmdSync(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	var (
-		_track         = &entity.Track{ID: "TestCmdSync", Title: "Title", Artists: []string{"Artist"}}
+		_track         = &entity.Track{ID: "TestCmdSync", Title: "Title", Artists: []string{"Artist"}, Artwork: entity.Artwork{URL: "http://localhost/"}}
 		_trackNotFound = &entity.Track{ID: "TestCmdSyncNotFound", Title: "Title Not Found", Artists: []string{"Artist"}}
 		_playlist      = &playlist.Playlist{Tracks: []*entity.Track{_track, _trackNotFound}}
 		_album         = &entity.Album{Tracks: []*entity.Track{_track}}
@@ -441,7 +442,12 @@ func TestCmdSyncDecideNotFound(t *testing.T) {
 func TestCmdSyncCollectFailure(t *testing.T) {
 	t.Cleanup(cleanup)
 
-	_track := &entity.Track{ID: "TestCmdSyncCollectFailure", Title: "Title", Artists: []string{"Artist"}}
+	// the artwork download is the failing one: any URL other than
+	// "http://localhost/" makes the mocked downloader return an error
+	_track := &entity.Track{
+		ID: "TestCmdSyncCollectFailure", Title: "Title", Artists: []string{"Artist"},
+		Artwork: entity.Artwork{URL: "http://localhost/ko"},
+	}
 
 	// monkey patching
 	defer mockey.UnPatchAll()
@@ -688,4 +694,22 @@ func TestCmdSyncPlaylistEncoderCloseFailure(t *testing.T) {
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")), "ko")
+}
+
+func TestRoutineCollectArtworkEmptyURL(t *testing.T) {
+	// an empty artwork URL must not deadlock waiting on the artwork channel
+	track := &entity.Track{Title: "Title", Artists: []string{"Artist"}}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		routineCollectArtwork(track)(context.Background(), make(chan error, 1))
+	}()
+
+	select {
+	case <-done:
+		assert.Nil(t, track.Artwork.Data)
+	case <-time.After(10 * time.Second):
+		t.Fatal("routineCollectArtwork deadlocked on empty artwork URL")
+	}
 }

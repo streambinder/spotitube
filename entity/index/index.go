@@ -71,7 +71,7 @@ func (index *Index) BuildWithProgress(path string, indexed chan<- string, init .
 		}
 
 		// skip any inner directory from walk
-		if entry.IsDir() && entry.Name() != filepath.Base(walkPath) {
+		if entry.IsDir() && walkPath != path {
 			return fs.SkipDir
 		}
 

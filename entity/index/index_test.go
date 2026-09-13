@@ -91,19 +91,41 @@ func TestBuildWithProgress(t *testing.T) {
 	assert.Len(t, paths, 2)
 }
 
-func TestBuildOpenFailure(t *testing.T) {
+func TestBuildSkipsUnreadableFiles(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
 	mockey.Mock(filepath.WalkDir).To(func(_ string, f fs.WalkDirFunc) error {
-		return f("fname.mp3", DirEntry{name: "", isDir: false}, nil)
+		sys.ErrSuppress(f("broken.mp3", DirEntry{name: "", isDir: false}, nil))
+		return f("Artist - Title.mp3", DirEntry{name: "", isDir: false}, nil)
 	}).Build()
-	mockey.Mock(id3.Open).Return(nil, errors.New("ko")).Build()
+	mockey.Mock(id3.Open).To(func(path string, _ id3v2.Options) (*id3.Tag, error) {
+		if path == "broken.mp3" {
+			return nil, errors.New("ko")
+		}
+		return &id3.Tag{}, nil
+	}).Build()
+	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "userDefinedText")).Return("id").Build()
+	mockey.Mock(mockey.GetMethod(&id3v2.Tag{}, "Close")).Return(nil).Build()
 
-	// testing
+	// testing: the corrupt file is skipped, the walk continues
+	index := New()
+	assert.Nil(t, index.Build("path"))
+	assert.Equal(t, 1, index.Size())
+}
+
+func TestBuildRootFailureStaysFatal(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(filepath.WalkDir).To(func(root string, f fs.WalkDirFunc) error {
+		return f(root, nil, errors.New("ko"))
+	}).Build()
+
+	// testing: a failure on the library root itself still aborts,
+	// otherwise an empty index would mark every track as new
 	assert.EqualError(t, New().Build("path"), "ko")
 }
 
-func TestBuildCloseFailure(t *testing.T) {
+func TestBuildIgnoresCloseFailures(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
 	mockey.Mock(filepath.WalkDir).To(func(_ string, f fs.WalkDirFunc) error {
@@ -113,8 +135,8 @@ func TestBuildCloseFailure(t *testing.T) {
 	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "userDefinedText")).Return("").Build()
 	mockey.Mock(mockey.GetMethod(&id3v2.Tag{}, "Close")).Return(errors.New("ko")).Build()
 
-	// testing
-	assert.EqualError(t, New().Build("path"), "ko")
+	// testing: a close failure must not abort the whole indexing
+	assert.Nil(t, New().Build("path"))
 }
 
 func TestGetFallsBackToPath(t *testing.T) {

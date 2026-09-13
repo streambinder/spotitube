@@ -58,37 +58,45 @@ func (index *Index) BuildWithProgress(path string, indexed chan<- string, init .
 		status = override
 	}
 
-	return filepath.WalkDir(path, func(path string, entry fs.DirEntry, err error) error {
-		// stop on root (or any subsequent inner directory, which is not relevant for us)
-		// directory walk failure
+	return filepath.WalkDir(path, func(walkPath string, entry fs.DirEntry, err error) error {
+		// a single unreadable entry must not abort the whole indexing:
+		// skip it and keep scanning the rest of the library. A failure
+		// on the library root itself stays fatal, otherwise an empty
+		// index would silently mark every track as new
 		if err != nil {
-			return err
+			if walkPath == path {
+				return err
+			}
+			return nil
 		}
 
 		// skip any inner directory from walk
-		if entry.IsDir() && entry.Name() != filepath.Base(path) {
+		if entry.IsDir() && entry.Name() != filepath.Base(walkPath) {
 			return fs.SkipDir
 		}
 
 		// skip any file other than supported tracks
-		if !strings.HasSuffix(filepath.Ext(path), entity.TrackFormat) {
+		if !strings.HasSuffix(filepath.Ext(walkPath), entity.TrackFormat) {
 			return nil
 		}
 
-		tag, err := id3.OpenSpotifyID(path)
+		// a single corrupt or unreadable file must not abort the whole indexing
+		tag, err := id3.OpenSpotifyID(walkPath)
 		if err != nil {
-			return err
+			return nil
 		}
 
 		if id := tag.SpotifyID(); len(id) > 0 {
 			index.SetID(id, status)
-			index.SetPath(path, status)
+			index.SetPath(walkPath, status)
 			if indexed != nil {
-				indexed <- path
+				indexed <- walkPath
 			}
 		}
 
-		return tag.Close()
+		// a close failure must not abort the whole indexing either
+		_ = tag.Close()
+		return nil
 	})
 }
 

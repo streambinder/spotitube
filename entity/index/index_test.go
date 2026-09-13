@@ -157,3 +157,19 @@ func TestGetPrefersIDOverPath(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, Flush, status)
 }
+
+func TestBuildCaseInsensitiveExtension(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(filepath.WalkDir).To(func(_ string, f fs.WalkDirFunc) error {
+		return f("Artist - Title.MP3", DirEntry{name: "", isDir: false}, nil)
+	}).Build()
+	mockey.Mock(id3.Open).Return(&id3.Tag{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "userDefinedText")).Return("id").Build()
+	mockey.Mock(mockey.GetMethod(&id3v2.Tag{}, "Close")).Return(nil).Build()
+
+	// testing: an uppercase extension is indexed like its lowercase twin
+	index := New()
+	assert.Nil(t, index.Build("path"))
+	assert.Equal(t, 1, index.Size())
+}

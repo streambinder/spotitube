@@ -76,7 +76,7 @@ func (index *Index) BuildWithProgress(path string, indexed chan<- string, init .
 		}
 
 		// skip any file other than supported tracks
-		if !strings.HasSuffix(filepath.Ext(walkPath), entity.TrackFormat) {
+		if !strings.EqualFold(filepath.Ext(walkPath), "."+entity.TrackFormat) {
 			return nil
 		}
 

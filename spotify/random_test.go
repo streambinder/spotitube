@@ -1,0 +1,62 @@
+package spotify
+
+import (
+	"errors"
+	"testing"
+
+	"github.com/bytedance/mockey"
+	"github.com/streambinder/spotitube/entity"
+	"github.com/streambinder/spotitube/sys"
+	"github.com/stretchr/testify/assert"
+	"github.com/zmb3/spotify/v2"
+)
+
+var searchResult = &spotify.SearchResult{
+	Artists:   &spotify.FullArtistPage{},
+	Albums:    &spotify.SimpleAlbumPage{},
+	Playlists: &spotify.SimplePlaylistPage{},
+	Tracks: &spotify.FullTrackPage{
+		Tracks: []spotify.FullTrack{fullTrack},
+	},
+	Shows:    &spotify.SimpleShowPage{},
+	Episodes: &spotify.SimpleEpisodePage{},
+}
+
+func BenchmarkRandom(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestRandom(&testing.T{})
+	}
+}
+
+func TestRandom(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Search")).Return(searchResult, nil).Build()
+
+	// testing
+	channel := make(chan interface{}, 1)
+	defer close(channel)
+	err := testClient().Random(TypeTrack, len(searchResult.Tracks.Tracks), channel)
+	assert.Nil(t, err)
+	assert.Equal(t, searchResult.Tracks.Tracks[0].ID.String(), (<-channel).(*entity.Track).ID)
+}
+
+func TestRandomFailure(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Search")).Return(nil, errors.New("ko")).Build()
+
+	// testing
+	err := testClient().Random(TypeTrack, len(searchResult.Tracks.Tracks))
+	assert.EqualError(t, err, "ko")
+}
+
+func TestRandomNextPageFailure(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Search")).Return(searchResult, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "NextPage")).Return(errors.New("ko")).Build()
+
+	// testing
+	assert.EqualError(t, sys.ErrOnly(testClient().Random(TypeTrack, len(searchResult.Tracks.Tracks))), "ko")
+}

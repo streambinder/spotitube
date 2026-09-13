@@ -1,0 +1,25 @@
+name: scrape
+
+on:
+  schedule:
+    - cron: 0 0 * * *
+
+permissions: read-all
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    environment:
+      name: prod
+      deployment: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+      - run: go test -v -run ^TestScraping$ ./...
+        env:
+          TEST_SCRAPING: true
+          GENIUS_TOKEN: ${{ secrets.GENIUS_TOKEN }}

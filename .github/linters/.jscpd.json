@@ -1,0 +1,6 @@
+{
+  "threshold": 3,
+  "reporters": ["consoleFull"],
+  "ignore": ["**/__snapshots__/**", "**/node_modules/**", "**/*_test.go"],
+  "absolute": true
+}

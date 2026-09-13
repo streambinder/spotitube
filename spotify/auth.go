@@ -1,0 +1,219 @@
+package spotify
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/arunsworld/nursery"
+	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/spotitube/sys/cmd"
+	"github.com/thanhpk/randstr"
+	"github.com/zmb3/spotify/v2"
+	spotifyauth "github.com/zmb3/spotify/v2/auth"
+	"golang.org/x/oauth2"
+)
+
+const (
+	TokenBasename      = "session.json"
+	closeTabHTML       = "<!DOCTYPE html><html><head><script>open(location, '_self').close();</script></head></html>"
+	currentUserCacheID = "CurrentUser"
+)
+
+var (
+	port               = 65535
+	tokenPath          = sys.CacheFile(TokenBasename)
+	fallbackSpotifyID  = ""
+	fallbackSpotifyKey = ""
+)
+
+type Client struct {
+	*spotify.Client
+	authenticator *spotifyauth.Authenticator
+	state         string
+	cache         map[string]interface{}
+}
+
+func Authenticate(urlProcessor func(string) error) (*Client, error) {
+	var (
+		client    Client
+		serverMux = http.NewServeMux()
+		server    = &http.Server{
+			Addr:              fmt.Sprintf("127.0.0.1:%d", port),
+			Handler:           serverMux,
+			ReadHeaderTimeout: 2 * time.Second,
+		}
+		state         = randstr.Hex(20)
+		clientChannel = make(chan *spotify.Client, 1)
+		errChannel    = make(chan error, 1)
+	)
+	defer close(clientChannel)
+	defer close(errChannel)
+
+	clientID := sys.Fallback(os.Getenv("SPOTIFY_ID"), fallbackSpotifyID)
+	if clientID == "" {
+		return nil, errors.New("SPOTIFY_ID not set")
+	}
+
+	clientSecret := sys.Fallback(os.Getenv("SPOTIFY_KEY"), fallbackSpotifyKey)
+	if clientSecret == "" {
+		return nil, errors.New("SPOTIFY_KEY not set")
+	}
+
+	authenticator := spotifyauth.New(
+		spotifyauth.WithRedirectURL(fmt.Sprintf("http://127.0.0.1:%d/callback", port)),
+		spotifyauth.WithScopes(
+			spotifyauth.ScopeUserLibraryRead,
+			spotifyauth.ScopeUserLibraryModify,
+			spotifyauth.ScopePlaylistReadPrivate,
+			spotifyauth.ScopePlaylistReadCollaborative,
+			spotifyauth.ScopePlaylistModifyPublic,
+			spotifyauth.ScopePlaylistModifyPrivate,
+		),
+		spotifyauth.WithClientID(clientID),
+		spotifyauth.WithClientSecret(clientSecret),
+	)
+	if client, err := Recover(authenticator, state); err == nil {
+		return client, client.Persist()
+	}
+
+	serverMux.HandleFunc("/callback", func(writer http.ResponseWriter, request *http.Request) {
+		request.Body = http.MaxBytesReader(writer, request.Body, 1<<20)
+		fmt.Fprintln(writer, closeTabHTML)
+		token, err := authenticator.Token(request.Context(), state, request)
+		if err != nil {
+			clientChannel <- nil
+			errChannel <- errors.New(http.StatusText(http.StatusForbidden))
+		} else if requestState := request.FormValue("state"); requestState != state {
+			clientChannel <- nil
+			errChannel <- errors.New(http.StatusText(http.StatusNotFound))
+		} else {
+			client := spotify.New(
+				authenticator.Client(request.Context(), token),
+				spotify.WithRetry(true),
+			)
+			clientChannel <- client
+			errChannel <- nil
+		}
+	})
+
+	if err := nursery.RunConcurrently(
+		// spawn web server to handle login redirection
+		func(_ context.Context, ch chan error) {
+			if err := server.ListenAndServe(); err != http.ErrServerClosed {
+				ch <- err
+				clientChannel <- nil
+				errChannel <- err
+			}
+		},
+		// auto-launch web browser with authentication URL
+		func(_ context.Context, ch chan error) {
+			if urlProcessor == nil {
+				return
+			}
+
+			if err := urlProcessor(authenticator.AuthURL(state)); err != nil {
+				ch <- err
+			}
+		},
+		// wait to obtain a valid client from global channel
+		func(ctx context.Context, ch chan error) {
+			c, err := <-clientChannel, <-errChannel
+			if err != nil {
+				ch <- err
+			} else {
+				client = Client{c, authenticator, state, make(map[string]interface{})}
+			}
+			ch <- server.Shutdown(ctx)
+		},
+	); err != nil {
+		return nil, err
+	}
+
+	return &client, client.Persist()
+}
+
+func Recover(authenticator *spotifyauth.Authenticator, state string) (*Client, error) {
+	data, err := os.ReadFile(tokenPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var token oauth2.Token
+	if err := json.Unmarshal(data, &token); err != nil {
+		return nil, err
+	}
+
+	client := &Client{spotify.New(
+		authenticator.Client(context.Background(), &token),
+		spotify.WithRetry(true),
+	), authenticator, state, make(map[string]interface{})}
+
+	// validate the recovered session is still usable — catches expired
+	// refresh tokens (spotify now expires them after 6 months) and any
+	// other server-side revocation without surfacing a cryptic mid-sync error
+	if _, err := client.CurrentUser(context.Background()); err != nil {
+		os.Remove(tokenPath)
+		return nil, fmt.Errorf("stored session expired: %w", err)
+	}
+
+	return client, nil
+}
+
+func (client *Client) Persist() error {
+	if err := os.MkdirAll(filepath.Dir(tokenPath), 0o755); err != nil {
+		return err
+	}
+
+	token, err := client.Token()
+	if err != nil {
+		return err
+	}
+
+	file, err := os.OpenFile(tokenPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	data, err := json.Marshal(token) //nolint:gosec // G117: intentional token persistence to 0o600 local file, not accidental secret exposure
+	if err != nil {
+		return err
+	}
+	_, err = file.Write(data)
+	return err
+}
+
+// Close persists the current token state to disk — call via defer after
+// Authenticate to capture any refresh token rotation that happened mid-session
+func (client *Client) Close() error {
+	if client == nil || client.Client == nil {
+		return nil
+	}
+	return client.Persist()
+}
+
+func BrowserProcessor(url string) error {
+	return cmd.Open(url)
+}
+
+func (client *Client) Username() (string, error) {
+	if currentUser, ok := client.cache[currentUserCacheID]; ok {
+		return currentUser.(*spotify.PrivateUser).ID, nil
+	}
+	if client == nil || client.Client == nil {
+		return "", errors.New("spotify client not initialized")
+	}
+
+	currentUser, err := client.CurrentUser(context.Background())
+	if err != nil {
+		return "", err
+	}
+
+	client.cache[currentUserCacheID] = currentUser
+	return currentUser.ID, nil
+}

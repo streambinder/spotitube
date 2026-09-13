@@ -277,6 +277,13 @@ func routineFetchFixesIDs(fixes []string) ([]string, error) {
 			return nil, errors.New("track " + path + " does not have spotify ID metadata set")
 		}
 
+		// the track is about to be re-downloaded to its canonical path:
+		// drop the stale original, otherwise it would linger next to the
+		// fresh download as a permanent duplicate
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return nil, err
+		}
+
 		localTracks = append(localTracks, id)
 		indexData.SetID(id, index.Flush)
 	}

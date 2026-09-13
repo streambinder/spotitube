@@ -713,3 +713,21 @@ func TestRoutineCollectArtworkEmptyURL(t *testing.T) {
 		t.Fatal("routineCollectArtwork deadlocked on empty artwork URL")
 	}
 }
+
+func TestCmdSyncFixRemoveFailure(t *testing.T) {
+	t.Cleanup(cleanup)
+
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(id3.Open).Return(&id3.Tag{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "userDefinedText")).Return("123").Build()
+	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "Close")).Return(nil).Build()
+	mockey.Mock(os.Remove).Return(errors.New("ko")).Build()
+
+	// testing
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-f", "path")), "ko")
+}

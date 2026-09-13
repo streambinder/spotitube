@@ -67,7 +67,7 @@ func TestQobuzSearchCredentialsFailure(t *testing.T) {
 	mockey.Mock(qobuzCredentials).Return("", "", errors.New("ko")).Build()
 
 	matches, err := qobuz{}.search(track)
-	assert.Nil(t, err)
+	assert.NotNil(t, err)
 	assert.Nil(t, matches)
 }
 
@@ -77,7 +77,7 @@ func TestQobuzSearchRequestBuildFailure(t *testing.T) {
 	mockey.Mock(http.NewRequest).Return(nil, errors.New("ko")).Build()
 
 	matches, err := qobuz{}.search(track)
-	assert.Nil(t, err)
+	assert.NotNil(t, err)
 	assert.Nil(t, matches)
 }
 
@@ -87,7 +87,7 @@ func TestQobuzSearchRequestFailure(t *testing.T) {
 	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Do")).Return(nil, errors.New("ko")).Build()
 
 	matches, err := qobuz{}.search(track)
-	assert.Nil(t, err)
+	assert.NotNil(t, err)
 	assert.Nil(t, matches)
 }
 
@@ -96,7 +96,7 @@ func TestQobuzSearchNonOKStatus(t *testing.T) {
 	mockQobuzSearch("", "", 500, 0)
 
 	matches, err := qobuz{}.search(track)
-	assert.Nil(t, err)
+	assert.NotNil(t, err)
 	assert.Nil(t, matches)
 }
 
@@ -104,9 +104,8 @@ func TestQobuzSearchMalformedResponse(t *testing.T) {
 	defer mockey.UnPatchAll()
 	mockQobuzSearch(`{not json}`, "", 200, 0)
 
-	// malformed search response: qobuzSearchTrack returns error, search swallows it (non-fatal)
 	matches, err := qobuz{}.search(track)
-	assert.Nil(t, err)
+	assert.NotNil(t, err)
 	assert.Nil(t, matches)
 }
 
@@ -133,7 +132,7 @@ func TestQobuzSearchAllProxiesFailed(t *testing.T) {
 	}).Build()
 
 	matches, err := qobuz{}.search(track)
-	assert.Nil(t, err)
+	assert.NotNil(t, err)
 	assert.Nil(t, matches)
 }
 
@@ -142,7 +141,7 @@ func TestQobuzSearchProxyBadJSON(t *testing.T) {
 	mockQobuzSearch(qobuzSearchResponse, `{not json}`, 200, 200)
 
 	matches, err := qobuz{}.search(track)
-	assert.Nil(t, err)
+	assert.NotNil(t, err)
 	assert.Nil(t, matches)
 }
 
@@ -151,7 +150,7 @@ func TestQobuzSearchProxyEmptyURL(t *testing.T) {
 	mockQobuzSearch(qobuzSearchResponse, `{"url":""}`, 200, 200)
 
 	matches, err := qobuz{}.search(track)
-	assert.Nil(t, err)
+	assert.NotNil(t, err)
 	assert.Nil(t, matches)
 }
 
@@ -160,7 +159,7 @@ func TestQobuzSearchProxyNonOKStatus(t *testing.T) {
 	mockQobuzSearch(qobuzSearchResponse, "", 200, 503)
 
 	matches, err := qobuz{}.search(track)
-	assert.Nil(t, err)
+	assert.NotNil(t, err)
 	assert.Nil(t, matches)
 }
 

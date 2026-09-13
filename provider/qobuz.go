@@ -48,13 +48,16 @@ func init() {
 
 func (qobuz) search(track *entity.Track) ([]*Match, error) {
 	trackID, err := qobuzSearchTrack(track)
-	if err != nil || trackID == 0 {
+	if err != nil {
+		return nil, err
+	}
+	if trackID == 0 {
 		return nil, nil
 	}
 
 	cdnURL, err := qobuzCDNURL(strconv.FormatInt(trackID, 10))
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 
 	return []*Match{{URL: cdnURL, Score: 100}}, nil
@@ -169,7 +172,7 @@ func qobuzSearchTrack(track *entity.Track) (int64, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return 0, nil
+		return 0, fmt.Errorf("qobuz: search returned %s", resp.Status)
 	}
 
 	var payload struct {

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"os/exec"
 	"testing"
@@ -21,7 +22,7 @@ func TestYouTubeDlDownload(t *testing.T) {
 	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).Return(nil).Build()
 
 	// testing
-	assert.Nil(t, YouTubeDl("http://localhost", "fname.txt"))
+	assert.Nil(t, YouTubeDl(context.TODO(), "http://localhost", "fname.txt"))
 }
 
 func TestYouTubeDlDownloadFailure(t *testing.T) {
@@ -30,5 +31,5 @@ func TestYouTubeDlDownloadFailure(t *testing.T) {
 	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).Return(errors.New("ko")).Build()
 
 	// testing
-	assert.Error(t, YouTubeDl("http://localhost", "fname.txt"))
+	assert.Error(t, YouTubeDl(context.TODO(), "http://localhost", "fname.txt"))
 }

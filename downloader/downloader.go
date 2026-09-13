@@ -1,6 +1,7 @@
 package downloader
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -11,11 +12,11 @@ import (
 var downloaders = []Downloader{}
 
 type Downloader interface {
-	supports(string) bool
-	download(string, string, processor.Processor, ...chan []byte) error
+	supports(context.Context, string) bool
+	download(context.Context, string, string, processor.Processor, ...chan []byte) error
 }
 
-func Download(url, path string, processor processor.Processor, channels ...chan []byte) error {
+func Download(ctx context.Context, url, path string, processor processor.Processor, channels ...chan []byte) error {
 	if len(url) == 0 {
 		return nil
 	}
@@ -28,12 +29,12 @@ func Download(url, path string, processor processor.Processor, channels ...chan 
 	}
 
 	for _, downloader := range downloaders {
-		if downloader.supports(url) {
+		if downloader.supports(ctx, url) {
 			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 				return err
 			}
 
-			return downloader.download(url, path, processor, channels...)
+			return downloader.download(ctx, url, path, processor, channels...)
 		}
 	}
 	return errors.New("unsupported url: " + url)

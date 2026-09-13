@@ -1,6 +1,7 @@
 package downloader
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -25,8 +26,13 @@ func init() {
 	downloaders = append(downloaders, blob{})
 }
 
-func (blob) supports(url string) bool {
-	response, err := httpClient.Head(url) // nolint
+func (blob) supports(ctx context.Context, url string) bool {
+	request, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
+	if err != nil {
+		return false
+	}
+
+	response, err := httpClient.Do(request)
 	if err != nil {
 		return false
 	}
@@ -44,8 +50,13 @@ func (blob) supports(url string) bool {
 	}
 }
 
-func (blob) download(url, path string, processor processor.Processor, channels ...chan []byte) error {
-	response, err := httpClient.Get(url) // nolint
+func (blob) download(ctx context.Context, url, path string, processor processor.Processor, channels ...chan []byte) error {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+
+	response, err := httpClient.Do(request)
 	if err != nil {
 		return err
 	}

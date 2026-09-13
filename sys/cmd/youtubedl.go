@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"os"
 	"os/exec"
@@ -11,12 +12,12 @@ import (
 	"github.com/streambinder/spotitube/sys"
 )
 
-func YouTubeDl(url, path string) error {
+func YouTubeDl(ctx context.Context, url, path string) error {
 	var (
 		output bytes.Buffer
 		ext    = filepath.Ext(path)[1:]
 		stem   = strings.TrimSuffix(sys.FileBaseStem(path), "."+ext)
-		cmd    = exec.Command(
+		cmd    = exec.CommandContext(ctx,
 			"yt-dlp",
 			"--format", "bestaudio/best",
 			"--extract-audio",

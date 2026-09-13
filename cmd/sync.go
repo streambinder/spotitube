@@ -424,9 +424,9 @@ func routineCollect(skipLyrics bool) func(context.Context, chan error) {
 // retriever pulls a track blob corresponding
 // to the (meta)data fetched from upstream
 func routineCollectAsset(track *entity.Track) func(context.Context, chan error) {
-	return func(_ context.Context, ch chan error) {
+	return func(ctx context.Context, ch chan error) {
 		tui.Lot("download").Print(track.UpstreamURL)
-		if err := downloader.Download(track.UpstreamURL, track.Path().Download(), nil); err != nil {
+		if err := downloader.Download(ctx, track.UpstreamURL, track.Path().Download(), nil); err != nil {
 			tui.AnchorPrintf("download failure: %s", err)
 			ch <- err
 			return
@@ -456,7 +456,7 @@ func routineCollectLyrics(track *entity.Track) func(context.Context, chan error)
 // painter pulls image blobs to be inserted
 // as artworks in the fetched blob
 func routineCollectArtwork(track *entity.Track) func(context.Context, chan error) {
-	return func(_ context.Context, ch chan error) {
+	return func(ctx context.Context, ch chan error) {
 		// an empty artwork URL would deadlock below: downloader.Download
 		// returns immediately without feeding the channel, so there is
 		// nothing to wait for
@@ -469,7 +469,7 @@ func routineCollectArtwork(track *entity.Track) func(context.Context, chan error
 		defer close(artwork)
 
 		tui.Lot("paint").Printf("%s by %s", track.Title, track.Artists[0])
-		if err := downloader.Download(track.Artwork.URL, track.Path().Artwork(), processor.Artwork{}, artwork); err != nil {
+		if err := downloader.Download(ctx, track.Artwork.URL, track.Path().Artwork(), processor.Artwork{}, artwork); err != nil {
 			tui.AnchorPrintf("compose failure: %s", err)
 			ch <- err
 			return

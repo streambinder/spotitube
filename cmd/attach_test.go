@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -30,7 +31,7 @@ func TestCmdAttach(t *testing.T) {
 	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
 	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Track")).Return(_track, nil).Build()
 	mockey.Mock(lyrics.Search).Return("", nil).Build()
-	mockey.Mock(downloader.Download).To(func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
 		ch[0] <- []byte{}
 		return nil
 	}).Build()
@@ -108,7 +109,7 @@ func TestCmdAttachSaveFailure(t *testing.T) {
 	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
 	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Track")).Return(_track, nil).Build()
 	mockey.Mock(lyrics.Search).Return("", nil).Build()
-	mockey.Mock(downloader.Download).To(func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
 		ch[0] <- []byte{}
 		return nil
 	}).Build()
@@ -127,7 +128,7 @@ func TestCmdAttachRenameFailure(t *testing.T) {
 	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
 	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Track")).Return(_track, nil).Build()
 	mockey.Mock(lyrics.Search).Return("", nil).Build()
-	mockey.Mock(downloader.Download).To(func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
 		ch[0] <- []byte{}
 		return nil
 	}).Build()

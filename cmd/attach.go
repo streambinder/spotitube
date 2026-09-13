@@ -56,6 +56,7 @@ func cmdAttach() *cobra.Command {
 			artwork := make(chan []byte, 1)
 			defer close(artwork)
 			if err := downloader.Download(
+				cmd.Context(),
 				spotifyTrack.Artwork.URL, spotifyTrack.Path().Artwork(),
 				processor.Artwork{}, artwork,
 			); err != nil {

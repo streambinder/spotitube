@@ -85,7 +85,7 @@ func TestCmdSync(t *testing.T) {
 		}
 		return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
 	}).Build()
-	mockey.Mock(downloader.Download).To(func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
 		for _, c := range ch {
 			c <- []byte{}
 		}
@@ -138,7 +138,7 @@ func TestCmdSyncOfflineIndex(t *testing.T) {
 		return nil
 	}).Build()
 	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()
-	mockey.Mock(downloader.Download).To(func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
 		for _, c := range ch {
 			c <- []byte{}
 		}
@@ -462,7 +462,7 @@ func TestCmdSyncCollectFailure(t *testing.T) {
 	mockey.Mock(provider.Search).To(func(*entity.Track) ([]*provider.Match, error) {
 		return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
 	}).Build()
-	mockey.Mock(downloader.Download).To(func(url string, _ string, _ processor.Processor, ch ...chan []byte) error {
+	mockey.Mock(downloader.Download).To(func(_ context.Context, url string, _ string, _ processor.Processor, ch ...chan []byte) error {
 		if url != "http://localhost/" {
 			return errors.New("ko")
 		}
@@ -497,7 +497,7 @@ func TestCmdSyncDownloadFailure(t *testing.T) {
 	mockey.Mock(provider.Search).To(func(*entity.Track) ([]*provider.Match, error) {
 		return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
 	}).Build()
-	mockey.Mock(downloader.Download).To(func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
 		for _, c := range ch {
 			c <- []byte{}
 		}
@@ -527,7 +527,7 @@ func TestCmdSyncLyricsFailure(t *testing.T) {
 		return nil
 	}).Build()
 	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()
-	mockey.Mock(downloader.Download).To(func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
 		for _, c := range ch {
 			c <- []byte{}
 		}
@@ -557,7 +557,7 @@ func TestCmdSyncProcessorFailure(t *testing.T) {
 		return nil
 	}).Build()
 	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()
-	mockey.Mock(downloader.Download).To(func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
 		for _, c := range ch {
 			c <- []byte{}
 		}
@@ -586,7 +586,7 @@ func TestCmdSyncInstallerFailure(t *testing.T) {
 		return nil
 	}).Build()
 	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()
-	mockey.Mock(downloader.Download).To(func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
 		for _, c := range ch {
 			c <- []byte{}
 		}
@@ -615,7 +615,7 @@ func TestCmdSyncPlaylistEncoderFailure(t *testing.T) {
 	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
 	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Playlist")).Return(_playlist, nil).Build()
 	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()
-	mockey.Mock(downloader.Download).To(func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
 		for _, c := range ch {
 			c <- []byte{}
 		}
@@ -648,7 +648,7 @@ func TestCmdSyncPlaylistEncoderAddFailure(t *testing.T) {
 		return _playlist, nil
 	}).Build()
 	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()
-	mockey.Mock(downloader.Download).To(func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
 		for _, c := range ch {
 			c <- []byte{}
 		}
@@ -681,7 +681,7 @@ func TestCmdSyncPlaylistEncoderCloseFailure(t *testing.T) {
 		return _playlist, nil
 	}).Build()
 	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()
-	mockey.Mock(downloader.Download).To(func(_, _ string, _ processor.Processor, ch ...chan []byte) error {
+	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
 		for _, c := range ch {
 			c <- []byte{}
 		}

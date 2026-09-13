@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -108,6 +109,7 @@ func TestBlobDownload(t *testing.T) {
 		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
 	}, nil).Build()
 	mockey.Mock(os.OpenFile).Return(nil, nil).Build()
+	mockey.Mock(os.Remove).Return(nil).Build()
 	mockey.Mock(io.ReadAll).Return([]byte{}, nil).Build()
 	mockey.Mock(mockey.GetMethod(&os.File{}, "Write")).Return(0, nil).Build()
 
@@ -126,6 +128,7 @@ func TestBlobDownloadProcessorFailure(t *testing.T) {
 		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
 	}, nil).Build()
 	mockey.Mock(os.OpenFile).Return(nil, nil).Build()
+	mockey.Mock(os.Remove).Return(nil).Build()
 	mockey.Mock(io.ReadAll).Return([]byte{}, nil).Build()
 
 	// testing
@@ -176,6 +179,7 @@ func TestBlobDownloadReadFailure(t *testing.T) {
 		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
 	}, nil).Build()
 	mockey.Mock(os.OpenFile).Return(nil, nil).Build()
+	mockey.Mock(os.Remove).Return(nil).Build()
 	mockey.Mock(io.ReadAll).Return(nil, errors.New("ko")).Build()
 
 	// testing
@@ -191,6 +195,7 @@ func TestBlobDownloadProcessorNotApplicable(t *testing.T) {
 		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
 	}, nil).Build()
 	mockey.Mock(os.OpenFile).Return(nil, nil).Build()
+	mockey.Mock(os.Remove).Return(nil).Build()
 	mockey.Mock(io.ReadAll).Return([]byte{}, nil).Build()
 	mockey.Mock(mockey.GetMethod(&os.File{}, "Write")).Return(0, nil).Build()
 
@@ -207,6 +212,7 @@ func TestBlobDownloadWriteFailure(t *testing.T) {
 		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
 	}, nil).Build()
 	mockey.Mock(os.OpenFile).Return(nil, nil).Build()
+	mockey.Mock(os.Remove).Return(nil).Build()
 	mockey.Mock(io.ReadAll).Return([]byte{}, nil).Build()
 	mockey.Mock(mockey.GetMethod(&os.File{}, "Write")).Return(0, errors.New("ko")).Build()
 
@@ -222,4 +228,21 @@ func TestBlobSupportsInvalidURL(t *testing.T) {
 func TestBlobDownloadInvalidURL(t *testing.T) {
 	// a malformed URL fails request building before any network call
 	assert.NotNil(t, blob{}.download(context.TODO(), "http://davidepucci.it/\x7f", "/dev/null", nil))
+}
+
+func TestBlobDownloadRemovesPartial(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(httpClient, "Do")).Return(&http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(strings.NewReader("data")),
+		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
+	}, nil).Build()
+	mockey.Mock(io.ReadAll).Return(nil, errors.New("ko")).Build()
+
+	// testing: a failed download leaves no partial file behind
+	path := filepath.Join(t.TempDir(), "partial.jpg")
+	assert.EqualError(t, blob{}.download(context.TODO(), "http://davidepucci.it", path, nil), "ko")
+	_, err := os.Stat(path)
+	assert.True(t, os.IsNotExist(err))
 }

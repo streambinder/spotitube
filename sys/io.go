@@ -23,14 +23,34 @@ func FileMoveOrCopy(source, destination string, overwrite ...bool) error {
 		return err
 	}
 
-	destFile, err := os.OpenFile(filepath.Clean(destination), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	// stage the copy on a temp file in the destination directory
+	// and rename it atomically: a crash must never leave a
+	// partial file behind at the final destination
+	tmp, err := os.CreateTemp(filepath.Dir(destination), ".spotitube-*")
 	if err != nil {
 		return err
 	}
-	defer destFile.Close()
-	if _, err := destFile.Write(input); err != nil {
+	tmpName := tmp.Name()
+	// the temp staging must never survive a failed copy
+	staged := false
+	defer func() {
+		if !staged {
+			os.Remove(tmpName)
+		}
+	}()
+
+	_, err = tmp.Write(input)
+	if err == nil {
+		err = tmp.Close()
+	}
+	if err != nil {
+		ErrSuppress(tmp.Close())
 		return err
 	}
+	if err := os.Rename(tmpName, destination); err != nil {
+		return err
+	}
+	staged = true
 
 	return os.Remove(source)
 }

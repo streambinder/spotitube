@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -84,4 +85,21 @@ func TestDownloadYouTubeDlFailure(t *testing.T) {
 
 	// testing
 	assert.EqualError(t, Download(context.TODO(), "http://youtu.be", "fname.txt", nil), "ko")
+}
+
+func TestDownloadEmptyCacheFile(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(os.MkdirAll).Return(nil).Build()
+	mockey.Mock(cmd.YouTubeDl).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Do")).Return(nil, errors.New("ko")).Build()
+
+	// testing: an empty cache file is dropped and downloaded again
+	path := filepath.Join(t.TempDir(), "cached.mp3")
+	assert.Nil(t, os.WriteFile(path, []byte{}, 0o600))
+	ch := make(chan []byte, 1)
+	defer close(ch)
+	assert.Nil(t, Download(context.TODO(), "http://youtu.be", path, nil, ch))
+	_, err := os.Stat(path)
+	assert.True(t, os.IsNotExist(err))
 }

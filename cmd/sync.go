@@ -402,6 +402,14 @@ func decideParallel(_ context.Context, ch chan error) {
 	if err := nursery.RunMultipleCopiesConcurrently(decideWorkers, func(ctx context.Context, ch chan error) {
 		decideWorker(ctx, ch, &consecutiveFailures)
 	}); err != nil {
+		decide := routineQueues[routineTypeDecide]
+		go func() {
+			for {
+				if _, ok := <-decide; !ok {
+					return
+				}
+			}
+		}()
 		ch <- err
 		return
 	}
@@ -442,8 +450,10 @@ func decideClassify(ch chan error, track *entity.Track) (proceed, fatal bool) {
 
 	switch {
 	case !idKnown && pathKnown:
-		ch <- fmt.Errorf("filename collision: %q would be shared by %q by %q (spotify id %s) and another track with the same artist and title: rename or drop one of them and re-run",
+		msg := fmt.Sprintf("filename collision: %q would be shared by %q by %q (spotify id %s) and another track with the same artist and title: rename or drop one of them and re-run",
 			track.Path().Final(), track.Title, track.Artist(), track.ID)
+		tui.AnchorPrintf("%s", msg)
+		ch <- errors.New(msg)
 		return false, true
 	case !idKnown:
 		tui.Printf("sync %s by %s", track.Title, track.Artist())

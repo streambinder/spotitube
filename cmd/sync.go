@@ -336,7 +336,7 @@ func routineFetchPlaylists(playlists []string, playlistsWithFile int, fetched ch
 // decider finds the right asset to retrieve
 // for a given track
 func routineDecide(manualMode bool) func(context.Context, chan error) {
-	return func(_ context.Context, _ chan error) {
+	return func(_ context.Context, ch chan error) {
 		// remember to stop passing data to the collector
 		// the retriever, the composer and the painter
 		defer close(routineQueues[routineTypeCollect])
@@ -349,13 +349,25 @@ func routineDecide(manualMode bool) func(context.Context, chan error) {
 		for event := range routineQueues[routineTypeDecide] {
 			track := event.(*entity.Track)
 
-			if status, ok := indexData.Get(track); !ok {
+			var idStatus int
+			idKnown := false
+			if len(track.ID) > 0 {
+				idStatus, idKnown = indexData.GetID(track.ID)
+			}
+			_, pathKnown := indexData.GetPath(track.Path().Final())
+
+			switch {
+			case !idKnown && pathKnown:
+				ch <- fmt.Errorf("filename collision: %q would be shared by %q by %q (spotify id %s) and another track with the same artist and title: rename or drop one of them and re-run",
+					track.Path().Final(), track.Title, track.Artist(), track.ID)
+				return
+			case !idKnown:
 				tui.Printf("sync %s by %s", track.Title, track.Artist())
 				indexData.Set(track, index.Online)
-			} else if status == index.Online {
+			case idStatus == index.Online:
 				tui.Printf("skip %s by %s", track.Title, track.Artist())
 				continue
-			} else if status == index.Offline {
+			case idStatus == index.Offline:
 				continue
 			}
 

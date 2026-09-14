@@ -439,6 +439,32 @@ func TestCmdSyncDecideNotFound(t *testing.T) {
 	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")))
 }
 
+func TestCmdSyncDecideFilenameCollision(t *testing.T) {
+	t.Cleanup(cleanup)
+
+	_existing := &entity.Track{ID: "TestCmdSyncDecideFilenameCollisionA", Title: "Title", Artists: []string{"Artist"}}
+	_colliding := &entity.Track{ID: "TestCmdSyncDecideFilenameCollisionB", Title: "Title", Artists: []string{"Artist"}}
+
+	// the filename is already owned by another track
+	indexData.Set(_existing, index.Offline)
+
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
+		ch[0] <- cloneTrack(_colliding)
+		return nil
+	}).Build()
+
+	// testing: the sync aborts early with a filename collision error
+	err := sys.ErrOnly(testExecute(cmdSync(), "--plain"))
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "filename collision")
+}
+
 func TestCmdSyncCollectFailure(t *testing.T) {
 	t.Cleanup(cleanup)
 

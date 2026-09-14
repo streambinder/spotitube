@@ -158,6 +158,44 @@ func TestGetPrefersIDOverPath(t *testing.T) {
 	assert.Equal(t, Flush, status)
 }
 
+func TestGetID(t *testing.T) {
+	index := New()
+	index.SetID("id", Online)
+
+	status, ok := index.GetID("id")
+	assert.True(t, ok)
+	assert.Equal(t, Online, status)
+
+	_, ok = index.GetID("missing")
+	assert.False(t, ok)
+}
+
+func TestGetPath(t *testing.T) {
+	index := New()
+	index.SetPath("Artist - Title.mp3", Offline)
+
+	status, ok := index.GetPath("Artist - Title.mp3")
+	assert.True(t, ok)
+	assert.Equal(t, Offline, status)
+
+	_, ok = index.GetPath("Other - Track.mp3")
+	assert.False(t, ok)
+}
+
+func TestGetIDAndPathDistinguishCollision(t *testing.T) {
+	index := New()
+	index.Set(&entity.Track{ID: "id-a", Title: "Title", Artists: []string{"Artist"}}, Offline)
+
+	_, idKnown := index.GetID("id-a")
+	assert.True(t, idKnown)
+
+	// same filename, different track: id miss, path hit
+	_, idKnown = index.GetID("id-b")
+	assert.False(t, idKnown)
+	_, pathKnown := index.GetPath((&entity.Track{ID: "id-b", Title: "Title", Artists: []string{"Artist"}}).Path().Final())
+	assert.True(t, pathKnown)
+}
+
 func TestBuildCaseInsensitiveExtension(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()

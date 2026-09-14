@@ -633,6 +633,7 @@ func routineProcess(_ context.Context, ch chan error) {
 	if err := nursery.RunMultipleCopiesConcurrently(processWorkers, func(ctx context.Context, ch chan error) {
 		processWorker(ctx, ch)
 	}); err != nil {
+		tui.Lot("process").Close("failed")
 		ch <- err
 		return
 	}
@@ -677,6 +678,7 @@ func routineInstall(_ context.Context, ch chan error) {
 		tui.Lot("install").Printf("%s by %s ", track.Title, track.Artist())
 		if err := sys.FileMoveOrCopy(track.Path().Download(), track.Path().Final(), status == index.Flush); err != nil {
 			tui.AnchorPrintf("installation failed for %s by %s: %s", track.Title, track.Artist(), err)
+			tui.Lot("install").Close("failed")
 			ch <- err
 			return
 		}

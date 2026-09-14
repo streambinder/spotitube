@@ -59,6 +59,9 @@ var (
 	// parallel decide workers in automatic mode; deliberately small,
 	// YouTube searches are additionally capped inside the provider
 	decideWorkers = 4
+	// parallel collect workers; downloads are network-bound, so tracks
+	// overlap while each keeps asset/lyrics/artwork concurrent
+	collectWorkers = 4
 )
 
 func init() {
@@ -488,26 +491,51 @@ func decideTrack(ch chan error, consecutiveFailures *atomic.Int32, track *entity
 // a wrapper around: retriever, composer and painter)
 func routineCollect(skipLyrics bool) func(context.Context, chan error) {
 	return func(_ context.Context, _ chan error) {
-		// remember to stop passing data to installer
+		// remember to stop passing data to the processor
 		defer close(routineQueues[routineTypeProcess])
 
-		for event := range routineQueues[routineTypeCollect] {
-			track := event.(*entity.Track)
-			routines := []nursery.ConcurrentJob{routineCollectAsset(track)}
-			if !skipLyrics {
-				routines = append(routines, routineCollectLyrics(track))
-			}
-			routines = append(routines, routineCollectArtwork(track))
-			if err := nursery.RunConcurrently(routines...); err != nil {
-				tui.AnchorPrintf("%s by %s (id: %s) collection failed: %v", track.Title, track.Artist(), track.ID, err)
-				continue
-			}
-			routineQueues[routineTypeProcess] <- track
-		}
+		// workers never report errors back: a failed collection
+		// drops the track without aborting the sync
+		_ = nursery.RunMultipleCopiesConcurrently(collectWorkers, func(ctx context.Context, _ chan error) { //nolint:errcheck
+			collectWorker(ctx, skipLyrics)
+		})
+
 		tui.Lot("download").Close()
 		tui.Lot("compose").Close()
 		tui.Lot("paint").Close()
 	}
+}
+
+// collectWorker consumes the collect queue until it is closed or the
+// context is cancelled, running the per-track collection pipeline
+func collectWorker(ctx context.Context, skipLyrics bool) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case event, ok := <-routineQueues[routineTypeCollect]:
+			if !ok {
+				return
+			}
+			collectTrack(skipLyrics, event.(*entity.Track))
+		}
+	}
+}
+
+// collectTrack downloads asset, lyrics and artwork concurrently for a single
+// track, then hands it to the processor; a failed collection drops the track
+// without aborting the sync
+func collectTrack(skipLyrics bool, track *entity.Track) {
+	routines := []nursery.ConcurrentJob{routineCollectAsset(track)}
+	if !skipLyrics {
+		routines = append(routines, routineCollectLyrics(track))
+	}
+	routines = append(routines, routineCollectArtwork(track))
+	if err := nursery.RunConcurrently(routines...); err != nil {
+		tui.AnchorPrintf("%s by %s (id: %s) collection failed: %v", track.Title, track.Artist(), track.ID, err)
+		return
+	}
+	routineQueues[routineTypeProcess] <- track
 }
 
 // retriever pulls a track blob corresponding

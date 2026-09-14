@@ -472,13 +472,13 @@ func decideClassify(ch chan error, track *entity.Track) (proceed, fatal bool) {
 		tui.Printf("sync %s by %s", track.Title, track.Artist())
 		indexData.Set(track, index.Online)
 		return true, false
-	case idStatus == index.Online:
+	case idStatus == index.Online || idStatus == index.Installed:
 		tui.Printf("skip %s by %s", track.Title, track.Artist())
 		return false, false
 	case idStatus == index.Offline:
 		return false, false
 	default:
-		// Flush / Installed: re-sync
+		// Flush: explicitly set to be re-synced
 		return true, false
 	}
 }

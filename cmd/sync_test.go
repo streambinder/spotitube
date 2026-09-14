@@ -419,6 +419,33 @@ func TestCmdSyncDecideManualCollision(t *testing.T) {
 	assert.Contains(t, err.Error(), "filename collision")
 }
 
+func TestCmdSyncDecideDuplicateInstalled(t *testing.T) {
+	t.Cleanup(cleanup)
+
+	track := &entity.Track{ID: "TestCmdSyncDecideDuplicateInstalled", Title: "Duplicate", Artists: []string{"Artist"}}
+
+	// the track was already installed earlier in this run: a duplicate
+	// fetch of the same Spotify ID must be skipped, not re-synced
+	indexData.Set(track, index.Installed)
+
+	proceed, fatal := decideClassify(make(chan error, 1), track)
+	assert.False(t, fatal)
+	assert.False(t, proceed)
+}
+
+func TestCmdSyncDecideFlush(t *testing.T) {
+	t.Cleanup(cleanup)
+
+	track := &entity.Track{ID: "TestCmdSyncDecideFlush", Title: "Flush", Artists: []string{"Artist"}}
+
+	// the track was explicitly marked for re-sync: it must proceed
+	indexData.Set(track, index.Flush)
+
+	proceed, fatal := decideClassify(make(chan error, 1), track)
+	assert.False(t, fatal)
+	assert.True(t, proceed)
+}
+
 func TestCmdSyncFatalCollisionUnwinds(t *testing.T) {
 	t.Cleanup(cleanup)
 

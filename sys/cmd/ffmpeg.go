@@ -55,7 +55,9 @@ func (FFmpegCmd) LoudnessDetect(path string) (Loudness, error) {
 }
 
 func parseLoudness(output string) (Loudness, error) {
-	// loudnorm prints its JSON summary at the end of the log, with quoted values
+	// loudnorm prints its JSON summary at the end of the log.
+	// Key names depend on the ffmpeg revision: older ones print measured_*
+	// keys, newer ones print input_*/target_offset keys carrying the same values.
 	const parseError = "cannot parse loudness measurement for given track"
 	start := strings.LastIndex(output, "{")
 	if start < 0 {
@@ -63,18 +65,40 @@ func parseLoudness(output string) (Loudness, error) {
 	}
 
 	var raw struct {
-		Integrated string `json:"measured_I"`
-		TruePeak   string `json:"measured_TP"`
-		Range      string `json:"measured_LRA"`
-		Threshold  string `json:"measured_thresh"`
-		Offset     string `json:"offset"`
+		MeasuredIntegrated string `json:"measured_I"`
+		MeasuredTruePeak   string `json:"measured_TP"`
+		MeasuredRange      string `json:"measured_LRA"`
+		MeasuredThreshold  string `json:"measured_thresh"`
+		Offset             string `json:"offset"`
+		InputIntegrated    string `json:"input_i"`
+		InputTruePeak      string `json:"input_tp"`
+		InputRange         string `json:"input_lra"`
+		InputThreshold     string `json:"input_thresh"`
+		TargetOffset       string `json:"target_offset"`
 	}
-	if err := json.Unmarshal([]byte(output[start:]), &raw); err != nil {
+	// the JSON summary is followed by more log lines: decode a single
+	// JSON value instead of unmarshalling the whole tail
+	if err := json.NewDecoder(strings.NewReader(output[start:])).Decode(&raw); err != nil {
 		return Loudness{}, errors.New(parseError)
 	}
 
+	// prefer measured_* keys, fall back to input_*/target_offset
+	orFallback := func(primary, fallback string) string {
+		if primary != "" {
+			return primary
+		}
+		return fallback
+	}
+	values := []string{
+		orFallback(raw.MeasuredIntegrated, raw.InputIntegrated),
+		orFallback(raw.MeasuredTruePeak, raw.InputTruePeak),
+		orFallback(raw.MeasuredRange, raw.InputRange),
+		orFallback(raw.MeasuredThreshold, raw.InputThreshold),
+		orFallback(raw.Offset, raw.TargetOffset),
+	}
+
 	parsed := make([]float64, 0, 5)
-	for _, value := range []string{raw.Integrated, raw.TruePeak, raw.Range, raw.Threshold, raw.Offset} {
+	for _, value := range values {
 		volume, err := strconv.ParseFloat(value, 64)
 		if err != nil {
 			return Loudness{}, errors.New(parseError)

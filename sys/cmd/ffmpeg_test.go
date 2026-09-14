@@ -52,6 +52,36 @@ func TestLoudnessDetect(t *testing.T) {
 	assert.Equal(t, Loudness{-23.45, -3.21, 8.12, -34.2, 9.45}, loudness)
 }
 
+// newer ffmpeg revisions print input_*/target_offset keys instead of measured_* ones
+const loudnessDetectOutputNewFormat = `[Parsed_loudnorm_0 @ 0x741a44001ac0]
+{
+	"input_i" : "-22.25",
+	"input_tp" : "-18.50",
+	"input_lra" : "0.00",
+	"input_thresh" : "-32.25",
+	"output_i" : "-13.97",
+	"output_tp" : "-10.26",
+	"output_lra" : "0.00",
+	"output_thresh" : "-23.97",
+	"normalization_type" : "dynamic",
+	"target_offset" : "-0.03"
+}
+[out#0/null @ 0x5eb69227f340] video:0KiB audio:1125KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown
+size=N/A time=00:00:03.00 bitrate=N/A speed=37.6x elapsed=0:00:00.07`
+
+func TestLoudnessDetectNewFormat(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).To(func(cmd *exec.Cmd) error {
+		return sys.ErrOnly(cmd.Stdout.Write([]byte(loudnessDetectOutputNewFormat)))
+	}).Build()
+
+	// testing
+	loudness, err := FFmpeg().LoudnessDetect("/dev/null")
+	assert.Nil(t, err)
+	assert.Equal(t, Loudness{-22.25, -18.5, 0, -32.25, -0.03}, loudness)
+}
+
 func TestLoudnessDetectFFmpegFailure(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()

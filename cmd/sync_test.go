@@ -443,6 +443,66 @@ func TestDecideWorkerContextCancel(t *testing.T) {
 	}
 }
 
+func TestCollectWorkerContextCancel(t *testing.T) {
+	// an open, empty queue: the only ready select case is the cancelled context
+	routineQueues = map[int](chan interface{}){
+		routineTypeCollect: make(chan interface{}),
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	done := make(chan struct{})
+	go func() {
+		collectWorker(ctx, false)
+		close(done)
+	}()
+
+	// testing: the worker stops promptly on a cancelled context
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("collectWorker did not stop on cancelled context")
+	}
+}
+
+func TestRoutineCollectFanout(t *testing.T) {
+	const tracks = 10
+
+	routineQueues = map[int](chan interface{}){
+		routineTypeCollect: make(chan interface{}, tracks),
+		routineTypeProcess: make(chan interface{}, tracks),
+	}
+
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
+		for _, c := range ch {
+			c <- []byte{}
+		}
+		return nil
+	}).Build()
+	mockey.Mock(lyrics.Search).Return("lyrics", nil).Build()
+
+	for i := 0; i < tracks; i++ {
+		routineQueues[routineTypeCollect] <- &entity.Track{
+			ID:      fmt.Sprintf("fanout%d", i),
+			Title:   "Title",
+			Artists: []string{"Artist"},
+			Artwork: entity.Artwork{URL: "http://localhost/cover.jpg"},
+		}
+	}
+	close(routineQueues[routineTypeCollect])
+
+	// testing: every track is collected and forwarded, then the process queue closes
+	routineCollect(false)(context.Background(), make(chan error, 1))
+	collected := 0
+	for range routineQueues[routineTypeProcess] {
+		collected++
+	}
+	assert.Equal(t, tracks, collected)
+}
+
 func TestCmdSyncDecideFailure(t *testing.T) {
 	t.Cleanup(cleanup)
 

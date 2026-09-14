@@ -135,6 +135,20 @@ func (index *Index) Get(track *entity.Track) (int, bool) {
 	return value, ok
 }
 
+func (index *Index) GetID(id string) (int, bool) {
+	index.lock.RLock()
+	defer index.lock.RUnlock()
+	value, ok := index.ids[keyFromID(id)]
+	return value, ok
+}
+
+func (index *Index) GetPath(path string) (int, bool) {
+	index.lock.RLock()
+	defer index.lock.RUnlock()
+	value, ok := index.paths[keyFromPath(path)]
+	return value, ok
+}
+
 func (index *Index) Size(statuses ...int) (counter int) {
 	index.lock.RLock()
 	defer index.lock.RUnlock()

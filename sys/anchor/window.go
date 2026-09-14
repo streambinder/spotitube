@@ -153,21 +153,15 @@ func (window *Window) print(doAnchor bool, data string) {
 
 func (window *Window) Reads(label string, a ...interface{}) (value string) {
 	window.lock.Lock()
+	defer window.lock.Unlock()
+	defer cursor.Bottom()
 
 	if !window.plain {
 		window.shift(cursorDefault)
 	}
 
 	fmt.Printf(label+" ", a...)
-
-	// never hold the lock while blocked on stdin: the whole TUI
-	// pipeline would stall until the user answers
-	window.lock.Unlock()
 	value = sys.ErrWrap("")(bufio.NewReader(os.Stdin).ReadString('\n'))
-	window.lock.Lock()
-	defer window.lock.Unlock()
-	defer cursor.Bottom()
-
 	value = strings.TrimSpace(value)
 	value = strings.Trim(value, "\n")
 	value = strings.Trim(value, "\r")

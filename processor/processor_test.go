@@ -2,6 +2,7 @@ package processor
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/bytedance/mockey"
@@ -43,5 +44,25 @@ func TestProcessorDoFailure(t *testing.T) {
 	mockey.Mock(mockey.GetMethod(encoder{}, "Do")).Return(errors.New("ko")).Build()
 
 	// testing
+	assert.EqualError(t, Do(track), "ko")
+}
+
+func TestProcessorDoLoudnessSkipped(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(normalizer{}, "Do")).Return(fmt.Errorf("%w: ko", ErrLoudnessSkipped)).Build()
+	mockey.Mock(mockey.GetMethod(encoder{}, "Do")).Return(nil).Build()
+
+	// testing: a skipped normalization runs the rest of the chain and reports the skip
+	assert.ErrorIs(t, Do(track), ErrLoudnessSkipped)
+}
+
+func TestProcessorDoLoudnessSkippedEncoderFailure(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(normalizer{}, "Do")).Return(fmt.Errorf("%w: ko", ErrLoudnessSkipped)).Build()
+	mockey.Mock(mockey.GetMethod(encoder{}, "Do")).Return(errors.New("ko")).Build()
+
+	// testing: the chain continues past a skipped normalization, a later failure still aborts
 	assert.EqualError(t, Do(track), "ko")
 }

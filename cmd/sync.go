@@ -654,9 +654,13 @@ func processWorker(ctx context.Context, ch chan error) {
 			track := event.(*entity.Track)
 			tui.Lot("process").Printf("%s by %s", track.Title, track.Artist())
 			if err := processor.Do(track); err != nil {
-				tui.AnchorPrintf("processing failed for %s by %s: %s", track.Title, track.Artist(), err)
-				ch <- err
-				return
+				if errors.Is(err, processor.ErrLoudnessSkipped) {
+					tui.AnchorPrintf("loudness normalization skipped for %s by %s: %s", track.Title, track.Artist(), errors.Unwrap(err))
+				} else {
+					tui.AnchorPrintf("processing failed for %s by %s: %s", track.Title, track.Artist(), err)
+					ch <- err
+					return
+				}
 			}
 			tui.Lot("process").Wipe()
 			routineQueues[routineTypeInstall] <- track

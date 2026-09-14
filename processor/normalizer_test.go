@@ -45,8 +45,8 @@ func TestNormalizerDoDetectFailure(t *testing.T) {
 	defer mockey.UnPatchAll()
 	mockey.Mock(mockey.GetMethod(cmd.FFmpegCmd{}, "LoudnessDetect")).Return(cmd.Loudness{}, errors.New("ko")).Build()
 
-	// testing
-	assert.EqualError(t, normalizer{}.Do(track), "ko")
+	// testing: a detection failure skips normalization without failing
+	assert.ErrorIs(t, normalizer{}.Do(track), ErrLoudnessSkipped)
 }
 
 func TestNormalizerDoNormalizeFailure(t *testing.T) {

@@ -598,6 +598,40 @@ func TestRoutineProcessFailure(t *testing.T) {
 	}
 }
 
+func TestRoutineProcessLoudnessSkipped(t *testing.T) {
+	routineQueues = map[int](chan interface{}){
+		routineTypeProcess: make(chan interface{}, 1),
+		routineTypeInstall: make(chan interface{}, 1),
+	}
+
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(processor.Do).Return(fmt.Errorf("%w: ko", processor.ErrLoudnessSkipped)).Build()
+
+	routineQueues[routineTypeProcess] <- &entity.Track{ID: "processskip", Title: "Title", Artists: []string{"Artist"}}
+	close(routineQueues[routineTypeProcess])
+
+	// testing: a skipped normalization forwards the track without aborting the sync
+	errCh := make(chan error, 1)
+	done := make(chan struct{})
+	go func() {
+		routineProcess(context.Background(), errCh)
+		close(done)
+	}()
+	select {
+	case track := <-routineQueues[routineTypeInstall]:
+		assert.Equal(t, "processskip", track.(*entity.Track).ID)
+	case <-time.After(10 * time.Second):
+		t.Fatal("track was not forwarded to the installer")
+	}
+	<-done
+	select {
+	case err := <-errCh:
+		t.Fatalf("routineProcess aborted the sync: %s", err)
+	default:
+	}
+}
+
 func TestRoutineCollectFanout(t *testing.T) {
 	const tracks = 10
 

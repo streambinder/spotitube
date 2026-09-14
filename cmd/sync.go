@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
+	"sync/atomic"
 
 	"github.com/adrg/xdg"
 	"github.com/arunsworld/nursery"
@@ -39,6 +41,9 @@ const (
 	// fetcher can push ahead while slower stages (provider search,
 	// download) catch up, without being an unbounded memory commitment
 	pipelineBuffer = 4096
+
+	// consecutive search failures triggering the decide circuit breaker
+	maxConsecutiveFailures = 3
 )
 
 var (
@@ -46,6 +51,14 @@ var (
 	routineQueues     map[int](chan interface{})
 	indexData         = index.New()
 	tui               = anchor.New(anchor.Red)
+
+	// serializes the decide index check-and-claim across workers:
+	// without it, two workers could both clear the collision check
+	// for same-filename tracks and defer the failure to install
+	decideIndexMu sync.Mutex
+	// parallel decide workers in automatic mode; deliberately small,
+	// YouTube searches are additionally capped inside the provider
+	decideWorkers = 4
 )
 
 func init() {
@@ -336,74 +349,138 @@ func routineFetchPlaylists(playlists []string, playlistsWithFile int, fetched ch
 // decider finds the right asset to retrieve
 // for a given track
 func routineDecide(manualMode bool) func(context.Context, chan error) {
-	return func(_ context.Context, ch chan error) {
+	return func(ctx context.Context, ch chan error) {
 		// remember to stop passing data to the collector
 		// the retriever, the composer and the painter
 		defer close(routineQueues[routineTypeCollect])
 
-		// consecutive search failures trigger a circuit breaker:
-		// if all providers fail repeatedly, stop wasting time retrying
-		consecutiveFailures := 0
-		const maxConsecutiveFailures = 3
-
-		for event := range routineQueues[routineTypeDecide] {
-			track := event.(*entity.Track)
-
-			var idStatus int
-			idKnown := false
-			if len(track.ID) > 0 {
-				idStatus, idKnown = indexData.GetID(track.ID)
-			}
-			_, pathKnown := indexData.GetPath(track.Path().Final())
-
-			switch {
-			case !idKnown && pathKnown:
-				ch <- fmt.Errorf("filename collision: %q would be shared by %q by %q (spotify id %s) and another track with the same artist and title: rename or drop one of them and re-run",
-					track.Path().Final(), track.Title, track.Artist(), track.ID)
-				return
-			case !idKnown:
-				tui.Printf("sync %s by %s", track.Title, track.Artist())
-				indexData.Set(track, index.Online)
-			case idStatus == index.Online:
-				tui.Printf("skip %s by %s", track.Title, track.Artist())
-				continue
-			case idStatus == index.Offline:
-				continue
-			}
-
-			if manualMode {
-				tui.Lot("decide").Printf("waiting on user input")
-				track.UpstreamURL = tui.Reads("URL for %s by %s:", track.Title, track.Artist())
-				tui.Lot("decide").Wipe()
-				if len(track.UpstreamURL) == 0 {
-					continue
-				}
-			} else {
-				if consecutiveFailures >= maxConsecutiveFailures {
-					tui.AnchorPrintf("%s by %s (id: %s) skipped: search unavailable", track.Title, track.Artist(), track.ID)
-					continue
-				}
-
-				tui.Lot("decide").Printf("%s by %s", track.Title, track.Artist())
-				matches, err := provider.Search(track)
-				tui.Lot("decide").Wipe()
-				if err != nil {
-					consecutiveFailures++
-					tui.AnchorPrintf("%s by %s (id: %s) search failed: %v", track.Title, track.Artist(), track.ID, err)
-					continue
-				}
-
-				consecutiveFailures = 0
-				if len(matches) == 0 {
-					tui.AnchorPrintf("%s by %s (id: %s) not found", track.Title, track.Artist(), track.ID)
-					continue
-				}
-				track.UpstreamURL = matches[0].URL
-			}
-			routineQueues[routineTypeCollect] <- track
+		// terminal prompts can't be parallelized: manual mode stays serial
+		if manualMode {
+			decideManual(ch)
+			return
 		}
-		tui.Lot("decide").Close()
+		decideParallel(ctx, ch)
 	}
+}
+
+// decideManual is the original single-consumer loop,
+// kept for manual mode where the user is prompted per track
+func decideManual(ch chan error) {
+	for event := range routineQueues[routineTypeDecide] {
+		track := event.(*entity.Track)
+
+		proceed, fatal := decideClassify(ch, track)
+		if fatal {
+			return
+		}
+		if !proceed {
+			continue
+		}
+
+		tui.Lot("decide").Printf("waiting on user input")
+		track.UpstreamURL = tui.Reads("URL for %s by %s:", track.Title, track.Artist())
+		tui.Lot("decide").Wipe()
+		if len(track.UpstreamURL) == 0 {
+			continue
+		}
+		routineQueues[routineTypeCollect] <- track
+	}
+	tui.Lot("decide").Close()
+}
+
+func decideParallel(_ context.Context, ch chan error) {
+	// consecutive search failures trigger a circuit breaker:
+	// if all providers fail repeatedly, stop wasting time retrying
+	var consecutiveFailures atomic.Int32
+
+	if err := nursery.RunMultipleCopiesConcurrently(decideWorkers, func(ctx context.Context, ch chan error) {
+		decideWorker(ctx, ch, &consecutiveFailures)
+	}); err != nil {
+		ch <- err
+		return
+	}
+	tui.Lot("decide").Close()
+}
+
+// decideWorker consumes the decide queue until it is closed,
+// the context is cancelled or a fatal collision aborts the sync
+func decideWorker(ctx context.Context, ch chan error, consecutiveFailures *atomic.Int32) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case event, ok := <-routineQueues[routineTypeDecide]:
+			if !ok {
+				return
+			}
+			if fatal := decideTrack(ch, consecutiveFailures, event.(*entity.Track)); fatal {
+				return
+			}
+		}
+	}
+}
+
+// decideClassify runs the index check-and-claim for a track and reports
+// whether it should proceed to search; fatal is true when the whole sync
+// must abort on a filename collision
+func decideClassify(ch chan error, track *entity.Track) (proceed, fatal bool) {
+	decideIndexMu.Lock()
+	defer decideIndexMu.Unlock()
+
+	var idStatus int
+	idKnown := false
+	if len(track.ID) > 0 {
+		idStatus, idKnown = indexData.GetID(track.ID)
+	}
+	_, pathKnown := indexData.GetPath(track.Path().Final())
+
+	switch {
+	case !idKnown && pathKnown:
+		ch <- fmt.Errorf("filename collision: %q would be shared by %q by %q (spotify id %s) and another track with the same artist and title: rename or drop one of them and re-run",
+			track.Path().Final(), track.Title, track.Artist(), track.ID)
+		return false, true
+	case !idKnown:
+		tui.Printf("sync %s by %s", track.Title, track.Artist())
+		indexData.Set(track, index.Online)
+		return true, false
+	case idStatus == index.Online:
+		tui.Printf("skip %s by %s", track.Title, track.Artist())
+		return false, false
+	case idStatus == index.Offline:
+		return false, false
+	default:
+		// Flush / Installed: re-sync
+		return true, false
+	}
+}
+
+// decideTrack is the automatic-mode per-track pipeline run by each worker
+func decideTrack(ch chan error, consecutiveFailures *atomic.Int32, track *entity.Track) (fatal bool) {
+	proceed, fatal := decideClassify(ch, track)
+	if fatal || !proceed {
+		return fatal
+	}
+
+	if consecutiveFailures.Load() >= maxConsecutiveFailures {
+		tui.AnchorPrintf("%s by %s (id: %s) skipped: search unavailable", track.Title, track.Artist(), track.ID)
+		return false
+	}
+
+	matches, err := provider.Search(track)
+	if err != nil {
+		consecutiveFailures.Add(1)
+		tui.AnchorPrintf("%s by %s (id: %s) search failed: %v", track.Title, track.Artist(), track.ID, err)
+		return false
+	}
+
+	consecutiveFailures.Store(0)
+	if len(matches) == 0 {
+		tui.AnchorPrintf("%s by %s (id: %s) not found", track.Title, track.Artist(), track.ID)
+		return false
+	}
+	track.UpstreamURL = matches[0].URL
+	routineQueues[routineTypeCollect] <- track
+	return false
 }
 
 // collector fetches all the needed assets

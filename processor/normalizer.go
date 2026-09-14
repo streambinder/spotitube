@@ -20,12 +20,9 @@ func (normalizer) Do(object interface{}) error {
 		return errors.New("processor does not support such object")
 	}
 
-	volumeDelta, err := cmd.FFmpeg().VolumeDetect(track.Path().Download())
+	loudness, err := cmd.FFmpeg().LoudnessDetect(track.Path().Download())
 	if err != nil {
 		return err
 	}
-
-	// reverse delta to compensate: if max_volume is positive (too loud),
-	// we need a negative adjustment, and vice versa
-	return cmd.FFmpeg().VolumeAdd(track.Path().Download(), -volumeDelta)
+	return cmd.FFmpeg().LoudnessNormalize(track.Path().Download(), loudness)
 }

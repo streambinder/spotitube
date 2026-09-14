@@ -43,7 +43,7 @@ This component is split in three parts:
 
 ## Processor
 
-The Processor applies further customization to the asset, such as rebalancing the volume of the track file (via `ffmpeg`'s `volumedetect`) or encoding all the metadata collected as ID3 (MP3) metadata.
+The Processor applies further customization to the asset, such as normalizing the loudness of the track file to -14 LUFS (via `ffmpeg`'s `loudnorm`, Spotify reference) or encoding all the metadata collected as ID3 (MP3) metadata.
 
 ## Installer
 

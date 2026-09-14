@@ -419,6 +419,61 @@ func TestCmdSyncDecideManualCollision(t *testing.T) {
 	assert.Contains(t, err.Error(), "filename collision")
 }
 
+func TestCmdSyncFatalCollisionUnwinds(t *testing.T) {
+	t.Cleanup(cleanup)
+
+	const total = 5000
+	_existing := &entity.Track{ID: "TestCmdSyncFatalCollisionUnwindsExisting", Title: "Collision", Artists: []string{"Artist"}}
+	_colliding := &entity.Track{ID: "TestCmdSyncFatalCollisionUnwindsColliding", Title: "Collision", Artists: []string{"Artist"}}
+
+	// the filename is already owned by another track
+	indexData.Set(_existing, index.Offline)
+
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
+		// the collider goes first so the fatal fires while the
+		// fetcher is still blocked on the full decide queue
+		for i := -1; i < total; i++ {
+			track := &entity.Track{ID: fmt.Sprintf("TestCmdSyncFatalCollisionUnwinds%d", i), Title: fmt.Sprintf("Title %d", i), Artists: []string{"Artist"}}
+			if i == -1 {
+				track = cloneTrack(_colliding)
+			}
+			for _, c := range ch {
+				c <- track
+			}
+		}
+		return nil
+	}).Build()
+	mockey.Mock(id3.Open).Return(&id3.Tag{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "userDefinedText")).Return("123").Build()
+	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "Close")).Return(nil).Build()
+	mockey.Mock(provider.Search).To(func(*entity.Track) ([]*provider.Match, error) {
+		return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
+	}).Build()
+	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
+		for _, c := range ch {
+			c <- []byte{}
+		}
+		return nil
+	}).Build()
+	mockey.Mock(lyrics.Search).Return("lyrics", nil).Build()
+	mockey.Mock(processor.Do).Return(nil).Build()
+	mockey.Mock(sys.FileMoveOrCopy).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&playlist.M3UEncoder{}, "Close")).Return(nil).Build()
+
+	// testing: a fatal collision while the fetcher is blocked on a full
+	// decide queue unwinds the sync with the collision error instead of
+	// deadlocking
+	err := sys.ErrOnly(testExecute(cmdSync(), "--plain"))
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "filename collision")
+}
+
 func TestDecideWorkerContextCancel(t *testing.T) {
 	// an open, empty queue: the only ready select case is the cancelled context
 	routineQueues = map[int](chan interface{}){

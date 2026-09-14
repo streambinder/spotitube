@@ -62,6 +62,9 @@ var (
 	// parallel collect workers; downloads are network-bound, so tracks
 	// overlap while each keeps asset/lyrics/artwork concurrent
 	collectWorkers = 4
+	// parallel process workers; ffmpeg re-encoding is CPU-bound, so a few
+	// tracks overlap while each keeps its internal pipeline serial
+	processWorkers = 4
 )
 
 func init() {
@@ -605,18 +608,38 @@ func routineProcess(_ context.Context, ch chan error) {
 	// remember to stop passing data to installer
 	defer close(routineQueues[routineTypeInstall])
 
-	for event := range routineQueues[routineTypeProcess] {
-		track := event.(*entity.Track)
-		tui.Lot("process").Printf("%s by %s", track.Title, track.Artist())
-		if err := processor.Do(track); err != nil {
-			tui.AnchorPrintf("processing failed for %s by %s: %s", track.Title, track.Artist(), err)
-			ch <- err
-			return
-		}
-		tui.Lot("process").Wipe()
-		routineQueues[routineTypeInstall] <- track
+	if err := nursery.RunMultipleCopiesConcurrently(processWorkers, func(ctx context.Context, ch chan error) {
+		processWorker(ctx, ch)
+	}); err != nil {
+		ch <- err
+		return
 	}
+
 	tui.Lot("process").Close()
+}
+
+// processWorker consumes the process queue until it is closed or the
+// context is cancelled; a failed track aborts the whole sync
+func processWorker(ctx context.Context, ch chan error) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case event, ok := <-routineQueues[routineTypeProcess]:
+			if !ok {
+				return
+			}
+			track := event.(*entity.Track)
+			tui.Lot("process").Printf("%s by %s", track.Title, track.Artist())
+			if err := processor.Do(track); err != nil {
+				tui.AnchorPrintf("processing failed for %s by %s: %s", track.Title, track.Artist(), err)
+				ch <- err
+				return
+			}
+			tui.Lot("process").Wipe()
+			routineQueues[routineTypeInstall] <- track
+		}
+	}
 }
 
 // installer move the blob to its final destination

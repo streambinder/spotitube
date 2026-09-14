@@ -466,6 +466,83 @@ func TestCollectWorkerContextCancel(t *testing.T) {
 	}
 }
 
+func TestProcessWorkerContextCancel(t *testing.T) {
+	// an open, empty queue: the only ready select case is the cancelled context
+	routineQueues = map[int](chan interface{}){
+		routineTypeProcess: make(chan interface{}),
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	done := make(chan struct{})
+	go func() {
+		processWorker(ctx, make(chan error, 1))
+		close(done)
+	}()
+
+	// testing: the worker stops promptly on a cancelled context
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("processWorker did not stop on cancelled context")
+	}
+}
+
+func TestRoutineProcessFanout(t *testing.T) {
+	const tracks = 10
+
+	routineQueues = map[int](chan interface{}){
+		routineTypeProcess: make(chan interface{}, tracks),
+		routineTypeInstall: make(chan interface{}, tracks),
+	}
+
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(processor.Do).Return(nil).Build()
+
+	for i := 0; i < tracks; i++ {
+		routineQueues[routineTypeProcess] <- &entity.Track{
+			ID:      fmt.Sprintf("processfanout%d", i),
+			Title:   "Title",
+			Artists: []string{"Artist"},
+		}
+	}
+	close(routineQueues[routineTypeProcess])
+
+	// testing: every track is processed and forwarded, then the install queue closes
+	routineProcess(context.Background(), make(chan error, 1))
+	processed := 0
+	for range routineQueues[routineTypeInstall] {
+		processed++
+	}
+	assert.Equal(t, tracks, processed)
+}
+
+func TestRoutineProcessFailure(t *testing.T) {
+	routineQueues = map[int](chan interface{}){
+		routineTypeProcess: make(chan interface{}, 1),
+		routineTypeInstall: make(chan interface{}, 1),
+	}
+
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(processor.Do).Return(errors.New("ko")).Build()
+
+	routineQueues[routineTypeProcess] <- &entity.Track{ID: "processfail", Title: "Title", Artists: []string{"Artist"}}
+	close(routineQueues[routineTypeProcess])
+
+	// testing: a processing failure aborts the sync
+	errCh := make(chan error, 1)
+	routineProcess(context.Background(), errCh)
+	select {
+	case err := <-errCh:
+		assert.Contains(t, err.Error(), "ko")
+	case <-time.After(10 * time.Second):
+		t.Fatal("routineProcess did not report the processing failure")
+	}
+}
+
 func TestRoutineCollectFanout(t *testing.T) {
 	const tracks = 10
 

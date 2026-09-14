@@ -20,6 +20,12 @@ import (
 
 type youTube struct{}
 
+const maxYouTubeConcurrentSearches = 2
+
+// youTubeSearchSlots caps concurrent YouTube page scrapes no matter how
+// many decide workers run, keeping 429s and captcha triggers at bay
+var youTubeSearchSlots = make(chan struct{}, maxYouTubeConcurrentSearches)
+
 type youTubeInitialData struct {
 	Contents struct {
 		TwoColumnSearchResultsRenderer struct {
@@ -111,6 +117,9 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 		query = fmt.Sprintf("%s %s", query, artist)
 	}
 	query = sanitizeYouTubeQuery(query)
+
+	youTubeSearchSlots <- struct{}{}
+	defer func() { <-youTubeSearchSlots }()
 
 	for attempt := 0; attempt < sys.MaxRetries; attempt++ {
 		matches, retry, err := func() ([]*Match, bool, error) {

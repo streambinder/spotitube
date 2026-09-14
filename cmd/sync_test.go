@@ -3,8 +3,11 @@ package cmd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -343,7 +346,9 @@ func TestCmdSyncFixCloseFailure(t *testing.T) {
 func TestCmdSyncDecideManual(t *testing.T) {
 	t.Cleanup(cleanup)
 
-	_track := &entity.Track{ID: "TestCmdSyncDecideManual", Title: "Title", Artists: []string{"Artist"}}
+	_trackURL := &entity.Track{ID: "TestCmdSyncDecideManualURL", Title: "URL", Artists: []string{"Artist"}}
+	_trackEmpty := &entity.Track{ID: "TestCmdSyncDecideManualEmpty", Title: "Empty", Artists: []string{"Artist"}}
+	_trackSkip := &entity.Track{ID: "TestCmdSyncDecideManualSkip", Title: "Skip", Artists: []string{"Artist"}}
 
 	// monkey patching
 	defer mockey.UnPatchAll()
@@ -352,12 +357,90 @@ func TestCmdSyncDecideManual(t *testing.T) {
 	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
 	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
 	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		ch[0] <- cloneTrack(_track)
+		ch[0] <- cloneTrack(_trackURL)
+		ch[0] <- cloneTrack(_trackEmpty)
+		ch[0] <- cloneTrack(_trackSkip)
+		return nil
+	}).Build()
+	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "userDefinedText")).Return("123").Build()
+	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "Close")).Return(nil).Build()
+	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
+		for _, c := range ch {
+			c <- []byte{}
+		}
+		return nil
+	}).Build()
+	mockey.Mock(lyrics.Search).Return("lyrics", nil).Build()
+	mockey.Mock(processor.Do).Return(nil).Build()
+	mockey.Mock(sys.FileMoveOrCopy).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&playlist.M3UEncoder{}, "Close")).Return(nil).Build()
+
+	// stdin feeds the manual prompts: the first track gets a URL, the second hits EOF
+	stdinReader, stdinWriter, err := os.Pipe()
+	assert.Nil(t, err)
+	_, err = stdinWriter.WriteString("http://localhost/\n")
+	assert.Nil(t, err)
+	assert.Nil(t, stdinWriter.Close())
+	oldStdin := os.Stdin
+	os.Stdin = stdinReader
+	defer func() { os.Stdin = oldStdin }()
+
+	// the skipped track is already synced
+	indexData.Set(_trackSkip, index.Online)
+
+	// testing: answered, empty and skipped tracks are decided without errors
+	err = sys.ErrOnly(testExecute(cmdSync(), "--plain", "--manual"))
+	assert.Nil(t, err)
+}
+
+func TestCmdSyncDecideManualCollision(t *testing.T) {
+	t.Cleanup(cleanup)
+
+	_trackCollision := &entity.Track{ID: "TestCmdSyncDecideManualCollision", Title: "Collision", Artists: []string{"Artist"}}
+	_trackOccupant := &entity.Track{ID: "TestCmdSyncDecideManualOccupant", Title: "Collision", Artists: []string{"Artist"}}
+
+	// the filename is already owned by another track
+	indexData.Set(_trackOccupant, index.Offline)
+
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
+		ch[0] <- cloneTrack(_trackCollision)
 		return nil
 	}).Build()
 
-	// testing
-	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "--manual")))
+	// testing: the sync aborts early with a filename collision error
+	err := sys.ErrOnly(testExecute(cmdSync(), "--plain", "--manual"))
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "filename collision")
+}
+
+func TestDecideWorkerContextCancel(t *testing.T) {
+	// an open, empty queue: the only ready select case is the cancelled context
+	routineQueues = map[int](chan interface{}){
+		routineTypeDecide: make(chan interface{}),
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	var consecutiveFailures atomic.Int32
+	done := make(chan struct{})
+	go func() {
+		decideWorker(ctx, make(chan error, 1), &consecutiveFailures)
+		close(done)
+	}()
+
+	// testing: the worker stops promptly on a cancelled context
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("decideWorker did not stop on cancelled context")
+	}
 }
 
 func TestCmdSyncDecideFailure(t *testing.T) {
@@ -385,6 +468,11 @@ func TestCmdSyncDecideFailure(t *testing.T) {
 
 func TestCmdSyncDecideCircuitBreaker(t *testing.T) {
 	t.Cleanup(cleanup)
+
+	// the breaker count is only deterministic with a single worker
+	prevDecideWorkers := decideWorkers
+	decideWorkers = 1
+	defer func() { decideWorkers = prevDecideWorkers }()
 
 	tracks := []*entity.Track{
 		{ID: "cb1", Title: "Title1", Artists: []string{"Artist"}},
@@ -437,6 +525,49 @@ func TestCmdSyncDecideNotFound(t *testing.T) {
 
 	// testing
 	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")))
+}
+
+func TestCmdSyncDecideParallelFanout(t *testing.T) {
+	t.Cleanup(cleanup)
+
+	var tracks []*entity.Track
+	for i := 0; i < 10; i++ {
+		tracks = append(tracks, &entity.Track{
+			ID:      fmt.Sprintf("TestCmdSyncDecideParallelFanout%d", i),
+			Title:   fmt.Sprintf("Title%d", i),
+			Artists: []string{"Artist"},
+		})
+	}
+
+	// monkey patching
+	searched := map[string]int{}
+	var mu sync.Mutex
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
+		for _, track := range tracks {
+			ch[0] <- track
+		}
+		return nil
+	}).Build()
+	mockey.Mock(provider.Search).To(func(track *entity.Track) ([]*provider.Match, error) {
+		mu.Lock()
+		searched[track.ID]++
+		mu.Unlock()
+		return []*provider.Match{}, nil
+	}).Build()
+
+	// testing: every track is searched exactly once, none is lost or duplicated
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")))
+	mu.Lock()
+	defer mu.Unlock()
+	assert.Equal(t, len(tracks), len(searched))
+	for _, track := range tracks {
+		assert.Equal(t, 1, searched[track.ID])
+	}
 }
 
 func TestCmdSyncDecideFilenameCollision(t *testing.T) {

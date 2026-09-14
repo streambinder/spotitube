@@ -12,103 +12,129 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const volumeDetectOutput = `ffmpeg version 5.1.2 Copyright (c) 2000-2022 the FFmpeg developers
-built with Apple clang version 14.0.0 (clang-1400.0.29.202)
-configuration: --prefix=/Users/dpucci/.local/share/homebrew/Cellar/ffmpeg/5.1.2_6 --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gnutls --enable-gpl --enable-libaom --enable-libaribb24 --enable-libbluray --enable-libdav1d --enable-libmp3lame --enable-libopus --enable-librav1e --enable-librist --enable-librubberband --enable-libsnappy --enable-libsrt --enable-libsvtav1 --enable-libtesseract --enable-libtheora --enable-libvidstab --enable-libvmaf --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxml2 --enable-libxvid --enable-lzma --enable-libfontconfig --enable-libfreetype --enable-frei0r --enable-libass --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-libspeex --enable-libsoxr --enable-libzmq --enable-libzimg --disable-libjack --disable-indev=jack --enable-videotoolbox --enable-neon
-libavutil      57. 28.100 / 57. 28.100
-libavcodec     59. 37.100 / 59. 37.100
-libavformat    59. 27.100 / 59. 27.100
-libavdevice    59.  7.100 / 59.  7.100
-libavfilter     8. 44.100 /  8. 44.100
-libswscale      6.  7.100 /  6.  7.100
-libswresample   4.  7.100 /  4.  7.100
-libpostproc    56.  6.100 / 56.  6.100
-[Parsed_volumedetect_0 @ 0x6000036482c0] n_samples: 19732480
-[Parsed_volumedetect_0 @ 0x6000036482c0] mean_volume: -10.5 dB
-[Parsed_volumedetect_0 @ 0x6000036482c0] max_volume: -5.0 dB
-[Parsed_volumedetect_0 @ 0x6000036482c0] histogram_0db: 184156`
+const loudnessDetectOutput = `ffmpeg version 5.1.2 Copyright (c) 2000-2022 the FFmpeg developers
+[Parsed_loudnorm_0 @ 0x6000036482c0]
+{
+	"input_i" : "-23.45",
+	"input_tp" : "-3.21",
+	"input_lra" : "8.12",
+	"input_thresh" : "-34.20",
+	"output_i" : "-14.00",
+	"output_tp" : "-1.50",
+	"output_lra" : "7.80",
+	"output_thresh" : "-24.43",
+	"normalization_type" : "linear",
+	"target_offset" : "9.45",
+	"measured_I" : "-23.45",
+	"measured_TP" : "-3.21",
+	"measured_LRA" : "8.12",
+	"measured_thresh" : "-34.20",
+	"offset" : "9.45"
+}`
 
 func BenchmarkFFmpeg(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		TestVolumeDetect(&testing.T{})
-		TestVolumeAdd(&testing.T{})
+		TestLoudnessDetect(&testing.T{})
+		TestLoudnessNormalize(&testing.T{})
 	}
 }
 
-func TestVolumeDetect(t *testing.T) {
+func TestLoudnessDetect(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
 	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).To(func(cmd *exec.Cmd) error {
-		return sys.ErrOnly(cmd.Stdout.Write([]byte(volumeDetectOutput)))
+		return sys.ErrOnly(cmd.Stdout.Write([]byte(loudnessDetectOutput)))
 	}).Build()
 
 	// testing
-	delta, err := FFmpeg().VolumeDetect("/dev/null")
+	loudness, err := FFmpeg().LoudnessDetect("/dev/null")
 	assert.Nil(t, err)
-	assert.Equal(t, -5.0, delta)
+	assert.Equal(t, Loudness{-23.45, -3.21, 8.12, -34.2, 9.45}, loudness)
 }
 
-func TestVolumeDetectFFmpegFailure(t *testing.T) {
+func TestLoudnessDetectFFmpegFailure(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
 	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).Return(errors.New("ko")).Build()
 
 	// testing
-	assert.Error(t, sys.ErrOnly(FFmpeg().VolumeDetect("/dev/null")))
+	assert.Error(t, sys.ErrOnly(FFmpeg().LoudnessDetect("/dev/null")))
 }
 
-func TestVolumeDetectParseFloatFailure(t *testing.T) {
+func TestLoudnessDetectParseFloatFailure(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
 	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).To(func(cmd *exec.Cmd) error {
-		return sys.ErrOnly(cmd.Stdout.Write([]byte(volumeDetectOutput)))
+		return sys.ErrOnly(cmd.Stdout.Write([]byte(loudnessDetectOutput)))
 	}).Build()
 	mockey.Mock(strconv.ParseFloat).Return(0.0, errors.New("ko")).Build()
 
 	// testing
-	assert.Error(t, sys.ErrOnly(FFmpeg().VolumeDetect("/dev/null")))
+	assert.EqualError(t,
+		sys.ErrOnly(FFmpeg().LoudnessDetect("/dev/null")),
+		"cannot parse loudness measurement for given track")
 }
 
-func TestVolumeDetectNoMatch(t *testing.T) {
+func TestLoudnessDetectNoJSON(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
 	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).To(func(cmd *exec.Cmd) error {
-		return sys.ErrOnly(cmd.Stdout.Write([]byte("no volume info here")))
+		return sys.ErrOnly(cmd.Stdout.Write([]byte("no loudness info here")))
 	}).Build()
 
 	// testing
-	assert.EqualError(t, sys.ErrOnly(FFmpeg().VolumeDetect("/dev/null")), "cannot parse max_volume for given track")
+	assert.EqualError(t,
+		sys.ErrOnly(FFmpeg().LoudnessDetect("/dev/null")),
+		"cannot parse loudness measurement for given track")
 }
 
-func TestVolumeAdd(t *testing.T) {
+func TestLoudnessDetectMalformedJSON(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).To(func(cmd *exec.Cmd) error {
+		return sys.ErrOnly(cmd.Stdout.Write([]byte("some log line { not json")))
+	}).Build()
+
+	// testing
+	assert.EqualError(t,
+		sys.ErrOnly(FFmpeg().LoudnessDetect("/dev/null")),
+		"cannot parse loudness measurement for given track")
+}
+
+func TestLoudnessNormalize(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
 	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).Return(nil).Build()
 	mockey.Mock(os.Rename).Return(nil).Build()
 
 	// testing
-	assert.Nil(t, FFmpeg().VolumeAdd("/dev/null", -1))
+	assert.Nil(t, FFmpeg().LoudnessNormalize("/dev/null", Loudness{Integrated: -23.45}))
 }
 
-func TestVolumeAddRenameFailure(t *testing.T) {
+func TestLoudnessNormalizeSkipped(t *testing.T) {
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).Return(errors.New("must not run")).Build()
+
+	// testing: inaudible offsets skip the re-encode entirely
+	assert.Nil(t, FFmpeg().LoudnessNormalize("/dev/null", Loudness{Integrated: -14.2}))
+}
+
+func TestLoudnessNormalizeRenameFailure(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
 	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).Return(nil).Build()
 	mockey.Mock(os.Rename).Return(errors.New("ko")).Build()
 
 	// testing
-	assert.EqualError(t, FFmpeg().VolumeAdd("/dev/null", -1), "ko")
+	assert.EqualError(t, FFmpeg().LoudnessNormalize("/dev/null", Loudness{Integrated: -23.45}), "ko")
 }
 
-func TestVolumeAddNothing(t *testing.T) {
-	assert.Nil(t, FFmpeg().VolumeAdd("/dev/null", 0))
-}
-
-func TestVolumeAddFFmpegFailure(t *testing.T) {
+func TestLoudnessNormalizeFFmpegFailure(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
 	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).Return(errors.New("ko")).Build()
 
 	// testing
-	assert.Error(t, FFmpeg().VolumeAdd("/dev/null", -1))
+	assert.Error(t, FFmpeg().LoudnessNormalize("/dev/null", Loudness{Integrated: -23.45}))
 }

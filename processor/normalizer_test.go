@@ -18,18 +18,18 @@ func BenchmarkNormalizer(b *testing.B) {
 func TestNormalizerDo(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(cmd.FFmpegCmd{}, "VolumeDetect")).Return(float64(1), nil).Build()
-	mockey.Mock(mockey.GetMethod(cmd.FFmpegCmd{}, "VolumeAdd")).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(cmd.FFmpegCmd{}, "LoudnessDetect")).Return(cmd.Loudness{Integrated: -23.45}, nil).Build()
+	mockey.Mock(mockey.GetMethod(cmd.FFmpegCmd{}, "LoudnessNormalize")).Return(nil).Build()
 
 	// testing
 	assert.Nil(t, normalizer{}.Do(track))
 }
 
-func TestNormalizerDoReverse(t *testing.T) {
+func TestNormalizerDoAboveTarget(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(cmd.FFmpegCmd{}, "VolumeDetect")).Return(float64(-1), nil).Build()
-	mockey.Mock(mockey.GetMethod(cmd.FFmpegCmd{}, "VolumeAdd")).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(cmd.FFmpegCmd{}, "LoudnessDetect")).Return(cmd.Loudness{Integrated: -8.0}, nil).Build()
+	mockey.Mock(mockey.GetMethod(cmd.FFmpegCmd{}, "LoudnessNormalize")).Return(nil).Build()
 
 	// testing
 	assert.Nil(t, normalizer{}.Do(track))
@@ -40,20 +40,20 @@ func TestNormalizerDoUnsupported(t *testing.T) {
 	assert.NotNil(t, normalizer{}.Do("hello"))
 }
 
-func TestNormalizerDoFailure(t *testing.T) {
+func TestNormalizerDoDetectFailure(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(cmd.FFmpegCmd{}, "VolumeDetect")).Return(float64(0), errors.New("ko")).Build()
+	mockey.Mock(mockey.GetMethod(cmd.FFmpegCmd{}, "LoudnessDetect")).Return(cmd.Loudness{}, errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, normalizer{}.Do(track), "ko")
 }
 
-func TestNormalizerDoVolumeAddFailure(t *testing.T) {
+func TestNormalizerDoNormalizeFailure(t *testing.T) {
 	// monkey patching
 	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(cmd.FFmpegCmd{}, "VolumeDetect")).Return(float64(-1), nil).Build()
-	mockey.Mock(mockey.GetMethod(cmd.FFmpegCmd{}, "VolumeAdd")).Return(errors.New("ko")).Build()
+	mockey.Mock(mockey.GetMethod(cmd.FFmpegCmd{}, "LoudnessDetect")).Return(cmd.Loudness{Integrated: -23.45}, nil).Build()
+	mockey.Mock(mockey.GetMethod(cmd.FFmpegCmd{}, "LoudnessNormalize")).Return(errors.New("ko")).Build()
 
 	// testing
 	assert.EqualError(t, normalizer{}.Do(track), "ko")

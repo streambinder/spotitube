@@ -178,14 +178,20 @@ func routineIndex(_ context.Context, ch chan error) {
 	defer close(routineSemaphores[routineTypeIndex])
 
 	indexed := make(chan string)
-	defer close(indexed)
+	var indexCounter sync.WaitGroup
+	indexCounter.Add(1)
 	go func() {
+		defer indexCounter.Done()
 		counter := 0
 		for path := range indexed {
 			counter++
 			tui.Lot("index").Printf("%s", filepath.Base(path))
 		}
 		tui.Lot("index").Close(strconv.Itoa(counter) + " tracks")
+	}()
+	defer func() {
+		close(indexed)
+		indexCounter.Wait()
 	}()
 
 	tui.Lot("index").Printf("scanning")
@@ -242,8 +248,10 @@ func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixe
 		}
 
 		fetched := make(chan interface{})
-		defer close(fetched)
+		var fetchCounter sync.WaitGroup
+		fetchCounter.Add(1)
 		go func() {
+			defer fetchCounter.Done()
 			counter := 0
 			for event := range fetched {
 				counter++
@@ -251,6 +259,10 @@ func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixe
 				tui.Lot("fetch").Printf("%s by %s", track.Title, track.Artist())
 			}
 			tui.Lot("fetch").Close(fmt.Sprintf("%d tracks", counter))
+		}()
+		defer func() {
+			close(fetched)
+			fetchCounter.Wait()
 		}()
 
 		fixesTracks, fixesErr := routineFetchFixesIDs(fixes)

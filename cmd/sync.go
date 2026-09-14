@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -656,7 +657,8 @@ func processWorker(ctx context.Context, ch chan error) {
 			tui.Lot("process").Printf("%s by %s", track.Title, track.Artist())
 			if err := processor.Do(track); err != nil {
 				if errors.Is(err, processor.ErrLoudnessSkipped) {
-					tui.AnchorPrintf("loudness normalization skipped for %s by %s: %s", track.Title, track.Artist(), errors.Unwrap(err))
+					cause, _ := strings.CutPrefix(err.Error(), processor.ErrLoudnessSkipped.Error()+": ")
+					tui.AnchorPrintf("loudness normalization skipped for %s by %s: %s", track.Title, track.Artist(), cause)
 				} else {
 					tui.AnchorPrintf("processing failed for %s by %s: %s", track.Title, track.Artist(), err)
 					ch <- err

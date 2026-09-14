@@ -63,5 +63,6 @@ func (lot *Lot) write() {
 	if lot.data == idle {
 		dataStyle = idleColor
 	}
-	fmt.Print(lot.style.Sprint(formatAlias(lot.alias)), dataStyle.Sprint(lot.data))
+	header := formatAlias(lot.alias)
+	fmt.Print(lot.style.Sprint(header), dataStyle.Sprint(truncateToWidth(lot.data, terminalWidth()-len(header))))
 }

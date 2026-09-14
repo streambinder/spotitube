@@ -128,7 +128,7 @@ func (window *Window) shift(lines int) {
 		} else {
 			anchorIndex := i - len(window.lots)
 			anchorID := len(window.anchors) - 1 - anchorIndex
-			fmt.Print(window.anchors[anchorID].data)
+			fmt.Print(fitLine(window.anchors[anchorID].data))
 		}
 		window.up()
 	}
@@ -145,7 +145,7 @@ func (window *Window) print(doAnchor bool, data string) {
 	}
 
 	window.shift(cursorDefault)
-	fmt.Print(data)
+	fmt.Print(fitLine(data))
 	if doAnchor {
 		window.anchors = append(window.anchors, &anchor{data, window})
 	}

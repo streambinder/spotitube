@@ -44,10 +44,41 @@ Additional `sync` flags worth knowing:
 - `--manual` / `-m` — prompt for a user-supplied provider URL per track instead of letting the Decider pick.
 - `--ignore-collisions` — skip tracks with filename collisions instead of aborting the sync; collisions are still reported on the anchor and counted in the final summary.
 
+### Audit
+
+`spotitube sync` is fail-fast: it aborts on the first filename collision it meets.
+A collision happens when two different Spotify tracks (different Spotify IDs) resolve to the same `Artist - Title.mp3` filename — e.g. two recordings of the same song whose titles sanitize identically.
+On a large library this turns collision hunting into a one-at-a-time loop: fix, re-run, hit the next one.
+
+`spotitube audit` answers "would my next sync collide?" without downloading anything.
+It walks the same index, auth and fetch stages as `sync`, then checks every fetched track for filename collisions and reports all of them in a single run, attributing each side of every collision to the selector it came from (library, playlist, playlist-tracks, album or track):
+
+```bash
+spotitube audit --library --playlist blacksheeps --playlist-tracks spotitube-sync
+```
+
+```text
+collision: "Radiohead - You And Whose Army.mp3"
+  incoming "You And Whose Army?" by "Radiohead" (spotify id 7Hg6a7tZsVTkXnBUepjZU6) from playlist blacksheeps
+  existing "You And Whose Army?" by "Radiohead" (spotify id 08QGvTyesyJiodOHSH2QsW) from library
+```
+
+The selection flags mirror `sync`'s (`--library` / `-l`, `--playlist` / `-p`, `--playlist-tracks`, `--album` / `-a`, `--track` / `-t`, `--library-limit`, `--output` / `-o`).
+The command is strictly read-only: nothing is downloaded, processed or written to the library.
+Unlike `sync`, it always writes plain line-oriented output instead of the fancy TUI, so it is cron/CI friendly out of the box.
+It exits non-zero with an `audit failed: N filename collisions found` error when collisions are found, and prints `no filename collisions found` otherwise.
+
+Use it:
+
+- before the first sync of a large library + playlist set, to catch every collision up front;
+- after adding new playlists or albums to the sync selection;
+- to diagnose a sync that keeps aborting on collisions.
+
 ### Subcommands
 
 Beyond `sync`, the following subcommands are available — list them via `spotitube --help`:
 
+- `audit` — check the library for filename collisions without downloading anything.
 - `auth` — establish a Spotify session and persist the OAuth token to `${XDG_CACHE_HOME:-~/.cache}/spotitube/session.json`. Pass `--logout` / `-l` to wipe the cached token before re-authenticating.
 - `attach` — attach Spotify metadata (including the Spotify ID embedded in a custom ID3 frame) to an existing local file.
 - `lookup` — query Spotify for a resource and print its metadata without downloading.

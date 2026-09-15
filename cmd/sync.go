@@ -66,6 +66,10 @@ var (
 	// parallel process workers; ffmpeg re-encoding is CPU-bound, so a few
 	// tracks overlap while each keeps its internal pipeline serial
 	processWorkers = 4
+	// skip-and-continue on filename collisions, enabled by --ignore-collisions
+	ignoreCollisions = false
+	// filename collisions skipped during a --ignore-collisions run
+	collisions atomic.Int64
 )
 
 func init() {
@@ -111,6 +115,8 @@ func cmdSync() *cobra.Command {
 				return err
 			}
 
+			collisions.Store(0)
+
 			if err := nursery.RunConcurrently(
 				routineIndex,
 				routineAuth,
@@ -124,7 +130,11 @@ func cmdSync() *cobra.Command {
 				return err
 			}
 
-			tui.Printf("synchronization complete")
+			if n := collisions.Load(); n > 0 {
+				tui.Printf("synchronization complete: %d filename collisions ignored", n)
+			} else {
+				tui.Printf("synchronization complete")
+			}
 			return nil
 		},
 		PreRun: func(cmd *cobra.Command, _ []string) {
@@ -169,6 +179,7 @@ func cmdSync() *cobra.Command {
 	cmd.Flags().Int("library-limit", 0, "Number of tracks to fetch from library (unlimited if 0)")
 	cmd.Flags().Bool("plain", false, "Enable plain mode (no fancy TUI anchored output)")
 	cmd.Flags().Bool("skip-lyrics", false, "Skip lyrics collection")
+	cmd.Flags().BoolVar(&ignoreCollisions, "ignore-collisions", false, "Skip tracks with filename collisions instead of aborting")
 	return cmd
 }
 
@@ -449,7 +460,8 @@ func decideWorker(ctx context.Context, ch chan error, consecutiveFailures *atomi
 
 // decideClassify runs the index check-and-claim for a track and reports
 // whether it should proceed to search; fatal is true when the whole sync
-// must abort on a filename collision
+// must abort on a filename collision, unless --ignore-collisions is set,
+// in which case the colliding track is skipped and counted instead
 func decideClassify(ch chan error, track *entity.Track) (proceed, fatal bool) {
 	decideIndexMu.Lock()
 	defer decideIndexMu.Unlock()
@@ -463,11 +475,15 @@ func decideClassify(ch chan error, track *entity.Track) (proceed, fatal bool) {
 
 	switch {
 	case !idKnown && pathKnown:
-		msg := fmt.Sprintf("filename collision: %q would be shared by %q by %q (spotify id %s) and another track with the same artist and title: rename or drop one of them and re-run",
+		msg := fmt.Sprintf("filename collision: %q would be shared by %q by %q (spotify id %s) and another track with the same artist and title: rename or drop one of them",
 			track.Path().Final(), track.Title, track.Artist(), track.ID)
 		tui.AnchorPrintf("%s", msg)
-		ch <- errors.New(msg)
-		return false, true
+		if !ignoreCollisions {
+			ch <- errors.New(msg)
+			return false, true
+		}
+		collisions.Add(1)
+		return false, false
 	case !idKnown:
 		tui.Printf("sync %s by %s", track.Title, track.Artist())
 		indexData.Set(track, index.Online)

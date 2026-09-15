@@ -42,6 +42,7 @@ Additional `sync` flags worth knowing:
 - `--playlist-encoding {m3u,pls}` — playlist file format produced by the Mixer (default `m3u`).
 - `--plain` — disable the fancy TUI; emit plain line-oriented output (useful for cron/CI).
 - `--manual` / `-m` — prompt for a user-supplied provider URL per track instead of letting the Decider pick.
+- `--ignore-collisions` — skip tracks with filename collisions instead of aborting the sync; collisions are still reported on the anchor and counted in the final summary.
 
 ### Subcommands
 

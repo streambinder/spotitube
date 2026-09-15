@@ -36,6 +36,8 @@ func BenchmarkSync(b *testing.B) {
 
 func cleanup() {
 	indexData = index.New()
+	ignoreCollisions = false
+	collisions.Store(0)
 }
 
 func cloneTrack(track *entity.Track) *entity.Track {
@@ -499,6 +501,70 @@ func TestCmdSyncFatalCollisionUnwinds(t *testing.T) {
 	err := sys.ErrOnly(testExecute(cmdSync(), "--plain"))
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "filename collision")
+}
+
+func TestCmdSyncDecideIgnoreCollisions(t *testing.T) {
+	t.Cleanup(cleanup)
+
+	_existing := &entity.Track{ID: "TestCmdSyncDecideIgnoreCollisionsExisting", Title: "Collision", Artists: []string{"Artist"}}
+	_colliding := &entity.Track{ID: "TestCmdSyncDecideIgnoreCollisionsColliding", Title: "Collision", Artists: []string{"Artist"}}
+
+	// the filename is already owned by another track
+	indexData.Set(_existing, index.Offline)
+
+	ignoreCollisions = true
+
+	// testing: with --ignore-collisions the colliding track is skipped
+	// and counted instead of aborting the sync
+	proceed, fatal := decideClassify(make(chan error, 1), _colliding)
+	assert.False(t, fatal)
+	assert.False(t, proceed)
+	assert.Equal(t, int64(1), collisions.Load())
+}
+
+func TestCmdSyncIgnoreCollisionsCompletes(t *testing.T) {
+	t.Cleanup(cleanup)
+
+	_existing := &entity.Track{ID: "TestCmdSyncIgnoreCollisionsCompletesExisting", Title: "Collision", Artists: []string{"Artist"}}
+	_colliding := &entity.Track{ID: "TestCmdSyncIgnoreCollisionsCompletesColliding", Title: "Collision", Artists: []string{"Artist"}}
+	_ok := &entity.Track{ID: "TestCmdSyncIgnoreCollisionsCompletesOk", Title: "Ok", Artists: []string{"Artist"}}
+
+	// the filename is already owned by another track
+	indexData.Set(_existing, index.Offline)
+
+	// monkey patching
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(cmd.Open).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
+	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
+		for _, c := range ch {
+			c <- cloneTrack(_colliding)
+			c <- cloneTrack(_ok)
+		}
+		return nil
+	}).Build()
+	mockey.Mock(id3.Open).Return(&id3.Tag{}, nil).Build()
+	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "userDefinedText")).Return("123").Build()
+	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "Close")).Return(nil).Build()
+	mockey.Mock(provider.Search).To(func(*entity.Track) ([]*provider.Match, error) {
+		return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
+	}).Build()
+	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
+		for _, c := range ch {
+			c <- []byte{}
+		}
+		return nil
+	}).Build()
+	mockey.Mock(lyrics.Search).Return("lyrics", nil).Build()
+	mockey.Mock(processor.Do).Return(nil).Build()
+	mockey.Mock(sys.FileMoveOrCopy).Return(nil).Build()
+	mockey.Mock(mockey.GetMethod(&playlist.M3UEncoder{}, "Close")).Return(nil).Build()
+
+	// testing: with --ignore-collisions the colliding track is skipped
+	// and the sync completes instead of aborting
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "--ignore-collisions")))
 }
 
 func TestDecideWorkerContextCancel(t *testing.T) {

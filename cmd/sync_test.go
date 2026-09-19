@@ -26,6 +26,7 @@ import (
 	"github.com/streambinder/spotitube/sys/anchor"
 	"github.com/streambinder/spotitube/sys/cmd"
 	"github.com/stretchr/testify/assert"
+	zmb3spotify "github.com/zmb3/spotify/v2"
 )
 
 func BenchmarkSync(b *testing.B) {
@@ -430,7 +431,7 @@ func TestCmdSyncDecideDuplicateInstalled(t *testing.T) {
 	// fetch of the same Spotify ID must be skipped, not re-synced
 	indexData.Set(track, index.Installed)
 
-	proceed, fatal := decideClassify(make(chan error, 1), track)
+	proceed, fatal := decideClassify(make(chan error, 1), track, false)
 	assert.False(t, fatal)
 	assert.False(t, proceed)
 }
@@ -443,7 +444,7 @@ func TestCmdSyncDecideFlush(t *testing.T) {
 	// the track was explicitly marked for re-sync: it must proceed
 	indexData.Set(track, index.Flush)
 
-	proceed, fatal := decideClassify(make(chan error, 1), track)
+	proceed, fatal := decideClassify(make(chan error, 1), track, false)
 	assert.False(t, fatal)
 	assert.True(t, proceed)
 }
@@ -516,7 +517,7 @@ func TestCmdSyncDecideIgnoreCollisions(t *testing.T) {
 
 	// testing: with --ignore-collisions the colliding track is skipped
 	// and counted instead of aborting the sync
-	proceed, fatal := decideClassify(make(chan error, 1), _colliding)
+	proceed, fatal := decideClassify(make(chan error, 1), _colliding, false)
 	assert.False(t, fatal)
 	assert.False(t, proceed)
 	assert.Equal(t, int64(1), collisions.Load())
@@ -579,7 +580,7 @@ func TestDecideWorkerContextCancel(t *testing.T) {
 	var consecutiveFailures atomic.Int32
 	done := make(chan struct{})
 	go func() {
-		decideWorker(ctx, make(chan error, 1), &consecutiveFailures)
+		decideWorker(ctx, make(chan error, 1), &consecutiveFailures, false)
 		close(done)
 	}()
 
@@ -1208,4 +1209,140 @@ func TestCmdSyncFixRemoveFailure(t *testing.T) {
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-f", "path")), "ko")
+}
+
+func TestValidateSpotifyAuth(t *testing.T) {
+	oldClient := spotifyClient
+	t.Cleanup(func() { spotifyClient = oldClient })
+	defer mockey.UnPatchAll()
+
+	spotifyClient = &spotify.Client{}
+
+	// healthy session
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUser")).To(func(_ context.Context) (*zmb3spotify.PrivateUser, error) {
+		return &zmb3spotify.PrivateUser{}, nil
+	}).Build()
+	assert.NoError(t, validateSpotifyAuth())
+	mockey.UnPatchAll()
+
+	// revoked refresh token is fatal
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUser")).To(func(_ context.Context) (*zmb3spotify.PrivateUser, error) {
+		return nil, errors.New("oauth2: invalid_grant: refresh token revoked")
+	}).Build()
+	assert.ErrorIs(t, validateSpotifyAuth(), errSpotifyAuthDead)
+	mockey.UnPatchAll()
+
+	// transient failures are returned as-is
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUser")).To(func(_ context.Context) (*zmb3spotify.PrivateUser, error) {
+		return nil, errors.New("boom")
+	}).Build()
+	assert.EqualError(t, validateSpotifyAuth(), "boom")
+}
+
+func TestRunSyncCycleSecondCycleDeadAuth(t *testing.T) {
+	t.Cleanup(cleanup)
+	oldTUI := tui
+	oldClient := spotifyClient
+	t.Cleanup(func() {
+		tui = oldTUI
+		spotifyClient = oldClient
+	})
+	tui = anchor.New(anchor.Red)
+	tui.EnablePlainMode()
+	defer mockey.UnPatchAll()
+
+	setupPipeline()
+	spotifyClient = &spotify.Client{}
+	// dead session aborts the cycle with the fatal error
+	mockey.Mock(validateSpotifyAuth).Return(errSpotifyAuthDead).Build()
+	_, err := runSyncCycle(context.Background(), syncParams{}, false)
+	assert.ErrorIs(t, err, errSpotifyAuthDead)
+}
+
+func TestRunSyncCycleSecondCycleTransientAuth(t *testing.T) {
+	t.Cleanup(cleanup)
+	oldTUI := tui
+	oldClient := spotifyClient
+	t.Cleanup(func() {
+		tui = oldTUI
+		spotifyClient = oldClient
+	})
+	tui = anchor.New(anchor.Red)
+	tui.EnablePlainMode()
+	defer mockey.UnPatchAll()
+
+	setupPipeline()
+	spotifyClient = &spotify.Client{}
+	// transient auth failure skips the cycle without error
+	mockey.Mock(validateSpotifyAuth).Return(errors.New("boom")).Build()
+	_, err := runSyncCycle(context.Background(), syncParams{}, false)
+	assert.NoError(t, err)
+}
+
+func TestRunSyncCycleSecondCycleValidAuth(t *testing.T) {
+	t.Cleanup(cleanup)
+	oldTUI := tui
+	oldClient := spotifyClient
+	t.Cleanup(func() {
+		tui = oldTUI
+		spotifyClient = oldClient
+	})
+	tui = anchor.New(anchor.Red)
+	tui.EnablePlainMode()
+	defer mockey.UnPatchAll()
+
+	setupPipeline()
+	spotifyClient = &spotify.Client{}
+	mockey.Mock(validateSpotifyAuth).Return(nil).Build()
+
+	// no-op jobs: never run the real pipeline in these unit tests
+	noop := func(_ context.Context, _ chan error) {}
+	mockey.Mock(routineFetch).To(func(_ syncParams) func(context.Context, chan error) {
+		return noop
+	}).Build()
+	mockey.Mock(routineDecide).To(func(_ syncParams) func(context.Context, chan error) {
+		return noop
+	}).Build()
+	mockey.Mock(routineCollect).To(func(_ bool) func(context.Context, chan error) {
+		return noop
+	}).Build()
+	mockey.Mock(routineProcess).To(noop).Build()
+	mockey.Mock(routineInstall).To(noop).Build()
+	mockey.Mock(routineMix).To(func(_ string) func(context.Context, chan error) {
+		return noop
+	}).Build()
+
+	// healthy session runs a quiet cycle reusing index and auth
+	_, err := runSyncCycle(context.Background(), syncParams{quiet: true}, false)
+	assert.NoError(t, err)
+
+	// a session persist failure fails the cycle: the next process start
+	// would retry with the stale on-disk token and die on invalid_grant
+	// (fresh semaphores: the no-op jobs above never drained them)
+	setupPipeline()
+	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Close")).Return(errors.New("persist boom")).Build()
+	_, err = runSyncCycle(context.Background(), syncParams{quiet: true}, false)
+	assert.ErrorContains(t, err, "could not persist spotify session")
+}
+
+func TestCmdSyncDaemonFlagGone(t *testing.T) {
+	t.Cleanup(cleanup)
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+
+	// --daemon is no longer a sync flag: the dedicated daemon command
+	// replaces it, so sync rejects it outright
+	assert.ErrorContains(t, sys.ErrOnly(testExecute(cmdSync(), "--daemon")), "unknown flag")
+}
+
+func TestCmdSyncNilContext(t *testing.T) {
+	t.Cleanup(cleanup)
+	defer mockey.UnPatchAll()
+	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
+	mockey.Mock(runSyncCycle).Return(cycleStats{}, nil).Build()
+
+	// invoking RunE directly (without Execute) leaves cmd.Context() nil,
+	// exercising the context fallback
+	c := cmdSync()
+	assert.Nil(t, c.RunE(c, []string{}))
 }

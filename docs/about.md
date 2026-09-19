@@ -42,6 +42,42 @@ Additional `sync` flags worth knowing:
 - `--playlist-encoding {m3u,pls}` — playlist file format produced by the Mixer (default `m3u`).
 - `--plain` — disable the fancy TUI; emit plain line-oriented output (useful for cron/CI).
 - `--manual` / `-m` — prompt for a user-supplied provider URL per track instead of letting the Decider pick.
+
+### Daemon mode
+
+Instead of running a single synchronization and exiting, `spotitube daemon` repeats
+sync cycles in a loop, picking up newly added tracks without needing an external scheduler:
+
+```bash
+spotitube daemon --interval 30m
+```
+
+How it works:
+
+- The daemon loop sits _outside_ the sync pipeline: every cycle runs the exact same
+  close-based pipeline shutdown as a one-shot run, with freshly created channels.
+- Cycles run strictly sequentially — a new cycle starts only after the previous one
+  finished, then `--interval` of idle time passes. `--interval` is the quiet time between
+  cycles, not a fixed schedule.
+- The local index is built once at startup and then maintained incrementally
+  (the Decider claims tracks, the Installer marks them installed); tracks claimed but
+  never installed are retried on the next cycle.
+- The Spotify session is authenticated once; access tokens are refreshed transparently
+  by the OAuth2 layer and the rotated session is persisted to disk after every cycle.
+  A persist failure fails the cycle visibly instead of being hidden.
+- The daemon never prompts (`--manual` is not available on the daemon command) and
+  always uses plain output (there is no TTY to render the fancy TUI into);
+  per-track `fetch`/`skip` log lines are gated: each cycle logs newly synced tracks,
+  errors, and a one-line summary (`synced / skipped / collisions / duration`).
+- If the Spotify refresh token dies (revoked or expired), the daemon exits with an error
+  instead of looping uselessly — run it under a service manager with restart enabled
+  (e.g. systemd `Restart=always`) so the failure is visible and it recovers automatically
+  once you re-authenticate.
+- SIGINT/SIGTERM stop the loop once the in-flight cycle winds down: workers check for
+  cancellation between fetch phases, but an in-flight network request runs to completion.
+
+Note: `--fix` re-applies on every cycle in daemon mode, so prefer one-shot runs for fixes.
+
 - `--ignore-collisions` — skip tracks with filename collisions instead of aborting the sync; collisions are still reported on the anchor and counted in the final summary.
 
 ### Audit

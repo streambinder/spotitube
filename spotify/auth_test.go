@@ -20,6 +20,7 @@ import (
 	"github.com/thanhpk/randstr"
 	"github.com/zmb3/spotify/v2"
 	spotifyauth "github.com/zmb3/spotify/v2/auth"
+	"golang.org/x/oauth2"
 )
 
 const (
@@ -550,4 +551,12 @@ func TestAuthenticateServerUnserving(t *testing.T) {
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(Authenticate(nil)), "ko")
+}
+
+func TestIsAuthDead(t *testing.T) {
+	assert.True(t, IsAuthDead(&oauth2.RetrieveError{ErrorCode: "invalid_grant"}))
+	assert.True(t, IsAuthDead(fmt.Errorf("oauth2: %q", "invalid_grant")))
+	assert.False(t, IsAuthDead(&oauth2.RetrieveError{ErrorCode: "temporarily_unavailable"}))
+	assert.False(t, IsAuthDead(errors.New("connection refused")))
+	assert.False(t, IsAuthDead(context.DeadlineExceeded))
 }

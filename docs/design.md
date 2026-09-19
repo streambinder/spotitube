@@ -52,3 +52,27 @@ Moves the file into its final location.
 ## Mixer
 
 For each playlist passed for synchronization, bundles it into an M3U (default) or PLS file (selectable via `--playlist-encoding`) containing every track of the playlist that has been successfully installed.
+
+## Daemon mode
+
+The `daemon` subcommand executes the sync pipeline described above in a loop via an
+outer driver (`runDaemon`), instead of running once and exiting. The loop sits _outside_ the
+pipeline on purpose: each cycle recreates the semaphores and queues and runs the exact
+same close-based shutdown as a one-shot invocation, so no pipeline stage needs to know
+about daemon mode.
+
+- **Index**: built once by the Indexer on the first cycle, then maintained incrementally —
+  the Decider marks claimed tracks `Online`, the Installer marks them `Installed`.
+  At the end of every cycle, entries still `Online` (claimed but never installed, e.g.
+  after a failed or aborted cycle) are dropped via `index.ResetPending()`, so the next
+  cycle retries them instead of skipping them forever.
+- **Authenticator**: runs once on the first cycle. Later cycles only validate the session
+  with a lightweight `CurrentUser` call: a dead refresh token (`invalid_grant`) is fatal
+  and stops the daemon, transient failures just skip the cycle. The rotated session is
+  persisted to disk after every cycle to capture refresh token rotation.
+- **Scheduling**: cycles are strictly sequential — the next cycle starts only after the
+  previous one finished, followed by `--interval` of idle time. There is intentionally
+  no overlapping and no fixed ticker.
+- **Shutdown**: `SIGINT`/`SIGTERM` cancel the cycle context; the Fetcher checks for
+  cancellation between its sequential phases, the queue-closing defers trigger the usual
+  cascade shutdown, and the loop exits instead of sleeping again.

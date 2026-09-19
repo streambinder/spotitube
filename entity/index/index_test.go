@@ -211,3 +211,28 @@ func TestBuildCaseInsensitiveExtension(t *testing.T) {
 	assert.Nil(t, index.Build("path"))
 	assert.Equal(t, 1, index.Size())
 }
+
+func TestResetPending(t *testing.T) {
+	index := New()
+	pending := &entity.Track{ID: "id-pending", Title: "Pending", Artists: []string{"Artist"}}
+	installed := &entity.Track{ID: "id-installed", Title: "Installed", Artists: []string{"Artist"}}
+	offline := &entity.Track{ID: "id-offline", Title: "Offline", Artists: []string{"Artist"}}
+	index.Set(pending, Online)
+	index.Set(installed, Installed)
+	index.Set(offline, Offline)
+
+	index.ResetPending()
+
+	_, ok := index.GetID("id-pending")
+	assert.False(t, ok)
+	_, ok = index.GetPath(pending.Path().Final())
+	assert.False(t, ok)
+
+	status, ok := index.GetID("id-installed")
+	assert.True(t, ok)
+	assert.Equal(t, Installed, status)
+
+	status, ok = index.GetID("id-offline")
+	assert.True(t, ok)
+	assert.Equal(t, Offline, status)
+}

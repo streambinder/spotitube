@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/adrg/xdg"
 	"github.com/arunsworld/nursery"
@@ -70,7 +71,14 @@ var (
 	ignoreCollisions = false
 	// filename collisions skipped during a --ignore-collisions run
 	collisions atomic.Int64
+	// tracks skipped during a sync cycle because already synchronized
+	skipped atomic.Int64
+	// tracks installed during a sync cycle: unlike the index size, this
+	// counts only tracks actually written by this cycle, not pre-existing ones
+	synced atomic.Int64
 )
+
+var errSpotifyAuthDead = errors.New("spotify session expired or revoked: re-authentication required")
 
 func init() {
 	cmdRoot.AddCommand(cmdSync())
@@ -83,93 +91,42 @@ func cmdSync() *cobra.Command {
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if err := commands.ValidateEnvironment(); err != nil {
+			ctx, params, err := prepareRun(cmd)
+			if err != nil {
 				return err
 			}
-
-			var (
-				path             = sys.ErrWrap(xdg.UserDirs.Music)(cmd.Flags().GetString("output"))
-				playlistEncoding = sys.ErrWrap("m3u")(cmd.Flags().GetString("playlist-encoding"))
-				manual           = sys.ErrWrap(false)(cmd.Flags().GetBool("manual"))
-				library          = sys.ErrWrap(false)(cmd.Flags().GetBool("library"))
-				playlists        = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("playlist"))
-				playlistsTracks  = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("playlist-tracks"))
-				albums           = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("album"))
-				tracks           = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("track"))
-				fixes            = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("fix"))
-				libraryLimit     = sys.ErrWrap(0)(cmd.Flags().GetInt("library-limit"))
-				plain            = sys.ErrWrap(false)(cmd.Flags().GetBool("plain"))
-				skipLyrics       = sys.ErrWrap(false)(cmd.Flags().GetBool("skip-lyrics"))
-			)
-
-			if plain {
+			params.manual = sys.ErrWrap(false)(cmd.Flags().GetBool("manual"))
+			if sys.ErrWrap(false)(cmd.Flags().GetBool("plain")) {
 				tui.EnablePlainMode()
 			}
 
-			for index, path := range fixes {
-				absPath, absErr := filepath.Abs(path)
-				fixes[index] = sys.Ternary(absErr == nil, absPath, path)
-			}
-
-			if err := os.Chdir(path); err != nil {
+			stats, err := runSyncCycle(ctx, params, true)
+			if err != nil {
 				return err
 			}
-
-			collisions.Store(0)
-
-			if err := nursery.RunConcurrently(
-				routineIndex,
-				routineAuth,
-				routineFetch(library, playlists, playlistsTracks, albums, tracks, fixes, libraryLimit),
-				routineDecide(manual),
-				routineCollect(skipLyrics),
-				routineProcess,
-				routineInstall,
-				routineMix(playlistEncoding),
-			); err != nil {
-				return err
-			}
-
-			if n := collisions.Load(); n > 0 {
-				tui.Printf("synchronization complete: %d filename collisions ignored", n)
+			if stats.collisions > 0 {
+				tui.Printf("synchronization complete: %d filename collisions ignored", stats.collisions)
 			} else {
 				tui.Printf("synchronization complete")
 			}
 			return nil
 		},
 		PreRun: func(cmd *cobra.Command, _ []string) {
-			routineSemaphores = map[int](chan bool){
-				routineTypeIndex:   make(chan bool, 1),
-				routineTypeAuth:    make(chan bool, 1),
-				routineTypeInstall: make(chan bool, 1),
-			}
-			routineQueues = map[int](chan interface{}){
-				routineTypeDecide:  make(chan interface{}, pipelineBuffer),
-				routineTypeCollect: make(chan interface{}, pipelineBuffer),
-				routineTypeProcess: make(chan interface{}, pipelineBuffer),
-				routineTypeInstall: make(chan interface{}, pipelineBuffer),
-				routineTypeMix:     make(chan interface{}, pipelineBuffer),
-			}
-
-			var (
-				playlists       = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("playlist"))
-				playlistsTracks = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("playlist-tracks"))
-				albums          = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("album"))
-				tracks          = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("track"))
-				fixes           = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("fix"))
-			)
-			if len(playlists)+len(playlistsTracks)+len(albums)+len(tracks)+len(fixes) == 0 {
-				cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
-					if f.Name == "library" {
-						sys.ErrSuppress(f.Value.Set("true"))
-					}
-				})
-			}
+			preRunSync(cmd)
 		},
 	}
+	addSyncFlags(cmd)
+	cmd.Flags().BoolP("manual", "m", false, "Enable manual mode (prompts for user-issued URL to use for download)")
+	cmd.Flags().Bool("plain", false, "Enable plain mode (no fancy TUI anchored output)")
+	return cmd
+}
+
+// addSyncFlags registers the flags shared by the sync and daemon commands;
+// command-specific flags (--manual/--plain for sync, --interval for daemon)
+// are registered by each command
+func addSyncFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP("output", "o", xdg.UserDirs.Music, "Output synchronization path")
 	cmd.Flags().String("playlist-encoding", "m3u", "Playlist output files encoding")
-	cmd.Flags().BoolP("manual", "m", false, "Enable manual mode (prompts for user-issued URL to use for download)")
 	cmd.Flags().BoolP("library", "l", false, "Synchronize library (auto-enabled if no collection is supplied)")
 	cmd.Flags().StringArrayP("playlist", "p", []string{}, "Synchronize playlist")
 	cmd.Flags().StringArray("playlist-tracks", []string{}, "Synchronize playlist tracks without playlist file")
@@ -177,10 +134,200 @@ func cmdSync() *cobra.Command {
 	cmd.Flags().StringArrayP("track", "t", []string{}, "Synchronize track")
 	cmd.Flags().StringArrayP("fix", "f", []string{}, "Fix local track")
 	cmd.Flags().Int("library-limit", 0, "Number of tracks to fetch from library (unlimited if 0)")
-	cmd.Flags().Bool("plain", false, "Enable plain mode (no fancy TUI anchored output)")
 	cmd.Flags().Bool("skip-lyrics", false, "Skip lyrics collection")
 	cmd.Flags().BoolVar(&ignoreCollisions, "ignore-collisions", false, "Skip tracks with filename collisions instead of aborting")
-	return cmd
+}
+
+// preRunSync prepares the pipeline and auto-enables library sync when no
+// collection is supplied; shared by the sync and daemon commands
+func preRunSync(cmd *cobra.Command) {
+	setupPipeline()
+
+	var (
+		playlists       = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("playlist"))
+		playlistsTracks = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("playlist-tracks"))
+		albums          = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("album"))
+		tracks          = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("track"))
+		fixes           = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("fix"))
+	)
+	if len(playlists)+len(playlistsTracks)+len(albums)+len(tracks)+len(fixes) == 0 {
+		cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
+			if f.Name == "library" {
+				sys.ErrSuppress(f.Value.Set("true"))
+			}
+		})
+	}
+}
+
+// prepareRun validates the environment, resolves the shared flags into
+// syncParams and enters the library directory; each command then applies
+// its own specific flags on top of the returned params
+func prepareRun(cmd *cobra.Command) (context.Context, syncParams, error) {
+	if err := commands.ValidateEnvironment(); err != nil {
+		return nil, syncParams{}, err
+	}
+
+	var (
+		path             = sys.ErrWrap(xdg.UserDirs.Music)(cmd.Flags().GetString("output"))
+		playlistEncoding = sys.ErrWrap("m3u")(cmd.Flags().GetString("playlist-encoding"))
+		library          = sys.ErrWrap(false)(cmd.Flags().GetBool("library"))
+		playlists        = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("playlist"))
+		playlistsTracks  = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("playlist-tracks"))
+		albums           = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("album"))
+		tracks           = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("track"))
+		fixes            = sys.ErrWrap([]string{})(cmd.Flags().GetStringArray("fix"))
+		libraryLimit     = sys.ErrWrap(0)(cmd.Flags().GetInt("library-limit"))
+		skipLyrics       = sys.ErrWrap(false)(cmd.Flags().GetBool("skip-lyrics"))
+	)
+
+	for index, path := range fixes {
+		absPath, absErr := filepath.Abs(path)
+		fixes[index] = sys.Ternary(absErr == nil, absPath, path)
+	}
+
+	if err := os.Chdir(path); err != nil {
+		return nil, syncParams{}, err
+	}
+
+	params := syncParams{
+		library:          library,
+		playlists:        playlists,
+		playlistsTracks:  playlistsTracks,
+		albums:           albums,
+		tracks:           tracks,
+		fixes:            fixes,
+		libraryLimit:     libraryLimit,
+		skipLyrics:       skipLyrics,
+		playlistEncoding: playlistEncoding,
+	}
+
+	ctx := cmd.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return ctx, params, nil
+}
+
+// syncParams carries the sync invocation parameters across daemon cycles;
+// quiet gates the per-track fetch/skip logs, the daemon command enables it
+// while one-shot runs keep the verbose output
+type syncParams struct {
+	library          bool
+	playlists        []string
+	playlistsTracks  []string
+	albums           []string
+	tracks           []string
+	fixes            []string
+	libraryLimit     int
+	manual           bool
+	skipLyrics       bool
+	playlistEncoding string
+	quiet            bool
+}
+
+// setupPipeline (re)creates the semaphores and queues backing the sync
+// pipeline; in daemon mode it runs at the start of every cycle so each
+// cycle gets the exact same close-based shutdown as a one-shot run
+func setupPipeline() {
+	routineSemaphores = map[int](chan bool){
+		routineTypeIndex:   make(chan bool, 1),
+		routineTypeAuth:    make(chan bool, 1),
+		routineTypeInstall: make(chan bool, 1),
+	}
+	routineQueues = map[int](chan interface{}){
+		routineTypeDecide:  make(chan interface{}, pipelineBuffer),
+		routineTypeCollect: make(chan interface{}, pipelineBuffer),
+		routineTypeProcess: make(chan interface{}, pipelineBuffer),
+		routineTypeInstall: make(chan interface{}, pipelineBuffer),
+		routineTypeMix:     make(chan interface{}, pipelineBuffer),
+	}
+}
+
+// validateSpotifyAuth checks the Spotify session is still usable; it
+// returns errSpotifyAuthDead when the refresh token can no longer be
+// renewed (revoked or expired), any other error for transient failures
+func validateSpotifyAuth() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if _, err := spotifyClient.CurrentUser(ctx); err != nil {
+		if spotify.IsAuthDead(err) {
+			return errSpotifyAuthDead
+		}
+		return err
+	}
+	return nil
+}
+
+// cycleStats reports what a single sync cycle accomplished; the caller
+// formats it, so one-shot and daemon summaries stay decoupled
+type cycleStats struct {
+	synced     int64
+	skipped    int64
+	collisions int64
+	took       time.Duration
+}
+
+// runSyncCycle runs a single pass of the sync pipeline; the first cycle of
+// a daemon (or a one-shot run) builds the index and authenticates, later
+// cycles reuse both — the index is incrementally maintained by the decider
+// and the installer, while the OAuth2 layer transparently refreshes access
+// tokens and the rotated session is persisted back to disk
+func runSyncCycle(ctx context.Context, params syncParams, first bool) (cycleStats, error) {
+	collisions.Store(0)
+	skipped.Store(0)
+	synced.Store(0)
+	cycleStart := time.Now()
+
+	if !first {
+		if err := validateSpotifyAuth(); err != nil {
+			if errors.Is(err, errSpotifyAuthDead) {
+				return cycleStats{}, err
+			}
+			tui.AnchorPrintf("spotify auth check failed, skipping cycle: %s", err)
+			return cycleStats{}, nil
+		}
+		// index and auth already established: let the fetcher through
+		routineSemaphores[routineTypeIndex] <- true
+		routineSemaphores[routineTypeAuth] <- true
+	}
+
+	jobs := []nursery.ConcurrentJob{}
+	if first {
+		jobs = append(jobs, routineIndex, routineAuth)
+	}
+	jobs = append(jobs,
+		routineFetch(params),
+		routineDecide(params),
+		routineCollect(params.skipLyrics),
+		routineProcess,
+		routineInstall,
+		routineMix(params.playlistEncoding),
+	)
+	err := nursery.RunConcurrentlyWithContext(ctx, jobs...)
+
+	// persist the session to capture any refresh token rotation happened mid-cycle;
+	// Close() safely no-ops on an uninitialized client
+	cerr := spotifyClient.Close()
+	// drop tracks claimed but never installed, so the next cycle retries
+	// them instead of skipping them as already handled
+	indexData.ResetPending()
+
+	if err != nil {
+		return cycleStats{}, err
+	}
+	// a rotation that is not persisted is a real problem: the next process
+	// start would retry with the stale on-disk token and die on invalid_grant
+	if cerr != nil {
+		return cycleStats{}, fmt.Errorf("could not persist spotify session: %w", cerr)
+	}
+
+	return cycleStats{
+		synced:     synced.Load(),
+		skipped:    skipped.Load(),
+		collisions: collisions.Load(),
+		took:       time.Since(cycleStart).Round(time.Second),
+	}, nil
 }
 
 // indexer scans a possible local music library
@@ -246,8 +393,10 @@ func routineAuth(_ context.Context, ch chan error) {
 
 // fetcher pulls data from the upstream
 // provider, i.e. Spotify
-func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixes []string, libraryLimit int) func(ctx context.Context, ch chan error) {
-	return func(_ context.Context, ch chan error) {
+//
+//go:noinline // mocked in tests via mockey, which cannot intercept inlined calls
+func routineFetch(params syncParams) func(ctx context.Context, ch chan error) {
+	return func(ctx context.Context, ch chan error) {
 		// remember to stop passing data to decider and mixer
 		defer close(routineQueues[routineTypeDecide])
 		defer close(routineQueues[routineTypeMix])
@@ -267,8 +416,10 @@ func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixe
 			counter := 0
 			for event := range fetched {
 				counter++
-				track := event.(*entity.Track)
-				tui.Lot("fetch").Printf("%s by %s", track.Title, track.Artist())
+				if !params.quiet {
+					track := event.(*entity.Track)
+					tui.Lot("fetch").Printf("%s by %s", track.Title, track.Artist())
+				}
 			}
 			tui.Lot("fetch").Close(fmt.Sprintf("%d tracks", counter))
 		}()
@@ -277,28 +428,34 @@ func routineFetch(library bool, playlists, playlistsTracks, albums, tracks, fixe
 			fetchCounter.Wait()
 		}()
 
-		fixesTracks, fixesErr := routineFetchFixesIDs(fixes)
-		if fixesErr != nil {
-			ch <- fixesErr
-			return
+		// fetch phases run sequentially; check for shutdown between them so
+		// a SIGTERM in daemon mode doesn't wait for the next phase to complete
+		phases := []func() error{
+			func() error {
+				fixesTracks, err := routineFetchFixesIDs(params.fixes)
+				if err != nil {
+					return err
+				}
+				params.tracks = append(params.tracks, fixesTracks...)
+				return nil
+			},
+			func() error { return routineFetchLibrary(params.library, params.libraryLimit, fetched) },
+			func() error { return routineFetchAlbums(params.albums, fetched) },
+			func() error { return routineFetchTracks(params.tracks, fetched) },
+			func() error {
+				return routineFetchPlaylists(append(params.playlists, params.playlistsTracks...), len(params.playlists), fetched)
+			},
 		}
-		tracks = append(tracks, fixesTracks...)
-
-		if err := routineFetchLibrary(library, libraryLimit, fetched); err != nil {
-			ch <- err
-			return
-		}
-		if err := routineFetchAlbums(albums, fetched); err != nil {
-			ch <- err
-			return
-		}
-		if err := routineFetchTracks(tracks, fetched); err != nil {
-			ch <- err
-			return
-		}
-		if err := routineFetchPlaylists(append(playlists, playlistsTracks...), len(playlists), fetched); err != nil {
-			ch <- err
-			return
+		for _, phase := range phases {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			if err := phase(); err != nil {
+				ch <- err
+				return
+			}
 		}
 	}
 }
@@ -378,28 +535,30 @@ func routineFetchPlaylists(playlists []string, playlistsWithFile int, fetched ch
 
 // decider finds the right asset to retrieve
 // for a given track
-func routineDecide(manualMode bool) func(context.Context, chan error) {
+//
+//go:noinline // mocked in tests via mockey, which cannot intercept inlined calls
+func routineDecide(params syncParams) func(context.Context, chan error) {
 	return func(ctx context.Context, ch chan error) {
 		// remember to stop passing data to the collector
 		// the retriever, the composer and the painter
 		defer close(routineQueues[routineTypeCollect])
 
 		// terminal prompts can't be parallelized: manual mode stays serial
-		if manualMode {
-			decideManual(ch)
+		if params.manual {
+			decideManual(ch, params.quiet)
 			return
 		}
-		decideParallel(ctx, ch)
+		decideParallel(ctx, ch, params.quiet)
 	}
 }
 
 // decideManual is the original single-consumer loop,
 // kept for manual mode where the user is prompted per track
-func decideManual(ch chan error) {
+func decideManual(ch chan error, quiet bool) {
 	for event := range routineQueues[routineTypeDecide] {
 		track := event.(*entity.Track)
 
-		proceed, fatal := decideClassify(ch, track)
+		proceed, fatal := decideClassify(ch, track, quiet)
 		if fatal {
 			return
 		}
@@ -418,13 +577,13 @@ func decideManual(ch chan error) {
 	tui.Lot("decide").Close()
 }
 
-func decideParallel(_ context.Context, ch chan error) {
+func decideParallel(_ context.Context, ch chan error, quiet bool) {
 	// consecutive search failures trigger a circuit breaker:
 	// if all providers fail repeatedly, stop wasting time retrying
 	var consecutiveFailures atomic.Int32
 
 	if err := nursery.RunMultipleCopiesConcurrently(decideWorkers, func(ctx context.Context, ch chan error) {
-		decideWorker(ctx, ch, &consecutiveFailures)
+		decideWorker(ctx, ch, &consecutiveFailures, quiet)
 	}); err != nil {
 		decide := routineQueues[routineTypeDecide]
 		go func() {
@@ -442,7 +601,7 @@ func decideParallel(_ context.Context, ch chan error) {
 
 // decideWorker consumes the decide queue until it is closed,
 // the context is cancelled or a fatal collision aborts the sync
-func decideWorker(ctx context.Context, ch chan error, consecutiveFailures *atomic.Int32) {
+func decideWorker(ctx context.Context, ch chan error, consecutiveFailures *atomic.Int32, quiet bool) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -451,7 +610,7 @@ func decideWorker(ctx context.Context, ch chan error, consecutiveFailures *atomi
 			if !ok {
 				return
 			}
-			if fatal := decideTrack(ch, consecutiveFailures, event.(*entity.Track)); fatal {
+			if fatal := decideTrack(ch, consecutiveFailures, event.(*entity.Track), quiet); fatal {
 				return
 			}
 		}
@@ -462,7 +621,7 @@ func decideWorker(ctx context.Context, ch chan error, consecutiveFailures *atomi
 // whether it should proceed to search; fatal is true when the whole sync
 // must abort on a filename collision, unless --ignore-collisions is set,
 // in which case the colliding track is skipped and counted instead
-func decideClassify(ch chan error, track *entity.Track) (proceed, fatal bool) {
+func decideClassify(ch chan error, track *entity.Track, quiet bool) (proceed, fatal bool) {
 	decideIndexMu.Lock()
 	defer decideIndexMu.Unlock()
 
@@ -489,9 +648,13 @@ func decideClassify(ch chan error, track *entity.Track) (proceed, fatal bool) {
 		indexData.Set(track, index.Online)
 		return true, false
 	case idStatus == index.Online || idStatus == index.Installed:
-		tui.Printf("skip %s by %s", track.Title, track.Artist())
+		skipped.Add(1)
+		if !quiet {
+			tui.Printf("skip %s by %s", track.Title, track.Artist())
+		}
 		return false, false
 	case idStatus == index.Offline:
+		skipped.Add(1)
 		return false, false
 	default:
 		// Flush: explicitly set to be re-synced
@@ -500,8 +663,8 @@ func decideClassify(ch chan error, track *entity.Track) (proceed, fatal bool) {
 }
 
 // decideTrack is the automatic-mode per-track pipeline run by each worker
-func decideTrack(ch chan error, consecutiveFailures *atomic.Int32, track *entity.Track) (fatal bool) {
-	proceed, fatal := decideClassify(ch, track)
+func decideTrack(ch chan error, consecutiveFailures *atomic.Int32, track *entity.Track, quiet bool) (fatal bool) {
+	proceed, fatal := decideClassify(ch, track, quiet)
 	if fatal || !proceed {
 		return fatal
 	}
@@ -531,6 +694,8 @@ func decideTrack(ch chan error, consecutiveFailures *atomic.Int32, track *entity
 // collector fetches all the needed assets
 // for a blob to be processed (basically
 // a wrapper around: retriever, composer and painter)
+//
+//go:noinline // mocked in tests via mockey, which cannot intercept inlined calls
 func routineCollect(skipLyrics bool) func(context.Context, chan error) {
 	return func(_ context.Context, _ chan error) {
 		// remember to stop passing data to the processor
@@ -706,11 +871,14 @@ func routineInstall(_ context.Context, ch chan error) {
 		}
 		tui.Lot("install").Wipe()
 		indexData.Set(track, index.Installed)
+		synced.Add(1)
 	}
 	tui.Lot("install").Close(strconv.Itoa(indexData.Size(index.Installed)) + " tracks")
 }
 
 // mixer wraps playlists to their final destination
+//
+//go:noinline // mocked in tests via mockey, which cannot intercept inlined calls
 func routineMix(encoding string) func(context.Context, chan error) {
 	return func(_ context.Context, _ chan error) {
 		// block until installation is done

@@ -51,3 +51,28 @@ go build -ldflags="
     -X github.com/streambinder/spotitube/lyrics.fallbackGeniusToken='awesomeGeniusToken'
 "
 ```
+
+## Running as a daemon
+
+`spotitube daemon` keeps running and repeats sync cycles with `--interval`
+of idle time in between, so no external scheduler is needed. Run it under a service
+manager with restart enabled — a dead Spotify session makes the daemon exit on purpose,
+so the failure stays visible and the service recovers automatically once you
+re-authenticate. Example systemd unit:
+
+```ini
+[Unit]
+Description=Spotitube daemon
+After=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/spotitube daemon --interval 15m
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=default.target
+```
+
+The daemon writes plain line-oriented logs (the fancy TUI is disabled automatically),
+which the service manager captures as usual.

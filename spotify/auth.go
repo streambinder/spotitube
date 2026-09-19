@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/arunsworld/nursery"
@@ -188,8 +189,21 @@ func (client *Client) Persist() error {
 	return err
 }
 
+// IsAuthDead reports whether err indicates the stored OAuth session can no
+// longer be refreshed (revoked or expired refresh token, i.e. Spotify's
+// invalid_grant) as opposed to a transient failure worth retrying
+func IsAuthDead(err error) bool {
+	var retrieveErr *oauth2.RetrieveError
+	if errors.As(err, &retrieveErr) && retrieveErr.ErrorCode == "invalid_grant" {
+		return true
+	}
+	return strings.Contains(err.Error(), "invalid_grant")
+}
+
 // Close persists the current token state to disk — call via defer after
 // Authenticate to capture any refresh token rotation that happened mid-session
+//
+//go:noinline // mocked in cmd tests via mockey, which cannot intercept inlined calls
 func (client *Client) Close() error {
 	if client == nil || client.Client == nil {
 		return nil

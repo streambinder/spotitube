@@ -167,3 +167,22 @@ func (index *Index) Size(statuses ...int) (counter int) {
 	}
 	return counter
 }
+
+// ResetPending drops tracks claimed during a run (Online) but never
+// installed, so that a subsequent sync cycle retries them instead of
+// skipping them as already handled
+func (index *Index) ResetPending() {
+	index.lock.Lock()
+	defer index.lock.Unlock()
+
+	for id, status := range index.ids {
+		if status == Online {
+			delete(index.ids, id)
+		}
+	}
+	for path, status := range index.paths {
+		if status == Online {
+			delete(index.paths, path)
+		}
+	}
+}

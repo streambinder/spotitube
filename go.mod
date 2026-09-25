@@ -9,7 +9,7 @@ require (
 	github.com/agnivade/levenshtein v1.2.1
 	github.com/arunsworld/nursery v0.6.0
 	github.com/bogem/id3v2/v2 v2.1.4
-	github.com/bytedance/mockey v1.4.6
+	github.com/bytedance/mockey v1.4.7
 	github.com/fatih/color v1.19.0
 	github.com/gosimple/slug v1.15.0
 	github.com/json-iterator/go v1.1.12
@@ -21,6 +21,7 @@ require (
 	github.com/zmb3/spotify/v2 v2.4.3
 	go.uber.org/goleak v1.3.0
 	golang.org/x/oauth2 v0.37.0
+	golang.org/x/term v0.46.0
 )
 
 require (
@@ -39,6 +40,5 @@ require (
 	golang.org/x/arch v0.29.0 // indirect
 	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
-	golang.org/x/term v0.46.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
 )

@@ -1,10 +1,9 @@
 name: push
 
 on:
+  workflow_dispatch: null
   push:
-    branches:
-      - master
-  pull_request:
+    branches: ["**"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

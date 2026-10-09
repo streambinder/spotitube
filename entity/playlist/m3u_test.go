@@ -1,11 +1,10 @@
 package playlist
 
 import (
-	"io/fs"
 	"os"
+	"path/filepath"
 	"testing"
 
-	"github.com/bytedance/mockey"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -16,26 +15,36 @@ func BenchmarkM3U(b *testing.B) {
 }
 
 func TestM3U(t *testing.T) {
-	var output []byte
+	// testing: the encoder writes to a file named after the playlist in
+	// the current directory, so run the test in a temporary one
+	dir := t.TempDir()
+	t.Chdir(dir)
 
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(os.WriteFile).To(func(_ string, data []byte, _ fs.FileMode) error {
-		output = data
-		return nil
-	}).Build()
-
-	// testing
 	encoder := &M3UEncoder{}
 	assert.Nil(t, encoder.init(testPlaylist.Name))
 	assert.Nil(t, encoder.Add(testTrack))
 	assert.Nil(t, encoder.Close())
 	assert.Equal(t, "Playlist.m3u", encoder.target)
+
+	output, err := os.ReadFile(filepath.Join(dir, "Playlist.m3u"))
+	assert.Nil(t, err)
 	assert.Equal(t, `#EXTM3U
 #PLAYLIST:Playlist
 #EXTINF:0,Artist - Title
 Artist - Title.mp3
 `, string(output))
+}
+
+func TestM3UCloseFailure(t *testing.T) {
+	// testing: when the target path cannot be written, Close fails
+	dir := t.TempDir()
+	t.Chdir(dir)
+	assert.Nil(t, os.Mkdir(filepath.Join(dir, "Playlist.m3u"), 0o755))
+
+	encoder := &M3UEncoder{}
+	assert.Nil(t, encoder.init(testPlaylist.Name))
+	assert.Nil(t, encoder.Add(testTrack))
+	assert.Error(t, encoder.Close())
 }
 
 func TestM3UTargetFilename(t *testing.T) {

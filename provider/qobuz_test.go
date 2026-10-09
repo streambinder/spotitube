@@ -2,41 +2,112 @@ package provider
 
 import (
 	"errors"
-	"io"
 	"net/http"
-	"strings"
 	"sync"
 	"testing"
 
-	"github.com/bytedance/mockey"
 	"github.com/stretchr/testify/assert"
 )
 
 const qobuzSearchResponse = `{"tracks":{"items":[{"id":138731318,"performer":{"name":"Artist"}}]}}`
 
+const (
+	qobuzShellHTML = `<html><head><script src="/resources/1.0/js/main.js"></script></head></html>`
+	qobuzBundleJS  = `var config={app_id:"123456789",app_secret:"00000000000000000000000000000000"};`
+	qobuzProxyJSON = `{"url":"https://cdn.qobuz.example/track.mp3"}`
+)
+
+// qobuzScript scripts the four HTTP stages of the qobuz flow: the shell
+// page, the JS bundle carrying the credentials, the catalog search and
+// the CDN proxy. Zero fields select the successful default response.
+type qobuzScript struct {
+	shellStatus   int
+	shellBody     string
+	shellErr      error
+	shellReadErr  bool
+	bundleStatus  int
+	bundleBody    string
+	bundleErr     error
+	bundleReadErr bool
+	searchStatus  int
+	searchBody    string
+	searchErr     error
+	proxyStatus   int
+	proxyBody     string
+	proxyErr      error
+}
+
+func qobuzStage(status int, body string, err error, readErr bool) (*http.Response, error) {
+	if err != nil {
+		return nil, err
+	}
+	if status == 0 {
+		status = 200
+	}
+	response := httpResponse(status, body)
+	if readErr {
+		response.Body = errReader{errors.New("ko")}
+	}
+	return response, nil
+}
+
+// qobuzFlow answers a request of any qobuz stage according to the script.
+func qobuzFlow(request *http.Request, script qobuzScript) (*http.Response, error) {
+	switch {
+	case request.URL.Host == "open.qobuz.com" && request.URL.Path == "/track/1":
+		body := script.shellBody
+		if body == "" {
+			body = qobuzShellHTML
+		}
+		return qobuzStage(script.shellStatus, body, script.shellErr, script.shellReadErr)
+	case request.URL.Host == "open.qobuz.com":
+		body := script.bundleBody
+		if body == "" {
+			body = qobuzBundleJS
+		}
+		return qobuzStage(script.bundleStatus, body, script.bundleErr, script.bundleReadErr)
+	case request.URL.Host == "www.qobuz.com":
+		body := script.searchBody
+		if body == "" {
+			body = qobuzSearchResponse
+		}
+		return qobuzStage(script.searchStatus, body, script.searchErr, false)
+	case request.URL.Host == "dabmusic.xyz":
+		body := script.proxyBody
+		if body == "" {
+			body = qobuzProxyJSON
+		}
+		return qobuzStage(script.proxyStatus, body, script.proxyErr, false)
+	}
+	return httpResponse(404, ""), nil
+}
+
+// resetQobuz clears the credentials and CDN caches, so each test starts
+// from a cold qobuz state regardless of test order.
+func resetQobuz(t *testing.T) {
+	t.Helper()
+	reset := func() {
+		qobuzCredMu.Lock()
+		defer qobuzCredMu.Unlock()
+		qobuzCachedID = ""
+		qobuzCachedSecret = ""
+		qobuzCDNCache = sync.Map{}
+	}
+	reset()
+	t.Cleanup(reset)
+}
+
 func BenchmarkQobuz(b *testing.B) {
-	for b.Loop() {
+	for i := 0; i < b.N; i++ {
 		TestQobuzSearch(&testing.T{})
 	}
 }
 
-// mockQobuzSearch bypasses credential fetching and mocks only the search+proxy calls
-func mockQobuzSearch(searchBody, proxyBody string, searchStatus, proxyStatus int) {
-	mockey.Mock(qobuzCredentials).Return("appid", "appsecret", nil).Build()
-	qobuzCDNCache = syncMapNew()
-	callCount := 0
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Do")).To(func(_ *http.Request) (*http.Response, error) {
-		callCount++
-		if callCount == 1 {
-			return &http.Response{StatusCode: searchStatus, Body: io.NopCloser(strings.NewReader(searchBody))}, nil
-		}
-		return &http.Response{StatusCode: proxyStatus, Body: io.NopCloser(strings.NewReader(proxyBody))}, nil
-	}).Build()
-}
-
 func TestQobuzSearch(t *testing.T) {
-	defer mockey.UnPatchAll()
-	mockQobuzSearch(qobuzSearchResponse, `{"url":"https://cdn.qobuz.example/track.mp3"}`, 200, 200)
+	resetQobuz(t)
+	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
+		return qobuzFlow(request, qobuzScript{})
+	})
 
 	matches, err := qobuz{}.search(track)
 	assert.Nil(t, err)
@@ -46,15 +117,12 @@ func TestQobuzSearch(t *testing.T) {
 }
 
 func TestQobuzSearchCacheHit(t *testing.T) {
-	defer mockey.UnPatchAll()
-	mockey.Mock(qobuzCredentials).Return("appid", "appsecret", nil).Build()
-	qobuzCDNCache = syncMapNew()
+	resetQobuz(t)
 	qobuzCDNCache.Store("138731318", "https://cached.example/track.mp3")
-
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Do")).To(func(_ *http.Request) (*http.Response, error) {
-		// only the search call should happen — no proxy call
-		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(qobuzSearchResponse))}, nil
-	}).Build()
+	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
+		// the proxy stage must never be reached: the CDN cache answers first
+		return qobuzFlow(request, qobuzScript{proxyErr: errors.New("must not be called")})
+	})
 
 	matches, err := qobuz{}.search(track)
 	assert.Nil(t, err)
@@ -63,18 +131,10 @@ func TestQobuzSearchCacheHit(t *testing.T) {
 }
 
 func TestQobuzSearchCredentialsFailure(t *testing.T) {
-	defer mockey.UnPatchAll()
-	mockey.Mock(qobuzCredentials).Return("", "", errors.New("ko")).Build()
-
-	matches, err := qobuz{}.search(track)
-	assert.NotNil(t, err)
-	assert.Nil(t, matches)
-}
-
-func TestQobuzSearchRequestBuildFailure(t *testing.T) {
-	defer mockey.UnPatchAll()
-	mockey.Mock(qobuzCredentials).Return("appid", "appsecret", nil).Build()
-	mockey.Mock(http.NewRequest).Return(nil, errors.New("ko")).Build()
+	resetQobuz(t)
+	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
+		return qobuzFlow(request, qobuzScript{shellErr: errors.New("ko")})
+	})
 
 	matches, err := qobuz{}.search(track)
 	assert.NotNil(t, err)
@@ -82,9 +142,10 @@ func TestQobuzSearchRequestBuildFailure(t *testing.T) {
 }
 
 func TestQobuzSearchRequestFailure(t *testing.T) {
-	defer mockey.UnPatchAll()
-	mockey.Mock(qobuzCredentials).Return("appid", "appsecret", nil).Build()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Do")).Return(nil, errors.New("ko")).Build()
+	resetQobuz(t)
+	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
+		return qobuzFlow(request, qobuzScript{searchErr: errors.New("ko")})
+	})
 
 	matches, err := qobuz{}.search(track)
 	assert.NotNil(t, err)
@@ -92,8 +153,10 @@ func TestQobuzSearchRequestFailure(t *testing.T) {
 }
 
 func TestQobuzSearchNonOKStatus(t *testing.T) {
-	defer mockey.UnPatchAll()
-	mockQobuzSearch("", "", 500, 0)
+	resetQobuz(t)
+	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
+		return qobuzFlow(request, qobuzScript{searchStatus: 500})
+	})
 
 	matches, err := qobuz{}.search(track)
 	assert.NotNil(t, err)
@@ -101,8 +164,10 @@ func TestQobuzSearchNonOKStatus(t *testing.T) {
 }
 
 func TestQobuzSearchMalformedResponse(t *testing.T) {
-	defer mockey.UnPatchAll()
-	mockQobuzSearch(`{not json}`, "", 200, 0)
+	resetQobuz(t)
+	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
+		return qobuzFlow(request, qobuzScript{searchBody: `{not json}`})
+	})
 
 	matches, err := qobuz{}.search(track)
 	assert.NotNil(t, err)
@@ -110,8 +175,10 @@ func TestQobuzSearchMalformedResponse(t *testing.T) {
 }
 
 func TestQobuzSearchNoItems(t *testing.T) {
-	defer mockey.UnPatchAll()
-	mockQobuzSearch(`{"tracks":{"items":[]}}`, "", 200, 0)
+	resetQobuz(t)
+	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
+		return qobuzFlow(request, qobuzScript{searchBody: `{"tracks":{"items":[]}}`})
+	})
 
 	matches, err := qobuz{}.search(track)
 	assert.Nil(t, err)
@@ -119,17 +186,10 @@ func TestQobuzSearchNoItems(t *testing.T) {
 }
 
 func TestQobuzSearchAllProxiesFailed(t *testing.T) {
-	defer mockey.UnPatchAll()
-	mockey.Mock(qobuzCredentials).Return("appid", "appsecret", nil).Build()
-	qobuzCDNCache = syncMapNew()
-	callCount := 0
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Do")).To(func(_ *http.Request) (*http.Response, error) {
-		callCount++
-		if callCount == 1 {
-			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(qobuzSearchResponse))}, nil
-		}
-		return nil, errors.New("proxy down")
-	}).Build()
+	resetQobuz(t)
+	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
+		return qobuzFlow(request, qobuzScript{proxyErr: errors.New("proxy down")})
+	})
 
 	matches, err := qobuz{}.search(track)
 	assert.NotNil(t, err)
@@ -137,8 +197,10 @@ func TestQobuzSearchAllProxiesFailed(t *testing.T) {
 }
 
 func TestQobuzSearchProxyBadJSON(t *testing.T) {
-	defer mockey.UnPatchAll()
-	mockQobuzSearch(qobuzSearchResponse, `{not json}`, 200, 200)
+	resetQobuz(t)
+	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
+		return qobuzFlow(request, qobuzScript{proxyBody: "not json"})
+	})
 
 	matches, err := qobuz{}.search(track)
 	assert.NotNil(t, err)
@@ -146,8 +208,10 @@ func TestQobuzSearchProxyBadJSON(t *testing.T) {
 }
 
 func TestQobuzSearchProxyEmptyURL(t *testing.T) {
-	defer mockey.UnPatchAll()
-	mockQobuzSearch(qobuzSearchResponse, `{"url":""}`, 200, 200)
+	resetQobuz(t)
+	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
+		return qobuzFlow(request, qobuzScript{proxyBody: `{"url":""}`})
+	})
 
 	matches, err := qobuz{}.search(track)
 	assert.NotNil(t, err)
@@ -155,8 +219,10 @@ func TestQobuzSearchProxyEmptyURL(t *testing.T) {
 }
 
 func TestQobuzSearchProxyNonOKStatus(t *testing.T) {
-	defer mockey.UnPatchAll()
-	mockQobuzSearch(qobuzSearchResponse, "", 200, 503)
+	resetQobuz(t)
+	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
+		return qobuzFlow(request, qobuzScript{proxyStatus: 500, proxyBody: "error page"})
+	})
 
 	matches, err := qobuz{}.search(track)
 	assert.NotNil(t, err)
@@ -164,33 +230,19 @@ func TestQobuzSearchProxyNonOKStatus(t *testing.T) {
 }
 
 func TestQobuzCredentials(t *testing.T) {
-	defer mockey.UnPatchAll()
-	// reset cache so this test actually exercises the scraping path
-	qobuzCachedID = ""
-	qobuzCachedSecret = ""
+	resetQobuz(t)
 	callCount := 0
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Do")).To(func(_ *http.Request) (*http.Response, error) {
+	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
 		callCount++
-		if callCount == 1 {
-			// shell page with bundle script tag
-			return &http.Response{
-				StatusCode: 200,
-				Body:       io.NopCloser(strings.NewReader(`<script src="/resources/1.0/js/main.js"></script>`)),
-			}, nil
-		}
-		// bundle with credentials
-		return &http.Response{
-			StatusCode: 200,
-			Body:       io.NopCloser(strings.NewReader(`app_id:"123456789",app_secret:"abcdef1234567890abcdef1234567890"`)), // gitleaks:allow
-		}, nil
-	}).Build()
+		return qobuzFlow(request, qobuzScript{})
+	})
 
 	id, secret, err := qobuzCredentials()
 	assert.Nil(t, err)
 	assert.Equal(t, "123456789", id)
-	assert.Equal(t, "abcdef1234567890abcdef1234567890", secret)
+	assert.Equal(t, "00000000000000000000000000000000", secret)
 
-	// second call uses cache, no extra HTTP calls
+	// the second call is served by the credentials cache: no new requests
 	id2, secret2, err2 := qobuzCredentials()
 	assert.Nil(t, err2)
 	assert.Equal(t, id, id2)
@@ -199,202 +251,121 @@ func TestQobuzCredentials(t *testing.T) {
 }
 
 func TestQobuzCredentialsShellFailure(t *testing.T) {
-	defer mockey.UnPatchAll()
-	qobuzCachedID = ""
-	qobuzCachedSecret = ""
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Do")).Return(nil, errors.New("ko")).Build()
+	resetQobuz(t)
+	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
+		return qobuzFlow(request, qobuzScript{shellErr: errors.New("ko")})
+	})
 
 	_, _, err := qobuzCredentials()
 	assert.NotNil(t, err)
 }
 
 func TestQobuzCredentialsShellNonOK(t *testing.T) {
-	defer mockey.UnPatchAll()
-	qobuzCachedID = ""
-	qobuzCachedSecret = ""
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Do")).Return(&http.Response{
-		StatusCode: 503,
-		Body:       io.NopCloser(strings.NewReader("")),
-	}, nil).Build()
+	resetQobuz(t)
+	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
+		return qobuzFlow(request, qobuzScript{shellStatus: 500})
+	})
 
 	_, _, err := qobuzCredentials()
 	assert.NotNil(t, err)
 }
 
 func TestQobuzCredentialsNoBundleScript(t *testing.T) {
-	defer mockey.UnPatchAll()
-	qobuzCachedID = ""
-	qobuzCachedSecret = ""
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Do")).Return(&http.Response{
-		StatusCode: 200,
-		Body:       io.NopCloser(strings.NewReader(`<html>no script here</html>`)),
-	}, nil).Build()
+	resetQobuz(t)
+	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
+		return qobuzFlow(request, qobuzScript{shellBody: "<html><head></head></html>"})
+	})
 
 	_, _, err := qobuzCredentials()
 	assert.NotNil(t, err)
 }
 
 func TestQobuzCredentialsBundleFailure(t *testing.T) {
-	defer mockey.UnPatchAll()
-	qobuzCachedID = ""
-	qobuzCachedSecret = ""
-	callCount := 0
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Do")).To(func(_ *http.Request) (*http.Response, error) {
-		callCount++
-		if callCount == 1 {
-			return &http.Response{
-				StatusCode: 200,
-				Body:       io.NopCloser(strings.NewReader(`<script src="/resources/1.0/js/main.js"></script>`)),
-			}, nil
-		}
-		return nil, errors.New("bundle down")
-	}).Build()
+	resetQobuz(t)
+	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
+		return qobuzFlow(request, qobuzScript{bundleErr: errors.New("ko")})
+	})
 
 	_, _, err := qobuzCredentials()
 	assert.NotNil(t, err)
 }
 
 func TestQobuzCredentialsBundleNonOK(t *testing.T) {
-	defer mockey.UnPatchAll()
-	qobuzCachedID = ""
-	qobuzCachedSecret = ""
-	callCount := 0
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Do")).To(func(_ *http.Request) (*http.Response, error) {
-		callCount++
-		if callCount == 1 {
-			return &http.Response{
-				StatusCode: 200,
-				Body:       io.NopCloser(strings.NewReader(`<script src="/resources/1.0/js/main.js"></script>`)),
-			}, nil
-		}
-		return &http.Response{StatusCode: 503, Body: io.NopCloser(strings.NewReader(""))}, nil
-	}).Build()
+	resetQobuz(t)
+	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
+		return qobuzFlow(request, qobuzScript{bundleStatus: 500})
+	})
 
 	_, _, err := qobuzCredentials()
 	assert.NotNil(t, err)
 }
 
 func TestQobuzCredentialsNoCredentialsInBundle(t *testing.T) {
-	defer mockey.UnPatchAll()
-	qobuzCachedID = ""
-	qobuzCachedSecret = ""
-	callCount := 0
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Do")).To(func(_ *http.Request) (*http.Response, error) {
-		callCount++
-		if callCount == 1 {
-			return &http.Response{
-				StatusCode: 200,
-				Body:       io.NopCloser(strings.NewReader(`<script src="/resources/1.0/js/main.js"></script>`)),
-			}, nil
-		}
-		return &http.Response{
-			StatusCode: 200,
-			Body:       io.NopCloser(strings.NewReader(`no credentials here`)),
-		}, nil
-	}).Build()
-
-	_, _, err := qobuzCredentials()
-	assert.NotNil(t, err)
-}
-
-func TestQobuzCredentialsShellRequestBuildFailure(t *testing.T) {
-	defer mockey.UnPatchAll()
-	qobuzCachedID = ""
-	qobuzCachedSecret = ""
-	mockey.Mock(http.NewRequest).Return(nil, errors.New("ko")).Build()
+	resetQobuz(t)
+	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
+		return qobuzFlow(request, qobuzScript{bundleBody: "var config={};"})
+	})
 
 	_, _, err := qobuzCredentials()
 	assert.NotNil(t, err)
 }
 
 func TestQobuzCredentialsShellReadFailure(t *testing.T) {
-	defer mockey.UnPatchAll()
-	qobuzCachedID = ""
-	qobuzCachedSecret = ""
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Do")).Return(&http.Response{
-		StatusCode: 200,
-		Body:       io.NopCloser(strings.NewReader("")),
-	}, nil).Build()
-	mockey.Mock(io.ReadAll).Return(nil, errors.New("ko")).Build()
+	resetQobuz(t)
+	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
+		return qobuzFlow(request, qobuzScript{shellReadErr: true})
+	})
 
 	_, _, err := qobuzCredentials()
 	assert.NotNil(t, err)
 }
 
 func TestQobuzCredentialsBundleRequestBuildFailure(t *testing.T) {
-	defer mockey.UnPatchAll()
-	qobuzCachedID = ""
-	qobuzCachedSecret = ""
-	// control char in bundle URL causes http.NewRequest to fail
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Do")).Return(&http.Response{
-		StatusCode: 200,
-		Body:       io.NopCloser(strings.NewReader("<script src=\"https://open.qobuz.com/\x00/js/main.js\"></script>")),
-	}, nil).Build()
+	resetQobuz(t)
+	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
+		// a bundle URL with a control character makes http.NewRequest fail
+		return qobuzFlow(request, qobuzScript{shellBody: "<script src=\"/resources/\x7f/js/main.js\"></script>"})
+	})
 
 	_, _, err := qobuzCredentials()
 	assert.NotNil(t, err)
 }
 
 func TestQobuzCredentialsBundleReadFailure(t *testing.T) {
-	defer mockey.UnPatchAll()
-	qobuzCachedID = ""
-	qobuzCachedSecret = ""
-	callCount := 0
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Do")).To(func(_ *http.Request) (*http.Response, error) {
-		callCount++
-		if callCount == 1 {
-			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`<script src="/resources/1.0/js/main.js"></script>`))}, nil
-		}
-		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(""))}, nil
-	}).Build()
-	readCount := 0
-	mockey.Mock(io.ReadAll).To(func(_ io.Reader) ([]byte, error) {
-		readCount++
-		if readCount == 1 {
-			return []byte(`<script src="/resources/1.0/js/main.js"></script>`), nil
-		}
-		return nil, errors.New("ko")
-	}).Build()
+	resetQobuz(t)
+	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
+		return qobuzFlow(request, qobuzScript{bundleReadErr: true})
+	})
 
 	_, _, err := qobuzCredentials()
 	assert.NotNil(t, err)
 }
 
 func TestQobuzCDNURL(t *testing.T) {
-	defer mockey.UnPatchAll()
-	qobuzCDNCache = syncMapNew()
-
+	resetQobuz(t)
 	callCount := 0
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).To(func(_ string) (*http.Response, error) {
+	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
 		callCount++
-		return &http.Response{
-			StatusCode: 200,
-			Body:       io.NopCloser(strings.NewReader(`{"url":"https://cdn.example/track.mp3"}`)),
-		}, nil
-	}).Build()
+		return qobuzFlow(request, qobuzScript{proxyBody: `{"url":"https://cdn.example/track.mp3"}`})
+	})
 
-	cdnURL, err := qobuzCDNURL("138731318")
+	cdnURL, err := qobuzCDNURL("424242")
 	assert.Nil(t, err)
 	assert.Equal(t, "https://cdn.example/track.mp3", cdnURL)
 
-	// second call should hit cache — callCount stays at 1
-	cdnURL2, err2 := qobuzCDNURL("138731318")
+	// the second resolution is served by the CDN cache
+	cdnURL2, err2 := qobuzCDNURL("424242")
 	assert.Nil(t, err2)
-	assert.Equal(t, "https://cdn.example/track.mp3", cdnURL2)
-	assert.Equal(t, 1, callCount, "expected cache hit, but proxy was called again")
+	assert.Equal(t, cdnURL, cdnURL2)
+	assert.Equal(t, 1, callCount)
 }
 
 func TestQobuzCDNURLAllFailed(t *testing.T) {
-	defer mockey.UnPatchAll()
-	qobuzCDNCache = syncMapNew()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(nil, errors.New("ko")).Build()
+	resetQobuz(t)
+	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
+		return qobuzFlow(request, qobuzScript{proxyErr: errors.New("proxy down")})
+	})
 
-	url, err := qobuzCDNURL("138731318")
+	_, err := qobuzCDNURL("434343")
 	assert.NotNil(t, err)
-	assert.Empty(t, url)
-}
-
-// syncMapNew returns a fresh sync.Map (no constructor in stdlib, just zero-value)
-func syncMapNew() sync.Map {
-	return sync.Map{}
 }

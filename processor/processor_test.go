@@ -1,11 +1,9 @@
 package processor
 
 import (
-	"errors"
-	"fmt"
+	"os"
 	"testing"
 
-	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/stretchr/testify/assert"
 )
@@ -28,41 +26,40 @@ func BenchmarkProcessor(b *testing.B) {
 }
 
 func TestProcessorDo(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(normalizer{}, "Do")).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(encoder{}, "Do")).Return(nil).Build()
+	download := seedDownload(t, []byte{})
+	fakeFFmpeg(t, "-23.45", 0, 0)
 
-	// testing
 	assert.Nil(t, Do(track))
+
+	// the encoder ran last: the downloaded file now carries an ID3 tag
+	content, err := os.ReadFile(download)
+	assert.Nil(t, err)
+	assert.Equal(t, "ID3", string(content[:3]))
 }
 
 func TestProcessorDoFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(normalizer{}, "Do")).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(encoder{}, "Do")).Return(errors.New("ko")).Build()
+	useTempCache(t)
+	// a negligible loudness offset skips normalization entirely, then
+	// the encoder fails on the missing downloaded file
+	fakeFFmpeg(t, "-14.0", 0, 0)
 
-	// testing
-	assert.EqualError(t, Do(track), "ko")
+	assert.ErrorContains(t, Do(track), "no such file or directory")
 }
 
 func TestProcessorDoLoudnessSkipped(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(normalizer{}, "Do")).Return(fmt.Errorf("%w: ko", ErrLoudnessSkipped)).Build()
-	mockey.Mock(mockey.GetMethod(encoder{}, "Do")).Return(nil).Build()
+	seedDownload(t, []byte{})
+	fakeFFmpeg(t, "-23.45", 1, 0)
 
-	// testing: a skipped normalization runs the rest of the chain and reports the skip
+	// a skipped normalization runs the rest of the chain and reports the skip
 	assert.ErrorIs(t, Do(track), ErrLoudnessSkipped)
 }
 
 func TestProcessorDoLoudnessSkippedEncoderFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(normalizer{}, "Do")).Return(fmt.Errorf("%w: ko", ErrLoudnessSkipped)).Build()
-	mockey.Mock(mockey.GetMethod(encoder{}, "Do")).Return(errors.New("ko")).Build()
+	useTempCache(t)
+	fakeFFmpeg(t, "-23.45", 1, 0)
 
-	// testing: the chain continues past a skipped normalization, a later failure still aborts
-	assert.EqualError(t, Do(track), "ko")
+	// the chain continues past a skipped normalization, a later failure still aborts
+	err := Do(track)
+	assert.ErrorContains(t, err, "no such file or directory")
+	assert.NotErrorIs(t, err, ErrLoudnessSkipped)
 }

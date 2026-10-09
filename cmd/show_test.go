@@ -1,14 +1,36 @@
 package cmd
 
 import (
-	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
-	"github.com/bytedance/mockey"
+	"github.com/bogem/id3v2/v2"
 	"github.com/streambinder/spotitube/entity/id3"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
+
+// writeShowTrack creates a real audio file carrying a full ID3 tag.
+func writeShowTrack(t *testing.T, path string, picture bool) {
+	t.Helper()
+	assert.Nil(t, os.WriteFile(path, []byte{}, 0o644))
+
+	tag, err := id3.Open(path, id3v2.Options{Parse: true})
+	assert.Nil(t, err)
+	tag.SetTitle("Title")
+	tag.SetArtist("Artist")
+	tag.SetAlbum("Album")
+	tag.SetYear("1970")
+	tag.SetTrackNumber("1")
+	tag.SetSpotifyID("123")
+	tag.SetDuration("60")
+	if picture {
+		tag.SetAttachedPicture([]byte("some picture data"))
+	}
+	assert.Nil(t, tag.Save())
+	assert.Nil(t, tag.Close())
+}
 
 func BenchmarkShow(b *testing.B) {
 	for i := 0; i < b.N; i++ {
@@ -17,30 +39,25 @@ func BenchmarkShow(b *testing.B) {
 }
 
 func TestCmdShow(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(id3.Open).Return(&id3.Tag{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "AttachedPicture")).Return("image/jpeg", []byte("some picture data")).Build()
-	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "Duration")).Return("60").Build()
+	dir := t.TempDir()
+	first := filepath.Join(dir, "track1.mp3")
+	second := filepath.Join(dir, "track2.mp3")
+	writeShowTrack(t, first, true)
+	writeShowTrack(t, second, true)
 
-	// testing
-	assert.Nil(t, sys.ErrOnly(testExecute(cmdShow(), "path/to/track1", "path/to/track2")))
+	// testing: two tracks exercise the separator between printouts too
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdShow(), first, second)))
 }
 
 func TestCmdShowOpenFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(id3.Open).Return(nil, errors.New("ko")).Build()
-
-	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdShow(), "path/to/track")), "ko")
+	// testing: a missing file cannot be opened
+	assert.NotNil(t, sys.ErrOnly(testExecute(cmdShow(), filepath.Join(t.TempDir(), "missing.mp3"))))
 }
 
 func TestCmdShowPictureFallback(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(id3.Open).Return(&id3.Tag{}, nil).Build()
+	path := filepath.Join(t.TempDir(), "track.mp3")
+	writeShowTrack(t, path, false)
 
-	// testing
-	assert.Nil(t, sys.ErrOnly(testExecute(cmdShow(), "path/to/track")))
+	// testing: a tag without a picture falls back to a text notice
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdShow(), path)))
 }

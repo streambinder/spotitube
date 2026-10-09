@@ -1,11 +1,10 @@
 package playlist
 
 import (
-	"io/fs"
 	"os"
+	"path/filepath"
 	"testing"
 
-	"github.com/bytedance/mockey"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -16,16 +15,11 @@ func BenchmarkPLS(b *testing.B) {
 }
 
 func TestPLS(t *testing.T) {
-	var output []byte
+	// testing: the encoder writes to a file named after the playlist in
+	// the current directory, so run the test in a temporary one
+	dir := t.TempDir()
+	t.Chdir(dir)
 
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(os.WriteFile).To(func(_ string, data []byte, _ fs.FileMode) error {
-		output = data
-		return nil
-	}).Build()
-
-	// testing
 	encoder := &PLSEncoder{}
 	assert.Nil(t, encoder.init(testPlaylist.Name))
 	assert.Nil(t, encoder.Add(testTrack))
@@ -37,8 +31,20 @@ Title1=Artist - Title
 Length1=0
 
 NumberOfEntries=1
-`, string(output))
+`, readFile(t, filepath.Join(dir, "Playlist.pls")))
 	assert.Equal(t, "Playlist.pls", encoder.target)
+}
+
+func TestPLSCloseFailure(t *testing.T) {
+	// testing: when the target path cannot be written, Close fails
+	dir := t.TempDir()
+	t.Chdir(dir)
+	assert.Nil(t, os.Mkdir(filepath.Join(dir, "Playlist.pls"), 0o755))
+
+	encoder := &PLSEncoder{}
+	assert.Nil(t, encoder.init(testPlaylist.Name))
+	assert.Nil(t, encoder.Add(testTrack))
+	assert.Error(t, encoder.Close())
 }
 
 func TestPLSTargetFilename(t *testing.T) {
@@ -49,4 +55,12 @@ func TestPLSTargetFilename(t *testing.T) {
 	assert.Equal(t, "pop-.pls", encoder.target)
 	assert.Nil(t, encoder.init(`a/b:c`))
 	assert.Equal(t, "abc.pls", encoder.target)
+}
+
+// readFile reads a file and returns its contents as a string
+func readFile(t *testing.T, path string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	assert.Nil(t, err)
+	return string(data)
 }

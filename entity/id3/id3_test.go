@@ -1,12 +1,11 @@
 package id3
 
 import (
-	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/bogem/id3v2/v2"
-	"github.com/bytedance/mockey"
-	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -16,17 +15,44 @@ func BenchmarkID3(b *testing.B) {
 	}
 }
 
-func TestOpen(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(id3v2.Open).To(func(_ string, _ id3v2.Options) (*id3v2.Tag, error) {
-		return id3v2.NewEmptyTag(), nil
-	}).Build()
+// writeEmptyFile creates an empty file in a temporary directory and
+// returns its path
+func writeEmptyFile(t *testing.T, name string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), name)
+	assert.Nil(t, os.WriteFile(path, []byte{}, 0o600))
+	return path
+}
 
+// writeTaggedFile creates a file holding a real ID3v2 tag with the
+// given user-defined text frames and returns its path
+func writeTaggedFile(t *testing.T, name string, frames map[string]string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), name)
+
+	tag := id3v2.NewEmptyTag()
+	for key, value := range frames {
+		tag.AddUserDefinedTextFrame(id3v2.UserDefinedTextFrame{
+			Encoding:    tag.DefaultEncoding(),
+			Description: key,
+			Value:       value,
+		})
+	}
+
+	file, err := os.Create(path)
+	assert.Nil(t, err)
+	_, err = tag.WriteTo(file)
+	assert.Nil(t, err)
+	assert.Nil(t, file.Close())
+	return path
+}
+
+func TestOpen(t *testing.T) {
 	// testing
-	tag, err := Open("", id3v2.Options{})
+	tag, err := Open(writeEmptyFile(t, "track.mp3"), id3v2.Options{})
 	assert.Nil(t, err)
 	assert.NotNil(t, tag)
+	defer func() { assert.Nil(t, tag.Close()) }()
 
 	mimeType, image := tag.AttachedPicture()
 	assert.Empty(t, mimeType)
@@ -56,79 +82,58 @@ func TestOpen(t *testing.T) {
 }
 
 func TestOpenSpotifyID(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(id3v2.Open).To(func(_ string, options id3v2.Options) (*id3v2.Tag, error) {
-		assert.True(t, options.Parse)
-		assert.Equal(t, []string{"User defined text information frame"}, options.ParseFrames)
-		return id3v2.NewEmptyTag(), nil
-	}).Build()
+	// testing: only the user-defined text frame is parsed, any other
+	// frame in the file is left out by the restricted parse options
+	path := writeTaggedFile(t, "track.mp3", map[string]string{
+		frameSpotifyID: "Spotify ID",
+	})
 
-	// testing
-	tag, err := OpenSpotifyID("")
+	tag, err := OpenSpotifyID(path)
 	assert.Nil(t, err)
 	assert.NotNil(t, tag)
+	defer func() { assert.Nil(t, tag.Close()) }()
+	assert.Equal(t, "Spotify ID", tag.SpotifyID())
 }
 
 func TestUserDefinedTextInvalidFrame(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(id3v2.Open).To(func(_ string, _ id3v2.Options) (*id3v2.Tag, error) {
-		tag := id3v2.NewEmptyTag()
-		// add a non-UserDefinedTextFrame to the TXXX frame ID to trigger continue
-		tag.AddFrame(tag.CommonID("User defined text information frame"), id3v2.TextFrame{
-			Encoding: tag.DefaultEncoding(),
-			Text:     "invalid",
-		})
-		return tag, nil
-	}).Build()
+	// testing: a non-UserDefinedTextFrame stored under the user-defined
+	// text frame ID is skipped while scanning the frames
+	rawTag := id3v2.NewEmptyTag()
+	rawTag.AddFrame(rawTag.CommonID(frameUserDefinedText), id3v2.TextFrame{
+		Encoding: rawTag.DefaultEncoding(),
+		Text:     "invalid",
+	})
+	tag := &Tag{*rawTag, make(map[string]string)}
 
-	// testing
-	tag, err := Open("", id3v2.Options{})
-	assert.Nil(t, err)
 	assert.Equal(t, "", tag.userDefinedText("nonexistent"))
 }
 
 func TestOpenFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(id3v2.Open).Return(nil, errors.New("ko")).Build()
-
-	// testing
-	assert.EqualError(t, sys.ErrOnly(Open("", id3v2.Options{})), "ko")
+	// testing: opening a file that does not exist fails
+	tag, err := Open(filepath.Join(t.TempDir(), "missing.mp3"), id3v2.Options{})
+	assert.Nil(t, tag)
+	assert.Error(t, err)
 }
 
 func TestClose(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(Open).Return(&Tag{}, nil).Build()
-
 	// testing
-	tag, err := Open("", id3v2.Options{})
+	tag, err := Open(writeEmptyFile(t, "track.mp3"), id3v2.Options{})
 	assert.Nil(t, err)
 	assert.Nil(t, tag.Close())
 }
 
 func TestCloseFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(Open).Return(&Tag{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&id3v2.Tag{}, "Close")).Return(errors.New("ko")).Build()
-
-	// testing
-	tag, err := Open("", id3v2.Options{})
+	// testing: closing an already closed file-backed tag surfaces the
+	// underlying file error
+	tag, err := Open(writeEmptyFile(t, "track.mp3"), id3v2.Options{})
 	assert.Nil(t, err)
-	assert.EqualError(t, tag.Close(), "ko")
+	assert.Nil(t, tag.Close())
+	assert.Error(t, tag.Close())
 }
 
 func TestCloseErrNoFile(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(Open).Return(&Tag{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&id3v2.Tag{}, "Close")).Return(id3v2.ErrNoFile).Build()
-
-	// testing
-	tag, err := Open("", id3v2.Options{})
-	assert.Nil(t, err)
+	// testing: closing a tag that was never initialized with a file is
+	// not an error
+	tag := &Tag{*id3v2.NewEmptyTag(), make(map[string]string)}
 	assert.Nil(t, tag.Close())
 }

@@ -1,12 +1,11 @@
 package spotify
 
 import (
-	"errors"
+	"net/http"
 	"strconv"
 	"strings"
 	"testing"
 
-	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 	"github.com/zmb3/spotify/v2"
@@ -34,11 +33,10 @@ func BenchmarkTrack(b *testing.B) {
 }
 
 func TestTrack(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetTrack")).Return(&fullTrack, nil).Build()
+	scriptTransport(t, func(_ *http.Request) (int, string) {
+		return http.StatusOK, trackJSON
+	})
 
-	// testing
 	track, err := testClient().Track(fullTrack.ID.String())
 	assert.Nil(t, err)
 	assert.Equal(t, fullTrack.ID.String(), track.ID)
@@ -52,11 +50,10 @@ func TestTrack(t *testing.T) {
 }
 
 func TestTrackChannel(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetTrack")).Return(&fullTrack, nil).Build()
+	scriptTransport(t, func(_ *http.Request) (int, string) {
+		return http.StatusOK, trackJSON
+	})
 
-	// testing
 	channel := make(chan interface{}, 1)
 	defer close(channel)
 	track, err := testClient().Track(fullTrack.ID.String(), channel)
@@ -65,10 +62,9 @@ func TestTrackChannel(t *testing.T) {
 }
 
 func TestTrackGetTrackFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetTrack")).Return(nil, errors.New("ko")).Build()
+	scriptTransport(t, func(_ *http.Request) (int, string) {
+		return apiError(http.StatusInternalServerError, "ko")
+	})
 
-	// testing
 	assert.EqualError(t, sys.ErrOnly(testClient().Track(fullTrack.ID.String())), "ko")
 }

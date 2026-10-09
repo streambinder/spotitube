@@ -8,9 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 
-	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/processor"
 	"github.com/stretchr/testify/assert"
 )
@@ -33,6 +33,42 @@ func stubProcessor(applies bool, err error) processor.Processor {
 	return mockProcessor{applies: applies, err: err}
 }
 
+// roundTripFunc adapts a function to http.RoundTripper, so tests can
+// script the responses the blob downloader receives without any network.
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return f(request)
+}
+
+// stubTransport points the package http client at the given round tripper
+// for the duration of the test.
+func stubTransport(t *testing.T, trip func(*http.Request) (*http.Response, error)) {
+	t.Helper()
+	previous := httpClient.Transport
+	httpClient.Transport = roundTripFunc(trip)
+	t.Cleanup(func() { httpClient.Transport = previous })
+}
+
+func blobResponse(status int, contentType, body string) *http.Response {
+	header := http.Header{}
+	if contentType != "" {
+		header.Set("Content-Type", contentType)
+	}
+	return &http.Response{
+		StatusCode: status,
+		Status:     http.StatusText(status),
+		Header:     header,
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}
+}
+
+// errReader fails every read, to exercise body reading failures.
+type errReader struct{ err error }
+
+func (r errReader) Read([]byte) (int, error) { return 0, r.err }
+func (r errReader) Close() error             { return nil }
+
 func BenchmarkBlob(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		TestBlobSupports(&testing.T{})
@@ -41,183 +77,138 @@ func BenchmarkBlob(b *testing.B) {
 }
 
 func TestBlobSupports(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(httpClient, "Do")).Return(&http.Response{
-		StatusCode: 200,
-		Body:       io.NopCloser(strings.NewReader("")),
-		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
-	}, nil).Build()
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		return blobResponse(200, mimeJPEG, ""), nil
+	})
 
-	// testing
 	assert.True(t, blob{}.supports(context.TODO(), "http://davidepucci.it"))
 }
 
 func TestBlobSupportsError(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(httpClient, "Do")).Return(nil, errors.New("ko")).Build()
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("ko")
+	})
 
-	// testing
 	assert.False(t, blob{}.supports(context.TODO(), "http://davidepucci.it"))
 }
 
 func TestBlobSupportsNotFound(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(httpClient, "Do")).Return(&http.Response{
-		StatusCode: 404,
-		Body:       io.NopCloser(strings.NewReader("")),
-	}, nil).Build()
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		return blobResponse(404, "", ""), nil
+	})
 
-	// testing
 	assert.False(t, blob{}.supports(context.TODO(), "http://davidepucci.it"))
 }
 
 func TestBlobSupportsAudioMPEG(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(httpClient, "Do")).Return(&http.Response{
-		StatusCode: 200,
-		Body:       io.NopCloser(strings.NewReader("")),
-		Header:     map[string][]string{"Content-Type": {"audio/mpeg"}},
-	}, nil).Build()
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		return blobResponse(200, "audio/mpeg", ""), nil
+	})
 
-	// testing
 	assert.True(t, blob{}.supports(context.TODO(), "http://davidepucci.it"))
 }
 
 func TestBlobUnsupported(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(httpClient, "Do")).Return(&http.Response{
-		StatusCode: 200,
-		Body:       io.NopCloser(strings.NewReader("")),
-		Header:     map[string][]string{"Content-Type": {"text/plain"}},
-	}, nil).Build()
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		return blobResponse(200, "text/plain", ""), nil
+	})
 
-	// testing
 	assert.False(t, blob{}.supports(context.TODO(), "http://davidepucci.it"))
 }
 
 func TestBlobDownload(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(httpClient, "Do")).Return(&http.Response{
-		StatusCode: 200,
-		Body:       io.NopCloser(strings.NewReader("bitch")),
-		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
-	}, nil).Build()
-	mockey.Mock(os.OpenFile).Return(nil, nil).Build()
-	mockey.Mock(os.Remove).Return(nil).Build()
-	mockey.Mock(io.ReadAll).Return([]byte{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&os.File{}, "Write")).Return(0, nil).Build()
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		return blobResponse(200, mimeJPEG, "bitch"), nil
+	})
 
-	// testing
+	path := filepath.Join(t.TempDir(), "blob.jpg")
 	ch := make(chan []byte, 1)
 	defer close(ch)
-	assert.Nil(t, blob{}.download(context.TODO(), "http://davidepucci.it", "/dev/null", stubProcessor(true, nil), ch))
+	assert.Nil(t, blob{}.download(context.TODO(), "http://davidepucci.it", path, stubProcessor(true, nil), ch))
+	assert.Equal(t, []byte("bitch"), <-ch)
+	content, err := os.ReadFile(path)
+	assert.Nil(t, err)
+	assert.Equal(t, "bitch", string(content))
 }
 
 func TestBlobDownloadProcessorFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(httpClient, "Do")).Return(&http.Response{
-		StatusCode: 200,
-		Body:       io.NopCloser(strings.NewReader("bitch")),
-		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
-	}, nil).Build()
-	mockey.Mock(os.OpenFile).Return(nil, nil).Build()
-	mockey.Mock(os.Remove).Return(nil).Build()
-	mockey.Mock(io.ReadAll).Return([]byte{}, nil).Build()
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		return blobResponse(200, mimeJPEG, "bitch"), nil
+	})
 
-	// testing
-	assert.EqualError(t, blob{}.download(context.TODO(), "http://davidepucci.it", "/dev/null", stubProcessor(true, errors.New("ko"))), "ko")
+	path := filepath.Join(t.TempDir(), "blob.jpg")
+	assert.EqualError(t, blob{}.download(context.TODO(), "http://davidepucci.it", path, stubProcessor(true, errors.New("ko"))), "ko")
+	_, err := os.Stat(path)
+	assert.True(t, os.IsNotExist(err))
 }
 
 func TestBlobDownloadFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(httpClient, "Do")).Return(nil, errors.New("ko")).Build()
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("ko")
+	})
 
-	// testing
-	assert.EqualError(t, blob{}.download(context.TODO(), "http://davidepucci.it", "/dev/null", nil), "ko")
+	// the client wraps transport errors in a url.Error
+	assert.ErrorContains(t, blob{}.download(context.TODO(), "http://davidepucci.it", "/dev/null", nil), "ko")
 }
 
 func TestBlobDownloadNotFound(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(httpClient, "Do")).Return(&http.Response{
-		StatusCode: 404,
-		Body:       io.NopCloser(strings.NewReader("")),
-	}, nil).Build()
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		return blobResponse(404, "", ""), nil
+	})
 
-	// testing
 	assert.NotNil(t, blob{}.download(context.TODO(), "http://davidepucci.it", "/dev/null", nil))
 }
 
 func TestBlobDownloadFileCreationFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(httpClient, "Do")).Return(&http.Response{
-		StatusCode: 200,
-		Body:       io.NopCloser(strings.NewReader("")),
-		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
-	}, nil).Build()
-	mockey.Mock(os.OpenFile).Return(nil, errors.New("ko")).Build()
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		return blobResponse(200, mimeJPEG, ""), nil
+	})
 
-	// testing
-	assert.EqualError(t, blob{}.download(context.TODO(), "http://davidepucci.it", "/dev/null", nil), "ko")
+	// a regular file standing where the parent directory should be
+	// makes os.Create fail for real
+	blocker := filepath.Join(t.TempDir(), "blocker")
+	assert.Nil(t, os.WriteFile(blocker, []byte("x"), 0o600))
+	assert.NotNil(t, blob{}.download(context.TODO(), "http://davidepucci.it", filepath.Join(blocker, "blob.jpg"), nil))
 }
 
 func TestBlobDownloadReadFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(httpClient, "Do")).Return(&http.Response{
-		StatusCode: 200,
-		Body:       io.NopCloser(strings.NewReader("")),
-		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
-	}, nil).Build()
-	mockey.Mock(os.OpenFile).Return(nil, nil).Build()
-	mockey.Mock(os.Remove).Return(nil).Build()
-	mockey.Mock(io.ReadAll).Return(nil, errors.New("ko")).Build()
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		response := blobResponse(200, mimeJPEG, "")
+		response.Body = errReader{errors.New("ko")}
+		return response, nil
+	})
 
-	// testing
-	assert.EqualError(t, blob{}.download(context.TODO(), "http://davidepucci.it", "/dev/null", nil), "ko")
+	path := filepath.Join(t.TempDir(), "blob.jpg")
+	assert.EqualError(t, blob{}.download(context.TODO(), "http://davidepucci.it", path, nil), "ko")
 }
 
 func TestBlobDownloadProcessorNotApplicable(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(httpClient, "Do")).Return(&http.Response{
-		StatusCode: 200,
-		Body:       io.NopCloser(strings.NewReader("data")),
-		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
-	}, nil).Build()
-	mockey.Mock(os.OpenFile).Return(nil, nil).Build()
-	mockey.Mock(os.Remove).Return(nil).Build()
-	mockey.Mock(io.ReadAll).Return([]byte{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&os.File{}, "Write")).Return(0, nil).Build()
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		return blobResponse(200, mimeJPEG, "data"), nil
+	})
 
-	// testing
-	assert.Nil(t, blob{}.download(context.TODO(), "http://davidepucci.it", "/dev/null", stubProcessor(false, nil)))
+	path := filepath.Join(t.TempDir(), "blob.jpg")
+	assert.Nil(t, blob{}.download(context.TODO(), "http://davidepucci.it", path, stubProcessor(false, nil)))
+	content, err := os.ReadFile(path)
+	assert.Nil(t, err)
+	assert.Equal(t, "data", string(content))
 }
 
 func TestBlobDownloadWriteFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(httpClient, "Do")).Return(&http.Response{
-		StatusCode: 200,
-		Body:       io.NopCloser(strings.NewReader("data")),
-		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
-	}, nil).Build()
-	mockey.Mock(os.OpenFile).Return(nil, nil).Build()
-	mockey.Mock(os.Remove).Return(nil).Build()
-	mockey.Mock(io.ReadAll).Return([]byte{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&os.File{}, "Write")).Return(0, errors.New("ko")).Build()
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		return blobResponse(200, mimeJPEG, "data"), nil
+	})
 
-	// testing
-	assert.EqualError(t, blob{}.download(context.TODO(), "http://davidepucci.it", "/dev/null", nil), "ko")
+	// a zero file-size rlimit makes the staged write fail for real
+	var original syscall.Rlimit
+	assert.Nil(t, syscall.Getrlimit(syscall.RLIMIT_FSIZE, &original))
+	assert.Nil(t, syscall.Setrlimit(syscall.RLIMIT_FSIZE, &syscall.Rlimit{Cur: 0, Max: original.Max}))
+	defer func() { assert.Nil(t, syscall.Setrlimit(syscall.RLIMIT_FSIZE, &original)) }()
+
+	path := filepath.Join(t.TempDir(), "blob.jpg")
+	assert.NotNil(t, blob{}.download(context.TODO(), "http://davidepucci.it", path, nil))
+	_, err := os.Stat(path)
+	assert.True(t, os.IsNotExist(err))
 }
 
 func TestBlobSupportsInvalidURL(t *testing.T) {
@@ -231,16 +222,13 @@ func TestBlobDownloadInvalidURL(t *testing.T) {
 }
 
 func TestBlobDownloadRemovesPartial(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(httpClient, "Do")).Return(&http.Response{
-		StatusCode: 200,
-		Body:       io.NopCloser(strings.NewReader("data")),
-		Header:     map[string][]string{"Content-Type": {mimeJPEG}},
-	}, nil).Build()
-	mockey.Mock(io.ReadAll).Return(nil, errors.New("ko")).Build()
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		response := blobResponse(200, mimeJPEG, "")
+		response.Body = errReader{errors.New("ko")}
+		return response, nil
+	})
 
-	// testing: a failed download leaves no partial file behind
+	// a failed download leaves no partial file behind
 	path := filepath.Join(t.TempDir(), "partial.jpg")
 	assert.EqualError(t, blob{}.download(context.TODO(), "http://davidepucci.it", path, nil), "ko")
 	_, err := os.Stat(path)

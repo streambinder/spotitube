@@ -1,10 +1,9 @@
 package spotify
 
 import (
-	"errors"
+	"net/http"
 	"testing"
 
-	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 	"github.com/zmb3/spotify/v2"
@@ -23,6 +22,32 @@ var fullPlaylist = &spotify.FullPlaylist{
 	},
 }
 
+// playlistJSON mirrors the fullPlaylist fixture as a GET /v1/playlists
+// payload whose tracks page carries the given next link (empty for a
+// single page).
+func playlistJSON(next string) string {
+	nextJSON := "null"
+	if next != "" {
+		nextJSON = `"` + next + `"`
+	}
+	return `{"id":"123","name":"Playlist","owner":{"id":"User"},"collaborative":false,` +
+		`"tracks":{"items":[{"added_at":"2026-01-01T00:00:00Z","track":` + trackJSON +
+		`}],"next":` + nextJSON + `,"total":1}}`
+}
+
+// personalPlaylistsJSON builds a GET /v1/me/playlists payload out of
+// id/name pairs.
+func personalPlaylistsJSON(pairs ...string) string {
+	items := ""
+	for i := 0; i < len(pairs); i += 2 {
+		if items != "" {
+			items += ","
+		}
+		items += `{"id":"` + pairs[i] + `","name":"` + pairs[i+1] + `","owner":{"id":"User"}}`
+	}
+	return `{"items":[` + items + `],"next":null,"total":1}`
+}
+
 func BenchmarkPlaylist(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		TestPlaylist(&testing.T{})
@@ -30,14 +55,15 @@ func BenchmarkPlaylist(b *testing.B) {
 }
 
 func TestPlaylist(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUsersPlaylists")).Return(&spotify.SimplePlaylistPage{
-		Playlists: []spotify.SimplePlaylist{{ID: "123", Name: "Playlist"}},
-	}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetPlaylist")).Return(fullPlaylist, nil).Build()
+	scriptTransport(t, func(request *http.Request) (int, string) {
+		switch request.URL.Path {
+		case "/v1/me/playlists":
+			return http.StatusOK, personalPlaylistsJSON("123", "Playlist")
+		default:
+			return http.StatusOK, playlistJSON("")
+		}
+	})
 
-	// testing
 	client := testClient()
 	_, err := client.Playlist(fullPlaylist.Name)
 	assert.Nil(t, err)
@@ -57,16 +83,13 @@ func TestPersonalPlaylistExactNameMatch(t *testing.T) {
 		popMinusID = spotify.ID("2222222222222222222222")
 	)
 
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUsersPlaylists")).Return(&spotify.SimplePlaylistPage{
-		Playlists: []spotify.SimplePlaylist{
-			{ID: popPlusID, Name: "pop+"},
-			{ID: popMinusID, Name: "pop-"},
-		},
-	}, nil).Build()
+	scriptTransport(t, func(_ *http.Request) (int, string) {
+		return http.StatusOK, personalPlaylistsJSON(
+			popPlusID.String(), "pop+",
+			popMinusID.String(), "pop-",
+		)
+	})
 
-	// testing
 	client := testClient()
 	id, err := client.personalPlaylistNameToID("pop+")
 	assert.Nil(t, err)
@@ -81,12 +104,15 @@ func TestPersonalPlaylistExactNameMatch(t *testing.T) {
 }
 
 func TestPlaylistChannel(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUsersPlaylists")).Return(&spotify.SimplePlaylistPage{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetPlaylist")).Return(fullPlaylist, nil).Build()
+	scriptTransport(t, func(request *http.Request) (int, string) {
+		switch request.URL.Path {
+		case "/v1/me/playlists":
+			return http.StatusOK, personalPlaylistsJSON()
+		default:
+			return http.StatusOK, playlistJSON("")
+		}
+	})
 
-	// testing
 	channel := make(chan interface{}, 1)
 	defer close(channel)
 	playlist, err := testClient().Playlist(fullPlaylist.ID.String(), channel)
@@ -95,37 +121,40 @@ func TestPlaylistChannel(t *testing.T) {
 }
 
 func TestPlaylistCurrentUsersPlaylistsFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUsersPlaylists")).Return(nil, errors.New("ko")).Build()
+	scriptTransport(t, func(_ *http.Request) (int, string) {
+		return apiError(http.StatusInternalServerError, "ko")
+	})
 
-	// testing
 	assert.Error(t, sys.ErrOnly(testClient().Playlist(fullPlaylist.ID.String())))
 }
 
 func TestPlaylistCurrentUsersPlaylistsNextPageFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUsersPlaylists")).Return(&spotify.SimplePlaylistPage{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "NextPage")).Return(errors.New("ko")).Build()
+	scriptTransport(t, func(request *http.Request) (int, string) {
+		if request.URL.Query().Get("offset") != "" {
+			return apiError(http.StatusInternalServerError, "ko")
+		}
+		return http.StatusOK, `{"items":[],"next":"https://api.spotify.com/v1/me/playlists?offset=1&limit=50","total":1}`
+	})
 
-	// testing
 	assert.EqualError(t, sys.ErrOnly(testClient().Playlist(fullPlaylist.ID.String())), "ko")
 }
 
 func TestPlaylistGetPlaylistFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUsersPlaylists")).Return(&spotify.SimplePlaylistPage{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetPlaylist")).Return(nil, errors.New("ko")).Build()
+	scriptTransport(t, func(request *http.Request) (int, string) {
+		switch request.URL.Path {
+		case "/v1/me/playlists":
+			return http.StatusOK, personalPlaylistsJSON()
+		default:
+			return apiError(http.StatusInternalServerError, "ko")
+		}
+	})
 
-	// testing
 	assert.EqualError(t, sys.ErrOnly(testClient().Playlist(fullPlaylist.ID.String())), "ko")
 }
 
 func TestPlaylistGetPlaylistNextPageFailure(t *testing.T) {
 	// pre-seed personalPlaylists cache so personalPlaylists() is skipped,
-	// ensuring the NextPage mock fires only in Playlist's own pagination loop
+	// ensuring the pagination failure fires only in Playlist's own loop
 	client := &Client{
 		testClient().Client,
 		testClient().authenticator,
@@ -134,11 +163,12 @@ func TestPlaylistGetPlaylistNextPageFailure(t *testing.T) {
 			personalPlaylistsCacheID: map[string]string{},
 		},
 	}
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetPlaylist")).Return(fullPlaylist, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "NextPage")).Return(errors.New("ko")).Build()
+	scriptTransport(t, func(request *http.Request) (int, string) {
+		if request.URL.Query().Get("offset") != "" {
+			return apiError(http.StatusInternalServerError, "ko")
+		}
+		return http.StatusOK, playlistJSON("https://api.spotify.com/v1/playlists/123/tracks?offset=1&limit=50")
+	})
 
-	// testing
 	assert.EqualError(t, sys.ErrOnly(client.Playlist(fullPlaylist.ID.String())), "ko")
 }

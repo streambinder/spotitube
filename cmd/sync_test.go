@@ -2,29 +2,18 @@ package cmd
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"io"
+	"net/http"
 	"os"
-	"sync"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/bogem/id3v2/v2"
-	"github.com/bytedance/mockey"
-	"github.com/streambinder/spotitube/downloader"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/entity/id3"
 	"github.com/streambinder/spotitube/entity/index"
-	"github.com/streambinder/spotitube/entity/playlist"
-	"github.com/streambinder/spotitube/lyrics"
-	"github.com/streambinder/spotitube/processor"
-	"github.com/streambinder/spotitube/provider"
-	"github.com/streambinder/spotitube/spotify"
 	"github.com/streambinder/spotitube/sys"
-	"github.com/streambinder/spotitube/sys/anchor"
-	"github.com/streambinder/spotitube/sys/cmd"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -40,1172 +29,594 @@ func cleanup() {
 	collisions.Store(0)
 }
 
-func cloneTrack(track *entity.Track) *entity.Track {
-	copied := *track
-	return &copied
+// syncEnv prepares a full sync environment: fresh package state, a
+// seeded session, fake tool binaries, scripted transports and cleared
+// per-track caches. It returns the empty music directory to sync into
+// and the fake binaries directory.
+func syncEnv(t *testing.T, overrides map[string]func(*http.Request) (int, string), web webScript) (string, string) {
+	t.Helper()
+	resetState(t)
+	seedSession(t)
+	binDir := fakeBinDir(t)
+	installWeb(t, overrides, web)
+	clearTrackCache(t, "123", "456", "789", "999")
+	return t.TempDir(), binDir
+}
+
+// writeTaggedFile creates a real audio file carrying the given Spotify
+// ID in its tag.
+func writeTaggedFile(t *testing.T, path, spotifyID string) {
+	t.Helper()
+	assert.Nil(t, os.WriteFile(path, []byte{}, 0o644))
+
+	tag, err := id3.Open(path, id3v2.Options{Parse: true})
+	assert.Nil(t, err)
+	tag.SetTitle("Title")
+	tag.SetArtist("Artist")
+	if spotifyID != "" {
+		tag.SetSpotifyID(spotifyID)
+	}
+	assert.Nil(t, tag.Save())
+	assert.Nil(t, tag.Close())
+}
+
+// initRoutines initializes the pipeline queues and semaphores the way
+// the sync command's PreRun does, for tests calling routines directly.
+func initRoutines() {
+	routineSemaphores = map[int](chan bool){
+		routineTypeIndex:   make(chan bool, 1),
+		routineTypeAuth:    make(chan bool, 1),
+		routineTypeInstall: make(chan bool, 1),
+	}
+	routineQueues = map[int](chan interface{}){
+		routineTypeDecide:  make(chan interface{}, pipelineBuffer),
+		routineTypeCollect: make(chan interface{}, pipelineBuffer),
+		routineTypeProcess: make(chan interface{}, pipelineBuffer),
+		routineTypeInstall: make(chan interface{}, pipelineBuffer),
+		routineTypeMix:     make(chan interface{}, pipelineBuffer),
+	}
 }
 
 func TestCmdSync(t *testing.T) {
-	t.Cleanup(cleanup)
+	musicDir, _ := syncEnv(t, map[string]func(*http.Request) (int, string){
+		// the library carries the fixture track twice: the duplicate is
+		// skipped by the decider
+		"/v1/me/tracks": func(*http.Request) (int, string) { return 200, libraryBody("123", "123") },
+	}, webScript{qobuzEmpty: true})
 
-	var (
-		_track         = &entity.Track{ID: "TestCmdSync", Title: "Title", Artists: []string{"Artist"}, Artwork: entity.Artwork{URL: "http://localhost/"}}
-		_trackNotFound = &entity.Track{ID: "TestCmdSyncNotFound", Title: "Title Not Found", Artists: []string{"Artist"}}
-		_playlist      = &playlist.Playlist{Tracks: []*entity.Track{_track, _trackNotFound}}
-		_album         = &entity.Album{Tracks: []*entity.Track{_track}}
-	)
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		for _, c := range ch {
-			c <- cloneTrack(_track)
-			c <- cloneTrack(_track) // to trigger duplicate check
-		}
-		return nil
-	}).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Playlist")).To(func(_ string, ch ...chan interface{}) (*playlist.Playlist, error) {
-		ch[0] <- cloneTrack(_track)
-		ch[0] <- cloneTrack(_trackNotFound) // to skip inclusion in playlist
-		return _playlist, nil
-	}).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Album")).To(func(_ string, ch ...chan interface{}) (*entity.Album, error) {
-		ch[0] <- cloneTrack(_track)
-		return _album, nil
-	}).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Track")).To(func(_ string, ch ...chan interface{}) (*entity.Track, error) {
-		ch[0] <- cloneTrack(_track)
-		return _track, nil
-	}).Build()
-	mockey.Mock(id3.Open).Return(&id3.Tag{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "userDefinedText")).Return("123").Build()
-	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "Close")).Return(nil).Build()
-	mockey.Mock(provider.Search).To(func(track *entity.Track) ([]*provider.Match, error) {
-		if track.ID == _trackNotFound.ID {
-			return []*provider.Match{}, nil
-		}
-		return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
-	}).Build()
-	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
-		for _, c := range ch {
-			c <- []byte{}
-		}
-		return nil
-	}).Build()
-	mockey.Mock(lyrics.Search).Return("lyrics", nil).Build()
-	mockey.Mock(processor.Do).Return(nil).Build()
-	mockey.Mock(sys.FileMoveOrCopy).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&playlist.M3UEncoder{}, "Close")).Return(nil).Build()
-
-	// testing
+	// testing: with no collection supplied, the library is auto-enabled
 	cmd := cmdSync()
-	assert.Nil(t, sys.ErrOnly(testExecute(cmd)))
+	assert.Nil(t, sys.ErrOnly(testExecute(cmd, "--plain", "-o", musicDir)))
 	library, err := cmd.Flags().GetBool("library")
 	assert.Nil(t, err)
 	assert.True(t, library)
-	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-l", "-p", "123", "-a", "123", "-t", "123", "-f", "path")))
+
+	// testing: a full sync across every collection kind
+	musicDir, _ = syncEnv(t, nil, webScript{qobuzEmpty: true})
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(),
+		"--plain", "-o", musicDir, "-l", "-p", "Mix", "-a", "album123", "-t", "123")))
+	_, err = os.Stat(filepath.Join(musicDir, "Artist - Title.mp3"))
+	assert.Nil(t, err)
+
+	// the playlist file lists the installed track
+	mix, err := os.ReadFile(filepath.Join(musicDir, "Mix.m3u"))
+	assert.Nil(t, err)
+	assert.Contains(t, string(mix), "Artist - Title.mp3")
 }
 
 func TestCmdSyncInvalidEnvironment(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(errors.New("ko")).Build()
+	resetState(t)
+	seedSession(t)
+	// an empty PATH leaves ffmpeg and yt-dlp unreachable
+	t.Setenv("PATH", t.TempDir())
 
 	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
+	assert.NotNil(t, sys.ErrOnly(testExecute(cmdSync(), "-o", t.TempDir())))
 }
 
 func TestCmdSyncOfflineIndex(t *testing.T) {
-	t.Cleanup(cleanup)
+	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	writeTaggedFile(t, filepath.Join(musicDir, "Artist - Title.mp3"), "123")
+	before, err := os.ReadFile(filepath.Join(musicDir, "Artist - Title.mp3"))
+	assert.Nil(t, err)
 
-	_track := &entity.Track{ID: "TestCmdSyncOfflineIndex", Title: "Title", Artists: []string{"Artist"}}
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).To(func(data *index.Index, _ string, indexed chan<- string, _ ...int) error {
-		data.Set(_track, index.Offline)
-		if indexed != nil {
-			indexed <- "Artist - Title.mp3"
-		}
-		return nil
-	}).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		ch[0] <- cloneTrack(_track)
-		return nil
-	}).Build()
-	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()
-	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
-		for _, c := range ch {
-			c <- []byte{}
-		}
-		return nil
-	}).Build()
-	mockey.Mock(lyrics.Search).Return("lyrics", nil).Build()
-	mockey.Mock(processor.Do).Return(nil).Build()
-	mockey.Mock(sys.FileMoveOrCopy).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&playlist.M3UEncoder{}, "Close")).Return(nil).Build()
-
-	// testing
-	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")))
+	// testing: the track is already in the library as offline, so the
+	// sync skips it and leaves the file untouched
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-l")))
+	after, err := os.ReadFile(filepath.Join(musicDir, "Artist - Title.mp3"))
+	assert.Nil(t, err)
+	assert.Equal(t, before, after)
 }
 
 func TestCmdSyncPathFailure(t *testing.T) {
-	t.Cleanup(cleanup)
+	resetState(t)
+	seedSession(t)
+	fakeBinDir(t)
+	installWeb(t, nil, webScript{})
 
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(os.Chdir).Return(errors.New("ko")).Build()
-
-	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
-}
-
-func TestCmdSyncIndexFailure(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(errors.New("ko")).Build()
-
-	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
+	// testing: the output path does not exist, the chdir fails
+	missing := filepath.Join(t.TempDir(), "missing")
+	assert.NotNil(t, sys.ErrOnly(testExecute(cmdSync(), "-o", missing)))
 }
 
 func TestCmdSyncAuthFailure(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, errors.New("ko")).Build()
+	resetState(t)
+	noSession(t)
+	fakeBinDir(t)
+	installWeb(t, nil, webScript{})
+	noOpenerPath(t)
+	occupyAuthPort(t)
 
 	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
+	assert.NotNil(t, sys.ErrOnly(testExecute(cmdSync(), "-o", t.TempDir())))
 }
 
 func TestRoutineAuthUsername(t *testing.T) {
-	stdout := os.Stdout
-	oldTUI := tui
-	oldRoutineSemaphores := routineSemaphores
-	defer func() {
-		os.Stdout = stdout
-	}()
-	t.Cleanup(func() {
-		tui = oldTUI
-		routineSemaphores = oldRoutineSemaphores
-	})
-	reader, writer, err := os.Pipe()
-	assert.Nil(t, err)
-	os.Stdout = writer
+	resetState(t)
+	initRoutines()
+	seedSession(t)
+	meCalls := 0
+	installWeb(t, map[string]func(*http.Request) (int, string){
+		"/v1/me": func(request *http.Request) (int, string) {
+			if request.URL.Path != "/v1/me" {
+				return 200, libraryBody("123")
+			}
+			meCalls++
+			if meCalls == 1 {
+				return 200, meJSON
+			}
+			return apiError(500, "ko")
+		},
+	}, webScript{})
 
-	tui = anchor.New(anchor.Red)
-	tui.EnablePlainMode()
-	cmd := cmdSync()
-	cmd.PreRun(cmd, nil)
-	errChannel := make(chan error, 1)
-	t.Cleanup(func() {
-		close(errChannel)
-	})
-
-	defer mockey.UnPatchAll()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Username")).Return("alice", nil).Build()
-
-	routineAuth(context.Background(), errChannel)
-
-	assert.Nil(t, writer.Close())
-	output, err := io.ReadAll(reader)
-	assert.Nil(t, err)
-	assert.Contains(t, string(output), "auth alice")
-	assert.Empty(t, errChannel)
-	ok, open := <-routineSemaphores[routineTypeAuth]
-	assert.True(t, open)
-	assert.True(t, ok)
+	// testing: a username resolution failure is tolerated, the routine
+	// still signals a successful authentication
+	ch := make(chan error, 1)
+	routineAuth(context.Background(), ch)
+	assert.True(t, <-routineSemaphores[routineTypeAuth])
+	assert.Empty(t, ch)
+	assert.NotNil(t, spotifyClient)
 }
 
 func TestCmdSyncLibraryFailure(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).Return(errors.New("ko")).Build()
+	musicDir, _ := syncEnv(t, map[string]func(*http.Request) (int, string){
+		"/v1/me/tracks": func(*http.Request) (int, string) { return apiError(500, "ko") },
+	}, webScript{qobuzEmpty: true})
 
 	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-l")), "ko")
 }
 
 func TestCmdSyncPlaylistFailure(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Playlist")).Return(nil, errors.New("ko")).Build()
+	musicDir, _ := syncEnv(t, map[string]func(*http.Request) (int, string){
+		"/v1/playlists/": func(*http.Request) (int, string) { return apiError(500, "ko") },
+	}, webScript{qobuzEmpty: true})
 
 	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-p", "Mix")), "ko")
 }
 
 func TestCmdSyncAlbumFailure(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Album")).Return(nil, errors.New("ko")).Build()
+	musicDir, _ := syncEnv(t, map[string]func(*http.Request) (int, string){
+		"/v1/albums/": func(*http.Request) (int, string) { return apiError(500, "ko") },
+	}, webScript{qobuzEmpty: true})
 
 	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-a", "123")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-a", "album123")), "ko")
 }
 
 func TestCmdSyncTrackFailure(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Track")).Return(nil, errors.New("ko")).Build()
+	musicDir, _ := syncEnv(t, map[string]func(*http.Request) (int, string){
+		"/v1/tracks/": func(*http.Request) (int, string) { return apiError(500, "ko") },
+	}, webScript{qobuzEmpty: true})
 
 	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-t", "123")), "ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-t", "123")), "ko")
+}
+
+func TestCmdSyncFix(t *testing.T) {
+	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	stale := filepath.Join(musicDir, "old name.mp3")
+	writeTaggedFile(t, stale, "123")
+
+	// testing: the stale file is dropped and the track is re-downloaded
+	// to its canonical filename
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-f", stale)))
+	_, err := os.Stat(stale)
+	assert.True(t, os.IsNotExist(err))
+	_, err = os.Stat(filepath.Join(musicDir, "Artist - Title.mp3"))
+	assert.Nil(t, err)
 }
 
 func TestCmdSyncFixOpenFailure(t *testing.T) {
-	t.Cleanup(cleanup)
+	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true})
 
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(id3.Open).Return(nil, errors.New("ko")).Build()
-
-	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-f", "path")), "ko")
+	// testing: the file to fix does not exist
+	missing := filepath.Join(musicDir, "missing.mp3")
+	assert.NotNil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-f", missing)))
 }
 
 func TestCmdSyncFixSpotifyIDFailure(t *testing.T) {
-	t.Cleanup(cleanup)
+	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	untagged := filepath.Join(musicDir, "untagged.mp3")
+	writeTaggedFile(t, untagged, "")
 
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(id3.Open).Return(&id3.Tag{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "userDefinedText")).Return("").Build()
-
-	// testing
-	assert.ErrorContains(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-f", "path")), "does not have spotify ID metadata set")
-}
-
-func TestCmdSyncFixCloseFailure(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(id3.Open).Return(&id3.Tag{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "userDefinedText")).Return("123").Build()
-	mockey.Mock(mockey.GetMethod(&id3v2.Tag{}, "Close")).Return(errors.New("ko")).Build()
-
-	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-f", "path")), "ko")
+	// testing: the file carries no Spotify ID metadata
+	err := sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-f", untagged))
+	assert.ErrorContains(t, err, "does not have spotify ID metadata set")
 }
 
 func TestCmdSyncDecideManual(t *testing.T) {
-	t.Cleanup(cleanup)
+	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	feedStdin(t, "https://www.youtube.com/watch?v=abc123\n")
 
-	_trackURL := &entity.Track{ID: "TestCmdSyncDecideManualURL", Title: "URL", Artists: []string{"Artist"}}
-	_trackEmpty := &entity.Track{ID: "TestCmdSyncDecideManualEmpty", Title: "Empty", Artists: []string{"Artist"}}
-	_trackSkip := &entity.Track{ID: "TestCmdSyncDecideManualSkip", Title: "Skip", Artists: []string{"Artist"}}
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		ch[0] <- cloneTrack(_trackURL)
-		ch[0] <- cloneTrack(_trackEmpty)
-		ch[0] <- cloneTrack(_trackSkip)
-		return nil
-	}).Build()
-	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "userDefinedText")).Return("123").Build()
-	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "Close")).Return(nil).Build()
-	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
-		for _, c := range ch {
-			c <- []byte{}
-		}
-		return nil
-	}).Build()
-	mockey.Mock(lyrics.Search).Return("lyrics", nil).Build()
-	mockey.Mock(processor.Do).Return(nil).Build()
-	mockey.Mock(sys.FileMoveOrCopy).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&playlist.M3UEncoder{}, "Close")).Return(nil).Build()
-
-	// stdin feeds the manual prompts: the first track gets a URL, the second hits EOF
-	stdinReader, stdinWriter, err := os.Pipe()
+	// testing: the user-issued URL drives the download
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "--manual", "-l")))
+	_, err := os.Stat(filepath.Join(musicDir, "Artist - Title.mp3"))
 	assert.Nil(t, err)
-	_, err = stdinWriter.WriteString("http://localhost/\n")
-	assert.Nil(t, err)
-	assert.Nil(t, stdinWriter.Close())
-	oldStdin := os.Stdin
-	os.Stdin = stdinReader
-	defer func() { os.Stdin = oldStdin }()
+}
 
-	// the skipped track is already synced
-	indexData.Set(_trackSkip, index.Online)
+func TestCmdSyncDecideManualEmpty(t *testing.T) {
+	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	feedStdin(t, "\n")
 
-	// testing: answered, empty and skipped tracks are decided without errors
-	err = sys.ErrOnly(testExecute(cmdSync(), "--plain", "--manual"))
-	assert.Nil(t, err)
+	// testing: an empty URL skips the track without failing the sync
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "--manual", "-l")))
+	_, err := os.Stat(filepath.Join(musicDir, "Artist - Title.mp3"))
+	assert.True(t, os.IsNotExist(err))
 }
 
 func TestCmdSyncDecideManualCollision(t *testing.T) {
-	t.Cleanup(cleanup)
+	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	writeTaggedFile(t, filepath.Join(musicDir, "Artist - Title.mp3"), "other-id")
+	feedStdin(t, "\n")
 
-	_trackCollision := &entity.Track{ID: "TestCmdSyncDecideManualCollision", Title: "Collision", Artists: []string{"Artist"}}
-	_trackOccupant := &entity.Track{ID: "TestCmdSyncDecideManualOccupant", Title: "Collision", Artists: []string{"Artist"}}
-
-	// the filename is already owned by another track
-	indexData.Set(_trackOccupant, index.Offline)
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		ch[0] <- cloneTrack(_trackCollision)
-		return nil
-	}).Build()
-
-	// testing: the sync aborts early with a filename collision error
-	err := sys.ErrOnly(testExecute(cmdSync(), "--plain", "--manual"))
-	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "filename collision")
+	// testing: the collision is fatal in manual mode too
+	err := sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "--manual", "-l"))
+	assert.ErrorContains(t, err, "filename collision")
 }
 
 func TestCmdSyncDecideDuplicateInstalled(t *testing.T) {
-	t.Cleanup(cleanup)
+	musicDir, _ := syncEnv(t, map[string]func(*http.Request) (int, string){
+		"/v1/me/tracks": func(*http.Request) (int, string) { return 200, libraryBody("123", "123") },
+	}, webScript{qobuzEmpty: true})
 
-	track := &entity.Track{ID: "TestCmdSyncDecideDuplicateInstalled", Title: "Duplicate", Artists: []string{"Artist"}}
-
-	// the track was already installed earlier in this run: a duplicate
-	// fetch of the same Spotify ID must be skipped, not re-synced
-	indexData.Set(track, index.Installed)
-
-	proceed, fatal := decideClassify(make(chan error, 1), track)
-	assert.False(t, fatal)
-	assert.False(t, proceed)
-}
-
-func TestCmdSyncDecideFlush(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	track := &entity.Track{ID: "TestCmdSyncDecideFlush", Title: "Flush", Artists: []string{"Artist"}}
-
-	// the track was explicitly marked for re-sync: it must proceed
-	indexData.Set(track, index.Flush)
-
-	proceed, fatal := decideClassify(make(chan error, 1), track)
-	assert.False(t, fatal)
-	assert.True(t, proceed)
+	// testing: the second copy of the track is skipped as a duplicate
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-l")))
+	_, err := os.Stat(filepath.Join(musicDir, "Artist - Title.mp3"))
+	assert.Nil(t, err)
 }
 
 func TestCmdSyncFatalCollisionUnwinds(t *testing.T) {
-	t.Cleanup(cleanup)
+	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	writeTaggedFile(t, filepath.Join(musicDir, "Artist - Title.mp3"), "other-id")
 
-	const total = 5000
-	_existing := &entity.Track{ID: "TestCmdSyncFatalCollisionUnwindsExisting", Title: "Collision", Artists: []string{"Artist"}}
-	_colliding := &entity.Track{ID: "TestCmdSyncFatalCollisionUnwindsColliding", Title: "Collision", Artists: []string{"Artist"}}
-
-	// the filename is already owned by another track
-	indexData.Set(_existing, index.Offline)
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		// the collider goes first so the fatal fires while the
-		// fetcher is still blocked on the full decide queue
-		for i := -1; i < total; i++ {
-			track := &entity.Track{ID: fmt.Sprintf("TestCmdSyncFatalCollisionUnwinds%d", i), Title: fmt.Sprintf("Title %d", i), Artists: []string{"Artist"}}
-			if i == -1 {
-				track = cloneTrack(_colliding)
-			}
-			for _, c := range ch {
-				c <- track
-			}
-		}
-		return nil
-	}).Build()
-	mockey.Mock(id3.Open).Return(&id3.Tag{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "userDefinedText")).Return("123").Build()
-	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "Close")).Return(nil).Build()
-	mockey.Mock(provider.Search).To(func(*entity.Track) ([]*provider.Match, error) {
-		return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
-	}).Build()
-	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
-		for _, c := range ch {
-			c <- []byte{}
-		}
-		return nil
-	}).Build()
-	mockey.Mock(lyrics.Search).Return("lyrics", nil).Build()
-	mockey.Mock(processor.Do).Return(nil).Build()
-	mockey.Mock(sys.FileMoveOrCopy).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&playlist.M3UEncoder{}, "Close")).Return(nil).Build()
-
-	// testing: a fatal collision while the fetcher is blocked on a full
-	// decide queue unwinds the sync with the collision error instead of
-	// deadlocking
-	err := sys.ErrOnly(testExecute(cmdSync(), "--plain"))
-	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "filename collision")
-}
-
-func TestCmdSyncDecideIgnoreCollisions(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	_existing := &entity.Track{ID: "TestCmdSyncDecideIgnoreCollisionsExisting", Title: "Collision", Artists: []string{"Artist"}}
-	_colliding := &entity.Track{ID: "TestCmdSyncDecideIgnoreCollisionsColliding", Title: "Collision", Artists: []string{"Artist"}}
-
-	// the filename is already owned by another track
-	indexData.Set(_existing, index.Offline)
-
-	ignoreCollisions = true
-
-	// testing: with --ignore-collisions the colliding track is skipped
-	// and counted instead of aborting the sync
-	proceed, fatal := decideClassify(make(chan error, 1), _colliding)
-	assert.False(t, fatal)
-	assert.False(t, proceed)
-	assert.Equal(t, int64(1), collisions.Load())
-}
-
-func TestCmdSyncIgnoreCollisionsCompletes(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	_existing := &entity.Track{ID: "TestCmdSyncIgnoreCollisionsCompletesExisting", Title: "Collision", Artists: []string{"Artist"}}
-	_colliding := &entity.Track{ID: "TestCmdSyncIgnoreCollisionsCompletesColliding", Title: "Collision", Artists: []string{"Artist"}}
-	_ok := &entity.Track{ID: "TestCmdSyncIgnoreCollisionsCompletesOk", Title: "Ok", Artists: []string{"Artist"}}
-
-	// the filename is already owned by another track
-	indexData.Set(_existing, index.Offline)
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		for _, c := range ch {
-			c <- cloneTrack(_colliding)
-			c <- cloneTrack(_ok)
-		}
-		return nil
-	}).Build()
-	mockey.Mock(id3.Open).Return(&id3.Tag{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "userDefinedText")).Return("123").Build()
-	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "Close")).Return(nil).Build()
-	mockey.Mock(provider.Search).To(func(*entity.Track) ([]*provider.Match, error) {
-		return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
-	}).Build()
-	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
-		for _, c := range ch {
-			c <- []byte{}
-		}
-		return nil
-	}).Build()
-	mockey.Mock(lyrics.Search).Return("lyrics", nil).Build()
-	mockey.Mock(processor.Do).Return(nil).Build()
-	mockey.Mock(sys.FileMoveOrCopy).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&playlist.M3UEncoder{}, "Close")).Return(nil).Build()
-
-	// testing: with --ignore-collisions the colliding track is skipped
-	// and the sync completes instead of aborting
-	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "--ignore-collisions")))
-}
-
-func TestDecideWorkerContextCancel(t *testing.T) {
-	// an open, empty queue: the only ready select case is the cancelled context
-	routineQueues = map[int](chan interface{}){
-		routineTypeDecide: make(chan interface{}),
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	var consecutiveFailures atomic.Int32
-	done := make(chan struct{})
-	go func() {
-		decideWorker(ctx, make(chan error, 1), &consecutiveFailures)
-		close(done)
-	}()
-
-	// testing: the worker stops promptly on a cancelled context
-	select {
-	case <-done:
-	case <-time.After(10 * time.Second):
-		t.Fatal("decideWorker did not stop on cancelled context")
-	}
-}
-
-func TestCollectWorkerContextCancel(t *testing.T) {
-	// an open, empty queue: the only ready select case is the cancelled context
-	routineQueues = map[int](chan interface{}){
-		routineTypeCollect: make(chan interface{}),
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	done := make(chan struct{})
-	go func() {
-		collectWorker(ctx, false)
-		close(done)
-	}()
-
-	// testing: the worker stops promptly on a cancelled context
-	select {
-	case <-done:
-	case <-time.After(10 * time.Second):
-		t.Fatal("collectWorker did not stop on cancelled context")
-	}
-}
-
-func TestProcessWorkerContextCancel(t *testing.T) {
-	// an open, empty queue: the only ready select case is the cancelled context
-	routineQueues = map[int](chan interface{}){
-		routineTypeProcess: make(chan interface{}),
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	done := make(chan struct{})
-	go func() {
-		processWorker(ctx, make(chan error, 1))
-		close(done)
-	}()
-
-	// testing: the worker stops promptly on a cancelled context
-	select {
-	case <-done:
-	case <-time.After(10 * time.Second):
-		t.Fatal("processWorker did not stop on cancelled context")
-	}
-}
-
-func TestRoutineProcessFanout(t *testing.T) {
-	const tracks = 10
-
-	routineQueues = map[int](chan interface{}){
-		routineTypeProcess: make(chan interface{}, tracks),
-		routineTypeInstall: make(chan interface{}, tracks),
-	}
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(processor.Do).Return(nil).Build()
-
-	for i := 0; i < tracks; i++ {
-		routineQueues[routineTypeProcess] <- &entity.Track{
-			ID:      fmt.Sprintf("processfanout%d", i),
-			Title:   "Title",
-			Artists: []string{"Artist"},
-		}
-	}
-	close(routineQueues[routineTypeProcess])
-
-	// testing: every track is processed and forwarded, then the install queue closes
-	routineProcess(context.Background(), make(chan error, 1))
-	processed := 0
-	for range routineQueues[routineTypeInstall] {
-		processed++
-	}
-	assert.Equal(t, tracks, processed)
-}
-
-func TestRoutineProcessFailure(t *testing.T) {
-	routineQueues = map[int](chan interface{}){
-		routineTypeProcess: make(chan interface{}, 1),
-		routineTypeInstall: make(chan interface{}, 1),
-	}
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(processor.Do).Return(errors.New("ko")).Build()
-
-	routineQueues[routineTypeProcess] <- &entity.Track{ID: "processfail", Title: "Title", Artists: []string{"Artist"}}
-	close(routineQueues[routineTypeProcess])
-
-	// testing: a processing failure aborts the sync
-	errCh := make(chan error, 1)
-	routineProcess(context.Background(), errCh)
-	select {
-	case err := <-errCh:
-		assert.Contains(t, err.Error(), "ko")
-	case <-time.After(10 * time.Second):
-		t.Fatal("routineProcess did not report the processing failure")
-	}
-}
-
-func TestRoutineProcessLoudnessSkipped(t *testing.T) {
-	routineQueues = map[int](chan interface{}){
-		routineTypeProcess: make(chan interface{}, 1),
-		routineTypeInstall: make(chan interface{}, 1),
-	}
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(processor.Do).Return(fmt.Errorf("%w: ko", processor.ErrLoudnessSkipped)).Build()
-
-	routineQueues[routineTypeProcess] <- &entity.Track{ID: "processskip", Title: "Title", Artists: []string{"Artist"}}
-	close(routineQueues[routineTypeProcess])
-
-	// testing: a skipped normalization forwards the track without aborting the sync
-	errCh := make(chan error, 1)
-	done := make(chan struct{})
-	go func() {
-		routineProcess(context.Background(), errCh)
-		close(done)
-	}()
-	select {
-	case track := <-routineQueues[routineTypeInstall]:
-		assert.Equal(t, "processskip", track.(*entity.Track).ID)
-	case <-time.After(10 * time.Second):
-		t.Fatal("track was not forwarded to the installer")
-	}
-	<-done
-	select {
-	case err := <-errCh:
-		t.Fatalf("routineProcess aborted the sync: %s", err)
-	default:
-	}
-}
-
-func TestRoutineCollectFanout(t *testing.T) {
-	const tracks = 10
-
-	routineQueues = map[int](chan interface{}){
-		routineTypeCollect: make(chan interface{}, tracks),
-		routineTypeProcess: make(chan interface{}, tracks),
-	}
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
-		for _, c := range ch {
-			c <- []byte{}
-		}
-		return nil
-	}).Build()
-	mockey.Mock(lyrics.Search).Return("lyrics", nil).Build()
-
-	for i := 0; i < tracks; i++ {
-		routineQueues[routineTypeCollect] <- &entity.Track{
-			ID:      fmt.Sprintf("fanout%d", i),
-			Title:   "Title",
-			Artists: []string{"Artist"},
-			Artwork: entity.Artwork{URL: "http://localhost/cover.jpg"},
-		}
-	}
-	close(routineQueues[routineTypeCollect])
-
-	// testing: every track is collected and forwarded, then the process queue closes
-	routineCollect(false)(context.Background(), make(chan error, 1))
-	collected := 0
-	for range routineQueues[routineTypeProcess] {
-		collected++
-	}
-	assert.Equal(t, tracks, collected)
-}
-
-func TestCmdSyncDecideFailure(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	_track := &entity.Track{ID: "TestCmdSyncDecideFailure", Title: "Title", Artists: []string{"Artist"}}
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		ch[0] <- cloneTrack(_track)
-		return nil
-	}).Build()
-	mockey.Mock(provider.Search).To(func(*entity.Track) ([]*provider.Match, error) {
-		return nil, errors.New("ko")
-	}).Build()
-
-	// testing: search failure is non-fatal, track gets skipped
-	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")))
-}
-
-func TestCmdSyncDecideCircuitBreaker(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	// the breaker count is only deterministic with a single worker
-	prevDecideWorkers := decideWorkers
-	decideWorkers = 1
-	defer func() { decideWorkers = prevDecideWorkers }()
-
-	tracks := []*entity.Track{
-		{ID: "cb1", Title: "Title1", Artists: []string{"Artist"}},
-		{ID: "cb2", Title: "Title2", Artists: []string{"Artist"}},
-		{ID: "cb3", Title: "Title3", Artists: []string{"Artist"}},
-		{ID: "cb4", Title: "Title4", Artists: []string{"Artist"}},
-	}
-
-	// monkey patching
-	searchCount := 0
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		for _, track := range tracks {
-			ch[0] <- track
-		}
-		return nil
-	}).Build()
-	mockey.Mock(provider.Search).To(func(*entity.Track) ([]*provider.Match, error) {
-		searchCount++
-		return nil, errors.New("ko")
-	}).Build()
-
-	// testing: 4th track should be skipped by circuit breaker (only 3 searches)
-	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")))
-	assert.Equal(t, 3, searchCount)
-}
-
-func TestCmdSyncDecideNotFound(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	_track := &entity.Track{ID: "TestCmdSyncDecideNotFound", Title: "Title", Artists: []string{"Artist"}}
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		ch[0] <- cloneTrack(_track)
-		return nil
-	}).Build()
-	mockey.Mock(provider.Search).To(func(*entity.Track) ([]*provider.Match, error) {
-		return []*provider.Match{}, nil
-	}).Build()
-
-	// testing
-	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")))
-}
-
-func TestCmdSyncDecideParallelFanout(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	var tracks []*entity.Track
-	for i := 0; i < 10; i++ {
-		tracks = append(tracks, &entity.Track{
-			ID:      fmt.Sprintf("TestCmdSyncDecideParallelFanout%d", i),
-			Title:   fmt.Sprintf("Title%d", i),
-			Artists: []string{"Artist"},
-		})
-	}
-
-	// monkey patching
-	searched := map[string]int{}
-	var mu sync.Mutex
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		for _, track := range tracks {
-			ch[0] <- track
-		}
-		return nil
-	}).Build()
-	mockey.Mock(provider.Search).To(func(track *entity.Track) ([]*provider.Match, error) {
-		mu.Lock()
-		searched[track.ID]++
-		mu.Unlock()
-		return []*provider.Match{}, nil
-	}).Build()
-
-	// testing: every track is searched exactly once, none is lost or duplicated
-	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")))
-	mu.Lock()
-	defer mu.Unlock()
-	assert.Equal(t, len(tracks), len(searched))
-	for _, track := range tracks {
-		assert.Equal(t, 1, searched[track.ID])
-	}
+	// testing: the collision error aborts the pipeline, which unwinds
+	// instead of deadlocking on the queued routines
+	err := sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-l"))
+	assert.ErrorContains(t, err, "filename collision")
 }
 
 func TestCmdSyncDecideFilenameCollision(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	_existing := &entity.Track{ID: "TestCmdSyncDecideFilenameCollisionA", Title: "Title", Artists: []string{"Artist"}}
-	_colliding := &entity.Track{ID: "TestCmdSyncDecideFilenameCollisionB", Title: "Title", Artists: []string{"Artist"}}
-
-	// the filename is already owned by another track
-	indexData.Set(_existing, index.Offline)
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		ch[0] <- cloneTrack(_colliding)
-		return nil
-	}).Build()
-
-	// testing: the sync aborts early with a filename collision error
-	err := sys.ErrOnly(testExecute(cmdSync(), "--plain"))
-	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "filename collision")
-}
-
-func TestCmdSyncCollectFailure(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	// the artwork download is the failing one: any URL other than
-	// "http://localhost/" makes the mocked downloader return an error
-	_track := &entity.Track{
-		ID: "TestCmdSyncCollectFailure", Title: "Title", Artists: []string{"Artist"},
-		Artwork: entity.Artwork{URL: "http://localhost/ko"},
-	}
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		ch[0] <- cloneTrack(_track)
-		return nil
-	}).Build()
-	mockey.Mock(provider.Search).To(func(*entity.Track) ([]*provider.Match, error) {
-		return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
-	}).Build()
-	mockey.Mock(downloader.Download).To(func(_ context.Context, url string, _ string, _ processor.Processor, ch ...chan []byte) error {
-		if url != "http://localhost/" {
-			return errors.New("ko")
-		}
-		for _, c := range ch {
-			c <- []byte{}
-		}
-		return nil
-	}).Build()
-	mockey.Mock(lyrics.Search).Return("", nil).Build()
+	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	writeTaggedFile(t, filepath.Join(musicDir, "Artist - Title.mp3"), "other-id")
 
 	// testing
-	// testing: the failing track is skipped, the sync completes
-	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")))
-	assert.Equal(t, 0, indexData.Size(index.Installed))
+	err := sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-l"))
+	assert.ErrorContains(t, err, "filename collision")
 }
 
-func TestCmdSyncDownloadFailure(t *testing.T) {
-	t.Cleanup(cleanup)
+func TestCmdSyncIgnoreCollisionsCompletes(t *testing.T) {
+	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	existing := filepath.Join(musicDir, "Artist - Title.mp3")
+	writeTaggedFile(t, existing, "other-id")
+	before, err := os.ReadFile(existing)
+	assert.Nil(t, err)
 
-	_track := &entity.Track{ID: "TestCmdSyncDownloadFailure", Title: "Title", Artists: []string{"Artist"}}
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		ch[0] <- cloneTrack(_track)
-		return nil
-	}).Build()
-	mockey.Mock(provider.Search).To(func(*entity.Track) ([]*provider.Match, error) {
-		return []*provider.Match{{URL: "http://localhost/", Score: 0}}, nil
-	}).Build()
-	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
-		for _, c := range ch {
-			c <- []byte{}
-		}
-		return errors.New("ko")
-	}).Build()
-	mockey.Mock(lyrics.Search).Return("", nil).Build()
-
-	// testing
-	// testing: the failing track is skipped, the sync completes
-	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")))
-	assert.Equal(t, 0, indexData.Size(index.Installed))
+	// testing: the colliding track is skipped and counted, the other
+	// track completes, and the existing file is left untouched
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(),
+		"--plain", "-o", musicDir, "-l", "-t", "999", "--ignore-collisions")))
+	assert.Equal(t, int64(1), collisions.Load())
+	_, err = os.Stat(filepath.Join(musicDir, "Artist - Title 999.mp3"))
+	assert.Nil(t, err)
+	after, err := os.ReadFile(existing)
+	assert.Nil(t, err)
+	assert.Equal(t, before, after)
 }
 
-func TestCmdSyncLyricsFailure(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	_track := &entity.Track{ID: "TestCmdSyncLyricsFailure", Title: "Title", Artists: []string{"Artist"}}
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		ch[0] <- cloneTrack(_track)
-		return nil
-	}).Build()
-	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()
-	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
-		for _, c := range ch {
-			c <- []byte{}
-		}
-		return nil
-	}).Build()
-	mockey.Mock(lyrics.Search).Return("", errors.New("ko")).Build()
-	mockey.Mock(processor.Do).Return(nil).Build()
-	mockey.Mock(sys.FileMoveOrCopy).Return(nil).Build()
-
-	// testing: a lyrics failure degrades to a warning,
-	// the track is installed anyway and the sync completes
-	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")))
-	assert.Equal(t, 1, indexData.Size(index.Installed))
-}
-
-func TestCmdSyncProcessorFailure(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	_track := &entity.Track{ID: "TestCmdSyncProcessorFailure", Title: "Title", Artists: []string{"Artist"}}
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		ch[0] <- cloneTrack(_track)
-		return nil
-	}).Build()
-	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()
-	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
-		for _, c := range ch {
-			c <- []byte{}
-		}
-		return nil
-	}).Build()
-	mockey.Mock(lyrics.Search).Return("lyrics", nil).Build()
-	mockey.Mock(processor.Do).Return(errors.New("ko")).Build()
-
-	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
-}
-
-func TestCmdSyncInstallerFailure(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	_track := &entity.Track{ID: "TestCmdSyncInstallerFailure", Title: "Title", Artists: []string{"Artist"}}
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		ch[0] <- cloneTrack(_track)
-		return nil
-	}).Build()
-	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()
-	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
-		for _, c := range ch {
-			c <- []byte{}
-		}
-		return nil
-	}).Build()
-	mockey.Mock(lyrics.Search).Return("lyrics", nil).Build()
-	mockey.Mock(processor.Do).Return(nil).Build()
-	mockey.Mock(sys.FileMoveOrCopy).Return(errors.New("ko")).Build()
-
-	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain")), "ko")
-}
-
-func TestCmdSyncPlaylistEncoderFailure(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	_playlist := &playlist.Playlist{Tracks: []*entity.Track{
-		{ID: "TestCmdSyncPlaylistEncoderFailure", Title: "Title", Artists: []string{"Artist"}},
-	}}
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Playlist")).Return(_playlist, nil).Build()
-	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()
-	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
-		for _, c := range ch {
-			c <- []byte{}
-		}
-		return nil
-	}).Build()
-	mockey.Mock(lyrics.Search).Return("lyrics", nil).Build()
-	mockey.Mock(processor.Do).Return(nil).Build()
-	mockey.Mock(sys.FileMoveOrCopy).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(playlist.Playlist{}, "Encoder")).Return(nil, errors.New("ko")).Build()
-
-	// testing: the broken playlist is skipped, the run survives
-	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")))
-}
-
-func TestCmdSyncPlaylistEncoderAddFailure(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	_playlist := &playlist.Playlist{Tracks: []*entity.Track{
-		{ID: "TestCmdSyncPlaylistEncoderAddFailure", Title: "Title", Artists: []string{"Artist"}},
-	}}
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Playlist")).To(func(_ string, ch ...chan interface{}) (*playlist.Playlist, error) {
-		ch[0] <- _playlist.Tracks[0]
-		return _playlist, nil
-	}).Build()
-	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()
-	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
-		for _, c := range ch {
-			c <- []byte{}
-		}
-		return nil
-	}).Build()
-	mockey.Mock(lyrics.Search).Return("lyrics", nil).Build()
-	mockey.Mock(processor.Do).Return(nil).Build()
-	mockey.Mock(sys.FileMoveOrCopy).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&playlist.M3UEncoder{}, "Add")).Return(errors.New("ko")).Build()
-
-	// testing: the failed add stops the playlist, the run survives
-	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")))
-}
-
-func TestCmdSyncPlaylistEncoderCloseFailure(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	_playlist := &playlist.Playlist{Tracks: []*entity.Track{
-		{ID: "TestCmdSyncPlaylistEncoderCloseFailure", Title: "Title", Artists: []string{"Artist"}},
-	}}
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Playlist")).To(func(_ string, ch ...chan interface{}) (*playlist.Playlist, error) {
-		ch[0] <- _playlist.Tracks[0]
-		return _playlist, nil
-	}).Build()
-	mockey.Mock(provider.Search).Return([]*provider.Match{{URL: "http://localhost/", Score: 0}}, nil).Build()
-	mockey.Mock(downloader.Download).To(func(_ context.Context, _, _ string, _ processor.Processor, ch ...chan []byte) error {
-		for _, c := range ch {
-			c <- []byte{}
-		}
-		return nil
-	}).Build()
-	mockey.Mock(lyrics.Search).Return("lyrics", nil).Build()
-	mockey.Mock(processor.Do).Return(nil).Build()
-	mockey.Mock(sys.FileMoveOrCopy).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&playlist.M3UEncoder{}, "Close")).Return(errors.New("ko")).Build()
-
-	// testing: the broken playlist is dropped, the run survives
-	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-p", "123")))
-}
-
-func TestRoutineCollectArtworkEmptyURL(t *testing.T) {
-	// an empty artwork URL must not deadlock waiting on the artwork channel
-	track := &entity.Track{Title: "Title", Artists: []string{"Artist"}}
+func TestDecideWorkerContextCancel(t *testing.T) {
+	resetState(t)
+	initRoutines()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
 
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		routineCollectArtwork(track)(context.Background(), make(chan error, 1))
+		var failures atomic.Int32
+		decideWorker(ctx, make(chan error, 1), &failures)
 	}()
-
 	select {
 	case <-done:
-		assert.Nil(t, track.Artwork.Data)
 	case <-time.After(10 * time.Second):
-		t.Fatal("routineCollectArtwork deadlocked on empty artwork URL")
+		t.Fatal("decide worker did not stop on context cancellation")
 	}
 }
 
-func TestCmdSyncFixRemoveFailure(t *testing.T) {
-	t.Cleanup(cleanup)
+func TestCollectWorkerContextCancel(t *testing.T) {
+	resetState(t)
+	initRoutines()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
 
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(cmd.ValidateEnvironment).Return(nil).Build()
-	mockey.Mock(cmd.Open).Return(nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(id3.Open).Return(&id3.Tag{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "userDefinedText")).Return("123").Build()
-	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "Close")).Return(nil).Build()
-	mockey.Mock(os.Remove).Return(errors.New("ko")).Build()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		collectWorker(ctx, false)
+	}()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("collect worker did not stop on context cancellation")
+	}
+}
+
+func TestProcessWorkerContextCancel(t *testing.T) {
+	resetState(t)
+	initRoutines()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		processWorker(ctx, make(chan error, 1))
+	}()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("process worker did not stop on context cancellation")
+	}
+}
+
+func TestRoutineProcessFanout(t *testing.T) {
+	resetState(t)
+	initRoutines()
+	fakeBinDir(t)
+	clearTrackCache(t, "123", "456")
+
+	// two tracks with downloaded blobs and artwork data are processed
+	// in parallel and both handed to the installer
+	for _, id := range []string{"123", "456"} {
+		track := &entity.Track{
+			ID: id, Title: "Title " + id, Artists: []string{"Artist"},
+			Artwork: entity.Artwork{URL: "http://ima.ge", Data: jpegBytes(t)},
+		}
+		if id == "123" {
+			track.Title = "Title"
+		}
+		assert.Nil(t, os.MkdirAll(filepath.Dir(track.Path().Download()), 0o755))
+		assert.Nil(t, os.WriteFile(track.Path().Download(), []byte{}, 0o644))
+		routineQueues[routineTypeProcess] <- track
+	}
+	close(routineQueues[routineTypeProcess])
+
+	ch := make(chan error, 1)
+	routineProcess(context.Background(), ch)
+	assert.Empty(t, ch)
+	assert.Equal(t, 2, len(routineQueues[routineTypeInstall]))
+}
+
+func TestRoutineProcessFailure(t *testing.T) {
+	resetState(t)
+	initRoutines()
+	fakeBinDir(t)
+	clearTrackCache(t, "123")
+
+	// the downloaded blob carries a truncated ID3 header: the encoder
+	// cannot even open it as a tag
+	track := &entity.Track{ID: "123", Title: "Title", Artists: []string{"Artist"}}
+	assert.Nil(t, os.MkdirAll(filepath.Dir(track.Path().Download()), 0o755))
+	assert.Nil(t, os.WriteFile(track.Path().Download(), []byte("ID3"), 0o644))
+	routineQueues[routineTypeProcess] <- track
+	close(routineQueues[routineTypeProcess])
+
+	// testing: the failure is reported on the routine channel
+	ch := make(chan error, 1)
+	go processWorker(context.Background(), ch)
+	select {
+	case err := <-ch:
+		assert.NotNil(t, err)
+	case <-time.After(10 * time.Second):
+		t.Fatal("process worker did not report the failure")
+	}
+}
+
+func TestCmdSyncProcessorFailure(t *testing.T) {
+	musicDir, binDir := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	// the track measures far from the loudness target and the
+	// normalization encode fails: a hard processing failure
+	assert.Nil(t, os.WriteFile(filepath.Join(binDir, "ffmpeg.far"), nil, 0o644))
+	assert.Nil(t, os.WriteFile(filepath.Join(binDir, "ffmpeg.normfail"), nil, 0o644))
+
+	// testing: a processing failure aborts the sync
+	assert.NotNil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-l")))
+}
+
+func TestRoutineProcessLoudnessSkipped(t *testing.T) {
+	musicDir, binDir := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	// ffmpeg answers without the loudnorm JSON summary: the loudness
+	// measurement is skipped and the sync still completes
+	assert.Nil(t, os.WriteFile(filepath.Join(binDir, "ffmpeg.badjson"), nil, 0o644))
 
 	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-f", "path")), "ko")
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-l")))
+	_, err := os.Stat(filepath.Join(musicDir, "Artist - Title.mp3"))
+	assert.Nil(t, err)
+}
+
+func TestRoutineCollectFanout(t *testing.T) {
+	resetState(t)
+	initRoutines()
+	fakeBinDir(t)
+	installWeb(t, nil, webScript{})
+	clearTrackCache(t, "123")
+
+	track := &entity.Track{
+		ID: "123", Title: "Title", Artists: []string{"Artist"},
+		UpstreamURL: "https://www.youtube.com/watch?v=abc123",
+		Artwork:     entity.Artwork{URL: "http://ima.ge"},
+	}
+
+	// testing: asset, lyrics and artwork are collected and the track is
+	// handed to the processor
+	collectTrack(false, track)
+	assert.Equal(t, "some lyrics", track.Lyrics)
+	assert.NotEmpty(t, track.Artwork.Data)
+	assert.Equal(t, 1, len(routineQueues[routineTypeProcess]))
+}
+
+func TestRoutineCollectArtworkEmptyURL(t *testing.T) {
+	resetState(t)
+	initRoutines()
+	fakeBinDir(t)
+	installWeb(t, nil, webScript{})
+	clearTrackCache(t, "123")
+
+	track := &entity.Track{
+		ID: "123", Title: "Title", Artists: []string{"Artist"},
+		UpstreamURL: "https://www.youtube.com/watch?v=abc123",
+	}
+
+	// testing: a track without an artwork URL skips the painter without
+	// deadlocking the collection
+	collectTrack(false, track)
+	assert.Empty(t, track.Artwork.Data)
+	assert.Equal(t, 1, len(routineQueues[routineTypeProcess]))
+}
+
+func TestCmdSyncDecideFailure(t *testing.T) {
+	musicDir, _ := syncEnv(t, nil, webScript{providerErr: true})
+
+	// testing: a failing search drops the track, not the sync
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-l")))
+	_, err := os.Stat(filepath.Join(musicDir, "Artist - Title.mp3"))
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestCmdSyncDecideCircuitBreaker(t *testing.T) {
+	musicDir, _ := syncEnv(t, map[string]func(*http.Request) (int, string){
+		"/v1/me/tracks": func(*http.Request) (int, string) { return 200, libraryBody("123", "456", "789", "999") },
+	}, webScript{providerErr: true})
+
+	// testing: repeated search failures trip the circuit breaker and
+	// the remaining tracks are skipped, without failing the sync
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-l")))
+	entries, err := os.ReadDir(musicDir)
+	assert.Nil(t, err)
+	assert.Empty(t, entries)
+}
+
+func TestCmdSyncDecideNotFound(t *testing.T) {
+	musicDir, _ := syncEnv(t, nil, webScript{noResults: true})
+
+	// testing
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-l")))
+	_, err := os.Stat(filepath.Join(musicDir, "Artist - Title.mp3"))
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestCmdSyncDecideParallelFanout(t *testing.T) {
+	musicDir, _ := syncEnv(t, map[string]func(*http.Request) (int, string){
+		"/v1/me/tracks": func(*http.Request) (int, string) { return 200, libraryBody("123", "456", "789") },
+	}, webScript{qobuzEmpty: true})
+
+	// testing: parallel deciders install every fetched track
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-l")))
+	for _, name := range []string{"Artist - Title.mp3", "Artist - Title 456.mp3", "Artist - Title 789.mp3"} {
+		_, err := os.Stat(filepath.Join(musicDir, name))
+		assert.Nil(t, err)
+	}
+}
+
+func TestCmdSyncCollectFailure(t *testing.T) {
+	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true, artworkErr: true})
+
+	// testing: an artwork download failure drops the track during
+	// collection, without failing the sync
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-l")))
+	_, err := os.Stat(filepath.Join(musicDir, "Artist - Title.mp3"))
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestCmdSyncDownloadFailure(t *testing.T) {
+	musicDir, binDir := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	assert.Nil(t, os.WriteFile(filepath.Join(binDir, "ytdlp.fail"), nil, 0o644))
+
+	// testing: a failing download drops the track, not the sync
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-l")))
+	_, err := os.Stat(filepath.Join(musicDir, "Artist - Title.mp3"))
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestCmdSyncLyricsFailure(t *testing.T) {
+	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true, lyricsErr: true})
+
+	// testing: lyrics are a nice-to-have, the track still installs
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-l")))
+	_, err := os.Stat(filepath.Join(musicDir, "Artist - Title.mp3"))
+	assert.Nil(t, err)
+}
+
+func TestCmdSyncInstallerFailure(t *testing.T) {
+	resetState(t)
+	initRoutines()
+	clearTrackCache(t, "123")
+
+	// the downloaded blob does not exist, so the move to the final
+	// destination fails
+	track := &entity.Track{ID: "123", Title: "Title", Artists: []string{"Artist"}}
+	routineQueues[routineTypeInstall] <- track
+	close(routineQueues[routineTypeInstall])
+
+	// testing: the failure is reported on the routine channel
+	ch := make(chan error, 1)
+	routineInstall(context.Background(), ch)
+	select {
+	case err := <-ch:
+		assert.NotNil(t, err)
+	case <-time.After(10 * time.Second):
+		t.Fatal("install routine did not report the failure")
+	}
+}
+
+func TestCmdSyncPlaylistEncoderFailure(t *testing.T) {
+	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true})
+
+	// testing: an unknown playlist encoding skips the mix without
+	// failing the sync
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(),
+		"--plain", "-o", musicDir, "-p", "Mix", "--playlist-encoding", "bogus")))
+	_, err := os.Stat(filepath.Join(musicDir, "Artist - Title.mp3"))
+	assert.Nil(t, err)
+	entries, err := os.ReadDir(musicDir)
+	assert.Nil(t, err)
+	for _, entry := range entries {
+		assert.NotEqual(t, "Mix.m3u", entry.Name())
+		assert.NotEqual(t, "Mix.pls", entry.Name())
+	}
+}
+
+func TestCmdSyncPlaylistEncoderCloseFailure(t *testing.T) {
+	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true})
+
+	// the playlist target path is occupied by a directory, so the
+	// encoder cannot write the playlist file on close
+	assert.Nil(t, os.MkdirAll(filepath.Join(musicDir, "Mix.m3u"), 0o755))
+
+	// testing: the failure is reported and skipped, the sync completes
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-p", "Mix")))
+	_, err := os.Stat(filepath.Join(musicDir, "Artist - Title.mp3"))
+	assert.Nil(t, err)
 }

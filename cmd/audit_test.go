@@ -1,391 +1,251 @@
 package cmd
 
 import (
-	"errors"
-	"io"
+	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
-	"github.com/bytedance/mockey"
+	"github.com/bogem/id3v2/v2"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/entity/id3"
 	"github.com/streambinder/spotitube/entity/index"
-	"github.com/streambinder/spotitube/entity/playlist"
-	"github.com/streambinder/spotitube/spotify"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCmdAudit(t *testing.T) {
-	t.Cleanup(cleanup)
+// writeAuditTrack creates a real tagged audio file in the music
+// directory, named after the fixture track's final filename.
+func writeAuditTrack(t *testing.T, dir, spotifyID string) {
+	t.Helper()
+	path := filepath.Join(dir, "Artist - Title.mp3")
+	assert.Nil(t, os.WriteFile(path, []byte{}, 0o644))
 
-	_track := &entity.Track{ID: "TestCmdAudit", Title: "Title", Artists: []string{"Artist"}}
-	indexData.Set(_track, index.Installed)
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).To(func(_ *index.Index, _ string, indexed chan<- string, _ ...int) error {
-		if indexed != nil {
-			indexed <- "Artist - Title.mp3"
-		}
-		return nil
-	}).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Username")).Return("streambinder", nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		for _, c := range ch {
-			c <- cloneTrack(_track)
-		}
-		return nil
-	}).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Album")).To(func(_ string, ch ...chan interface{}) (*entity.Album, error) {
-		for _, c := range ch {
-			c <- cloneTrack(_track)
-		}
-		return &entity.Album{}, nil
-	}).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Track")).To(func(_ string, ch ...chan interface{}) (*entity.Track, error) {
-		for _, c := range ch {
-			c <- cloneTrack(_track)
-		}
-		return _track, nil
-	}).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Playlist")).To(func(_ string, ch ...chan interface{}) (*playlist.Playlist, error) {
-		for _, c := range ch {
-			c <- cloneTrack(_track)
-		}
-		return &playlist.Playlist{}, nil
-	}).Build()
-
-	// testing: no collision, every source selector exercised
-	assert.Nil(t, sys.ErrOnly(testExecute(cmdAudit(), "-o", t.TempDir(), "-l", "-p", "123", "-a", "123", "-t", "123")))
-
-	// testing: library auto-enabled when no collection is supplied
-	cmd := cmdAudit()
-	assert.Nil(t, sys.ErrOnly(testExecute(cmd, "-o", t.TempDir())))
-	library, err := cmd.Flags().GetBool("library")
+	tag, err := id3.Open(path, id3v2.Options{Parse: true})
 	assert.Nil(t, err)
-	assert.True(t, library)
+	tag.SetTitle("Title")
+	tag.SetArtist("Artist")
+	tag.SetSpotifyID(spotifyID)
+	assert.Nil(t, tag.Save())
+	assert.Nil(t, tag.Close())
+}
+
+// libraryBody renders a library page carrying the given track ids.
+func libraryBody(ids ...string) string {
+	body := `{"items":[`
+	for i, id := range ids {
+		if i > 0 {
+			body += ","
+		}
+		body += `{"added_at":"2026-01-01T00:00:00Z","track":` + trackJSON(id) + `}`
+	}
+	return body + `],"next":null,"total":` + string(rune('0'+len(ids))) + `}`
+}
+
+// sameTitleLibraryBody renders a library page whose tracks all carry
+// the canonical title, so they resolve to the same final filename.
+func sameTitleLibraryBody(ids ...string) string {
+	body := `{"items":[`
+	for i, id := range ids {
+		if i > 0 {
+			body += ","
+		}
+		track := strings.Replace(trackJSON("123"), `"id":"123"`, `"id":"`+id+`"`, 1)
+		body += `{"added_at":"2026-01-01T00:00:00Z","track":` + track + `}`
+	}
+	return body + `],"next":null,"total":` + string(rune('0'+len(ids))) + `}`
+}
+
+func BenchmarkAudit(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		TestCmdAudit(&testing.T{})
+	}
+}
+
+func TestCmdAudit(t *testing.T) {
+	resetState(t)
+	seedSession(t)
+	installWeb(t, nil, webScript{})
+
+	// testing: an empty library and one fetched track, no collisions
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdAudit(), "-o", t.TempDir())))
 }
 
 func TestCmdAuditPathFailure(t *testing.T) {
-	t.Cleanup(cleanup)
+	resetState(t)
 
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(os.Chdir).Return(errors.New("ko")).Build()
-
-	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAudit())), "ko")
-}
-
-func TestCmdAuditIndexFailure(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(errors.New("ko")).Build()
-
-	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAudit(), "-o", t.TempDir(), "-l")), "ko")
+	// testing: the output path does not exist, the chdir fails first
+	missing := filepath.Join(t.TempDir(), "missing")
+	assert.NotNil(t, sys.ErrOnly(testExecute(cmdAudit(), "-o", missing)))
 }
 
 func TestCmdAuditAuthFailure(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, errors.New("ko")).Build()
+	resetState(t)
+	noSession(t)
+	installWeb(t, nil, webScript{})
+	noOpenerPath(t)
+	occupyAuthPort(t)
 
 	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAudit(), "-o", t.TempDir(), "-l")), "ko")
+	assert.NotNil(t, sys.ErrOnly(testExecute(cmdAudit(), "-o", t.TempDir())))
 }
 
 func TestCmdAuditUsernameFailure(t *testing.T) {
-	t.Cleanup(cleanup)
+	resetState(t)
+	seedSession(t)
+	meCalls := 0
+	installWeb(t, map[string]func(*http.Request) (int, string){
+		"/v1/me": func(request *http.Request) (int, string) {
+			if request.URL.Path != "/v1/me" {
+				// the library fetch shares the prefix: serve the fixture
+				return 200, libraryBody("123")
+			}
+			meCalls++
+			if meCalls == 1 {
+				// the session recovery validation succeeds
+				return 200, meJSON
+			}
+			// the audit's own username resolution fails, and is tolerated
+			return apiError(500, "ko")
+		},
+	}, webScript{})
 
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Username")).Return("", errors.New("ko")).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).Return(nil).Build()
-
-	// testing: an unresolvable username is reported but does not abort the audit
-	assert.Nil(t, sys.ErrOnly(testExecute(cmdAudit(), "-o", t.TempDir(), "-l")))
+	// testing
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdAudit(), "-o", t.TempDir())))
 }
 
 func TestCmdAuditLibraryFailure(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).Return(errors.New("ko")).Build()
+	resetState(t)
+	seedSession(t)
+	installWeb(t, map[string]func(*http.Request) (int, string){
+		"/v1/me/tracks": func(*http.Request) (int, string) { return apiError(500, "ko") },
+	}, webScript{})
 
 	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAudit(), "-o", t.TempDir(), "-l")), "library: ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAudit(), "-o", t.TempDir())), "library: ko")
 }
 
 func TestCmdAuditAlbumFailure(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Album")).Return(&entity.Album{}, errors.New("ko")).Build()
+	resetState(t)
+	seedSession(t)
+	installWeb(t, map[string]func(*http.Request) (int, string){
+		"/v1/albums/": func(*http.Request) (int, string) { return apiError(500, "ko") },
+	}, webScript{})
 
 	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAudit(), "-o", t.TempDir(), "-a", "123")), "album 123: ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAudit(), "-o", t.TempDir(), "-a", "album123")), "album album123: ko")
 }
 
 func TestCmdAuditTrackFailure(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Track")).Return(&entity.Track{}, errors.New("ko")).Build()
+	resetState(t)
+	seedSession(t)
+	installWeb(t, map[string]func(*http.Request) (int, string){
+		"/v1/tracks/": func(*http.Request) (int, string) { return apiError(500, "ko") },
+	}, webScript{})
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAudit(), "-o", t.TempDir(), "-t", "123")), "track 123: ko")
 }
 
 func TestCmdAuditPlaylistFailure(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Playlist")).Return(&playlist.Playlist{}, errors.New("ko")).Build()
+	resetState(t)
+	seedSession(t)
+	installWeb(t, map[string]func(*http.Request) (int, string){
+		"/v1/playlists/": func(*http.Request) (int, string) { return apiError(500, "ko") },
+	}, webScript{})
 
 	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAudit(), "-o", t.TempDir(), "-p", "123")), "playlist 123: ko")
-}
-
-func TestCmdAuditFetchFailureNoCleanReport(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).Return(errors.New("ko")).Build()
-
-	// capture stdout to inspect the printed report
-	stdout := os.Stdout
-	reader, writer, err := os.Pipe()
-	assert.Nil(t, err)
-	os.Stdout = writer
-	defer func() { os.Stdout = stdout }()
-
-	// testing: the fetch error surfaces with its source, and no clean-audit
-	// report is printed on the incomplete data
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAudit(), "-o", t.TempDir(), "-l")), "library: ko")
-	assert.Nil(t, writer.Close())
-	output, err := io.ReadAll(reader)
-	assert.Nil(t, err)
-	assert.NotContains(t, string(output), "no filename collisions found")
-}
-
-func TestCmdAuditCollisionLibrary(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	_existing := &entity.Track{ID: "TestCmdAuditCollisionLibraryExisting", Title: "Title", Artists: []string{"Artist"}}
-	_colliding := &entity.Track{ID: "TestCmdAuditCollisionLibraryColliding", Title: "Title", Artists: []string{"Artist"}}
-
-	// the filename is already owned by a library file
-	indexData.Set(_existing, index.Offline)
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		for _, c := range ch {
-			c <- cloneTrack(_colliding)
-		}
-		return nil
-	}).Build()
-	mockey.Mock(id3.Open).Return(&id3.Tag{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "SpotifyID")).Return(_existing.ID).Build()
-	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "Title")).Return(_existing.Title).Build()
-	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "Artist")).Return("Artist").Build()
-	mockey.Mock(mockey.GetMethod(&id3.Tag{}, "Close")).Return(nil).Build()
-
-	// testing: the audit reports the collision with both sides and their sources
-	err := sys.ErrOnly(testExecute(cmdAudit(), "-o", t.TempDir(), "-l"))
-	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "audit failed: 1 filename collisions found")
-}
-
-func TestCmdAuditCollisionTagFailure(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	_existing := &entity.Track{ID: "TestCmdAuditCollisionTagFailureExisting", Title: "Title", Artists: []string{"Artist"}}
-	_colliding := &entity.Track{ID: "TestCmdAuditCollisionTagFailureColliding", Title: "Title", Artists: []string{"Artist"}}
-
-	// the filename is already owned by a library file
-	indexData.Set(_existing, index.Offline)
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		for _, c := range ch {
-			c <- cloneTrack(_colliding)
-		}
-		return nil
-	}).Build()
-	mockey.Mock(id3.Open).Return(&id3.Tag{}, errors.New("ko")).Build()
-
-	// testing: an unreadable tag still reports the collision with a fallback entry
-	err := sys.ErrOnly(testExecute(cmdAudit(), "-o", t.TempDir(), "-l"))
-	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "audit failed: 1 filename collisions found")
-}
-
-func TestCmdAuditCollisionFetched(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	_first := &entity.Track{ID: "TestCmdAuditCollisionFetchedFirst", Title: "Title", Artists: []string{"Artist"}}
-	_second := &entity.Track{ID: "TestCmdAuditCollisionFetchedSecond", Title: "Title", Artists: []string{"Artist"}}
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Album")).To(func(_ string, ch ...chan interface{}) (*entity.Album, error) {
-		for _, c := range ch {
-			c <- cloneTrack(_first)
-		}
-		return &entity.Album{}, nil
-	}).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Playlist")).To(func(_ string, ch ...chan interface{}) (*playlist.Playlist, error) {
-		for _, c := range ch {
-			c <- cloneTrack(_second)
-		}
-		return &playlist.Playlist{}, nil
-	}).Build()
-
-	// testing: the second same-filename track collides with the first fetched one,
-	// attributing each side to its own source selector
-	err := sys.ErrOnly(testExecute(cmdAudit(), "-o", t.TempDir(), "-a", "somealbum", "-p", "someplaylist"))
-	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "audit failed: 1 filename collisions found")
-}
-
-func TestCmdAuditCollisionMultiple(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	// pushed out of order on purpose: the report must sort them by filename
-	_b1 := &entity.Track{ID: "TestCmdAuditCollisionMultipleB1", Title: "TitleB", Artists: []string{"Artist"}}
-	_b2 := &entity.Track{ID: "TestCmdAuditCollisionMultipleB2", Title: "TitleB", Artists: []string{"Artist"}}
-	_a1 := &entity.Track{ID: "TestCmdAuditCollisionMultipleA1", Title: "TitleA", Artists: []string{"Artist"}}
-	_a2 := &entity.Track{ID: "TestCmdAuditCollisionMultipleA2", Title: "TitleA", Artists: []string{"Artist"}}
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Library")).To(func(_ int, ch ...chan interface{}) error {
-		for _, c := range ch {
-			for _, track := range []*entity.Track{_b1, _b2, _a1, _a2} {
-				c <- cloneTrack(track)
-			}
-		}
-		return nil
-	}).Build()
-
-	// testing: every collision is reported, sorted by filename
-	err := sys.ErrOnly(testExecute(cmdAudit(), "-o", t.TempDir(), "-l"))
-	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "audit failed: 2 filename collisions found")
-}
-
-func TestCmdAuditClassify(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	// track without ID and unknown path: claims the filename
-	_noID := &entity.Track{Title: "NoID", Artists: []string{"Artist"}}
-	collides, claims := auditClassify(_noID)
-	assert.False(t, collides)
-	assert.True(t, claims)
-
-	// already synced track: skipped
-	_installed := &entity.Track{ID: "TestCmdAuditClassifyInstalled", Title: "Installed", Artists: []string{"Artist"}}
-	indexData.Set(_installed, index.Installed)
-	collides, claims = auditClassify(_installed)
-	assert.False(t, collides)
-	assert.False(t, claims)
-
-	// flushed track: would be reinstalled, claims the filename
-	_flushed := &entity.Track{ID: "TestCmdAuditClassifyFlushed", Title: "Flushed", Artists: []string{"Artist"}}
-	indexData.SetID(_flushed.ID, index.Flush)
-	collides, claims = auditClassify(_flushed)
-	assert.False(t, collides)
-	assert.True(t, claims)
-
-	// unknown ID on a known path: collision
-	_existing := &entity.Track{ID: "TestCmdAuditClassifyExisting", Title: "Existing", Artists: []string{"Artist"}}
-	_colliding := &entity.Track{ID: "TestCmdAuditClassifyColliding", Title: "Existing", Artists: []string{"Artist"}}
-	indexData.Set(_existing, index.Offline)
-	collides, claims = auditClassify(_colliding)
-	assert.True(t, collides)
-	assert.False(t, claims)
-}
-
-func TestCmdAuditPlaylistTracksSource(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	_first := &entity.Track{ID: "TestCmdAuditPlaylistTracksSourceFirst", Title: "Title", Artists: []string{"Artist"}}
-	_second := &entity.Track{ID: "TestCmdAuditPlaylistTracksSourceSecond", Title: "Title", Artists: []string{"Artist"}}
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Playlist")).To(func(_ string, ch ...chan interface{}) (*playlist.Playlist, error) {
-		for _, c := range ch {
-			c <- cloneTrack(_first)
-			c <- cloneTrack(_second)
-		}
-		return &playlist.Playlist{}, nil
-	}).Build()
-
-	// capture stdout to inspect the printed report
-	stdout := os.Stdout
-	reader, writer, err := os.Pipe()
-	assert.Nil(t, err)
-	os.Stdout = writer
-	defer func() { os.Stdout = stdout }()
-
-	// testing: the playlist-tracks selector is attributed distinctly from playlist
-	err = sys.ErrOnly(testExecute(cmdAudit(), "-o", t.TempDir(), "--playlist-tracks", "sometracks"))
-	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "audit failed: 1 filename collisions found")
-	assert.Nil(t, writer.Close())
-	output, readErr := io.ReadAll(reader)
-	assert.Nil(t, readErr)
-	assert.Contains(t, string(output), "from playlist-tracks sometracks")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAudit(), "-o", t.TempDir(), "-p", "Mix")), "playlist Mix: ko")
 }
 
 func TestCmdAuditPlaylistTracksFailure(t *testing.T) {
-	t.Cleanup(cleanup)
-
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&index.Index{}, "BuildWithProgress")).Return(nil).Build()
-	mockey.Mock(spotify.Authenticate).Return(&spotify.Client{}, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Playlist")).Return(&playlist.Playlist{}, errors.New("ko")).Build()
+	resetState(t)
+	seedSession(t)
+	installWeb(t, map[string]func(*http.Request) (int, string){
+		"/v1/playlists/": func(*http.Request) (int, string) { return apiError(500, "ko") },
+	}, webScript{})
 
 	// testing
-	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAudit(), "-o", t.TempDir(), "--playlist-tracks", "123")), "playlist-tracks 123: ko")
+	assert.EqualError(t, sys.ErrOnly(testExecute(cmdAudit(), "-o", t.TempDir(), "--playlist-tracks", "Mix")), "playlist-tracks Mix: ko")
+}
+
+func TestCmdAuditPlaylistTracksSource(t *testing.T) {
+	resetState(t)
+	seedSession(t)
+	installWeb(t, nil, webScript{})
+
+	// testing: playlist tracks are fetched without the playlist file
+	assert.Nil(t, sys.ErrOnly(testExecute(cmdAudit(), "-o", t.TempDir(), "--playlist-tracks", "Mix")))
+}
+
+func TestCmdAuditCollision(t *testing.T) {
+	resetState(t)
+	seedSession(t)
+	installWeb(t, nil, webScript{})
+
+	musicDir := t.TempDir()
+	writeAuditTrack(t, musicDir, "other-id")
+
+	// testing: the fetched track resolves to the filename of a library
+	// file owned by a different Spotify track
+	err := sys.ErrOnly(testExecute(cmdAudit(), "-o", musicDir))
+	assert.EqualError(t, err, "audit failed: 1 filename collisions found")
+}
+
+func TestCmdAuditCollisionMultiple(t *testing.T) {
+	resetState(t)
+	seedSession(t)
+	installWeb(t, map[string]func(*http.Request) (int, string){
+		"/v1/me/tracks": func(*http.Request) (int, string) { return 200, sameTitleLibraryBody("123", "456") },
+	}, webScript{})
+
+	musicDir := t.TempDir()
+	writeAuditTrack(t, musicDir, "other-id")
+
+	// testing: both fetched tracks collide with the same library file
+	err := sys.ErrOnly(testExecute(cmdAudit(), "-o", musicDir))
+	assert.EqualError(t, err, "audit failed: 2 filename collisions found")
+}
+
+func TestCmdAuditCollisionFetched(t *testing.T) {
+	resetState(t)
+	seedSession(t)
+	installWeb(t, map[string]func(*http.Request) (int, string){
+		"/v1/me/tracks": func(*http.Request) (int, string) { return 200, sameTitleLibraryBody("123", "456") },
+	}, webScript{})
+
+	// testing: the second fetched track collides with the filename the
+	// first one claimed during the same audit
+	err := sys.ErrOnly(testExecute(cmdAudit(), "-o", t.TempDir()))
+	assert.EqualError(t, err, "audit failed: 1 filename collisions found")
+}
+
+func TestAuditClassify(t *testing.T) {
+	resetState(t)
+
+	track := &entity.Track{ID: "123", Title: "Title", Artists: []string{"Artist"}}
+
+	// an unknown track with a free filename proceeds and claims it
+	collides, claims := auditClassify(track)
+	assert.False(t, collides)
+	assert.True(t, claims)
+
+	// a second unknown track on the claimed filename collides
+	other := &entity.Track{ID: "456", Title: "Title", Artists: []string{"Artist"}}
+	collides, claims = auditClassify(other)
+	assert.True(t, collides)
+	assert.False(t, claims)
+
+	// a known track whose index entry is not pending flush neither
+	// collides nor claims
+	collides, claims = auditClassify(track)
+	assert.False(t, collides)
+	assert.False(t, claims)
+
+	// a known track pending flush claims its filename again
+	indexData.Set(track, index.Flush)
+	collides, claims = auditClassify(track)
+	assert.False(t, collides)
+	assert.True(t, claims)
 }

@@ -1,10 +1,9 @@
 package spotify
 
 import (
-	"errors"
+	"net/http"
 	"testing"
 
-	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 	"github.com/zmb3/spotify/v2"
@@ -23,6 +22,17 @@ var fullAlbum = &spotify.FullAlbum{
 	},
 }
 
+// albumJSON mirrors the fullAlbum fixture as a GET /v1/albums payload whose
+// tracks page carries the given next link (empty for a single page).
+func albumJSON(next string) string {
+	nextJSON := "null"
+	if next != "" {
+		nextJSON = `"` + next + `"`
+	}
+	return `{"id":"123","name":"Album","artists":[{"name":"Artist"}],` +
+		`"tracks":{"items":[` + simpleTrackJSON + `],"next":` + nextJSON + `,"total":1}}`
+}
+
 func BenchmarkAlbum(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		TestAlbum(&testing.T{})
@@ -30,11 +40,10 @@ func BenchmarkAlbum(b *testing.B) {
 }
 
 func TestAlbum(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetAlbum")).Return(fullAlbum, nil).Build()
+	scriptTransport(t, func(_ *http.Request) (int, string) {
+		return http.StatusOK, albumJSON("")
+	})
 
-	// testing
 	album, err := testClient().Album(fullAlbum.ID.String())
 	assert.Nil(t, err)
 	assert.Equal(t, fullAlbum.ID.String(), album.ID)
@@ -44,11 +53,10 @@ func TestAlbum(t *testing.T) {
 }
 
 func TestAlbumChannel(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetAlbum")).Return(fullAlbum, nil).Build()
+	scriptTransport(t, func(_ *http.Request) (int, string) {
+		return http.StatusOK, albumJSON("")
+	})
 
-	// testing
 	channel := make(chan interface{}, 1)
 	defer close(channel)
 	album, err := testClient().Album(fullAlbum.ID.String(), channel)
@@ -57,20 +65,20 @@ func TestAlbumChannel(t *testing.T) {
 }
 
 func TestAlbumGetAlbumFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetAlbum")).Return(nil, errors.New("ko")).Build()
+	scriptTransport(t, func(_ *http.Request) (int, string) {
+		return apiError(http.StatusInternalServerError, "ko")
+	})
 
-	// testing
 	assert.EqualError(t, sys.ErrOnly(testClient().Album(fullPlaylist.ID.String())), "ko")
 }
 
 func TestAlbumNextPageFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "GetAlbum")).Return(fullAlbum, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "NextPage")).Return(errors.New("ko")).Build()
+	scriptTransport(t, func(request *http.Request) (int, string) {
+		if request.URL.Path == "/v1/albums/123/tracks" {
+			return apiError(http.StatusInternalServerError, "ko")
+		}
+		return http.StatusOK, albumJSON("https://api.spotify.com/v1/albums/123/tracks?offset=1&limit=50")
+	})
 
-	// testing
 	assert.EqualError(t, sys.ErrOnly(testClient().Album(fullAlbum.ID.String())), "ko")
 }

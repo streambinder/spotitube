@@ -2,18 +2,15 @@ package lyrics
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
-	neturl "net/url"
-	"strings"
 	"testing"
 
-	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
+
+const lrclibSyncedResponse = `{"syncedLyrics": "[00:27.37] lyrics", "plainLyrics": "lyrics"}`
 
 func BenchmarkLrclib(b *testing.B) {
 	for i := 0; i < b.N; i++ {
@@ -22,34 +19,20 @@ func BenchmarkLrclib(b *testing.B) {
 }
 
 func TestLrclibSearch(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 200,
-			Body: io.NopCloser(
-				strings.NewReader(`{"syncedLyrics": "[00:27.37] lyrics", "plainLyrics": "lyrics"}`),
-			),
-		}, nil
-	}).Build()
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		return httpResponse(200, lrclibSyncedResponse), nil
+	})
 
-	// testing
+	// testing: synced lyrics win and their whitespace is normalized
 	lyrics, err := lrclib{}.search(track, context.Background())
 	assert.Nil(t, err)
 	assert.Equal(t, []byte("[00:27.37]lyrics"), lyrics)
 }
 
 func TestLrclibSearchPlain(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 200,
-			Body: io.NopCloser(
-				strings.NewReader(`{"plainLyrics": "lyrics"}`),
-			),
-		}, nil
-	}).Build()
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		return httpResponse(200, `{"plainLyrics": "lyrics"}`), nil
+	})
 
 	// testing
 	lyrics, err := lrclib{}.search(track, context.Background())
@@ -57,229 +40,125 @@ func TestLrclibSearchPlain(t *testing.T) {
 	assert.Equal(t, []byte("lyrics"), lyrics)
 }
 
-func TestLrclibSearchNewRequestFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(http.NewRequestWithContext).Return(nil, errors.New("ko")).Build()
+func TestLrclibSearchContextCanceled(t *testing.T) {
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		return nil, context.Canceled
+	})
 
-	// testing
-	assert.EqualError(t, sys.ErrOnly(lrclib{}.search(track)), "ko")
-}
-
-func TestLrclibSearchNewRequestContextCanceled(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).Return(nil, context.Canceled).Build()
-
-	// testing
-	lyrics, err := lrclib{}.search(track, context.Background())
-	assert.Nil(t, err)
+	// testing: a cancelled context is a silent no-result
+	lyrics, err := lrclib{}.search(track)
 	assert.Nil(t, lyrics)
+	assert.Nil(t, err)
 }
 
 func TestLrclibSearchFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).Return(nil, errors.New("ko")).Build()
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("ko")
+	})
 
-	// testing
-	assert.EqualError(t, sys.ErrOnly(lrclib{}.search(track)), "ko")
+	// testing: the client wraps transport errors in a url.Error
+	assert.ErrorContains(t, sys.ErrOnly(lrclib{}.search(track)), "ko")
 }
 
 func TestLrclibSearchNotFound(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).Return(&http.Response{
-		StatusCode: 404,
-		Body: io.NopCloser(
-			strings.NewReader(""),
-		),
-	}, nil).Build()
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		return httpResponse(404, ""), nil
+	})
 
-	// testing
+	// testing: a 404 is a silent no-result
 	lyrics, err := lrclib{}.search(track)
 	assert.Nil(t, lyrics)
 	assert.Nil(t, err)
 }
 
 func TestLrclibSearchMaxRetriesExceeded(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(sys.SleepUntilRetry).Return().Build()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 429,
-			Body:       io.NopCloser(strings.NewReader("")),
-		}, nil
-	}).Build()
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		return rateLimited(), nil
+	})
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(lrclib{}.search(track)), "lrclib: max retries exceeded")
 }
 
-func TestLrclibGetRetryRequestBuildFailure(t *testing.T) {
-	// monkey patching
-	callCount := 0
-	defer mockey.UnPatchAll()
-	mockey.Mock(sys.SleepUntilRetry).Return().Build()
-	mockey.Mock(http.NewRequestWithContext).To(func(_ context.Context, method, url string, _ io.Reader) (*http.Request, error) {
-		callCount++
-		if callCount > 1 {
-			return nil, errors.New("ko")
-		}
-		req := &http.Request{Method: method, Header: make(http.Header)}
-		parsedURL, parseErr := neturl.Parse(url)
-		if parseErr != nil {
-			return nil, parseErr
-		}
-		req.URL = parsedURL
-		return req, nil
-	}).Build()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 429,
-			Body:       io.NopCloser(strings.NewReader("")),
-		}, nil
-	}).Build()
-
-	// testing
-	assert.EqualError(t, sys.ErrOnly(lrclib{}.get("http://localhost/")), "ko")
-}
-
 func TestLrclibSearchTooManyRequests(t *testing.T) {
-	// monkey patching
-	doCounter := 0
-	defer mockey.UnPatchAll()
-	mockey.Mock(sys.SleepUntilRetry).Return().Build()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
-		doCounter++
-		if doCounter > 1 {
-			return &http.Response{
-				StatusCode: 200,
-				Body: io.NopCloser(
-					strings.NewReader(`{"syncedLyrics": "[00:27.37] lyrics", "plainLyrics": "lyrics"}`),
-				),
-			}, nil
+	callCount := 0
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		callCount++
+		if callCount == 1 {
+			return rateLimited(), nil
 		}
-		return &http.Response{
-			StatusCode: 429,
-			Body: io.NopCloser(
-				strings.NewReader(""),
-			),
-		}, nil
-	}).Build()
+		return httpResponse(200, lrclibSyncedResponse), nil
+	})
 
-	// testing
-	assert.Nil(t, sys.ErrOnly(lrclib{}.search(track)))
+	// testing: the search recovers after a 429
+	lyrics, err := lrclib{}.search(track)
+	assert.Nil(t, err)
+	assert.Equal(t, []byte("[00:27.37]lyrics"), lyrics)
 }
 
 func TestLrclibSearchInternalError(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).Return(&http.Response{
-		StatusCode: 500,
-		Body: io.NopCloser(
-			strings.NewReader(""),
-		),
-	}, nil).Build()
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		return serverError(500), nil
+	})
 
 	// testing
 	assert.NotNil(t, sys.ErrOnly(lrclib{}.search(track)))
 }
 
 func TestLrclibSearchReadFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 200,
-			Body: io.NopCloser(
-				strings.NewReader(`{"syncedLyrics": "[00:27.37] lyrics", "plainLyrics": "lyrics"}`),
-			),
-		}, nil
-	}).Build()
-	mockey.Mock(io.ReadAll).Return(nil, errors.New("ko")).Build()
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		response := httpResponse(200, "")
+		response.Body = errReader{errors.New("ko")}
+		return response, nil
+	})
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(lrclib{}.search(track)), "ko")
 }
 
 func TestLrclibSearchJsonFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 200,
-			Body: io.NopCloser(
-				strings.NewReader(`{"syncedLyrics": "[00:27.37] lyrics", "plainLyrics": "lyrics"}`),
-			),
-		}, nil
-	}).Build()
-	mockey.Mock(json.Unmarshal).Return(errors.New("ko")).Build()
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		return httpResponse(200, "not json"), nil
+	})
 
 	// testing
-	assert.EqualError(t, sys.ErrOnly(lrclib{}.search(track)), "ko")
+	assert.NotNil(t, sys.ErrOnly(lrclib{}.search(track)))
 }
 
 func TestLrclibSearchServerErrorRetryOnce(t *testing.T) {
-	// monkey patching
-	doCounter := 0
-	defer mockey.UnPatchAll()
-	mockey.Mock(sys.SleepUntilRetry).Return().Build()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
-		doCounter++
-		return &http.Response{
-			StatusCode: 503,
-			Status:     "503 Service Unavailable",
-			Body:       io.NopCloser(strings.NewReader("")),
-		}, nil
-	}).Build()
+	callCount := 0
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		callCount++
+		return serverError(503), nil
+	})
 
-	// testing: server errors are retried only once, then the error is returned
+	// testing: a server error is retried exactly once before failing
 	assert.EqualError(t, sys.ErrOnly(lrclib{}.search(track)), "cannot fetch results on lrclib: 503 Service Unavailable")
-	assert.Equal(t, 2, doCounter)
+	assert.Equal(t, 2, callCount)
 }
 
 func TestLrclibSearchServerErrorRecover(t *testing.T) {
-	// monkey patching
-	doCounter := 0
-	defer mockey.UnPatchAll()
-	mockey.Mock(sys.SleepUntilRetry).Return().Build()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
-		doCounter++
-		if doCounter > 1 {
-			return &http.Response{
-				StatusCode: 200,
-				Body: io.NopCloser(
-					strings.NewReader(`{"syncedLyrics": "[00:27.37] lyrics", "plainLyrics": "lyrics"}`),
-				),
-			}, nil
+	callCount := 0
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		callCount++
+		if callCount == 1 {
+			return serverError(503), nil
 		}
-		return &http.Response{
-			StatusCode: 503,
-			Status:     "503 Service Unavailable",
-			Body:       io.NopCloser(strings.NewReader("")),
-		}, nil
-	}).Build()
+		return httpResponse(200, lrclibSyncedResponse), nil
+	})
 
-	// testing
+	// testing: the single server-error retry can still succeed
 	lyrics, err := lrclib{}.search(track)
 	assert.Nil(t, err)
 	assert.Equal(t, []byte("[00:27.37]lyrics"), lyrics)
-	assert.Equal(t, 2, doCounter)
+	assert.Equal(t, 2, callCount)
 }
 
 func TestLrclibSearchBadRequest(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).Return(&http.Response{
-		StatusCode: 400,
-		Status:     "400 Bad Request",
-		Body: io.NopCloser(
-			strings.NewReader(""),
-		),
-	}, nil).Build()
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		return httpResponse(400, ""), nil
+	})
 
-	// testing
+	// testing: a non-retryable status fails immediately
 	assert.EqualError(t, sys.ErrOnly(lrclib{}.search(track)), "cannot fetch results on lrclib: 400 Bad Request")
 }

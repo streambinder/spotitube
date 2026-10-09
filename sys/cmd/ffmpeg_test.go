@@ -1,13 +1,10 @@
 package cmd
 
 import (
-	"errors"
 	"os"
-	"os/exec"
-	"strconv"
+	"path/filepath"
 	"testing"
 
-	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
@@ -32,6 +29,15 @@ const loudnessDetectOutput = `ffmpeg version 5.1.2 Copyright (c) 2000-2022 the F
 	"offset" : "9.45"
 }`
 
+// fakeFFmpeg installs a fake ffmpeg binary printing the given output and
+// exiting with the given code.
+func fakeFFmpeg(t *testing.T, output string, code int) {
+	t.Helper()
+	installFakeBinaries(t, map[string]string{
+		ffmpegName: printfScript(output, code),
+	})
+}
+
 func BenchmarkFFmpeg(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		TestLoudnessDetect(&testing.T{})
@@ -40,13 +46,8 @@ func BenchmarkFFmpeg(b *testing.B) {
 }
 
 func TestLoudnessDetect(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).To(func(cmd *exec.Cmd) error {
-		return sys.ErrOnly(cmd.Stdout.Write([]byte(loudnessDetectOutput)))
-	}).Build()
+	fakeFFmpeg(t, loudnessDetectOutput, 0)
 
-	// testing
 	loudness, err := FFmpeg().LoudnessDetect("/dev/null")
 	assert.Nil(t, err)
 	assert.Equal(t, Loudness{-23.45, -3.21, 8.12, -34.2, 9.45}, loudness)
@@ -70,101 +71,92 @@ const loudnessDetectOutputNewFormat = `[Parsed_loudnorm_0 @ 0x741a44001ac0]
 size=N/A time=00:00:03.00 bitrate=N/A speed=37.6x elapsed=0:00:00.07`
 
 func TestLoudnessDetectNewFormat(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).To(func(cmd *exec.Cmd) error {
-		return sys.ErrOnly(cmd.Stdout.Write([]byte(loudnessDetectOutputNewFormat)))
-	}).Build()
+	fakeFFmpeg(t, loudnessDetectOutputNewFormat, 0)
 
-	// testing
 	loudness, err := FFmpeg().LoudnessDetect("/dev/null")
 	assert.Nil(t, err)
 	assert.Equal(t, Loudness{-22.25, -18.5, 0, -32.25, -0.03}, loudness)
 }
 
 func TestLoudnessDetectFFmpegFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).Return(errors.New("ko")).Build()
+	fakeFFmpeg(t, "ffmpeg blew up", 1)
 
-	// testing
-	assert.Error(t, sys.ErrOnly(FFmpeg().LoudnessDetect("/dev/null")))
+	assert.ErrorContains(t, sys.ErrOnly(FFmpeg().LoudnessDetect("/dev/null")), "ffmpeg blew up")
 }
 
 func TestLoudnessDetectParseFloatFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).To(func(cmd *exec.Cmd) error {
-		return sys.ErrOnly(cmd.Stdout.Write([]byte(loudnessDetectOutput)))
-	}).Build()
-	mockey.Mock(strconv.ParseFloat).Return(0.0, errors.New("ko")).Build()
+	// a non-numeric measurement makes the real strconv.ParseFloat fail
+	fakeFFmpeg(t, `{
+	"measured_I" : "not-a-number",
+	"measured_TP" : "-3.21",
+	"measured_LRA" : "8.12",
+	"measured_thresh" : "-34.20",
+	"offset" : "9.45"
+}`, 0)
 
-	// testing
 	assert.EqualError(t,
 		sys.ErrOnly(FFmpeg().LoudnessDetect("/dev/null")),
 		"cannot parse loudness measurement for given track")
 }
 
 func TestLoudnessDetectNoJSON(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).To(func(cmd *exec.Cmd) error {
-		return sys.ErrOnly(cmd.Stdout.Write([]byte("no loudness info here")))
-	}).Build()
+	fakeFFmpeg(t, "no loudness info here", 0)
 
-	// testing
 	assert.EqualError(t,
 		sys.ErrOnly(FFmpeg().LoudnessDetect("/dev/null")),
 		"cannot parse loudness measurement for given track")
 }
 
 func TestLoudnessDetectMalformedJSON(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).To(func(cmd *exec.Cmd) error {
-		return sys.ErrOnly(cmd.Stdout.Write([]byte("some log line { not json")))
-	}).Build()
+	fakeFFmpeg(t, "some log line { not json", 0)
 
-	// testing
 	assert.EqualError(t,
 		sys.ErrOnly(FFmpeg().LoudnessDetect("/dev/null")),
 		"cannot parse loudness measurement for given track")
 }
 
 func TestLoudnessNormalize(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).Return(nil).Build()
-	mockey.Mock(os.Rename).Return(nil).Build()
+	// the fake re-encode writes the normalized file at the last argument,
+	// which is the temp path the production code then renames over the input
+	installFakeBinaries(t, map[string]string{
+		ffmpegName: "for last; do :; done\nprintf 'normalized' > \"$last\"\n",
+	})
 
-	// testing
-	assert.Nil(t, FFmpeg().LoudnessNormalize("/dev/null", Loudness{Integrated: -23.45}))
+	dir := t.TempDir()
+	path := filepath.Join(dir, "track.flac")
+	assert.Nil(t, os.WriteFile(path, []byte("original"), 0o600))
+
+	assert.Nil(t, FFmpeg().LoudnessNormalize(path, Loudness{Integrated: -23.45}))
+	content, err := os.ReadFile(path)
+	assert.Nil(t, err)
+	assert.Equal(t, "normalized", string(content))
+	entries, err := os.ReadDir(dir)
+	assert.Nil(t, err)
+	assert.Len(t, entries, 1) // the temp file was renamed, not left behind
 }
 
 func TestLoudnessNormalizeSkipped(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).Return(errors.New("must not run")).Build()
+	// no ffmpeg on PATH at all: any attempt to run it would fail, so a nil
+	// result proves inaudible offsets skip the re-encode entirely
+	installEmptyPath(t)
 
-	// testing: inaudible offsets skip the re-encode entirely
 	assert.Nil(t, FFmpeg().LoudnessNormalize("/dev/null", Loudness{Integrated: -14.2}))
 }
 
 func TestLoudnessNormalizeRenameFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).Return(nil).Build()
-	mockey.Mock(os.Rename).Return(errors.New("ko")).Build()
+	// the fake exits successfully but produces no output file,
+	// so the real os.Rename of the temp file fails
+	fakeFFmpeg(t, "", 0)
 
-	// testing
-	assert.EqualError(t, FFmpeg().LoudnessNormalize("/dev/null", Loudness{Integrated: -23.45}), "ko")
+	path := filepath.Join(t.TempDir(), "track.flac")
+	err := FFmpeg().LoudnessNormalize(path, Loudness{Integrated: -23.45})
+	assert.ErrorIs(t, err, os.ErrNotExist)
 }
 
 func TestLoudnessNormalizeFFmpegFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&exec.Cmd{}, "Run")).Return(errors.New("ko")).Build()
+	fakeFFmpeg(t, "ffmpeg blew up", 1)
 
-	// testing
-	assert.Error(t, FFmpeg().LoudnessNormalize("/dev/null", Loudness{Integrated: -23.45}))
+	assert.ErrorContains(t,
+		FFmpeg().LoudnessNormalize("/dev/null", Loudness{Integrated: -23.45}),
+		"ffmpeg blew up")
 }

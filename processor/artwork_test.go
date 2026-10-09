@@ -1,12 +1,11 @@
 package processor
 
 import (
-	"errors"
+	"bytes"
 	"image"
 	"image/jpeg"
 	"testing"
 
-	"github.com/bytedance/mockey"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,41 +16,27 @@ func BenchmarkArtwork(b *testing.B) {
 }
 
 func TestArtworkDo(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(image.Decode).Return(
-		image.NewRGBA(image.Rectangle{image.Pt(0, 0), image.Pt(0, 0)}), "", nil,
-	).Build()
-	mockey.Mock(jpeg.Encode).Return(nil).Build()
+	var source bytes.Buffer
+	if err := jpeg.Encode(&source, image.NewRGBA(image.Rect(0, 0, 600, 400)), nil); err != nil {
+		t.Fatal(err)
+	}
+	data := source.Bytes()
 
-	// testing
-	assert.Nil(t, Artwork{}.Do(&[]byte{}))
+	assert.Nil(t, Artwork{}.Do(&data))
+
+	// the artwork has been resized to a 300px-wide JPEG
+	config, format, err := image.DecodeConfig(bytes.NewReader(data))
+	assert.Nil(t, err)
+	assert.Equal(t, "jpeg", format)
+	assert.Equal(t, 300, config.Width)
 }
 
 func TestArtworkDoUnsupported(t *testing.T) {
-	// testing
 	assert.NotNil(t, Artwork{}.Do(track))
 }
 
 func TestArtworkDoDecodeFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(image.Decode).Return(
-		image.NewRGBA(image.Rectangle{image.Pt(0, 0), image.Pt(0, 0)}), "", errors.New("ko"),
-	).Build()
+	data := []byte("this is not an image")
 
-	// testing
-	assert.EqualError(t, Artwork{}.Do(&[]byte{}), "ko")
-}
-
-func TestArtworkDoEncodeFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(image.Decode).Return(
-		image.NewRGBA(image.Rectangle{image.Pt(0, 0), image.Pt(0, 0)}), "", nil,
-	).Build()
-	mockey.Mock(jpeg.Encode).Return(errors.New("ko")).Build()
-
-	// testing
-	assert.EqualError(t, Artwork{}.Do(&[]byte{}), "ko")
+	assert.ErrorContains(t, Artwork{}.Do(&data), "unknown format")
 }

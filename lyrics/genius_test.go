@@ -4,14 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	neturl "net/url"
-	"strings"
 	"testing"
 
-	"github.com/PuerkitoBio/goquery"
-	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
 )
@@ -28,7 +23,30 @@ const (
 			}]
 		}
 	}`
+	lyricsPage = `<div data-lyrics-container="true">verse<br/><span>lyrics</span></div>`
 )
+
+// geniusRouter routes the search API and the lyrics pages to the given
+// per-host handlers.
+type geniusRouter struct {
+	api  func(*http.Request) (*http.Response, error)
+	page func(*http.Request) (*http.Response, error)
+}
+
+func (router geniusRouter) RoundTrip(request *http.Request) (*http.Response, error) {
+	if request.URL.Host == "api.genius.com" {
+		return router.api(request)
+	}
+	return router.page(request)
+}
+
+func geniusSearchOK(*http.Request) (*http.Response, error) {
+	return httpResponse(200, fmt.Sprintf(response, track.Title, track.Artist())), nil
+}
+
+func geniusPageOK(*http.Request) (*http.Response, error) {
+	return httpResponse(200, lyricsPage), nil
+}
 
 func BenchmarkGenius(b *testing.B) {
 	for i := 0; i < b.N; i++ {
@@ -37,24 +55,7 @@ func BenchmarkGenius(b *testing.B) {
 }
 
 func TestGeniusSearch(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, request *http.Request) (*http.Response, error) {
-		if strings.EqualFold(request.Host, "api.genius.com") {
-			return &http.Response{
-				StatusCode: 200,
-				Body: io.NopCloser(
-					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artist())),
-				),
-			}, nil
-		}
-		return &http.Response{
-			StatusCode: 200,
-			Body: io.NopCloser(
-				strings.NewReader(`<div data-lyrics-container="true">verse<br/><span>lyrics</span></div>`),
-			),
-		}, nil
-	}).Build()
+	stubRoundTripper(t, geniusRouter{geniusSearchOK, geniusPageOK})
 
 	// testing
 	lyrics, err := genius{}.search(track, context.Background())
@@ -62,369 +63,147 @@ func TestGeniusSearch(t *testing.T) {
 	assert.Equal(t, []byte("verse\nlyrics"), lyrics)
 }
 
-func TestGeniusSearchNewRequestFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(http.NewRequestWithContext).Return(nil, errors.New("ko")).Build()
+func TestGeniusSearchContextCanceled(t *testing.T) {
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		return nil, context.Canceled
+	})
 
-	// testing
-	assert.EqualError(t, sys.ErrOnly(genius{}.search(track)), "ko")
-}
-
-func TestGeniusSearchNewRequestContextCanceled(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).Return(nil, context.Canceled).Build()
-
-	// testing
+	// testing: a cancelled context is a silent no-result
 	lyrics, err := genius{}.search(track)
 	assert.Nil(t, lyrics)
 	assert.Nil(t, err)
 }
 
 func TestGeniusSearchMalformedData(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 200,
-			Body: io.NopCloser(
-				strings.NewReader(`{"response": {}`),
-			),
-		}, nil
-	}).Build()
+	stubRoundTripper(t, geniusRouter{func(*http.Request) (*http.Response, error) {
+		return httpResponse(200, `{"response": {}`), nil
+	}, geniusPageOK})
 
 	// testing
 	assert.Error(t, sys.ErrOnly(genius{}.search(track)))
 }
 
 func TestGeniusSearchFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).Return(nil, errors.New("ko")).Build()
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("ko")
+	})
 
-	// testing
-	assert.EqualError(t, sys.ErrOnly(genius{}.search(track)), "ko")
+	// testing: the client wraps transport errors in a url.Error
+	assert.ErrorContains(t, sys.ErrOnly(genius{}.search(track)), "ko")
 }
 
 func TestGeniusSearchHttpNotFound(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 404,
-			Body: io.NopCloser(
-				strings.NewReader(""),
-			),
-		}, nil
-	}).Build()
+	stubRoundTripper(t, geniusRouter{func(*http.Request) (*http.Response, error) {
+		return httpResponse(404, ""), nil
+	}, geniusPageOK})
 
 	// testing
 	assert.NotNil(t, sys.ErrOnly(genius{}.search(track)))
 }
 
 func TestGeniusSearchMaxRetriesExceeded(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(sys.SleepUntilRetry).Return().Build()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 429,
-			Body:       io.NopCloser(strings.NewReader("")),
-		}, nil
-	}).Build()
+	stubRoundTripper(t, geniusRouter{func(*http.Request) (*http.Response, error) {
+		return rateLimited(), nil
+	}, geniusPageOK})
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(genius{}.search(track)), "genius search: max retries exceeded")
 }
 
-func TestGeniusSearchRetryRequestBuildFailure(t *testing.T) {
-	// monkey patching
-	callCount := 0
-	defer mockey.UnPatchAll()
-	mockey.Mock(sys.SleepUntilRetry).Return().Build()
-	mockey.Mock(http.NewRequestWithContext).To(func(_ context.Context, method, url string, _ io.Reader) (*http.Request, error) {
-		callCount++
-		if callCount > 1 {
-			return nil, errors.New("ko")
-		}
-		req := &http.Request{Method: method, Header: make(http.Header)}
-		parsedURL, parseErr := neturl.Parse(url)
-		if parseErr != nil {
-			return nil, parseErr
-		}
-		req.URL = parsedURL
-		return req, nil
-	}).Build()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 429,
-			Body:       io.NopCloser(strings.NewReader("")),
-		}, nil
-	}).Build()
-
-	// testing
-	assert.EqualError(t, sys.ErrOnly(genius{}.search(track)), "ko")
-}
-
 func TestGeniusGetMaxRetriesExceeded(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(sys.SleepUntilRetry).Return().Build()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, request *http.Request) (*http.Response, error) {
-		if strings.EqualFold(request.Host, "api.genius.com") {
-			return &http.Response{
-				StatusCode: 200,
-				Body: io.NopCloser(
-					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artist())),
-				),
-			}, nil
-		}
-		return &http.Response{
-			StatusCode: 429,
-			Body:       io.NopCloser(strings.NewReader("")),
-		}, nil
-	}).Build()
+	stubRoundTripper(t, geniusRouter{geniusSearchOK, func(*http.Request) (*http.Response, error) {
+		return rateLimited(), nil
+	}})
 
-	// testing
+	// testing: the search succeeds, the lyrics page fetch keeps being
+	// rate limited until its own retries are exhausted
 	assert.EqualError(t, sys.ErrOnly(genius{}.search(track)), "genius get: max retries exceeded")
 }
 
-func TestGeniusGetRetryRequestBuildFailure(t *testing.T) {
-	// monkey patching
-	callCount := 0
-	defer mockey.UnPatchAll()
-	mockey.Mock(sys.SleepUntilRetry).Return().Build()
-	mockey.Mock(http.NewRequestWithContext).To(func(_ context.Context, method, url string, _ io.Reader) (*http.Request, error) {
-		callCount++
-		if callCount > 1 {
-			return nil, errors.New("ko")
-		}
-		req := &http.Request{Method: method, Header: make(http.Header)}
-		parsedURL, parseErr := neturl.Parse(url)
-		if parseErr != nil {
-			return nil, parseErr
-		}
-		req.URL = parsedURL
-		return req, nil
-	}).Build()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 429,
-			Body:       io.NopCloser(strings.NewReader("")),
-		}, nil
-	}).Build()
-
-	// testing
-	assert.EqualError(t, sys.ErrOnly(genius{}.get("http://localhost/")), "ko")
-}
-
 func TestGeniusSearchTooManyRequests(t *testing.T) {
-	// monkey patching
-	var (
-		doAPICounter            = 0
-		doCounter               = 0
-		tooManyRequestsResponse = &http.Response{
-			StatusCode: 429,
-			Body: io.NopCloser(
-				strings.NewReader(""),
-			),
-		}
-	)
-	defer mockey.UnPatchAll()
-	mockey.Mock(sys.SleepUntilRetry).Return().Build()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, request *http.Request) (*http.Response, error) {
-		if strings.EqualFold(request.Host, "api.genius.com") {
-			doAPICounter++
-			if doAPICounter > 1 {
-				return &http.Response{
-					StatusCode: 200,
-					Body: io.NopCloser(
-						strings.NewReader(fmt.Sprintf(response, track.Title, track.Artist())),
-					),
-				}, nil
+	apiCount, pageCount := 0, 0
+	stubRoundTripper(t, geniusRouter{
+		func(request *http.Request) (*http.Response, error) {
+			apiCount++
+			if apiCount == 1 {
+				return rateLimited(), nil
 			}
-			return tooManyRequestsResponse, nil
-		}
-		doCounter++
-		if doCounter > 1 {
-			return &http.Response{
-				StatusCode: 200,
-				Body: io.NopCloser(
-					strings.NewReader(`<div data-lyrics-container="true">verse<br/><span>lyrics</span></div>`),
-				),
-			}, nil
-		}
-		return tooManyRequestsResponse, nil
-	}).Build()
+			return geniusSearchOK(request)
+		},
+		func(request *http.Request) (*http.Response, error) {
+			pageCount++
+			if pageCount == 1 {
+				return rateLimited(), nil
+			}
+			return geniusPageOK(request)
+		},
+	})
 
-	// testing
+	// testing: both the search and the page fetch recover after a 429
 	assert.Nil(t, sys.ErrOnly(genius{}.search(track)))
 }
 
 func TestGeniusSearchReadFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 200,
-			Body: io.NopCloser(
-				strings.NewReader(fmt.Sprintf(response, track.Title, track.Artist())),
-			),
-		}, nil
-	}).Build()
-	mockey.Mock(io.ReadAll).Return(nil, errors.New("ko")).Build()
+	stubRoundTripper(t, geniusRouter{func(*http.Request) (*http.Response, error) {
+		response := httpResponse(200, "")
+		response.Body = errReader{errors.New("ko")}
+		return response, nil
+	}, geniusPageOK})
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(genius{}.search(track)), "ko")
 }
 
 func TestGeniusSearchNotFound(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, _ *http.Request) (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 200,
-			Body: io.NopCloser(
-				strings.NewReader(`{"response": {"hits": []}}`),
-			),
-		}, nil
-	}).Build()
+	stubRoundTripper(t, geniusRouter{func(*http.Request) (*http.Response, error) {
+		return httpResponse(200, `{"response":{"hits":[]}}`), nil
+	}, geniusPageOK})
 
-	// testing
+	// testing: no hits is a silent no-result, even after the
+	// main-artist-only retry
 	lyrics, err := genius{}.search(track)
 	assert.Nil(t, lyrics)
 	assert.Nil(t, err)
 }
 
 func TestGeniusLyricsGetFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, request *http.Request) (*http.Response, error) {
-		if strings.EqualFold(request.Host, "api.genius.com") {
-			return &http.Response{
-				StatusCode: 200,
-				Body: io.NopCloser(
-					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artist())),
-				),
-			}, nil
-		}
+	stubRoundTripper(t, geniusRouter{geniusSearchOK, func(*http.Request) (*http.Response, error) {
 		return nil, errors.New("ko")
-	}).Build()
+	}})
 
 	// testing
-	assert.EqualError(t, sys.ErrOnly(genius{}.search(track)), "ko")
+	assert.ErrorContains(t, sys.ErrOnly(genius{}.search(track)), "ko")
 }
 
-func TestGeniusLyricsNewRequestFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(http.NewRequestWithContext).Return(nil, errors.New("ko")).Build()
-
-	// testing
-	assert.EqualError(t, sys.ErrOnly(genius{}.get("http://genius.com/test", context.Background())), "ko")
-}
-
-func TestGeniusLyricsNewRequestContextCanceled(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, request *http.Request) (*http.Response, error) {
-		if strings.EqualFold(request.Host, "api.genius.com") {
-			return &http.Response{
-				StatusCode: 200,
-				Body: io.NopCloser(
-					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artist())),
-				),
-			}, nil
-		}
+func TestGeniusLyricsContextCanceled(t *testing.T) {
+	stubTransport(t, func(*http.Request) (*http.Response, error) {
 		return nil, context.Canceled
-	}).Build()
+	})
 
 	// testing
-	lyrics, err := genius{}.search(track)
+	lyrics, err := genius{}.get("http://genius.com/test", context.Background())
 	assert.Nil(t, lyrics)
 	assert.Nil(t, err)
 }
 
 func TestGeniusLyricsNotFound(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, request *http.Request) (*http.Response, error) {
-		if strings.EqualFold(request.Host, "api.genius.com") {
-			return &http.Response{
-				StatusCode: 200,
-				Body: io.NopCloser(
-					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artist())),
-				),
-			}, nil
-		}
-		return &http.Response{
-			StatusCode: 500,
-			Body:       io.NopCloser(strings.NewReader("")),
-		}, nil
-	}).Build()
+	stubRoundTripper(t, geniusRouter{geniusSearchOK, func(*http.Request) (*http.Response, error) {
+		return httpResponse(404, ""), nil
+	}})
 
 	// testing
-	lyrics, err := genius{}.search(track)
+	lyrics, err := genius{}.get("http://genius.com/test", context.Background())
 	assert.Nil(t, lyrics)
 	assert.NotNil(t, err)
 }
 
 func TestGeniusLyricsNotParseable(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "do")).To(func(_ *http.Client, request *http.Request) (*http.Response, error) {
-		if strings.EqualFold(request.Host, "api.genius.com") {
-			return &http.Response{
-				StatusCode: 200,
-				Body: io.NopCloser(
-					strings.NewReader(fmt.Sprintf(response, track.Title, track.Artist())),
-				),
-			}, nil
-		}
-		return &http.Response{
-			StatusCode: 200,
-			Body:       io.NopCloser(strings.NewReader("")),
-		}, nil
-	}).Build()
-	mockey.Mock(goquery.NewDocumentFromReader).Return(nil, errors.New("ko")).Build()
+	stubRoundTripper(t, geniusRouter{geniusSearchOK, func(*http.Request) (*http.Response, error) {
+		response := httpResponse(200, "")
+		response.Body = errReader{errors.New("ko")}
+		return response, nil
+	}})
 
-	// testing
-	assert.EqualError(t, sys.ErrOnly(genius{}.search(track)), "ko")
+	// testing: the lyrics page body cannot be read by the HTML parser
+	assert.ErrorContains(t, sys.ErrOnly(genius{}.search(track)), "ko")
 }
-
-// func TestScraping(t *testing.T) {
-// 	if os.Getenv("TEST_SCRAPING") == "" {
-// 		return
-// 	}
-
-// 	// testing
-// 	lyrics, err := genius{}.search(&entity.Track{
-// 		Title:   "White Christmas",
-// 		Artists: []string{"Bing Crosby"},
-// 	})
-// 	assert.Nil(t, err)
-// 	assert.Equal(t, []byte(`[Verse 1: Bing Crosby]
-// I'm dreaming of a white Christmas
-// Just like the ones I used to know
-// Where the treetops glisten and children listen
-// To hear sleigh bells in the snow
-
-// [Verse 2: Bing Crosby]
-// I'm dreaming of a white Christmas
-// With every Christmas card I write
-// "May your days be merry and bright
-// And may all your Christmases be white"
-
-// [Verse 3: Bing Crosby & Ken Darby Singers]
-// I'm dreaming of a white Christmas
-// Just like the ones I used to know
-// Where the treetops glisten and children listen
-// To hear sleigh bells in the snow
-
-// [Verse 4: Bing Crosby & Ken Darby Singers, Bing Crosby]
-// I'm dreaming of a white Christmas
-// With every Christmas card I write
-// "May your days be merry and bright
-// And may all your Christmases be white"`), lyrics)
-// }

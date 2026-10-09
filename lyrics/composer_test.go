@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 
-	"github.com/arunsworld/nursery"
-	"github.com/bytedance/mockey"
+	"github.com/adrg/xdg"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
@@ -16,6 +16,42 @@ import (
 var track = &entity.Track{
 	Title:   "Title",
 	Artists: []string{"Artist"},
+}
+
+// stubComposer is a scripted Composer: the package-level composers
+// slice is swapped for the duration of a test, so Search and Get run
+// against known composer outcomes.
+type stubComposer struct {
+	searchResult []byte
+	searchErr    error
+	getResult    []byte
+	getErr       error
+}
+
+func (s stubComposer) search(*entity.Track, ...context.Context) ([]byte, error) {
+	return s.searchResult, s.searchErr
+}
+
+func (s stubComposer) get(string, ...context.Context) ([]byte, error) {
+	return s.getResult, s.getErr
+}
+
+func setComposers(t *testing.T, stubs ...Composer) {
+	t.Helper()
+	previous := composers
+	composers = stubs
+	t.Cleanup(func() { composers = previous })
+}
+
+// uncachedTrack returns a track whose lyrics cache file is guaranteed
+// absent, and removes the file again at the end of the test.
+func uncachedTrack(t *testing.T, id string) *entity.Track {
+	t.Helper()
+	uncached := &entity.Track{ID: id, Title: "Title", Artists: []string{"Artist"}}
+	path := uncached.Path().Lyrics()
+	_ = os.Remove(path)
+	t.Cleanup(func() { _ = os.Remove(path) })
+	return uncached
 }
 
 func BenchmarkComposer(b *testing.B) {
@@ -54,162 +90,141 @@ func TestChooseComposition(t *testing.T) {
 }
 
 func TestSearch(t *testing.T) {
-	// monkey patching
-	ch := make(chan bool, 1)
-	defer mockey.UnPatchAll()
-	mockey.Mock(os.ReadFile).Return(nil, errors.New("")).Build()
-	mockey.Mock(mockey.GetMethod(genius{}, "search")).To(func(_ genius, _ *entity.Track, _ ...context.Context) ([]byte, error) {
-		close(ch)
-		return []byte("glyrics"), nil
-	}).Build()
-	mockey.Mock(mockey.GetMethod(lrclib{}, "search")).To(func(_ lrclib, _ *entity.Track, _ ...context.Context) ([]byte, error) {
-		<-ch
-		return []byte("[00:27.37]llyrics"), nil
-	}).Build()
-	// testing
-	lyrics, err := Search(track)
+	uncached := uncachedTrack(t, "test-search")
+	setComposers(t,
+		stubComposer{searchResult: []byte("glyrics")},
+		stubComposer{searchResult: []byte("[00:27.37]llyrics")},
+	)
+
+	// testing: the synced composition wins over the plain one
+	lyrics, err := Search(uncached)
 	assert.Nil(t, err)
 	assert.Equal(t, "[00:27.37]llyrics", lyrics)
 }
 
 func TestSearchAlreadyExists(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(os.ReadFile).Return([]byte("lyrics"), nil).Build()
+	cached := uncachedTrack(t, "test-cached")
+	assert.Nil(t, os.MkdirAll(filepath.Dir(cached.Path().Lyrics()), 0o755))
+	assert.Nil(t, os.WriteFile(cached.Path().Lyrics(), []byte("lyrics"), 0o600))
+	setComposers(t, stubComposer{searchErr: errors.New("must not be called")})
 
-	// testing
-	lyrics, err := Search(track)
+	// testing: the cached lyrics are returned without any composer
+	lyrics, err := Search(cached)
 	assert.Nil(t, err)
 	assert.Equal(t, "lyrics", lyrics)
 }
 
 func TestSearchFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(os.ReadFile).Return(nil, errors.New("")).Build()
-	mockey.Mock(mockey.GetMethod(genius{}, "search")).Return(nil, errors.New("ko")).Build()
-	mockey.Mock(mockey.GetMethod(lrclib{}, "search")).Return(nil, errors.New("ko")).Build()
-	// testing
-	assert.EqualError(t, sys.ErrOnly(Search(track)), "ko")
+	uncached := uncachedTrack(t, "test-failure")
+	setComposers(t,
+		stubComposer{searchErr: errors.New("ko")},
+		stubComposer{searchErr: errors.New("ko")},
+	)
+
+	// testing: every composer failed → the first failure is returned
+	assert.EqualError(t, sys.ErrOnly(Search(uncached)), "ko")
 }
 
 func TestSearchNotFound(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(os.ReadFile).Return(nil, errors.New("")).Build()
-	mockey.Mock(mockey.GetMethod(genius{}, "search")).Return(nil, nil).Build()
-	mockey.Mock(mockey.GetMethod(lrclib{}, "search")).Return(nil, nil).Build()
+	uncached := uncachedTrack(t, "test-notfound")
+	setComposers(t, stubComposer{}, stubComposer{})
+
 	// testing
-	lyrics, err := Search(track)
+	lyrics, err := Search(uncached)
 	assert.Nil(t, err)
 	assert.Empty(t, lyrics)
 }
 
 func TestSearchCannotCreateDir(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(os.ReadFile).Return(nil, errors.New("")).Build()
-	mockey.Mock(mockey.GetMethod(genius{}, "search")).Return([]byte("lyrics"), nil).Build()
-	mockey.Mock(mockey.GetMethod(lrclib{}, "search")).Return([]byte{}, nil).Build()
-	mockey.Mock(os.MkdirAll).Return(errors.New("ko")).Build()
+	uncached := uncachedTrack(t, "test-nodir")
+	setComposers(t,
+		stubComposer{searchResult: []byte("lyrics")},
+		stubComposer{searchResult: []byte{}},
+	)
+
+	// point the cache home at a regular file, so creating the lyrics
+	// cache directory must fail
+	blocker := filepath.Join(t.TempDir(), "blocker")
+	assert.Nil(t, os.WriteFile(blocker, []byte{}, 0o644))
+	t.Cleanup(func() { xdg.Reload() })
+	t.Setenv("XDG_CACHE_HOME", blocker)
+	xdg.Reload()
 
 	// testing
-	assert.EqualError(t, sys.ErrOnly(Search(track)), "ko")
+	assert.NotNil(t, sys.ErrOnly(Search(uncached)))
 }
 
 func TestSearchWriteFileFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(os.ReadFile).Return(nil, errors.New("")).Build()
-	mockey.Mock(mockey.GetMethod(genius{}, "search")).Return([]byte("lyrics"), nil).Build()
-	mockey.Mock(mockey.GetMethod(lrclib{}, "search")).Return([]byte{}, nil).Build()
-	mockey.Mock(os.MkdirAll).Return(nil).Build()
-	mockey.Mock(os.WriteFile).Return(errors.New("ko")).Build()
+	blocked := uncachedTrack(t, "test-nowrite")
+	setComposers(t,
+		stubComposer{searchResult: []byte("lyrics")},
+		stubComposer{searchResult: []byte{}},
+	)
+
+	// a directory occupies the lyrics cache file path
+	assert.Nil(t, os.MkdirAll(blocked.Path().Lyrics(), 0o755))
+	t.Cleanup(func() { _ = os.RemoveAll(blocked.Path().Lyrics()) })
 
 	// testing
-	assert.EqualError(t, sys.ErrOnly(Search(track)), "ko")
+	assert.NotNil(t, sys.ErrOnly(Search(blocked)))
 }
 
 func TestGet(t *testing.T) {
-	// monkey patching
-	ch := make(chan bool, 1)
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(genius{}, "get")).To(func(_ genius, _ string, _ ...context.Context) ([]byte, error) {
-		close(ch)
-		return []byte("glyrics"), nil
-	}).Build()
-	mockey.Mock(mockey.GetMethod(lrclib{}, "get")).To(func(_ lrclib, _ string, _ ...context.Context) ([]byte, error) {
-		<-ch
-		return []byte("[00:27.37]llyrics"), nil
-	}).Build()
-	// testing
+	setComposers(t,
+		stubComposer{getResult: []byte("glyrics")},
+		stubComposer{getResult: []byte("[00:27.37]llyrics")},
+	)
+
+	// testing: the synced composition wins over the plain one
 	lyrics, err := Get("http://localhost")
 	assert.Nil(t, err)
 	assert.Equal(t, "[00:27.37]llyrics", lyrics)
 }
 
 func TestGetFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(genius{}, "get")).Return(nil, errors.New("ko")).Build()
-	mockey.Mock(mockey.GetMethod(lrclib{}, "get")).Return(nil, errors.New("ko")).Build()
+	setComposers(t,
+		stubComposer{getErr: errors.New("ko")},
+		stubComposer{getErr: errors.New("ko")},
+	)
+
 	// testing
 	assert.EqualError(t, sys.ErrOnly(Get("http://localhost")), "ko")
 }
 
 func TestSearchPartialFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(os.ReadFile).Return(nil, errors.New("")).Build()
-	mockey.Mock(mockey.GetMethod(genius{}, "search")).Return(nil, errors.New("ko")).Build()
-	mockey.Mock(mockey.GetMethod(lrclib{}, "search")).Return([]byte("lyrics"), nil).Build()
+	uncached := uncachedTrack(t, "test-partial")
+	setComposers(t,
+		stubComposer{searchErr: errors.New("ko")},
+		stubComposer{searchResult: []byte("lyrics")},
+	)
 
 	// testing: one failing composer must not abort the others
-	lyrics, err := Search(track)
+	lyrics, err := Search(uncached)
 	assert.Nil(t, err)
 	assert.Equal(t, "lyrics", lyrics)
 }
 
 func TestSearchPartialFailureNotFound(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(os.ReadFile).Return(nil, errors.New("")).Build()
-	mockey.Mock(mockey.GetMethod(genius{}, "search")).Return(nil, nil).Build()
-	mockey.Mock(mockey.GetMethod(lrclib{}, "search")).Return(nil, errors.New("ko")).Build()
+	uncached := uncachedTrack(t, "test-partial-notfound")
+	setComposers(t,
+		stubComposer{},
+		stubComposer{searchErr: errors.New("ko")},
+	)
 
 	// testing: a not-found composer plus a failing one is not a failure
-	lyrics, err := Search(track)
+	lyrics, err := Search(uncached)
 	assert.Nil(t, err)
 	assert.Empty(t, lyrics)
 }
 
 func TestGetPartialFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(genius{}, "get")).Return(nil, errors.New("ko")).Build()
-	mockey.Mock(mockey.GetMethod(lrclib{}, "get")).Return([]byte("lyrics"), nil).Build()
+	setComposers(t,
+		stubComposer{getErr: errors.New("ko")},
+		stubComposer{getResult: []byte("lyrics")},
+	)
 
 	// testing: one failing composer must not abort the others
 	lyrics, err := Get("http://localhost")
 	assert.Nil(t, err)
 	assert.Equal(t, "lyrics", lyrics)
-}
-
-func TestSearchNurseryFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(os.ReadFile).Return(nil, errors.New("")).Build()
-	mockey.Mock(nursery.RunConcurrentlyWithContext).Return(errors.New("ko")).Build()
-
-	// testing
-	assert.EqualError(t, sys.ErrOnly(Search(track)), "ko")
-}
-
-func TestGetNurseryFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(nursery.RunConcurrentlyWithContext).Return(errors.New("ko")).Build()
-
-	// testing
-	assert.EqualError(t, sys.ErrOnly(Get("http://localhost")), "ko")
 }

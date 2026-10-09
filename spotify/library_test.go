@@ -1,10 +1,9 @@
 package spotify
 
 import (
-	"errors"
+	"net/http"
 	"testing"
 
-	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
@@ -17,6 +16,16 @@ var library = &spotify.SavedTrackPage{
 	},
 }
 
+// libraryJSON mirrors the library fixture as a GET /v1/me/tracks payload.
+// Requests carrying an offset query fetch a subsequent page.
+func libraryJSON(request *http.Request) (int, string) {
+	if request.URL.Query().Get("offset") != "" {
+		return http.StatusOK, `{"items":[],"next":null,"total":1}`
+	}
+	return http.StatusOK, `{"items":[{"added_at":"2026-01-01T00:00:00Z","track":` +
+		trackJSON + `}],"next":null,"total":1}`
+}
+
 func BenchmarkLibrary(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		TestLibrary(&testing.T{})
@@ -24,20 +33,14 @@ func BenchmarkLibrary(b *testing.B) {
 }
 
 func TestLibrary(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUsersTracks")).Return(library, nil).Build()
+	scriptTransport(t, libraryJSON)
 
-	// testing
 	assert.Nil(t, testClient().Library(0))
 }
 
 func TestLibraryChannel(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUsersTracks")).Return(library, nil).Build()
+	scriptTransport(t, libraryJSON)
 
-	// testing
 	channel := make(chan interface{}, 1)
 	defer close(channel)
 	err := testClient().Library(1, channel)
@@ -46,20 +49,21 @@ func TestLibraryChannel(t *testing.T) {
 }
 
 func TestLibraryFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUsersTracks")).Return(nil, errors.New("ko")).Build()
+	scriptTransport(t, func(_ *http.Request) (int, string) {
+		return apiError(http.StatusInternalServerError, "ko")
+	})
 
-	// testing
 	assert.EqualError(t, sys.ErrOnly(testClient().Library(0)), "ko")
 }
 
 func TestLibraryNextPageFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "CurrentUsersTracks")).Return(library, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "NextPage")).Return(errors.New("ko")).Build()
+	scriptTransport(t, func(request *http.Request) (int, string) {
+		if request.URL.Query().Get("offset") != "" {
+			return apiError(http.StatusInternalServerError, "ko")
+		}
+		return http.StatusOK, `{"items":[{"added_at":"2026-01-01T00:00:00Z","track":` +
+			trackJSON + `}],"next":"https://api.spotify.com/v1/me/tracks?offset=1&limit=50","total":2}`
+	})
 
-	// testing
 	assert.EqualError(t, sys.ErrOnly(testClient().Library(0)), "ko")
 }

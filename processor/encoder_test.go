@@ -1,11 +1,10 @@
 package processor
 
 import (
-	"errors"
+	"os"
 	"testing"
 
-	"github.com/bogem/id3v2/v2"
-	"github.com/bytedance/mockey"
+	"github.com/streambinder/spotitube/entity/id3"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -16,35 +15,35 @@ func BenchmarkEncoder(b *testing.B) {
 }
 
 func TestEncoderDo(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(id3v2.Open).Return(id3v2.NewEmptyTag(), nil).Build()
-	mockey.Mock(mockey.GetMethod(&id3v2.Tag{}, "Save")).Return(nil).Build()
+	download := seedDownload(t, []byte{})
 
-	// testing
 	assert.Nil(t, encoder{}.Do(track))
+
+	// the written tag round-trips: the Spotify ID is readable back
+	tag, err := id3.OpenSpotifyID(download)
+	assert.Nil(t, err)
+	defer tag.Close()
+	assert.Equal(t, track.ID, tag.SpotifyID())
 }
 
 func TestEncoderDoUnsupported(t *testing.T) {
-	// testing
 	assert.NotNil(t, encoder{}.Do("hello"))
 }
 
 func TestEncoderDoOpenFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(id3v2.Open).Return(nil, errors.New("ko")).Build()
+	useTempCache(t)
 
-	// testing
-	assert.EqualError(t, encoder{}.Do(track), "ko")
+	assert.ErrorContains(t, encoder{}.Do(track), "no such file or directory")
 }
 
 func TestEncoderDoSaveFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(id3v2.Open).Return(id3v2.NewEmptyTag(), nil).Build()
-	mockey.Mock(mockey.GetMethod(&id3v2.Tag{}, "Save")).Return(errors.New("ko")).Build()
+	download := seedDownload(t, []byte{})
 
-	// testing
-	assert.EqualError(t, encoder{}.Do(track), "ko")
+	// saving writes a sibling temporary file first: block that path with
+	// a directory, so the write fails even with write permissions
+	if err := os.Mkdir(download+"-id3v2", 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Error(t, encoder{}.Do(track))
 }

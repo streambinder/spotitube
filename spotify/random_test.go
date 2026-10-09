@@ -1,10 +1,9 @@
 package spotify
 
 import (
-	"errors"
+	"net/http"
 	"testing"
 
-	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
@@ -22,6 +21,16 @@ var searchResult = &spotify.SearchResult{
 	Episodes: &spotify.SimpleEpisodePage{},
 }
 
+// searchJSON mirrors the searchResult fixture as a GET /v1/search payload
+// whose tracks page carries the given next link (empty for a single page).
+func searchJSON(next string) string {
+	nextJSON := "null"
+	if next != "" {
+		nextJSON = `"` + next + `"`
+	}
+	return `{"tracks":{"items":[` + trackJSON + `],"next":` + nextJSON + `,"total":1}}`
+}
+
 func BenchmarkRandom(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		TestRandom(&testing.T{})
@@ -29,11 +38,10 @@ func BenchmarkRandom(b *testing.B) {
 }
 
 func TestRandom(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Search")).Return(searchResult, nil).Build()
+	scriptTransport(t, func(_ *http.Request) (int, string) {
+		return http.StatusOK, searchJSON("")
+	})
 
-	// testing
 	channel := make(chan interface{}, 1)
 	defer close(channel)
 	err := testClient().Random(TypeTrack, len(searchResult.Tracks.Tracks), channel)
@@ -42,21 +50,21 @@ func TestRandom(t *testing.T) {
 }
 
 func TestRandomFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Search")).Return(nil, errors.New("ko")).Build()
+	scriptTransport(t, func(_ *http.Request) (int, string) {
+		return apiError(http.StatusInternalServerError, "ko")
+	})
 
-	// testing
 	err := testClient().Random(TypeTrack, len(searchResult.Tracks.Tracks))
 	assert.EqualError(t, err, "ko")
 }
 
 func TestRandomNextPageFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "Search")).Return(searchResult, nil).Build()
-	mockey.Mock(mockey.GetMethod(&spotify.Client{}, "NextPage")).Return(errors.New("ko")).Build()
+	scriptTransport(t, func(request *http.Request) (int, string) {
+		if request.URL.Query().Get("offset") != "" {
+			return apiError(http.StatusInternalServerError, "ko")
+		}
+		return http.StatusOK, searchJSON("https://api.spotify.com/v1/search?query=x&type=track&offset=1&limit=50")
+	})
 
-	// testing
 	assert.EqualError(t, sys.ErrOnly(testClient().Random(TypeTrack, len(searchResult.Tracks.Tracks))), "ko")
 }

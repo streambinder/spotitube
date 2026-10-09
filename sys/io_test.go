@@ -1,29 +1,15 @@
 package sys
 
 import (
-	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"syscall"
 	"testing"
 
 	"github.com/adrg/xdg"
-	"github.com/bytedance/mockey"
 	"github.com/stretchr/testify/assert"
 )
-
-// renameFallback mocks os.Rename so that the first call fails
-// (forcing the copy fallback) while later ones really rename
-func renameFallback() {
-	calls := 0
-	mockey.Mock(os.Rename).To(func(oldpath, newpath string) error {
-		calls++
-		if calls == 1 {
-			return errors.New("not renaming")
-		}
-		return syscall.Rename(oldpath, newpath)
-	}).Build()
-}
 
 func tempSource(t *testing.T, content string) (dir, src, dst string) {
 	t.Helper()
@@ -45,6 +31,32 @@ func dirEntries(t *testing.T, dir string) []string {
 	return names
 }
 
+// crossDeviceSource returns a source file living on a different filesystem
+// than the destination directory, so that os.Rename between the two fails
+// for real (EXDEV) and FileMoveOrCopy must fall back to copying. It skips
+// the test when no second filesystem is available.
+func crossDeviceSource(t *testing.T, content string) (src, dst string) {
+	t.Helper()
+	dstDir := t.TempDir()
+	srcDir, err := os.MkdirTemp("/dev/shm", "spotitube-test-*")
+	if err != nil {
+		t.Skip("no second filesystem available for a cross-device rename")
+	}
+	t.Cleanup(func() { os.RemoveAll(srcDir) })
+
+	srcInfo, err := os.Stat(srcDir)
+	assert.Nil(t, err)
+	dstInfo, err := os.Stat(dstDir)
+	assert.Nil(t, err)
+	if srcInfo.Sys().(*syscall.Stat_t).Dev == dstInfo.Sys().(*syscall.Stat_t).Dev {
+		t.Skip("no second filesystem available for a cross-device rename")
+	}
+	src = filepath.Join(srcDir, "src.txt")
+	dst = filepath.Join(dstDir, "dst.txt")
+	assert.Nil(t, os.WriteFile(src, []byte(content), 0o600))
+	return src, dst
+}
+
 func BenchmarkIO(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		TestFileCopy(&testing.T{})
@@ -64,142 +76,121 @@ func TestFileMove(t *testing.T) {
 }
 
 func TestFileCopy(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	renameFallback()
-
-	// testing
-	dir, src, dst := tempSource(t, "data")
+	// the source sits on another filesystem: the rename fails for real
+	// and the copy fallback has to take over
+	src, dst := crossDeviceSource(t, "data")
 	assert.Nil(t, FileMoveOrCopy(src, dst))
 	content, err := os.ReadFile(dst)
 	assert.Nil(t, err)
 	assert.Equal(t, "data", string(content))
-	assert.NotContains(t, dirEntries(t, dir), "src.txt")
+	_, err = os.Stat(src)
+	assert.ErrorIs(t, err, fs.ErrNotExist)
+	assert.Equal(t, []string{"dst.txt"}, dirEntries(t, filepath.Dir(dst)))
 }
 
 func TestFileAlreadyExists(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(os.Stat).Return(nil, nil).Build()
+	_, src, dst := tempSource(t, "data")
+	assert.Nil(t, os.WriteFile(dst, []byte("existing"), 0o600))
 
-	// testing
-	assert.Error(t, FileMoveOrCopy("/a", "/a"))
+	assert.EqualError(t, FileMoveOrCopy(src, dst), "destination already exists: "+dst)
+	content, err := os.ReadFile(dst)
+	assert.Nil(t, err)
+	assert.Equal(t, "existing", string(content))
 }
 
 func TestFileAlreadyExistsOverwrite(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(os.Stat).Return(nil, nil).Build()
-	mockey.Mock(os.Rename).Return(nil).Build()
-
-	// testing
-	assert.Nil(t, FileMoveOrCopy("/a", "/b", true))
-}
-
-func TestFileCopyRemoveFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	renameFallback()
-	mockey.Mock(os.Remove).Return(errors.New("ko")).Build()
-
-	// testing
 	_, src, dst := tempSource(t, "data")
-	assert.EqualError(t, FileMoveOrCopy(src, dst), "ko")
+	assert.Nil(t, os.WriteFile(dst, []byte("existing"), 0o600))
+
+	assert.Nil(t, FileMoveOrCopy(src, dst, true))
+	content, err := os.ReadFile(dst)
+	assert.Nil(t, err)
+	assert.Equal(t, "data", string(content))
+	_, err = os.Stat(src)
+	assert.ErrorIs(t, err, fs.ErrNotExist)
 }
 
 func TestFileCopyReadFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(os.Rename).Return(errors.New("not renaming")).Build()
-	mockey.Mock(os.ReadFile).Return(nil, errors.New("ko")).Build()
-
-	// testing
-	assert.EqualError(t, FileMoveOrCopy("/a", "/a"), "ko")
+	// a missing source fails the rename first and the read right after
+	dir := t.TempDir()
+	err := FileMoveOrCopy(filepath.Join(dir, "missing.txt"), filepath.Join(dir, "dst.txt"))
+	assert.ErrorIs(t, err, fs.ErrNotExist)
 }
 
 func TestFileCopyTempFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(os.Rename).Return(errors.New("not renaming")).Build()
-	mockey.Mock(os.CreateTemp).Return(nil, errors.New("ko")).Build()
+	// the destination directory does not exist: staging the copy on a
+	// temp file next to the destination fails for real
+	_, src, _ := tempSource(t, "data")
+	dst := filepath.Join(t.TempDir(), "missing", "dst.txt")
 
-	// testing
-	_, src, dst := tempSource(t, "data")
-	assert.EqualError(t, FileMoveOrCopy(src, dst), "ko")
-}
-
-func TestFileCopyWriteFailure(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(os.Rename).Return(errors.New("not renaming")).Build()
-
-	// testing: a read-only handle makes the staged write fail
-	dir, src, dst := tempSource(t, "data")
-	readonly, err := os.OpenFile(filepath.Join(dir, "readonly.txt"), os.O_CREATE|os.O_RDONLY, 0o600)
-	assert.Nil(t, err)
-	mockey.Mock(os.CreateTemp).To(func(_, _ string) (*os.File, error) {
-		return readonly, nil
-	}).Build()
-
-	assert.ErrorContains(t, FileMoveOrCopy(src, dst), "bad file descriptor")
-	assert.NotContains(t, dirEntries(t, dir), "dst.txt")
-	assert.Len(t, dirEntries(t, dir), 1) // only src.txt: no temp leftovers
+	err := FileMoveOrCopy(src, dst)
+	assert.ErrorIs(t, err, fs.ErrNotExist)
+	assert.Equal(t, []string{"src.txt"}, dirEntries(t, filepath.Dir(src)))
 }
 
 func TestFileCopyRenameFailure(t *testing.T) {
-	// testing
+	// the destination is an existing directory: both the direct rename
+	// and the rename of the staged copy fail for real
 	dir, src, dst := tempSource(t, "data")
+	assert.Nil(t, os.Mkdir(dst, 0o755))
 
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(os.Rename).To(func(oldpath, _ string) error {
-		if oldpath == src {
-			return errors.New("not renaming")
-		}
-		return errors.New("ko")
-	}).Build()
-
-	assert.EqualError(t, FileMoveOrCopy(src, dst), "ko")
-	assert.NotContains(t, dirEntries(t, dir), "dst.txt")
-	assert.Len(t, dirEntries(t, dir), 1) // only src.txt: no temp leftovers
+	err := FileMoveOrCopy(src, dst, true)
+	assert.ErrorContains(t, err, "rename")
+	assert.ElementsMatch(t, []string{"src.txt", "dst.txt"}, dirEntries(t, dir))
+	info, statErr := os.Stat(dst)
+	assert.Nil(t, statErr)
+	assert.True(t, info.IsDir())
 }
 
 func TestFileBaseStem(t *testing.T) {
 	assert.Equal(t, "hello", FileBaseStem("hello.txt"))
 }
 
-func TestCacheDirectory(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(xdg.CacheFile).Return("/dir/spotitube", nil).Build()
+// reloadXDG re-reads the XDG base directories from the environment and
+// arranges for them to be re-read again from the ambient environment once
+// the test is over. It must be called before t.Setenv.
+func reloadXDG(t *testing.T) {
+	t.Helper()
+	t.Cleanup(func() { xdg.Reload() })
+}
 
-	// testing
-	assert.Equal(t, "/dir/spotitube", CacheDirectory())
+func TestCacheDirectory(t *testing.T) {
+	reloadXDG(t)
+	cacheHome := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", cacheHome)
+	xdg.Reload()
+
+	assert.Equal(t, filepath.Join(cacheHome, "spotitube"), CacheDirectory())
 }
 
 func TestCacheDirectoryFallback(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(xdg.CacheFile).Return("", errors.New("ko")).Build()
+	reloadXDG(t)
+	// a regular file in the way makes the cache home impossible to create
+	dir := t.TempDir()
+	blocker := filepath.Join(dir, "blocker")
+	assert.Nil(t, os.WriteFile(blocker, []byte("file"), 0o600))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(blocker, "sub"))
+	xdg.Reload()
 
-	// testing
 	assert.Equal(t, "/tmp/spotitube", CacheDirectory())
 }
 
 func TestCacheFile(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(xdg.CacheFile).Return("/dir/spotitube", nil).Build()
+	reloadXDG(t)
+	cacheHome := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", cacheHome)
+	xdg.Reload()
 
-	// testing
-	assert.Equal(t, "/dir/spotitube/fname.txt", CacheFile("fname.txt"))
+	assert.Equal(t, filepath.Join(cacheHome, "spotitube", "fname.txt"), CacheFile("fname.txt"))
 }
 
 func TestCacheFileFallback(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(xdg.CacheFile).Return("", errors.New("ko")).Build()
+	reloadXDG(t)
+	dir := t.TempDir()
+	blocker := filepath.Join(dir, "blocker")
+	assert.Nil(t, os.WriteFile(blocker, []byte("file"), 0o600))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(blocker, "sub"))
+	xdg.Reload()
 
-	// testing
 	assert.Equal(t, "/tmp/spotitube/fname.txt", CacheFile("fname.txt"))
 }

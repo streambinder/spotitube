@@ -3,14 +3,10 @@ package provider
 import (
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
-	"strings"
 	"testing"
 
-	"github.com/PuerkitoBio/goquery"
-	"github.com/bytedance/mockey"
 	"github.com/streambinder/spotitube/entity"
 	"github.com/streambinder/spotitube/sys"
 	"github.com/stretchr/testify/assert"
@@ -76,6 +72,21 @@ var result = youTubeResult{
 	length:      180,
 }
 
+// youtubeResultPage renders the canned search results page carrying the
+// shared result fixture.
+func youtubeResultPage() string {
+	return fmt.Sprintf(
+		resultScript,
+		result.id,
+		result.title,
+		result.owner,
+		result.description,
+		resultViewsText,
+		resultLengthText,
+		resultPublishedText,
+	)
+}
+
 func BenchmarkYouTube(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		TestYouTubeSearch(&testing.T{})
@@ -83,46 +94,26 @@ func BenchmarkYouTube(b *testing.B) {
 }
 
 func TestYouTubeSearch(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(&http.Response{
-		StatusCode: 200,
-		Body: io.NopCloser(strings.NewReader(
-			fmt.Sprintf(
-				resultScript,
-				result.id,
-				result.title,
-				result.owner,
-				result.description,
-				resultViewsText,
-				resultLengthText,
-				resultPublishedText,
-			),
-		)),
-	}, nil).Build()
+	stubHTTP(t, func(*http.Request) (*http.Response, error) {
+		return httpResponse(200, youtubeResultPage()), nil
+	})
 
 	// testing
 	assert.Nil(t, sys.ErrOnly(youTube{}.search(track)))
 }
 
 func TestYouTubeSearchMalformedData(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(&http.Response{
-		StatusCode: 200,
-		Body:       io.NopCloser(strings.NewReader(`<script>var ytInitialData = {"content": {}`)),
-	}, nil).Build()
+	stubHTTP(t, func(*http.Request) (*http.Response, error) {
+		return httpResponse(200, `<script>var ytInitialData = {"content": {}`), nil
+	})
 
 	// testing
 	assert.NotNil(t, sys.ErrOnly(youTube{}.search(track)))
 }
 
 func TestYouTubeSearchPartialData(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(&http.Response{
-		StatusCode: 200,
-		Body: io.NopCloser(strings.NewReader(fmt.Sprintf(
+	stubHTTP(t, func(*http.Request) (*http.Response, error) {
+		return httpResponse(200, fmt.Sprintf(
 			resultScript,
 			result.id,
 			"",
@@ -131,93 +122,84 @@ func TestYouTubeSearchPartialData(t *testing.T) {
 			"",
 			"",
 			"",
-		))),
-	}, nil).Build()
+		)), nil
+	})
 
 	// testing
 	assert.Nil(t, sys.ErrOnly(youTube{}.search(track)))
 }
 
 func TestYouTubeSearchMaxRetriesExceeded(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(sys.SleepUntilRetry).Return().Build()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).To(func(_ string) (*http.Response, error) {
-		return &http.Response{StatusCode: 429, Body: io.NopCloser(strings.NewReader(""))}, nil
-	}).Build()
+	stubHTTP(t, func(*http.Request) (*http.Response, error) {
+		response := httpResponse(429, "")
+		response.Header.Set("Retry-After", "0")
+		return response, nil
+	})
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(youTube{}.search(track)), "youtube: max retries exceeded")
 }
 
 func TestYouTubeSearchTooManyRequests(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(sys.SleepUntilRetry).Return().Build()
 	callCount := 0
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).To(func(_ string) (*http.Response, error) {
+	stubHTTP(t, func(*http.Request) (*http.Response, error) {
 		callCount++
 		if callCount == 1 {
-			return &http.Response{StatusCode: 429, Body: io.NopCloser(strings.NewReader(""))}, nil
+			response := httpResponse(429, "")
+			response.Header.Set("Retry-After", "0")
+			return response, nil
 		}
-		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(""))}, nil
-	}).Build()
+		return httpResponse(200, ""), nil
+	})
 
 	// testing
 	assert.Nil(t, sys.ErrOnly(youTube{}.search(track)))
 }
 
 func TestYouTubeSearchRedirectLoop(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).To(func(_ string) (*http.Response, error) {
-		return nil, errors.New(`Get "https://www.google.com/sorry/index?continue=...": stopped after 10 redirects`)
-	}).Build()
+	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
+		response := httpResponse(302, "")
+		response.Header.Set("Location", request.URL.String())
+		return response, nil
+	})
 
 	// testing: captcha redirect fails fast without retrying
 	assert.EqualError(t, sys.ErrOnly(youTube{}.search(track)), "youtube: blocked by google captcha")
 }
 
 func TestYouTubeSearchNoData(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(&http.Response{
-		StatusCode: 200,
-		Body:       io.NopCloser(strings.NewReader("<script>some unmatching script</script>")),
-	}, nil).Build()
+	stubHTTP(t, func(*http.Request) (*http.Response, error) {
+		return httpResponse(200, "<script>some unmatching script</script>"), nil
+	})
 
 	// testing
 	assert.Nil(t, sys.ErrOnly(youTube{}.search(track)))
 }
 
 func TestYouTubeSearchFailingRequest(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(nil, errors.New("ko")).Build()
+	stubHTTP(t, func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("ko")
+	})
 
-	// testing
-	assert.EqualError(t, sys.ErrOnly(youTube{}.search(track)), "ko")
+	// testing: the client wraps transport errors in a url.Error
+	assert.ErrorContains(t, sys.ErrOnly(youTube{}.search(track)), "ko")
 }
 
 func TestYouTubeSearchFailingRequestStatus(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(
-		&http.Response{StatusCode: 500, Body: io.NopCloser(strings.NewReader(""))}, nil,
-	).Build()
+	stubHTTP(t, func(*http.Request) (*http.Response, error) {
+		return httpResponse(500, ""), nil
+	})
 
 	// testing
 	assert.Error(t, sys.ErrOnly(youTube{}.search(track)))
 }
 
 func TestYouTubeSearchFailingGoQuery(t *testing.T) {
-	// monkey patching
-	defer mockey.UnPatchAll()
-	mockey.Mock(goquery.NewDocumentFromReader).Return(nil, errors.New("ko")).Build()
-	mockey.Mock(mockey.GetMethod(http.DefaultClient, "Get")).Return(&http.Response{
-		StatusCode: 200,
-		Body:       io.NopCloser(strings.NewReader("<script>some unmatching script</script>")),
-	}, nil).Build()
+	stubHTTP(t, func(*http.Request) (*http.Response, error) {
+		response := httpResponse(200, "")
+		response.Body = errReader{errors.New("ko")}
+		return response, nil
+	})
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(youTube{}.search(track)), "ko")

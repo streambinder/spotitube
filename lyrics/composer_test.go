@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/adrg/xdg"
-	"github.com/streambinder/spotitube/entity"
-	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/pango/entity"
+	"github.com/streambinder/pango/sys"
 	"github.com/stretchr/testify/assert"
 )
 

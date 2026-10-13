@@ -10,8 +10,8 @@ import (
 	"net/url"
 	"regexp"
 
-	"github.com/streambinder/spotitube/entity"
-	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/pango/entity"
+	"github.com/streambinder/pango/sys"
 )
 
 var reLrclibWhitespace = regexp.MustCompile(`\[(\d{2}:\d{2}\.\d{2})\]\s+`)

@@ -15,9 +15,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/streambinder/spotitube/entity"
-	"github.com/streambinder/spotitube/spotify"
-	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/pango/entity"
+	"github.com/streambinder/pango/spotify"
+	"github.com/streambinder/pango/sys"
 	"github.com/stretchr/testify/assert"
 )
 

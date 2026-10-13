@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/pango/sys"
 )
 
 func YouTubeDl(ctx context.Context, url, path string) error {

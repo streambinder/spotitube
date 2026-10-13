@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/streambinder/spotitube/processor"
+	"github.com/streambinder/pango/processor"
 	"github.com/stretchr/testify/assert"
 )
 

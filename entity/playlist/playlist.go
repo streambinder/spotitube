@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/streambinder/spotitube/entity"
+	"github.com/streambinder/pango/entity"
 )
 
 type Playlist struct {

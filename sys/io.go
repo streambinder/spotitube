@@ -26,7 +26,7 @@ func FileMoveOrCopy(source, destination string, overwrite ...bool) error {
 	// stage the copy on a temp file in the destination directory
 	// and rename it atomically: a crash must never leave a
 	// partial file behind at the final destination
-	tmp, err := os.CreateTemp(filepath.Dir(destination), ".spotitube-*")
+	tmp, err := os.CreateTemp(filepath.Dir(destination), ".pango-*")
 	if err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func FileBaseStem(path string) string {
 }
 
 func CacheDirectory() string {
-	return ErrWrap(filepath.Join(string(filepath.Separator), "tmp", "spotitube"))(xdg.CacheFile("spotitube"))
+	return ErrWrap(filepath.Join(string(filepath.Separator), "tmp", "pango"))(xdg.CacheFile("pango"))
 }
 
 func CacheFile(filename string) string {

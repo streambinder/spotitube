@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/bogem/id3v2/v2"
-	"github.com/streambinder/spotitube/entity"
+	"github.com/streambinder/pango/entity"
 	"github.com/stretchr/testify/assert"
 )
 

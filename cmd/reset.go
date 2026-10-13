@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/streambinder/spotitube/spotify"
-	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/pango/spotify"
+	"github.com/streambinder/pango/sys"
 )
 
 // indirection for (*os.Root).RemoveAll — the method is aggressively inlined

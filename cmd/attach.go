@@ -6,12 +6,12 @@ import (
 
 	"github.com/bogem/id3v2/v2"
 	"github.com/spf13/cobra"
-	"github.com/streambinder/spotitube/downloader"
-	"github.com/streambinder/spotitube/entity/id3"
-	"github.com/streambinder/spotitube/lyrics"
-	"github.com/streambinder/spotitube/processor"
-	"github.com/streambinder/spotitube/spotify"
-	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/pango/downloader"
+	"github.com/streambinder/pango/entity/id3"
+	"github.com/streambinder/pango/lyrics"
+	"github.com/streambinder/pango/processor"
+	"github.com/streambinder/pango/spotify"
+	"github.com/streambinder/pango/sys"
 )
 
 func init() {

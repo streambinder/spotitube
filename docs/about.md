@@ -2,22 +2,22 @@
 
 ![demo](assets/demo.gif)
 
-Spotitube is a CLI application to authenticate to Spotify account, fetch music collections — such as account library, playlists, albums or specific tracks —, look them up on a defined set of providers (currently YouTube and Qobuz), download them and inflate the downloaded assets with metadata collected from Spotify.
+Pango (originally Spotitube) is a CLI application to authenticate to Spotify account, fetch music collections — such as account library, playlists, albums or specific tracks —, look them up on a defined set of providers (currently YouTube and Qobuz), download them and inflate the downloaded assets with metadata collected from Spotify.
 
 Downloaded tracks are further enriched with lyrics fetched from Genius and LRCLIB, including synced LRC when available.
 
 ## Usage
 
-By default, Spotitube will synchronize user's library:
+By default, Pango will synchronize user's library:
 
 ```bash
-spotitube sync
+pango sync
 ```
 
 In order to synchronize further set of tracks, use the dedicated flags:
 
 ```bash
-spotitube sync --playlist spotitube-sync \
+pango sync --playlist spotitube-sync \
     --album https://open.spotify.com/album/6Jx4cGhWHewTcfKDJKguBQ?si=426ac1fd0fbe4cab \
     --playlist-tracks 5s9gvhZDtfTaM8VMfBtssy \
     --track 6SdAztAqklk1zAmUHhU4N7 \
@@ -25,14 +25,14 @@ spotitube sync --playlist spotitube-sync \
 ```
 
 As showed in the previous example, there are several ways to indicate the ID of a resource — be it a playlist, album or track:
-regardless Spotitube is given a full URL to that resource (e.g. `https://open.spotify.com/playlist/2wyZKlaKzPEUurb6KshAwQ?si=426ac1fd0fbe4cab`), a URI (e.g. `spotify:playlist:2wyZKlaKzPEUurb6KshAwQ`) or an ID (e.g. `2wyZKlaKzPEUurb6KshAwQ`), it should be smart enough to solve the effective ID resolution all by itself.
+regardless Pango is given a full URL to that resource (e.g. `https://open.spotify.com/playlist/2wyZKlaKzPEUurb6KshAwQ?si=426ac1fd0fbe4cab`), a URI (e.g. `spotify:playlist:2wyZKlaKzPEUurb6KshAwQ`) or an ID (e.g. `2wyZKlaKzPEUurb6KshAwQ`), it should be smart enough to solve the effective ID resolution all by itself.
 
 Furthermore, in case of playlist, automatic aliasing of personal playlist names into their ID is applied: this enables passing playlist by name instead of ID in case user wants to synchronize personal playlists.
 
-By default, Spotitube uses XDG Base/User Directory Specification to resolve user's Music folder (which usually maps to `~/Music`), but it can be obviously overridden using a dedicated flag:
+By default, Pango uses XDG Base/User Directory Specification to resolve user's Music folder (which usually maps to `~/Music`), but it can be obviously overridden using a dedicated flag:
 
 ```bash
-spotitube sync -o ~/MyMusic
+pango sync -o ~/MyMusic
 ```
 
 Additional `sync` flags worth knowing:
@@ -46,15 +46,15 @@ Additional `sync` flags worth knowing:
 
 ### Audit
 
-`spotitube sync` is fail-fast: it aborts on the first filename collision it meets.
+`pango sync` is fail-fast: it aborts on the first filename collision it meets.
 A collision happens when two different Spotify tracks (different Spotify IDs) resolve to the same `Artist - Title.mp3` filename — e.g. two recordings of the same song whose titles sanitize identically.
 On a large library this turns collision hunting into a one-at-a-time loop: fix, re-run, hit the next one.
 
-`spotitube audit` answers "would my next sync collide?" without downloading anything.
+`pango audit` answers "would my next sync collide?" without downloading anything.
 It walks the same index, auth and fetch stages as `sync`, then checks every fetched track for filename collisions and reports all of them in a single run, attributing each side of every collision to the selector it came from (library, playlist, playlist-tracks, album or track):
 
 ```bash
-spotitube audit --library --playlist blacksheeps --playlist-tracks spotitube-sync
+pango audit --library --playlist blacksheeps --playlist-tracks spotitube-sync
 ```
 
 ```text
@@ -76,10 +76,10 @@ Use it:
 
 ### Subcommands
 
-Beyond `sync`, the following subcommands are available — list them via `spotitube --help`:
+Beyond `sync`, the following subcommands are available — list them via `pango --help`:
 
 - `audit` — check the library for filename collisions without downloading anything.
-- `auth` — establish a Spotify session and persist the OAuth token to `${XDG_CACHE_HOME:-~/.cache}/spotitube/session.json`. Pass `--logout` / `-l` to wipe the cached token before re-authenticating.
+- `auth` — establish a Spotify session and persist the OAuth token to `${XDG_CACHE_HOME:-~/.cache}/pango/session.json`. Pass `--logout` / `-l` to wipe the cached token before re-authenticating.
 - `attach` — attach Spotify metadata (including the Spotify ID embedded in a custom ID3 frame) to an existing local file.
 - `lookup` — query Spotify for a resource and print its metadata without downloading.
 - `show` — show the Spotify metadata embedded in a local file.
@@ -87,7 +87,7 @@ Beyond `sync`, the following subcommands are available — list them via `spotit
 
 ### Authentication scopes
 
-`spotitube auth` requests both read and write OAuth scopes on the user's account:
+`pango auth` requests both read and write OAuth scopes on the user's account:
 
 - `user-library-read`, `user-library-modify`
 - `playlist-read-private`, `playlist-read-collaborative`
@@ -97,46 +97,46 @@ The modify scopes are requested even though `sync` is read-only against Spotify 
 
 ### Docker
 
-In order to make Spotitube work via Docker, it has to expose its dedicated port (i.e. 65535) and mount both the cache and the music directories as volumes:
+In order to make Pango work via Docker, it has to expose its dedicated port (i.e. 65535) and mount both the cache and the music directories as volumes:
 
 ```bash
 docker run -it --rm \
     -p 65535:65535/tcp \
     -v ~/.cache:/cache \
     -v ~/Music:/data \
-    ghcr.io/streambinder/spotitube --help
+    ghcr.io/streambinder/pango --help
 ```
 
 ### Headless
 
-The only real friction running Spotitube headless is the OAuth redirect.
+The only real friction running Pango headless is the OAuth redirect.
 Spotify [requires](https://developer.spotify.com/documentation/web-api/concepts/redirect_uri) the callback to be either an HTTPS URL or one of the loopback literals `http://127.0.0.1:PORT` / `http://[::1]:PORT`.
-Spotitube uses the loopback form (`http://127.0.0.1:65535/callback`), which means the browser completing the auth must be able to reach that callback on the host actually running Spotitube.
+Pango uses the loopback form (`http://127.0.0.1:65535/callback`), which means the browser completing the auth must be able to reach that callback on the host actually running Pango.
 
 The simplest way to bridge a desktop browser to a headless server is an SSH local port forward — no DNS, no extra DNAT, no TLS termination:
 
 ```bash
 ssh -L 65535:127.0.0.1:65535 user@server
 # on the server, in the forwarded session:
-spotitube auth
+pango auth
 ```
 
-Then open the URL Spotitube prints in your local browser.
-Spotify will redirect to `http://127.0.0.1:65535/callback`, the tunnel hands the request through to the server, and the session token is persisted server-side at `${XDG_CACHE_HOME:-~/.cache}/spotitube/session.json`.
-After `auth` returns, the tunnel and SSH session can be closed; subsequent `spotitube` invocations on the server reuse the cached token.
+Then open the URL Pango prints in your local browser.
+Spotify will redirect to `http://127.0.0.1:65535/callback`, the tunnel hands the request through to the server, and the session token is persisted server-side at `${XDG_CACHE_HOME:-~/.cache}/pango/session.json`.
+After `auth` returns, the tunnel and SSH session can be closed; subsequent `pango` invocations on the server reuse the cached token.
 
 ### Manual mode
 
-It might very well happen that Spotitube is either not able to find a track asset on given providers (e.g. YouTube) or that it chooses the wrong one.
-In such cases, it is possible to manually choose and pass the right asset to Spotitube, using the `--manual` flag:
+It might very well happen that Pango is either not able to find a track asset on given providers (e.g. YouTube) or that it chooses the wrong one.
+In such cases, it is possible to manually choose and pass the right asset to Pango, using the `--manual` flag:
 
 ```bash
-spotitube sync --manual --track 6SdAztAqklk1zAmUHh
+pango sync --manual --track 6SdAztAqklk1zAmUHh
 ```
 
-Spotitube will patiently wait for the user to pass the URL of the track asset to download.
+Pango will patiently wait for the user to pass the URL of the track asset to download.
 This can come in useful in cases where the track has been already downloaded wrong and user wants to touch on it:
 
 ```bash
-spotitube sync --manual --fix /path/to/already/downloaded/track.mp3
+pango sync --manual --fix /path/to/already/downloaded/track.mp3
 ```

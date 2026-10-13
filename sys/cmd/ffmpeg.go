@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/pango/sys"
 )
 
 type FFmpegCmd struct{}

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/pango/sys"
 	"github.com/stretchr/testify/assert"
 )
 

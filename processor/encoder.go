@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/bogem/id3v2/v2"
-	"github.com/streambinder/spotitube/entity"
-	"github.com/streambinder/spotitube/entity/id3"
+	"github.com/streambinder/pango/entity"
+	"github.com/streambinder/pango/entity/id3"
 )
 
 type encoder struct{}

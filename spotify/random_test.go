@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/streambinder/spotitube/entity"
-	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/pango/entity"
+	"github.com/streambinder/pango/sys"
 	"github.com/stretchr/testify/assert"
 	"github.com/zmb3/spotify/v2"
 )

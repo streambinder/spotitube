@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/streambinder/spotitube/spotify"
-	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/pango/spotify"
+	"github.com/streambinder/pango/sys"
 	"go.uber.org/goleak"
 )
 
@@ -33,7 +33,7 @@ func TestMain(m *testing.M) {
 // rename fails: running against a live session would corrupt it.
 func moveAside(from, to string) {
 	if err := os.Rename(from, to); err != nil {
-		fmt.Fprintln(os.Stderr, "spotitube cmd tests: cannot move session file:", err)
+		fmt.Fprintln(os.Stderr, "pango cmd tests: cannot move session file:", err)
 		os.Exit(1)
 	}
 }

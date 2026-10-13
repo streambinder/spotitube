@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/streambinder/spotitube/processor"
-	"github.com/streambinder/spotitube/sys/cmd"
+	"github.com/streambinder/pango/processor"
+	"github.com/streambinder/pango/sys/cmd"
 )
 
 type youTubeDl struct {

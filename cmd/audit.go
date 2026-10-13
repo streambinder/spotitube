@@ -11,11 +11,11 @@ import (
 	"github.com/bogem/id3v2/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"github.com/streambinder/spotitube/entity"
-	"github.com/streambinder/spotitube/entity/id3"
-	"github.com/streambinder/spotitube/entity/index"
-	"github.com/streambinder/spotitube/spotify"
-	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/pango/entity"
+	"github.com/streambinder/pango/entity/id3"
+	"github.com/streambinder/pango/entity/index"
+	"github.com/streambinder/pango/spotify"
+	"github.com/streambinder/pango/sys"
 )
 
 // auditTrack couples a fetched track with the library selector

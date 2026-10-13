@@ -7,8 +7,8 @@ import (
 	"sync"
 
 	"github.com/gosimple/slug"
-	"github.com/streambinder/spotitube/entity"
-	"github.com/streambinder/spotitube/entity/id3"
+	"github.com/streambinder/pango/entity"
+	"github.com/streambinder/pango/entity/id3"
 )
 
 const (

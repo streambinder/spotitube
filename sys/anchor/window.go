@@ -9,7 +9,7 @@ import (
 
 	"atomicgo.dev/cursor"
 	"github.com/fatih/color"
-	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/pango/sys"
 )
 
 const (

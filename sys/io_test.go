@@ -38,7 +38,7 @@ func dirEntries(t *testing.T, dir string) []string {
 func crossDeviceSource(t *testing.T, content string) (src, dst string) {
 	t.Helper()
 	dstDir := t.TempDir()
-	srcDir, err := os.MkdirTemp("/dev/shm", "spotitube-test-*")
+	srcDir, err := os.MkdirTemp("/dev/shm", "pango-test-*")
 	if err != nil {
 		t.Skip("no second filesystem available for a cross-device rename")
 	}
@@ -160,7 +160,7 @@ func TestCacheDirectory(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", cacheHome)
 	xdg.Reload()
 
-	assert.Equal(t, filepath.Join(cacheHome, "spotitube"), CacheDirectory())
+	assert.Equal(t, filepath.Join(cacheHome, "pango"), CacheDirectory())
 }
 
 func TestCacheDirectoryFallback(t *testing.T) {
@@ -172,7 +172,7 @@ func TestCacheDirectoryFallback(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", filepath.Join(blocker, "sub"))
 	xdg.Reload()
 
-	assert.Equal(t, "/tmp/spotitube", CacheDirectory())
+	assert.Equal(t, "/tmp/pango", CacheDirectory())
 }
 
 func TestCacheFile(t *testing.T) {
@@ -181,7 +181,7 @@ func TestCacheFile(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", cacheHome)
 	xdg.Reload()
 
-	assert.Equal(t, filepath.Join(cacheHome, "spotitube", "fname.txt"), CacheFile("fname.txt"))
+	assert.Equal(t, filepath.Join(cacheHome, "pango", "fname.txt"), CacheFile("fname.txt"))
 }
 
 func TestCacheFileFallback(t *testing.T) {
@@ -192,5 +192,5 @@ func TestCacheFileFallback(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", filepath.Join(blocker, "sub"))
 	xdg.Reload()
 
-	assert.Equal(t, "/tmp/spotitube/fname.txt", CacheFile("fname.txt"))
+	assert.Equal(t, "/tmp/pango/fname.txt", CacheFile("fname.txt"))
 }

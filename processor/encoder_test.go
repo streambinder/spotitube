@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/streambinder/spotitube/entity/id3"
+	"github.com/streambinder/pango/entity/id3"
 	"github.com/stretchr/testify/assert"
 )
 

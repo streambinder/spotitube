@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/streambinder/spotitube/entity"
+	"github.com/streambinder/pango/entity"
 )
 
 const (

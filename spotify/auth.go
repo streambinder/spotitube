@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/arunsworld/nursery"
-	"github.com/streambinder/spotitube/sys"
-	"github.com/streambinder/spotitube/sys/cmd"
+	"github.com/streambinder/pango/sys"
+	"github.com/streambinder/pango/sys/cmd"
 	"github.com/thanhpk/randstr"
 	"github.com/zmb3/spotify/v2"
 	spotifyauth "github.com/zmb3/spotify/v2/auth"

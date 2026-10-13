@@ -1,7 +1,7 @@
 package playlist
 
 import (
-	"github.com/streambinder/spotitube/entity"
+	"github.com/streambinder/pango/entity"
 )
 
 type playlistEncoder interface {

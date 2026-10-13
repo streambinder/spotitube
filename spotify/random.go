@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/pango/sys"
 	"github.com/zmb3/spotify/v2"
 )
 

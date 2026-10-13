@@ -8,8 +8,8 @@ import (
 	"github.com/bogem/id3v2/v2"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	"github.com/streambinder/spotitube/entity/id3"
-	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/pango/entity/id3"
+	"github.com/streambinder/pango/sys"
 )
 
 const fallback = "<unset>"

@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/streambinder/spotitube/entity"
-	"github.com/streambinder/spotitube/sys/cmd"
+	"github.com/streambinder/pango/entity"
+	"github.com/streambinder/pango/sys/cmd"
 )
 
 type normalizer struct{}

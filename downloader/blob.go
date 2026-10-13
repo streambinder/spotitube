@@ -8,8 +8,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/streambinder/spotitube/processor"
-	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/pango/processor"
+	"github.com/streambinder/pango/sys"
 )
 
 type blob struct {

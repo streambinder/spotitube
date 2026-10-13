@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/streambinder/spotitube/cmd"
+	"github.com/streambinder/pango/cmd"
 )
 
 func main() {

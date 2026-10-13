@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/pango/sys"
 	"github.com/stretchr/testify/assert"
 	"github.com/zmb3/spotify/v2"
 	spotifyauth "github.com/zmb3/spotify/v2/auth"

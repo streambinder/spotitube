@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/arunsworld/nursery"
-	"github.com/streambinder/spotitube/entity"
+	"github.com/streambinder/pango/entity"
 )
 
 var (

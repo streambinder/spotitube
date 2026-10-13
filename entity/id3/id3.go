@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/bogem/id3v2/v2"
-	"github.com/streambinder/spotitube/lyrics"
+	"github.com/streambinder/pango/lyrics"
 )
 
 const (

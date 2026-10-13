@@ -1,4 +1,4 @@
-module github.com/streambinder/spotitube
+module github.com/streambinder/pango
 
 go 1.26.2
 

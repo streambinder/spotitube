@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
-	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/pango/sys"
 )
 
 func BenchmarkRoot(b *testing.B) {

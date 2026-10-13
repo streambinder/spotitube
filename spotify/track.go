@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/streambinder/spotitube/entity"
-	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/pango/entity"
+	"github.com/streambinder/pango/sys"
 	"github.com/zmb3/spotify/v2"
 )
 

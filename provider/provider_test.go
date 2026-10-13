@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/streambinder/spotitube/entity"
+	"github.com/streambinder/pango/entity"
 	"github.com/stretchr/testify/assert"
 )
 

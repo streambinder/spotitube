@@ -1,6 +1,6 @@
 # Design
 
-Spotitube is made of a pool of routines which carry out their job independently and in parallel.
+Pango is made of a pool of routines which carry out their job independently and in parallel.
 Each single one of these routines, will possibly receive a work mandate from a fellow routine, process that work unit and pass the ball.
 
 It's an assembly line, where every single step has a very constrained work to do and a dedicated queue for items to accomplish that work for.
@@ -12,7 +12,7 @@ The assembly line is made of the following routines:
 
 ## Indexer
 
-Scans the music folder in order to parse all the assets that have been synchronized using Spotitube.
+Scans the music folder in order to parse all the assets that have been synchronized using Pango.
 It is achieved by reading a specific custom ID3 metadata field corresponding to the Spotify track ID (which, in turn, is stuck into the MP3 file at processing time).
 
 This is done to ensure that tracks collisions are properly handled and that already downloaded songs are skipped.

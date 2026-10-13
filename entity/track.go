@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/gosimple/slug"
-	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/pango/sys"
 )
 
 type Artwork struct {

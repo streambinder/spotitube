@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/streambinder/spotitube/entity/playlist"
+	"github.com/streambinder/pango/entity/playlist"
 	"github.com/zmb3/spotify/v2"
 )
 

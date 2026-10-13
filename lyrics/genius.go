@@ -14,8 +14,8 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/agnivade/levenshtein"
 	jsoniter "github.com/json-iterator/go"
-	"github.com/streambinder/spotitube/entity"
-	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/pango/entity"
+	"github.com/streambinder/pango/sys"
 )
 
 const contextValueLabelMainArtist = "mainArtistOnly"

@@ -7,11 +7,11 @@ import (
 
 	"github.com/arunsworld/nursery"
 	"github.com/spf13/cobra"
-	"github.com/streambinder/spotitube/entity"
-	"github.com/streambinder/spotitube/lyrics"
-	"github.com/streambinder/spotitube/provider"
-	"github.com/streambinder/spotitube/spotify"
-	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/pango/entity"
+	"github.com/streambinder/pango/lyrics"
+	"github.com/streambinder/pango/provider"
+	"github.com/streambinder/pango/spotify"
+	"github.com/streambinder/pango/sys"
 )
 
 const (

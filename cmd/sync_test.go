@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/bogem/id3v2/v2"
-	"github.com/streambinder/spotitube/entity"
-	"github.com/streambinder/spotitube/entity/id3"
-	"github.com/streambinder/spotitube/entity/index"
-	"github.com/streambinder/spotitube/sys"
+	"github.com/streambinder/pango/entity"
+	"github.com/streambinder/pango/entity/id3"
+	"github.com/streambinder/pango/entity/index"
+	"github.com/streambinder/pango/sys"
 	"github.com/stretchr/testify/assert"
 )
 

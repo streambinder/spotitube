@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/streambinder/spotitube/processor"
+	"github.com/streambinder/pango/processor"
 )
 
 var downloaders = []Downloader{}

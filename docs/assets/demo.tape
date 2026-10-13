@@ -14,7 +14,7 @@ Type "rm -rf my-music && mkdir my-music && clear"
 Enter
 Show
 
-Type "pango sync -o my-music --track 08Bkl20GdNhlh7UdUcee2r --playlist spotitube"
+Type "pango sync -o my-music --track 08Bkl20GdNhlh7UdUcee2r --playlist pango"
 Sleep 500ms
 Enter
 Wait+Screen@30s /synchronization complete/

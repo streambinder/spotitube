@@ -1,6 +1,16 @@
 {
   "threshold": 3,
   "reporters": ["consoleFull"],
-  "ignore": ["**/__snapshots__/**", "**/node_modules/**", "**/*_test.go"],
+  "ignore": [
+    "**/__snapshots__/**",
+    "**/node_modules/**",
+    "**/*_test.go",
+    "**/.specify/commands/**",
+    "**/.specify/templates/**",
+    "**/.specify/scripts/**",
+    "**/.specify/workflows/**",
+    "**/.specify/integrations/**",
+    "**/.specify/*.json"
+  ],
   "absolute": true
 }

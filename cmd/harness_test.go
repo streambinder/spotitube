@@ -170,12 +170,13 @@ func rawResponse(status int, contentType string, body []byte) *http.Response {
 // webScript scripts the non-Spotify web boundaries: the lyrics providers,
 // the search providers and artwork downloads.
 type webScript struct {
-	lyricsErr   bool // lrclib and genius both fail
-	noLyrics    bool // lrclib answers with empty lyrics
-	artworkErr  bool // the artwork URL answers 404
-	providerErr bool // youtube and qobuz both fail
-	noResults   bool // providers answer successfully but find nothing
-	qobuzEmpty  bool // qobuz finds nothing, youtube carries the search
+	lyricsErr       bool // lrclib and genius both fail
+	noLyrics        bool // lrclib answers with empty lyrics
+	lyricsLeadBlank bool // lrclib answers lyrics with leading blank lines
+	artworkErr      bool // the artwork URL answers 404
+	providerErr     bool // youtube and qobuz both fail
+	noResults       bool // providers answer successfully but find nothing
+	qobuzEmpty      bool // qobuz finds nothing, youtube carries the search
 }
 
 // installWeb installs the Spotify router plus the scripted web fixtures
@@ -220,6 +221,9 @@ func lrclibResponse(web webScript) (*http.Response, error) {
 	}
 	if web.noLyrics {
 		return jsonResponse(200, `{"plainLyrics":"","syncedLyrics":""}`), nil
+	}
+	if web.lyricsLeadBlank {
+		return jsonResponse(200, "{\"plainLyrics\":\"\\n\\nsome lyrics\",\"syncedLyrics\":\"\"}"), nil
 	}
 	return jsonResponse(200, `{"plainLyrics":"some lyrics","syncedLyrics":""}`), nil
 }

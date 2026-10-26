@@ -1,12 +1,14 @@
 package lyrics
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
+	"unicode"
 
 	"github.com/arunsworld/nursery"
 	"github.com/streambinder/pango/entity"
@@ -103,10 +105,22 @@ func chooseComposition(first, latter []byte) []byte {
 	}
 }
 
+// normalize strips the leading whitespace of a lyrics text, so the
+// text starts at its first content line whatever composer produced
+// it: a page parser can emit line breaks before the first text node
+func normalize(data []byte) []byte {
+	return bytes.TrimLeftFunc(data, unicode.IsSpace)
+}
+
 // not found entries return no error
 func Search(track *entity.Track) (string, error) {
-	if bytes, err := os.ReadFile(track.Path().Lyrics()); err == nil {
-		return string(bytes), nil
+	if cached, err := os.ReadFile(track.Path().Lyrics()); err == nil {
+		// an entry of an earlier version can carry leading blank
+		// lines: normalize the entry on read, and count an entry
+		// that holds no content as a miss
+		if text := normalize(cached); len(text) > 0 {
+			return string(text), nil
+		}
 	}
 
 	var (
@@ -152,6 +166,7 @@ func Search(track *entity.Track) (string, error) {
 		return "", failures[0]
 	}
 
+	result = normalize(result)
 	if len(result) == 0 {
 		return "", nil
 	}
@@ -207,5 +222,5 @@ func Get(url string) (string, error) {
 		return "", failures[0]
 	}
 
-	return string(result), nil
+	return string(normalize(result)), nil
 }

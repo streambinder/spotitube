@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/bogem/id3v2/v2"
@@ -10,6 +12,23 @@ import (
 	"github.com/streambinder/pango/sys"
 	"github.com/stretchr/testify/assert"
 )
+
+// captureStdout returns what fn writes to the standard output.
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	reader, writer, err := os.Pipe()
+	assert.Nil(t, err)
+	previous := os.Stdout
+	os.Stdout = writer
+	t.Cleanup(func() { os.Stdout = previous })
+
+	fn()
+
+	assert.Nil(t, writer.Close())
+	contents, err := io.ReadAll(reader)
+	assert.Nil(t, err)
+	return string(contents)
+}
 
 // writeShowTrack creates a real audio file carrying a full ID3 tag.
 func writeShowTrack(t *testing.T, path string, picture bool) {
@@ -60,4 +79,29 @@ func TestCmdShowPictureFallback(t *testing.T) {
 
 	// testing: a tag without a picture falls back to a text notice
 	assert.Nil(t, sys.ErrOnly(testExecute(cmdShow(), path)))
+}
+
+func TestCmdShowLyricsLeadingBlankLines(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "track.mp3")
+	writeShowTrack(t, path, false)
+
+	tag, err := id3.Open(path, id3v2.Options{Parse: true})
+	assert.Nil(t, err)
+	tag.SetLyrics("Title", "\n\nfirst lyric line\nsecond lyric line")
+	assert.Nil(t, tag.Save())
+	assert.Nil(t, tag.Close())
+
+	// testing: a stored frame that starts with blank lines reports
+	// its first content line on the Lyrics row, not the fallback
+	output := captureStdout(t, func() {
+		assert.Nil(t, sys.ErrOnly(testExecute(cmdShow(), path)))
+	})
+	for _, line := range strings.Split(output, "\n") {
+		if strings.Contains(line, "Lyrics") {
+			assert.Contains(t, line, "first lyric line")
+			assert.NotContains(t, line, fallback)
+			return
+		}
+	}
+	t.Fatal("no Lyrics row in the show output")
 }

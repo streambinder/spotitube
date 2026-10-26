@@ -608,7 +608,7 @@ func routineCollectLyrics(track *entity.Track) func(context.Context, chan error)
 		}
 		tui.Lot("compose").Wipe()
 		track.Lyrics = lyrics
-		tui.Printf("lyrics for %s by %s: %s", track.Title, track.Artist(), sys.Fallback(sys.Excerpt(sys.FirstLine(lyrics), 64), "not found"))
+		tui.Printf("lyrics for %s by %s: %s", track.Title, track.Artist(), sys.Fallback(sys.Excerpt(sys.FirstContentLine(lyrics), 64), "not found"))
 	}
 }
 

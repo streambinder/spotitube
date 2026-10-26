@@ -128,3 +128,12 @@ func LegalizeFilename(filename string) string {
 func FirstLine(text string) string {
 	return strings.Split(text, "\n")[0]
 }
+
+func FirstContentLine(text string) string {
+	for _, line := range strings.Split(text, "\n") {
+		if len(strings.TrimSpace(line)) > 0 {
+			return line
+		}
+	}
+	return ""
+}

@@ -97,7 +97,9 @@ func TestCmdShowLyricsLeadingBlankLines(t *testing.T) {
 		assert.Nil(t, sys.ErrOnly(testExecute(cmdShow(), path)))
 	})
 	for _, line := range strings.Split(output, "\n") {
-		if strings.Contains(line, "Lyrics") {
+		// match the row by its label: the temporary path embedded in
+		// the Path row contains the test name, hence "Lyrics" itself
+		if strings.HasPrefix(strings.TrimSpace(line), "Lyrics") {
 			assert.Contains(t, line, "first lyric line")
 			assert.NotContains(t, line, fallback)
 			return

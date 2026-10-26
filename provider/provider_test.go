@@ -68,6 +68,7 @@ func BenchmarkProvider(b *testing.B) {
 
 func TestSearch(t *testing.T) {
 	resetQobuz(t)
+	setQobuzToken(t)
 	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
 		switch request.URL.Host {
 		case "www.youtube.com":
@@ -89,13 +90,18 @@ func TestSearchFailure(t *testing.T) {
 		return nil, errors.New("ko")
 	})
 
-	// all providers failed → propagate as error
-	_, err := Search(track)
-	assert.EqualError(t, err, "all providers failed")
+	// all providers failed → no matches, and the error names each
+	// provider and its failure instead of a generic message
+	matches, err := Search(track)
+	assert.Empty(t, matches)
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "qobuz:")
+	assert.Contains(t, err.Error(), "youtube:")
 }
 
 func TestSearchPartialFailure(t *testing.T) {
 	resetQobuz(t)
+	setQobuzToken(t)
 	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
 		if request.URL.Host == "www.youtube.com" {
 			return nil, errors.New("ko")
@@ -103,8 +109,11 @@ func TestSearchPartialFailure(t *testing.T) {
 		return qobuzFlow(request, qobuzScript{})
 	})
 
-	// one provider succeeded → return its matches, no error
+	// one provider succeeded → its matches are returned, and the other
+	// provider's failure is surfaced alongside them, not swallowed
 	matches, err := Search(track)
-	assert.Nil(t, err)
 	assert.NotEmpty(t, matches)
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "youtube:")
+	assert.NotContains(t, err.Error(), "qobuz:")
 }

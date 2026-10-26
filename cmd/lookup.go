@@ -97,12 +97,15 @@ func routineLookupProvider(providerChannel chan interface{}) func(context.Contex
 			track := event.(*entity.Track)
 			matches, err := provider.Search(track)
 			switch {
-			case err != nil:
+			case len(matches) == 0 && err != nil:
 				fmt.Println(colorRed+prefix, track.ID, sys.Pad(track.Artist()), sys.Pad(track.Title), err, colorReset)
 			case len(matches) == 0:
 				fmt.Println(colorRed+prefix, track.ID, sys.Pad(track.Artist()), sys.Pad(track.Title), "no result", colorReset)
 			default:
 				fmt.Println(prefix, track.ID, sys.Pad(track.Artist()), sys.Pad(track.Title), matches[0].URL, matches[0].Score)
+				if err != nil {
+					fmt.Println(colorRed+prefix, track.ID, sys.Pad(track.Artist()), sys.Pad(track.Title), "provider warning:", err, colorReset)
+				}
 			}
 		}
 	}

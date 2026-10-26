@@ -182,6 +182,7 @@ type webScript struct {
 // as the default transport.
 func installWeb(t *testing.T, overrides map[string]func(*http.Request) (int, string), web webScript) {
 	t.Helper()
+	t.Setenv("QOBUZ_TOKEN", "test-token")
 	router := newSpotifyRouter(overrides)
 	installTransport(t, roundTripFunc(func(request *http.Request) (*http.Response, error) {
 		switch request.URL.Host {
@@ -193,12 +194,15 @@ func installWeb(t *testing.T, overrides map[string]func(*http.Request) (int, str
 			return geniusResponse(web), nil
 		case "www.youtube.com":
 			return youtubeResponse(web)
-		case "open.qobuz.com":
+		case "play.qobuz.com":
 			return qobuzBundleResponse(web, request)
+		case "open.qobuz.com":
+			return qobuzOpenBundleResponse(web, request)
 		case "www.qobuz.com":
+			if strings.Contains(request.URL.Path, "getFileUrl") {
+				return qobuzFileResponse(web)
+			}
 			return qobuzSearchResponse(web), nil
-		case "dabmusic.xyz":
-			return dabResponse(web)
 		case "ima.ge":
 			// the artwork blob download
 			if web.artworkErr {
@@ -236,12 +240,12 @@ func youtubeResponse(web webScript) (*http.Response, error) {
 		return nil, errors.New("ko")
 	}
 	if web.noResults {
-		return rawResponse(200, "text/html", []byte("<html></html>")), nil
+		return rawResponse(200, "text/html", []byte(youtubeNoMatchPage())), nil
 	}
 	return rawResponse(200, "text/html", []byte(youtubePage())), nil
 }
 
-func qobuzBundleResponse(web webScript, request *http.Request) (*http.Response, error) {
+func qobuzOpenBundleResponse(web webScript, request *http.Request) (*http.Response, error) {
 	if web.providerErr {
 		return nil, errors.New("ko")
 	}
@@ -251,6 +255,16 @@ func qobuzBundleResponse(web webScript, request *http.Request) (*http.Response, 
 	return rawResponse(200, "text/javascript", []byte(`var c={app_id:"123456789",app_secret:"00000000000000000000000000000000"};`)), nil
 }
 
+func qobuzBundleResponse(web webScript, request *http.Request) (*http.Response, error) {
+	if web.providerErr {
+		return nil, errors.New("ko")
+	}
+	if strings.HasSuffix(request.URL.Path, "/login") {
+		return rawResponse(200, "text/html", []byte(`<script src="/resources/1.0/bundle.js"></script>`)), nil
+	}
+	return rawResponse(200, "text/javascript", []byte(`var c={production:{api:{appId:"123456789",appSecret:"00000000000000000000000000000000"}}};`)), nil
+}
+
 func qobuzSearchResponse(web webScript) *http.Response {
 	if web.noResults || web.qobuzEmpty {
 		return jsonResponse(200, `{"tracks":{"items":[]}}`)
@@ -258,11 +272,11 @@ func qobuzSearchResponse(web webScript) *http.Response {
 	return jsonResponse(200, `{"tracks":{"items":[{"id":138731318,"performer":{"name":"Artist"}}]}}`)
 }
 
-func dabResponse(web webScript) (*http.Response, error) {
+func qobuzFileResponse(web webScript) (*http.Response, error) {
 	if web.providerErr {
 		return nil, errors.New("ko")
 	}
-	return jsonResponse(200, `{"url":"https://cdn.qobuz.example/track.mp3"}`), nil
+	return jsonResponse(200, `{"url":"https://cdn.qobuz.example/track.mp3","sample":false}`), nil
 }
 
 // jpegBytes encodes a real 1x1 JPEG: the artwork pipeline decodes the
@@ -278,10 +292,20 @@ func jpegBytes(t *testing.T) []byte {
 // youtubePage renders a minimal YouTube results page carrying one video
 // matching the fixture track.
 func youtubePage() string {
+	return youtubePageFor("Title", "Artist")
+}
+
+// youtubeNoMatchPage renders a results page whose only video does not
+// match the track under test, so the provider answers with no matches.
+func youtubeNoMatchPage() string {
+	return youtubePageFor("Unrelated", "Stranger")
+}
+
+func youtubePageFor(title, owner string) string {
 	return `<script>var ytInitialData = {"contents":{"twoColumnSearchResultsRenderer":` +
 		`{"primaryContents":{"sectionListRenderer":{"contents":[{"itemSectionRenderer":` +
-		`{"contents":[{"videoRenderer":{"videoId":"abc123","title":{"runs":[{"text":"Title"}]},` +
-		`"ownerText":{"runs":[{"text":"Artist"}]},` +
+		`{"contents":[{"videoRenderer":{"videoId":"abc123","title":{"runs":[{"text":"` + title + `"}]},` +
+		`"ownerText":{"runs":[{"text":"` + owner + `"}]},` +
 		`"viewCountText":{"simpleText":"1.000.000 views"},` +
 		`"lengthText":{"simpleText":"3:00 minutes"},` +
 		`"publishedTimeText":{"simpleText":"1 year ago"}}}]}}]}}}}}</script>`

@@ -104,6 +104,10 @@ func init() {
 	providers = append(providers, youTube{})
 }
 
+func (youTube) name() string {
+	return "youtube"
+}
+
 func sanitizeYouTubeQuery(q string) string {
 	// YouTube interprets -word as exclusion operator, filter out hyphens
 	// to avoid unintended query filtering
@@ -129,7 +133,7 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 				// this won't resolve by retrying — fail fast and let the
 				// caller's circuit breaker handle the cascade
 				if strings.Contains(err.Error(), "stopped after") && strings.Contains(err.Error(), "redirects") {
-					return nil, false, fmt.Errorf("youtube: blocked by google captcha")
+					return nil, false, fmt.Errorf("blocked by google captcha")
 				}
 				return nil, false, err
 			}
@@ -139,7 +143,7 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 				sys.SleepUntilRetry(response.Header)
 				return nil, true, nil
 			} else if response.StatusCode != 200 {
-				return nil, false, errors.New("cannot fetch results on youtube: " + response.Status)
+				return nil, false, errors.New("cannot fetch results: " + response.Status)
 			}
 
 			result, parseErr := provider.parseResults(track, query, response.Body)
@@ -150,7 +154,7 @@ func (provider youTube) search(track *entity.Track) ([]*Match, error) {
 		}
 		return matches, err
 	}
-	return nil, errors.New("youtube: max retries exceeded")
+	return nil, errors.New("max retries exceeded")
 }
 
 func (provider youTube) parseResults(track *entity.Track, query string, body io.Reader) ([]*Match, error) {
@@ -166,11 +170,12 @@ func (provider youTube) parseResults(track *entity.Track, query string, body io.
 		return strings.TrimSuffix(strings.TrimSpace(selection.Text()[len(prefix):]), ";")
 	}), "")
 	if json == "" {
-		return []*Match{}, nil
+		return nil, errors.New("no search results data in page")
 	}
 
 	var (
 		matches []*Match
+		videos  int
 		data    youTubeInitialData
 	)
 	if err := jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(json), &data); err != nil {
@@ -178,6 +183,9 @@ func (provider youTube) parseResults(track *entity.Track, query string, body io.
 	}
 	for _, section := range data.Contents.TwoColumnSearchResultsRenderer.PrimaryContents.SectionListRenderer.Contents {
 		for _, result := range section.ItemSectionRenderer.Contents {
+			if result.VideoRenderer.VideoID != "" {
+				videos++
+			}
 			for _, title := range result.VideoRenderer.Title.Runs {
 				match := youTubeResult{
 					track: track,
@@ -228,6 +236,9 @@ func (provider youTube) parseResults(track *entity.Track, query string, body io.
 				}
 			}
 		}
+	}
+	if videos == 0 {
+		return nil, errors.New("no video results in search page")
 	}
 
 	return matches, nil

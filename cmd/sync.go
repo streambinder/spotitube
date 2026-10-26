@@ -512,16 +512,20 @@ func decideTrack(ch chan error, consecutiveFailures *atomic.Int32, track *entity
 	}
 
 	matches, err := provider.Search(track)
-	if err != nil {
-		consecutiveFailures.Add(1)
-		tui.AnchorPrintf("%s by %s (id: %s) search failed: %v", track.Title, track.Artist(), track.ID, err)
+	if len(matches) == 0 {
+		if err != nil {
+			consecutiveFailures.Add(1)
+			tui.AnchorPrintf("%s by %s (id: %s) search failed: %v", track.Title, track.Artist(), track.ID, err)
+			return false
+		}
+		consecutiveFailures.Store(0)
+		tui.AnchorPrintf("%s by %s (id: %s) not found", track.Title, track.Artist(), track.ID)
 		return false
 	}
 
 	consecutiveFailures.Store(0)
-	if len(matches) == 0 {
-		tui.AnchorPrintf("%s by %s (id: %s) not found", track.Title, track.Artist(), track.ID)
-		return false
+	if err != nil {
+		tui.AnchorPrintf("%s by %s (id: %s) provider warning: %v", track.Title, track.Artist(), track.ID, err)
 	}
 	track.UpstreamURL = matches[0].URL
 	routineQueues[routineTypeCollect] <- track

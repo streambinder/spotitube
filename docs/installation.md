@@ -41,6 +41,12 @@ Install them via your package manager (e.g. `apt install ffmpeg yt-dlp`, `brew i
 ### Embedding API keys
 
 By default, Pango will use `SPOTIFY_ID`, `SPOTIFY_KEY` and `GENIUS_TOKEN` environment variables to authenticate to the corresponding APIs.
+
+The Qobuz provider resolves stream URLs through the official Qobuz API with the user's own account.
+Set `QOBUZ_TOKEN` to the `user_auth_token` of a logged-in [play.qobuz.com](https://play.qobuz.com) session.
+To read that value, open play.qobuz.com in the browser and open the developer tools on the Network tab.
+Reload the page, select the `login` request, and open its Response tab: the token is the `user_auth_token` field of the JSON body.
+Without it, Qobuz tracks are skipped with an explicit error: unauthenticated API requests only return 30-second samples.
 If those are not found, though, it will fall back to the fallback fields defined in the corresponding source code modules (which, in turn, are empty, by default).
 In order to build a binary which contains these fields, the following formula can be used:
 

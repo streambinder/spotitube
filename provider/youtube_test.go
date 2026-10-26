@@ -137,7 +137,7 @@ func TestYouTubeSearchMaxRetriesExceeded(t *testing.T) {
 	})
 
 	// testing
-	assert.EqualError(t, sys.ErrOnly(youTube{}.search(track)), "youtube: max retries exceeded")
+	assert.EqualError(t, sys.ErrOnly(youTube{}.search(track)), "max retries exceeded")
 }
 
 func TestYouTubeSearchTooManyRequests(t *testing.T) {
@@ -149,7 +149,7 @@ func TestYouTubeSearchTooManyRequests(t *testing.T) {
 			response.Header.Set("Retry-After", "0")
 			return response, nil
 		}
-		return httpResponse(200, ""), nil
+		return httpResponse(200, youtubeResultPage()), nil
 	})
 
 	// testing
@@ -164,7 +164,7 @@ func TestYouTubeSearchRedirectLoop(t *testing.T) {
 	})
 
 	// testing: captcha redirect fails fast without retrying
-	assert.EqualError(t, sys.ErrOnly(youTube{}.search(track)), "youtube: blocked by google captcha")
+	assert.EqualError(t, sys.ErrOnly(youTube{}.search(track)), "blocked by google captcha")
 }
 
 func TestYouTubeSearchNoData(t *testing.T) {
@@ -172,8 +172,21 @@ func TestYouTubeSearchNoData(t *testing.T) {
 		return httpResponse(200, "<script>some unmatching script</script>"), nil
 	})
 
-	// testing
-	assert.Nil(t, sys.ErrOnly(youTube{}.search(track)))
+	// testing: a page without results data is a provider failure,
+	// not a silent zero-match answer
+	assert.EqualError(t, sys.ErrOnly(youTube{}.search(track)), "no search results data in page")
+}
+
+func TestYouTubeSearchNoVideos(t *testing.T) {
+	stubHTTP(t, func(*http.Request) (*http.Response, error) {
+		return httpResponse(200, `<script>var ytInitialData = {"contents":{"twoColumnSearchResultsRenderer":`+
+			`{"primaryContents":{"sectionListRenderer":{"contents":[{"itemSectionRenderer":`+
+			`{"contents":[{"backgroundPromoRenderer":{}}]}}]}}}}}</script>`), nil
+	})
+
+	// testing: results data with no video renderer (for example a
+	// no-results promo) is a provider failure, not a silent miss
+	assert.EqualError(t, sys.ErrOnly(youTube{}.search(track)), "no video results in search page")
 }
 
 func TestYouTubeSearchFailingRequest(t *testing.T) {

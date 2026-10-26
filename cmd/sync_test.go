@@ -82,7 +82,7 @@ func TestCmdSync(t *testing.T) {
 		// the library carries the fixture track twice: the duplicate is
 		// skipped by the decider
 		"/v1/me/tracks": func(*http.Request) (int, string) { return 200, libraryBody("123", "123") },
-	}, webScript{qobuzEmpty: true})
+	}, webScript{})
 
 	// testing: with no collection supplied, the library is auto-enabled
 	cmd := cmdSync()
@@ -92,7 +92,7 @@ func TestCmdSync(t *testing.T) {
 	assert.True(t, library)
 
 	// testing: a full sync across every collection kind
-	musicDir, _ = syncEnv(t, nil, webScript{qobuzEmpty: true})
+	musicDir, _ = syncEnv(t, nil, webScript{})
 	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(),
 		"--plain", "-o", musicDir, "-l", "-p", "Mix", "-a", "album123", "-t", "123")))
 	_, err = os.Stat(filepath.Join(musicDir, "Artist - Title.mp3"))
@@ -105,7 +105,7 @@ func TestCmdSync(t *testing.T) {
 }
 
 func TestCmdSyncLyricsLeadingBlankLines(t *testing.T) {
-	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true, lyricsLeadBlank: true})
+	musicDir, _ := syncEnv(t, nil, webScript{lyricsLeadBlank: true})
 
 	// testing: lyrics that arrive with leading blank lines print
 	// their first content line, not the not-found fallback
@@ -127,7 +127,7 @@ func TestCmdSyncInvalidEnvironment(t *testing.T) {
 }
 
 func TestCmdSyncOfflineIndex(t *testing.T) {
-	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	musicDir, _ := syncEnv(t, nil, webScript{})
 	writeTaggedFile(t, filepath.Join(musicDir, "Artist - Title.mp3"), "123")
 	before, err := os.ReadFile(filepath.Join(musicDir, "Artist - Title.mp3"))
 	assert.Nil(t, err)
@@ -193,7 +193,7 @@ func TestRoutineAuthUsername(t *testing.T) {
 func TestCmdSyncLibraryFailure(t *testing.T) {
 	musicDir, _ := syncEnv(t, map[string]func(*http.Request) (int, string){
 		"/v1/me/tracks": func(*http.Request) (int, string) { return apiError(500, "ko") },
-	}, webScript{qobuzEmpty: true})
+	}, webScript{})
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-l")), "ko")
@@ -202,7 +202,7 @@ func TestCmdSyncLibraryFailure(t *testing.T) {
 func TestCmdSyncPlaylistFailure(t *testing.T) {
 	musicDir, _ := syncEnv(t, map[string]func(*http.Request) (int, string){
 		"/v1/playlists/": func(*http.Request) (int, string) { return apiError(500, "ko") },
-	}, webScript{qobuzEmpty: true})
+	}, webScript{})
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-p", "Mix")), "ko")
@@ -211,7 +211,7 @@ func TestCmdSyncPlaylistFailure(t *testing.T) {
 func TestCmdSyncAlbumFailure(t *testing.T) {
 	musicDir, _ := syncEnv(t, map[string]func(*http.Request) (int, string){
 		"/v1/albums/": func(*http.Request) (int, string) { return apiError(500, "ko") },
-	}, webScript{qobuzEmpty: true})
+	}, webScript{})
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-a", "album123")), "ko")
@@ -220,14 +220,14 @@ func TestCmdSyncAlbumFailure(t *testing.T) {
 func TestCmdSyncTrackFailure(t *testing.T) {
 	musicDir, _ := syncEnv(t, map[string]func(*http.Request) (int, string){
 		"/v1/tracks/": func(*http.Request) (int, string) { return apiError(500, "ko") },
-	}, webScript{qobuzEmpty: true})
+	}, webScript{})
 
 	// testing
 	assert.EqualError(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-t", "123")), "ko")
 }
 
 func TestCmdSyncFix(t *testing.T) {
-	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	musicDir, _ := syncEnv(t, nil, webScript{})
 	stale := filepath.Join(musicDir, "old name.mp3")
 	writeTaggedFile(t, stale, "123")
 
@@ -241,7 +241,7 @@ func TestCmdSyncFix(t *testing.T) {
 }
 
 func TestCmdSyncFixOpenFailure(t *testing.T) {
-	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	musicDir, _ := syncEnv(t, nil, webScript{})
 
 	// testing: the file to fix does not exist
 	missing := filepath.Join(musicDir, "missing.mp3")
@@ -249,7 +249,7 @@ func TestCmdSyncFixOpenFailure(t *testing.T) {
 }
 
 func TestCmdSyncFixSpotifyIDFailure(t *testing.T) {
-	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	musicDir, _ := syncEnv(t, nil, webScript{})
 	untagged := filepath.Join(musicDir, "untagged.mp3")
 	writeTaggedFile(t, untagged, "")
 
@@ -259,7 +259,7 @@ func TestCmdSyncFixSpotifyIDFailure(t *testing.T) {
 }
 
 func TestCmdSyncDecideManual(t *testing.T) {
-	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	musicDir, _ := syncEnv(t, nil, webScript{})
 	feedStdin(t, "https://www.youtube.com/watch?v=abc123\n")
 
 	// testing: the user-issued URL drives the download
@@ -269,7 +269,7 @@ func TestCmdSyncDecideManual(t *testing.T) {
 }
 
 func TestCmdSyncDecideManualEmpty(t *testing.T) {
-	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	musicDir, _ := syncEnv(t, nil, webScript{})
 	feedStdin(t, "\n")
 
 	// testing: an empty URL skips the track without failing the sync
@@ -279,7 +279,7 @@ func TestCmdSyncDecideManualEmpty(t *testing.T) {
 }
 
 func TestCmdSyncDecideManualCollision(t *testing.T) {
-	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	musicDir, _ := syncEnv(t, nil, webScript{})
 	writeTaggedFile(t, filepath.Join(musicDir, "Artist - Title.mp3"), "other-id")
 	feedStdin(t, "\n")
 
@@ -291,7 +291,7 @@ func TestCmdSyncDecideManualCollision(t *testing.T) {
 func TestCmdSyncDecideDuplicateInstalled(t *testing.T) {
 	musicDir, _ := syncEnv(t, map[string]func(*http.Request) (int, string){
 		"/v1/me/tracks": func(*http.Request) (int, string) { return 200, libraryBody("123", "123") },
-	}, webScript{qobuzEmpty: true})
+	}, webScript{})
 
 	// testing: the second copy of the track is skipped as a duplicate
 	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-l")))
@@ -300,7 +300,7 @@ func TestCmdSyncDecideDuplicateInstalled(t *testing.T) {
 }
 
 func TestCmdSyncFatalCollisionUnwinds(t *testing.T) {
-	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	musicDir, _ := syncEnv(t, nil, webScript{})
 	writeTaggedFile(t, filepath.Join(musicDir, "Artist - Title.mp3"), "other-id")
 
 	// testing: the collision error aborts the pipeline, which unwinds
@@ -310,7 +310,7 @@ func TestCmdSyncFatalCollisionUnwinds(t *testing.T) {
 }
 
 func TestCmdSyncDecideFilenameCollision(t *testing.T) {
-	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	musicDir, _ := syncEnv(t, nil, webScript{})
 	writeTaggedFile(t, filepath.Join(musicDir, "Artist - Title.mp3"), "other-id")
 
 	// testing
@@ -319,7 +319,7 @@ func TestCmdSyncDecideFilenameCollision(t *testing.T) {
 }
 
 func TestCmdSyncIgnoreCollisionsCompletes(t *testing.T) {
-	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	musicDir, _ := syncEnv(t, nil, webScript{})
 	existing := filepath.Join(musicDir, "Artist - Title.mp3")
 	writeTaggedFile(t, existing, "other-id")
 	before, err := os.ReadFile(existing)
@@ -446,7 +446,7 @@ func TestRoutineProcessFailure(t *testing.T) {
 }
 
 func TestCmdSyncProcessorFailure(t *testing.T) {
-	musicDir, binDir := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	musicDir, binDir := syncEnv(t, nil, webScript{})
 	// the track measures far from the loudness target and the
 	// normalization encode fails: a hard processing failure
 	assert.Nil(t, os.WriteFile(filepath.Join(binDir, "ffmpeg.far"), nil, 0o644))
@@ -457,7 +457,7 @@ func TestCmdSyncProcessorFailure(t *testing.T) {
 }
 
 func TestRoutineProcessLoudnessSkipped(t *testing.T) {
-	musicDir, binDir := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	musicDir, binDir := syncEnv(t, nil, webScript{})
 	// ffmpeg answers without the loudnorm JSON summary: the loudness
 	// measurement is skipped and the sync still completes
 	assert.Nil(t, os.WriteFile(filepath.Join(binDir, "ffmpeg.badjson"), nil, 0o644))
@@ -542,7 +542,7 @@ func TestCmdSyncDecideNotFound(t *testing.T) {
 func TestCmdSyncDecideParallelFanout(t *testing.T) {
 	musicDir, _ := syncEnv(t, map[string]func(*http.Request) (int, string){
 		"/v1/me/tracks": func(*http.Request) (int, string) { return 200, libraryBody("123", "456", "789") },
-	}, webScript{qobuzEmpty: true})
+	}, webScript{})
 
 	// testing: parallel deciders install every fetched track
 	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-l")))
@@ -553,7 +553,7 @@ func TestCmdSyncDecideParallelFanout(t *testing.T) {
 }
 
 func TestCmdSyncCollectFailure(t *testing.T) {
-	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true, artworkErr: true})
+	musicDir, _ := syncEnv(t, nil, webScript{artworkErr: true})
 
 	// testing: an artwork download failure drops the track during
 	// collection, without failing the sync
@@ -563,7 +563,7 @@ func TestCmdSyncCollectFailure(t *testing.T) {
 }
 
 func TestCmdSyncDownloadFailure(t *testing.T) {
-	musicDir, binDir := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	musicDir, binDir := syncEnv(t, nil, webScript{})
 	assert.Nil(t, os.WriteFile(filepath.Join(binDir, "ytdlp.fail"), nil, 0o644))
 
 	// testing: a failing download drops the track, not the sync
@@ -573,7 +573,7 @@ func TestCmdSyncDownloadFailure(t *testing.T) {
 }
 
 func TestCmdSyncLyricsFailure(t *testing.T) {
-	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true, lyricsErr: true})
+	musicDir, _ := syncEnv(t, nil, webScript{lyricsErr: true})
 
 	// testing: lyrics are a nice-to-have, the track still installs
 	assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-l")))
@@ -604,7 +604,7 @@ func TestCmdSyncInstallerFailure(t *testing.T) {
 }
 
 func TestCmdSyncPlaylistEncoderFailure(t *testing.T) {
-	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	musicDir, _ := syncEnv(t, nil, webScript{})
 
 	// testing: an unknown playlist encoding skips the mix without
 	// failing the sync
@@ -621,7 +621,7 @@ func TestCmdSyncPlaylistEncoderFailure(t *testing.T) {
 }
 
 func TestCmdSyncPlaylistEncoderCloseFailure(t *testing.T) {
-	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true})
+	musicDir, _ := syncEnv(t, nil, webScript{})
 
 	// the playlist target path is occupied by a directory, so the
 	// encoder cannot write the playlist file on close

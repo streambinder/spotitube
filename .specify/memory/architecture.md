@@ -81,9 +81,6 @@ the artwork URL, the duration, and the upstream URL.
   environment variables, or release-time fallbacks.
 - **YouTube** (package `provider`): asset search and match
   scoring.
-- **Qobuz** (package `provider`): catalog search through the
-  official API; stream resolution through third-party proxy
-  services.
 - **Genius** (package `lyrics`): search through the Genius API and
   lyrics extraction from the result page. The credential is the
   `GENIUS_TOKEN` environment variable or the release-time

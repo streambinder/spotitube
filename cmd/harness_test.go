@@ -174,9 +174,8 @@ type webScript struct {
 	noLyrics        bool // lrclib answers with empty lyrics
 	lyricsLeadBlank bool // lrclib answers lyrics with leading blank lines
 	artworkErr      bool // the artwork URL answers 404
-	providerErr     bool // youtube and qobuz both fail
+	providerErr     bool // the search provider fails
 	noResults       bool // providers answer successfully but find nothing
-	qobuzEmpty      bool // qobuz finds nothing, youtube carries the search
 }
 
 // installWeb installs the Spotify router plus the scripted web fixtures
@@ -194,12 +193,6 @@ func installWeb(t *testing.T, overrides map[string]func(*http.Request) (int, str
 			return geniusResponse(web), nil
 		case "www.youtube.com":
 			return youtubeResponse(web)
-		case "open.qobuz.com":
-			return qobuzBundleResponse(web, request)
-		case "www.qobuz.com":
-			return qobuzSearchResponse(web), nil
-		case "dabmusic.xyz":
-			return dabResponse(web)
 		case "ima.ge":
 			// the artwork blob download
 			if web.artworkErr {
@@ -243,30 +236,6 @@ func youtubeResponse(web webScript) (*http.Response, error) {
 		return rawResponse(200, "text/html", []byte("<html></html>")), nil
 	}
 	return rawResponse(200, "text/html", []byte(youtubePage())), nil
-}
-
-func qobuzBundleResponse(web webScript, request *http.Request) (*http.Response, error) {
-	if web.providerErr {
-		return nil, errors.New("ko")
-	}
-	if strings.HasSuffix(request.URL.Path, "/track/1") {
-		return rawResponse(200, "text/html", []byte(`<script src="/resources/1.0/js/main.js"></script>`)), nil
-	}
-	return rawResponse(200, "text/javascript", []byte(`var c={app_id:"123456789",app_secret:"00000000000000000000000000000000"};`)), nil
-}
-
-func qobuzSearchResponse(web webScript) *http.Response {
-	if web.noResults || web.qobuzEmpty {
-		return jsonResponse(200, `{"tracks":{"items":[]}}`)
-	}
-	return jsonResponse(200, `{"tracks":{"items":[{"id":138731318,"performer":{"name":"Artist"}}]}}`)
-}
-
-func dabResponse(web webScript) (*http.Response, error) {
-	if web.providerErr {
-		return nil, errors.New("ko")
-	}
-	return jsonResponse(200, `{"url":"https://cdn.qobuz.example/track.mp3"}`), nil
 }
 
 // jpegBytes encodes a real 1x1 JPEG: the artwork pipeline decodes the

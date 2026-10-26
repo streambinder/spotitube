@@ -2,7 +2,7 @@
 
 ![demo](assets/demo.gif)
 
-Pango (originally Spotitube) is a CLI application to authenticate to Spotify account, fetch music collections — such as account library, playlists, albums or specific tracks —, look them up on a defined set of providers (currently YouTube and Qobuz), download them and inflate the downloaded assets with metadata collected from Spotify.
+Pango (originally Spotitube) is a CLI application to authenticate to Spotify account, fetch music collections — such as account library, playlists, albums or specific tracks —, look them up on a defined set of providers (currently YouTube), download them and inflate the downloaded assets with metadata collected from Spotify.
 
 Downloaded tracks are further enriched with lyrics fetched from Genius and LRCLIB, including synced LRC when available.
 

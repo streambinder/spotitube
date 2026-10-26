@@ -31,18 +31,22 @@ func (f roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) 
 }
 
 // stubHTTP routes all provider HTTP traffic through the given handler:
-// the shared default transport (youtube) and the qobuz client transport
-// are both replaced for the duration of the test.
+// the shared default transport is replaced for the duration of the test.
 func stubHTTP(t *testing.T, handler func(*http.Request) (*http.Response, error)) {
 	t.Helper()
 	previousDefault := http.DefaultTransport
-	previousQobuz := qobuzHTTPClient.Transport
 	http.DefaultTransport = roundTripFunc(handler)
-	qobuzHTTPClient.Transport = roundTripFunc(handler)
 	t.Cleanup(func() {
 		http.DefaultTransport = previousDefault
-		qobuzHTTPClient.Transport = previousQobuz
 	})
+}
+
+// failingProvider is a provider whose search always fails, to exercise
+// the partial failure path of Search alongside a working provider.
+type failingProvider struct{}
+
+func (failingProvider) search(*entity.Track) ([]*Match, error) {
+	return nil, errors.New("ko")
 }
 
 func httpResponse(status int, body string) *http.Response {
@@ -67,14 +71,11 @@ func BenchmarkProvider(b *testing.B) {
 }
 
 func TestSearch(t *testing.T) {
-	resetQobuz(t)
 	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
-		switch request.URL.Host {
-		case "www.youtube.com":
+		if request.URL.Host == "www.youtube.com" {
 			return httpResponse(200, youtubeResultPage()), nil
-		default:
-			return qobuzFlow(request, qobuzScript{})
 		}
+		return nil, errors.New("unexpected host: " + request.URL.Host)
 	})
 
 	// testing
@@ -84,7 +85,6 @@ func TestSearch(t *testing.T) {
 }
 
 func TestSearchFailure(t *testing.T) {
-	resetQobuz(t)
 	stubHTTP(t, func(*http.Request) (*http.Response, error) {
 		return nil, errors.New("ko")
 	})
@@ -95,12 +95,14 @@ func TestSearchFailure(t *testing.T) {
 }
 
 func TestSearchPartialFailure(t *testing.T) {
-	resetQobuz(t)
+	previous := providers
+	providers = append(append([]Provider{}, providers...), failingProvider{})
+	t.Cleanup(func() { providers = previous })
 	stubHTTP(t, func(request *http.Request) (*http.Response, error) {
 		if request.URL.Host == "www.youtube.com" {
-			return nil, errors.New("ko")
+			return httpResponse(200, youtubeResultPage()), nil
 		}
-		return qobuzFlow(request, qobuzScript{})
+		return nil, errors.New("unexpected host: " + request.URL.Host)
 	})
 
 	// one provider succeeded → return its matches, no error

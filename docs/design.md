@@ -31,7 +31,7 @@ That data is then parsed into a custom Track object which is passed to the Decid
 
 ## Decider
 
-For each Track passed over by the Fetcher, it queries every provider defined (currently YouTube and Qobuz), looking for a result that best matches the given track data.
+For each Track passed over by the Fetcher, it queries every provider defined (currently YouTube), looking for a result that best matches the given track data.
 
 ## Collector
 

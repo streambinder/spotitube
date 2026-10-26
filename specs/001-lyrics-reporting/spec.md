@@ -26,7 +26,7 @@ machine of the owner, and by reproduction):
    the full lyrics text, and the synchronization itself had
    written the file during the run. `lyrics.Search` writes the
    cache only on a hit, so the search had found the text.
-2. The cached text begins with a blank line. The page parser of one
+2. The cached text begins with an empty line. The page parser of one
    lyrics composer emits a line break before the first text node,
    so every text from that composer starts with an empty first
    line.
@@ -41,7 +41,7 @@ machine of the owner, and by reproduction):
    installed file kept its size across its runs while its
    timestamps moved: the persistence had worked in both tools.
 5. Reproduction: a file that carries a lyrics frame whose text
-   begins with a blank line reads the full text back through the
+   begins with an empty line reads the full text back through the
    ID3 layer, and `show` reports the frame as unset.
 
 **Assumed cause check**: The cause is not a source outage: the
@@ -55,7 +55,7 @@ states the rule in the section Honest Reporting.
 
 **Outcome**: Specify a smaller correction than the report implied.
 No change to the search and no change to the persistence. The
-lyrics boundary returns text without leading blank lines, and both
+lyrics boundary returns text without leading empty lines, and both
 displays read the first non-empty line.
 
 ## User Scenarios and Testing
@@ -70,14 +70,14 @@ tool. A false negative hides every real success and sends the
 owner to debug a healthy stage.
 
 **Independent Test**: Run a synchronization against a scripted
-lyrics source that answers a text with a leading blank line. The
+lyrics source that answers a text with a leading empty line. The
 printed lyrics line carries the first content line, not the
 not-found fallback.
 
 **Acceptance Scenarios**:
 
 1. **Given** a lyrics source that returns a text starting with
-   blank lines, **When** the collect stage processes the track,
+   empty lines, **When** the collect stage processes the track,
    **Then** the run output shows the first non-empty line of the
    text.
 2. **Given** a lyrics source that returns no text, **When** the
@@ -90,16 +90,16 @@ The owner runs `show` on an installed track. The track carries a
 lyrics frame. The Lyrics row shows an excerpt of the stored text.
 
 **Why this priority**: Stored frames from runs before the fix keep
-the leading blank line. Normalizing new results alone cannot repair
+the leading empty line. Normalizing new results alone cannot repair
 the reporting for the existing library.
 
 **Independent Test**: Write a fixture file whose lyrics frame
-starts with blank lines and run `show`. The Lyrics row carries the
+starts with empty lines and run `show`. The Lyrics row carries the
 first non-empty line, not the unset fallback.
 
 **Acceptance Scenarios**:
 
-1. **Given** a stored lyrics frame that starts with blank lines,
+1. **Given** a stored lyrics frame that starts with empty lines,
    **When** the owner runs `show`, **Then** the Lyrics row shows
    the first non-empty line of the frame.
 2. **Given** a stored track without a lyrics frame, **When** the
@@ -117,18 +117,18 @@ write it into files. A shared normalization at the boundary
 repairs every consumer at once.
 
 **Independent Test**: Stub a composer that returns a text starting
-with blank lines. `Search` and `Get` return the text without the
-leading blank lines, and the cache file holds the normalized text.
+with empty lines. `Search` and `Get` return the text without the
+leading empty lines, and the cache file holds the normalized text.
 
 **Acceptance Scenarios**:
 
-1. **Given** a composer that returns a text starting with blank
+1. **Given** a composer that returns a text starting with empty
    lines, **When** a consumer calls `Search`, **Then** the result
    and the cache file start at the first content line.
 2. **Given** a cache file written by an earlier version, with
-   leading blank lines, **When** a consumer calls `Search`,
+   leading empty lines, **When** a consumer calls `Search`,
    **Then** the result starts at the first content line.
-3. **Given** a cache file that holds only blank lines, **When** a
+3. **Given** a cache file that holds only empty lines, **When** a
    consumer calls `Search`, **Then** the cache counts as a miss and
    the composers run.
 
@@ -137,10 +137,10 @@ leading blank lines, and the cache file holds the normalized text.
 ### Functional Requirements
 
 - **FR-001**: `lyrics.Search` and `lyrics.Get` return a lyrics
-  text with no leading blank lines.
+  text with no leading empty lines.
 - **FR-002**: The lyrics cache stores the normalized text, and a
   cache read normalizes a legacy entry. A cache entry that holds
-  only blank lines counts as a miss.
+  only empty lines counts as a miss.
 - **FR-003**: The collect log line and the `show` Lyrics row
   excerpt the first non-empty line of the value. The fallback text
   appears only for an actually empty value.
@@ -161,12 +161,12 @@ leading blank lines, and the cache file holds the normalized text.
 ### Measurable Outcomes
 
 - **SC-001**: Unit tests prove that a composer result with leading
-  blank lines yields a normalized result and a normalized cache
+  empty lines yields a normalized result and a normalized cache
   file from `Search`, and a normalized result from `Get`.
 - **SC-002**: A command test proves that `show` prints the first
-  content line for a stored frame with leading blank lines.
+  content line for a stored frame with leading empty lines.
 - **SC-003**: A command test proves that a full synchronization
-  whose lyrics source answers with leading blank lines prints the
+  whose lyrics source answers with leading empty lines prints the
   first content line, not the not-found fallback.
 - **SC-004**: The full test suite passes with the per-package
   coverage gate at 90 percent, locally and in CI.

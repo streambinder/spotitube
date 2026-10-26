@@ -54,7 +54,7 @@ stub every network dependency; the exported surface of the
 
 - **Normalization point**: one helper at the lyrics boundary, not
   one fix per composer. A new composer can emit the same leading
-  blank lines tomorrow; the boundary rule covers every source,
+  empty lines tomorrow; the boundary rule covers every source,
   the legacy cache, and both entry points in one place.
 - **Normalization form**: strip the leading whitespace run. A
   synchronized text starts with a timestamp bracket and carries no
@@ -90,7 +90,7 @@ sys/string.go             # FirstContentLine next to FirstLine
 sys/string_test.go        # projection cases
 cmd/sync.go               # collect log line uses the new projection
 cmd/show.go               # Lyrics row uses the new projection
-cmd/show_test.go          # stored frame with leading blank lines
+cmd/show_test.go          # stored frame with leading empty lines
 cmd/sync_test.go          # end-to-end lyrics line through a scripted source
-cmd/harness_test.go       # the web script gains a leading-blank lyrics answer
+cmd/harness_test.go       # the web script gains a leading-empty lyrics answer
 ```

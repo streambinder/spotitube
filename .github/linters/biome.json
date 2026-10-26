@@ -5,7 +5,8 @@
       "**",
       "!**/test/linters",
       "!**/test/data/test-repository-contents",
-      "!**/*.svg"
+      "!**/*.svg",
+      "!**/.specify"
     ]
   },
   "formatter": {

@@ -1,0 +1,9 @@
+{
+  "ai": "generic",
+  "allow_symlinks": false,
+  "feature_numbering": "sequential",
+  "here": true,
+  "integration": "generic",
+  "script": "sh",
+  "speckit_version": "1.2.2"
+}

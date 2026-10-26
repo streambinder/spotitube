@@ -104,6 +104,18 @@ func TestCmdSync(t *testing.T) {
 	assert.Contains(t, string(mix), "Artist - Title.mp3")
 }
 
+func TestCmdSyncLyricsLeadingBlankLines(t *testing.T) {
+	musicDir, _ := syncEnv(t, nil, webScript{qobuzEmpty: true, lyricsLeadBlank: true})
+
+	// testing: lyrics that arrive with leading blank lines print
+	// their first content line, not the not-found fallback
+	output := captureStdout(t, func() {
+		assert.Nil(t, sys.ErrOnly(testExecute(cmdSync(), "--plain", "-o", musicDir, "-l")))
+	})
+	assert.Contains(t, output, "lyrics for Title by Artist: some lyrics")
+	assert.NotContains(t, output, "lyrics for Title by Artist: not found")
+}
+
 func TestCmdSyncInvalidEnvironment(t *testing.T) {
 	resetState(t)
 	seedSession(t)

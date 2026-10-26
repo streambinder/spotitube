@@ -228,3 +228,51 @@ func TestGetPartialFailure(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "lyrics", lyrics)
 }
+
+func TestSearchNormalizesLeadingBlankLines(t *testing.T) {
+	uncached := uncachedTrack(t, "test-normalize")
+	setComposers(t, stubComposer{searchResult: []byte("\n\n[Verse 1]\nlyrics")})
+
+	// testing: the result starts at its first content line, and the
+	// cache file holds the same normalized text
+	lyrics, err := Search(uncached)
+	assert.Nil(t, err)
+	assert.Equal(t, "[Verse 1]\nlyrics", lyrics)
+
+	cached, err := os.ReadFile(uncached.Path().Lyrics())
+	assert.Nil(t, err)
+	assert.Equal(t, "[Verse 1]\nlyrics", string(cached))
+}
+
+func TestSearchNormalizesCached(t *testing.T) {
+	cached := uncachedTrack(t, "test-cached-normalize")
+	assert.Nil(t, os.MkdirAll(filepath.Dir(cached.Path().Lyrics()), 0o755))
+	assert.Nil(t, os.WriteFile(cached.Path().Lyrics(), []byte("\nlyrics"), 0o600))
+	setComposers(t, stubComposer{searchErr: errors.New("must not be called")})
+
+	// testing: a cache entry of an earlier version is normalized on read
+	lyrics, err := Search(cached)
+	assert.Nil(t, err)
+	assert.Equal(t, "lyrics", lyrics)
+}
+
+func TestSearchBlankCacheIsMiss(t *testing.T) {
+	cached := uncachedTrack(t, "test-cached-blank")
+	assert.Nil(t, os.MkdirAll(filepath.Dir(cached.Path().Lyrics()), 0o755))
+	assert.Nil(t, os.WriteFile(cached.Path().Lyrics(), []byte("\n\n"), 0o600))
+	setComposers(t, stubComposer{searchResult: []byte("lyrics")})
+
+	// testing: an entry that holds only blank lines counts as a miss
+	lyrics, err := Search(cached)
+	assert.Nil(t, err)
+	assert.Equal(t, "lyrics", lyrics)
+}
+
+func TestGetNormalizesLeadingBlankLines(t *testing.T) {
+	setComposers(t, stubComposer{getResult: []byte("\nlyrics")})
+
+	// testing
+	lyrics, err := Get("http://localhost")
+	assert.Nil(t, err)
+	assert.Equal(t, "lyrics", lyrics)
+}

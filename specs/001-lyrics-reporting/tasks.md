@@ -33,8 +33,8 @@ content line. Story 1 depends on this phase through `Search`.
       result in `Get`
 - [x] T004 [US3] Cover the normalization in
       `lyrics/composer_test.go`: a composer result with leading
-      blank lines, the cache file content, a legacy cache entry,
-      a blank-only cache entry, and a `Get` result
+      empty lines, the cache file content, a legacy cache entry,
+      an empty-only cache entry, and a `Get` result
 
 ## Phase 3: Display Projection (Stories 1 and 2)
 
@@ -50,10 +50,10 @@ the fallback fires only for an empty value.
       new projection
 - [x] T008 [US2] Cover the stored-frame case in
       `cmd/show_test.go`: a fixture whose lyrics frame starts
-      with blank lines prints the first content line
+      with empty lines prints the first content line
 - [x] T009 [US1] Cover the run output in `cmd/sync_test.go`: the
       web script in `cmd/harness_test.go` gains a lyrics answer
-      with leading blank lines, and the printed lyrics line
+      with leading empty lines, and the printed lyrics line
       carries the first content line
 
 ## Phase 4: Verification
